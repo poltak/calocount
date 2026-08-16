@@ -1,7 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
+
+import {
+  calculateLoggingStreak,
+  calculateMacroPercentages,
+  calculateTargetPercent,
+  compareAverageToTarget,
+  getAdjacentDayKey,
+} from "./dashboard-calculations";
 
 type DayKey = "sun" | "mon" | "tue" | "wed" | "thu" | "fri" | "sat";
 
@@ -194,10 +202,6 @@ const mealPlaceholders: Record<Meal["kind"], string> = {
   dinner: "D",
 };
 
-function percent(value: number, target: number) {
-  return Math.min(100, Math.round((value / target) * 100));
-}
-
 function formatNumber(value: number) {
   return new Intl.NumberFormat("en-US").format(value);
 }
@@ -382,13 +386,28 @@ function parseMealResponse(value: unknown) {
   return parseSerializedMeal(record?.meal);
 }
 
+function parseSettingsTargets(value: unknown) {
+  const record = asRecord(value);
+  const settings = asRecord(record?.settings);
+  if (!settings) return null;
+  return {
+    calories: numberOr(settings.dailyCalorieTarget, Number.NaN),
+    proteinG: numberOr(settings.dailyProteinTargetG, Number.NaN),
+  };
+}
+
 export default function Home() {
   const [days, setDays] = useState(demoDays);
   const [selectedDayKey, setSelectedDayKey] = useState<DayKey>("thu");
-  const [chartRange, setChartRange] = useState<"7 days" | "30 days">("7 days");
   const [editingMealId, setEditingMealId] = useState<string | null>(null);
   const [showAddMeal, setShowAddMeal] = useState(false);
   const [showAllDays, setShowAllDays] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [settingsDraft, setSettingsDraft] = useState({ calories: String(calorieTarget), proteinG: String(proteinTarget) });
+  const [settingsLoading, setSettingsLoading] = useState(false);
+  const [settingsSaving, setSettingsSaving] = useState(false);
+  const settingsSaveInFlight = useRef(false);
+  const settingsReadVersion = useRef(0);
   const [noteDismissed, setNoteDismissed] = useState(false);
   const [dataMode, setDataMode] = useState<DataMode>("loading");
   const [targets, setTargets] = useState({ calories: calorieTarget, proteinG: proteinTarget });
@@ -410,25 +429,34 @@ export default function Home() {
   );
 
   const averageCalories = useMemo(
-    () => Math.round(chartValues.reduce((total, day) => total + day.value, 0) / chartValues.length),
+    () => chartValues.length === 0 ? 0 : Math.round(chartValues.reduce((total, day) => total + day.value, 0) / chartValues.length),
     [chartValues],
   );
 
+  const averageComparison = useMemo(
+    () => compareAverageToTarget(averageCalories, activeCalorieTarget),
+    [activeCalorieTarget, averageCalories],
+  );
+
   const macroValues = useMemo(() => {
-    const carbs = selectedDay.carbs ?? 0;
-    const protein = selectedDay.protein;
-    const fat = selectedDay.fat ?? 0;
-    const total = carbs + protein + fat;
-    if (!total) return { carbs: 42, protein: 35, fat: 23, gradient: "conic-gradient(var(--green) 0 35%, var(--blue) 35% 77%, var(--orange) 77% 100%)" };
-    const proteinPercent = Math.round((protein / total) * 100);
-    const carbsPercent = Math.round((carbs / total) * 100);
+    const percentages = calculateMacroPercentages({
+      carbsG: selectedDay.carbs ?? 0,
+      proteinG: selectedDay.protein,
+      fatG: selectedDay.fat ?? 0,
+    });
     return {
-      carbs: carbsPercent,
-      protein: proteinPercent,
-      fat: Math.max(0, 100 - carbsPercent - proteinPercent),
-      gradient: `conic-gradient(var(--green) 0 ${proteinPercent}%, var(--blue) ${proteinPercent}% ${proteinPercent + carbsPercent}%, var(--orange) ${proteinPercent + carbsPercent}% 100%)`,
+      ...percentages,
+      gradient: `conic-gradient(var(--green) 0 ${percentages.protein}%, var(--blue) ${percentages.protein}% ${percentages.protein + percentages.carbs}%, var(--orange) ${percentages.protein + percentages.carbs}% 100%)`,
     };
-  }, [selectedDay]);
+  }, [selectedDay.carbs, selectedDay.fat, selectedDay.protein]);
+
+  const loggingStreak = useMemo(
+    () => calculateLoggingStreak(days, selectedDay.date),
+    [days, selectedDay.date],
+  );
+
+  const previousDayKey = getAdjacentDayKey(days, selectedDayKey, "previous");
+  const nextDayKey = getAdjacentDayKey(days, selectedDayKey, "next");
 
   useEffect(() => {
     let cancelled = false;
@@ -544,7 +572,8 @@ export default function Home() {
   async function addMeal(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setActionError(null);
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const name = String(form.get("name") || "New meal").trim();
     const description = String(form.get("description") || "Added from dashboard").trim();
     const calories = Number(form.get("calories") || 0);
@@ -598,13 +627,92 @@ export default function Home() {
     }
 
     setShowAddMeal(false);
-    event.currentTarget.reset();
+    formElement.reset();
+  }
+
+  async function openSettings() {
+    const readVersion = settingsReadVersion.current + 1;
+    settingsReadVersion.current = readVersion;
+    setSettingsDraft({ calories: String(activeCalorieTarget), proteinG: String(activeProteinTarget) });
+    setShowSettings(true);
+    setActionError(null);
+    setActionState(null);
+    if (dataMode === "demo") return;
+
+    setSettingsLoading(true);
+    try {
+      const response = await fetch("/api/settings", { cache: "no-store" });
+      if (!response.ok) {
+        if (response.status === 401 || response.status === 503) return;
+        throw new Error("The current targets could not be loaded.");
+      }
+      const parsed = parseSettingsTargets(await response.json());
+      if (!parsed || settingsReadVersion.current !== readVersion || settingsSaveInFlight.current) return;
+      const nextTargets = {
+        calories: Number.isFinite(parsed.calories) ? parsed.calories : activeCalorieTarget,
+        proteinG: Number.isFinite(parsed.proteinG) ? parsed.proteinG : activeProteinTarget,
+      };
+      setTargets(nextTargets);
+      setSettingsDraft({ calories: String(nextTargets.calories), proteinG: String(nextTargets.proteinG) });
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "The current targets could not be loaded.");
+    } finally {
+      setSettingsLoading(false);
+    }
+  }
+
+  async function saveSettings() {
+    if (settingsSaveInFlight.current) return;
+    const calories = Number(settingsDraft.calories);
+    const proteinG = Number(settingsDraft.proteinG);
+    if (!Number.isFinite(calories) || calories < 1 || !Number.isFinite(proteinG) || proteinG < 1) {
+      setActionError("Enter calorie and protein targets greater than zero.");
+      return;
+    }
+
+    setActionError(null);
+    settingsReadVersion.current += 1;
+    settingsSaveInFlight.current = true;
+    setSettingsSaving(true);
+    try {
+      let nextTargets = { calories, proteinG };
+      if (dataMode === "live") {
+        const response = await fetch("/api/settings", {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ dailyCalorieTarget: calories, dailyProteinTargetG: proteinG }),
+        });
+        const responseBody = await response.json().catch(() => null);
+        if (!response.ok) {
+          const errorRecord = asRecord(asRecord(responseBody)?.error);
+          throw new Error(stringOr(errorRecord?.message, "The targets could not be saved."));
+        }
+        const parsed = parseSettingsTargets(responseBody);
+        if (parsed && Number.isFinite(parsed.calories) && Number.isFinite(parsed.proteinG)) {
+          nextTargets = { calories: parsed.calories, proteinG: parsed.proteinG };
+        }
+      }
+      setTargets(nextTargets);
+      setSettingsDraft({ calories: String(nextTargets.calories), proteinG: String(nextTargets.proteinG) });
+      setShowSettings(false);
+      setActionState(dataMode === "live" ? "Targets saved." : "Demo mode — targets updated locally for this session.");
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "The targets could not be saved.");
+    } finally {
+      settingsSaveInFlight.current = false;
+      setSettingsSaving(false);
+    }
   }
 
   function selectDay(key: DayKey) {
     setSelectedDayKey(key);
     setEditingMealId(null);
     setShowAddMeal(false);
+  }
+
+  function moveSelectedDay(direction: "previous" | "next") {
+    const nextKey = getAdjacentDayKey(days, selectedDayKey, direction);
+    if (nextKey) selectDay(nextKey as DayKey);
   }
 
   return (
@@ -616,10 +724,20 @@ export default function Home() {
         </a>
         <div className="topbar-actions">
           <span className="sync-status"><span className="status-dot" aria-hidden="true" /> {dataMode === "live" ? "Live data" : dataMode === "loading" ? "Loading" : "Demo mode"}</span>
-          <button className="icon-button" type="button" aria-label="Open settings"><span aria-hidden="true">⚙</span></button>
-          <button className="avatar" type="button" aria-label="Open account menu"><span aria-hidden="true">M</span></button>
+          <button className="icon-button" type="button" onClick={() => void openSettings()} aria-label="Open settings" aria-expanded={showSettings} aria-controls="settings-panel"><span aria-hidden="true">⚙</span></button>
+          <span className="avatar" aria-label="Account"><span aria-hidden="true">M</span></span>
         </div>
       </header>
+
+      {showSettings ? <section className="settings-panel" id="settings-panel" role="dialog" aria-labelledby="settings-title">
+        <div className="settings-heading"><div><p className="eyebrow">Personal targets</p><h2 id="settings-title">Daily targets</h2></div><button className="close-button" type="button" onClick={() => setShowSettings(false)} aria-label="Close settings">×</button></div>
+        <form className="settings-form" onSubmit={(event) => { event.preventDefault(); void saveSettings(); }}>
+          <label>Calories<input name="daily-calorie-target" type="number" min="1" max="100000" step="10" value={settingsDraft.calories} onChange={(event) => setSettingsDraft((current) => ({ ...current, calories: event.target.value }))} required /></label>
+          <label>Protein (g)<input name="daily-protein-target" type="number" min="1" max="10000" step="1" value={settingsDraft.proteinG} onChange={(event) => setSettingsDraft((current) => ({ ...current, proteinG: event.target.value }))} required /></label>
+          <button className="save-button" type="button" onClick={() => void saveSettings()} disabled={settingsSaving}>{settingsSaving ? "Saving…" : "Save targets"}</button>
+        </form>
+        <p className="settings-help" role="status">{settingsLoading ? "Loading saved targets…" : "Targets guide the rings, trend line, and daily nudge."}</p>
+      </section> : null}
 
       {dataMessage ? <div className={`data-banner ${dataMode}`} role="status"><span aria-hidden="true">{dataMode === "live" ? "✓" : dataMode === "loading" ? "…" : "i"}</span>{dataMessage}</div> : null}
       {actionState || actionError ? <div className={`action-feedback ${actionError ? "error" : ""}`} role={actionError ? "alert" : "status"}>{actionError ?? actionState}</div> : null}
@@ -630,7 +748,7 @@ export default function Home() {
           <h1 id="today">{selectedDay.weekday}, {fullDateLabel(selectedDay.date)}</h1>
         </div>
         <div className="date-controls">
-          <button className="date-arrow" type="button" aria-label="Previous day">‹</button>
+          <button className="date-arrow" type="button" onClick={() => moveSelectedDay("previous")} aria-label="Previous day" disabled={!previousDayKey}>‹</button>
           <div className="date-pills">
             {days.map((day) => (
               <button
@@ -645,7 +763,7 @@ export default function Home() {
               </button>
             ))}
           </div>
-          <button className="date-arrow" type="button" aria-label="Next day">›</button>
+          <button className="date-arrow" type="button" onClick={() => moveSelectedDay("next")} aria-label="Next day" disabled={!nextDayKey}>›</button>
         </div>
       </section>
 
@@ -665,7 +783,7 @@ export default function Home() {
               {remainingCalories >= 0 ? `${formatNumber(remainingCalories)} kcal left today` : `${formatNumber(Math.abs(remainingCalories))} kcal over target`}
             </p>
           </div>
-          <div className="metric-ring calorie-ring" style={{ "--progress": `${percent(totalCalories, activeCalorieTarget)}%` } as CSSProperties} aria-label={`${percent(totalCalories, activeCalorieTarget)} percent of calorie target`} role="img"><strong>{percent(totalCalories, activeCalorieTarget)}%</strong></div>
+          <div className="metric-ring calorie-ring" style={{ "--progress": `${calculateTargetPercent(totalCalories, activeCalorieTarget)}%` } as CSSProperties} aria-label={`${calculateTargetPercent(totalCalories, activeCalorieTarget)} percent of calorie target`} role="img"><strong>{calculateTargetPercent(totalCalories, activeCalorieTarget)}%</strong></div>
         </article>
 
         <article className="summary-card protein-card">
@@ -674,14 +792,18 @@ export default function Home() {
             <p className="metric-value">{totalProtein}g <span>/ {activeProteinTarget}g</span></p>
             <p className="metric-subtitle">{remainingProtein >= 0 ? `${remainingProtein}g left to reach your target` : `${Math.abs(remainingProtein)}g above target`}</p>
           </div>
-          <div className="metric-ring protein-ring" style={{ "--progress": `${percent(totalProtein, activeProteinTarget)}%` } as CSSProperties} aria-label={`${percent(totalProtein, activeProteinTarget)} percent of protein target`} role="img"><strong>{percent(totalProtein, activeProteinTarget)}%</strong></div>
+          <div className="metric-ring protein-ring" style={{ "--progress": `${calculateTargetPercent(totalProtein, activeProteinTarget)}%` } as CSSProperties} aria-label={`${calculateTargetPercent(totalProtein, activeProteinTarget)} percent of protein target`} role="img"><strong>{calculateTargetPercent(totalProtein, activeProteinTarget)}%</strong></div>
         </article>
 
         <article className="summary-card average-card">
           <div>
             <div className="card-label-row"><span className="metric-dot average-dot" aria-hidden="true" /><span className="card-label">7 day average</span></div>
             <p className="metric-value">{formatNumber(averageCalories)} <span>kcal</span></p>
-            <p className="metric-subtitle positive"><span aria-hidden="true">↘</span> 4% below your target</p>
+            <p className={`metric-subtitle ${averageComparison.direction === "above" ? "over" : "positive"}`}>
+              {averageComparison.direction === "at"
+                ? "At your target average"
+                : <><span aria-hidden="true">{averageComparison.direction === "below" ? "↘" : "↗"}</span> {averageComparison.percentage}% {averageComparison.direction} your target</>}
+            </p>
           </div>
           <div className="mini-bars" aria-hidden="true">{chartValues.map((day) => <span key={day.label} style={{ height: `${Math.max(22, (day.value / 2600) * 100)}%` }} />)}</div>
         </article>
@@ -692,16 +814,14 @@ export default function Home() {
           <section className="panel chart-panel" id="trend" aria-labelledby="trend-title">
             <div className="panel-heading">
               <div><p className="eyebrow">A quick view</p><h2 id="trend-title">Calorie trend</h2></div>
-              <div className="segmented-control" aria-label="Chart range">
-                {(["7 days", "30 days"] as const).map((range) => <button className={chartRange === range ? "selected" : ""} key={range} type="button" onClick={() => setChartRange(range)} aria-pressed={chartRange === range}>{range}</button>)}
-              </div>
+              <span className="chart-range">Past 7 days</span>
             </div>
             <div className="chart-legend"><span><i className="legend-swatch calorie-swatch" /> Calories</span><span><i className="legend-line" /> Target {formatNumber(activeCalorieTarget)}</span></div>
             <div className="bar-chart" role="img" aria-label={`Calorie intake for the past seven days compared with a ${activeCalorieTarget} calorie target`}>
               <div className="chart-y-axis" aria-hidden="true"><span>2.6k</span><span>2.0k</span><span>1.4k</span><span>0.8k</span><span>0</span></div>
               <div className="chart-plot">
                 <div className="target-line"><span>{formatNumber(activeCalorieTarget)}</span></div><div className="grid-line line-one" /><div className="grid-line line-two" /><div className="grid-line line-three" />
-                <div className="bars">{(chartRange === "30 days" ? chartValues.map((day, index) => ({ ...day, label: `W${index + 1}` })) : chartValues).map((day) => <div className="bar-column" key={day.label}><div className="bar-value">{day.value.toLocaleString()}</div><div className="bar" style={{ height: `${Math.max(12, (day.value / 2600) * 100)}%` }} /><span>{day.label}</span></div>)}</div>
+                <div className="bars">{chartValues.map((day) => <div className="bar-column" key={day.label}><div className="bar-value">{day.value.toLocaleString()}</div><div className="bar" style={{ height: `${Math.max(12, (day.value / 2600) * 100)}%` }} /><span>{day.label}</span></div>)}</div>
               </div>
             </div>
           </section>
@@ -752,22 +872,22 @@ export default function Home() {
           </section> : <button className="show-note-button" type="button" onClick={() => setNoteDismissed(false)}>Show daily nudge</button>}
 
           <section className="panel macro-panel" aria-labelledby="macro-title">
-            <div className="panel-heading compact-heading"><div><p className="eyebrow">Daily split</p><h2 id="macro-title">Macros</h2></div><button className="more-button" type="button" aria-label="More macro options">•••</button></div>
+            <div className="panel-heading compact-heading"><div><p className="eyebrow">Daily split</p><h2 id="macro-title">Macros</h2></div><span className="panel-meta">per day</span></div>
             <div className="macro-donut" style={{ background: macroValues.gradient }} role="img" aria-label={`Estimated daily macro split: ${macroValues.carbs} percent carbohydrates, ${macroValues.protein} percent protein, ${macroValues.fat} percent fat`}><div><strong>{formatNumber(totalCalories)}</strong><span>kcal</span></div></div>
             <div className="macro-legend"><div><span className="macro-key carbs" /><span>Carbs</span><strong>{macroValues.carbs}%</strong></div><div><span className="macro-key protein" /><span>Protein</span><strong>{macroValues.protein}%</strong></div><div><span className="macro-key fat" /><span>Fat</span><strong>{macroValues.fat}%</strong></div></div>
           </section>
 
           <section className="panel history-panel" aria-labelledby="history-title">
             <div className="panel-heading compact-heading"><div><p className="eyebrow">Keep the thread</p><h2 id="history-title">Recent days</h2></div><button className="more-button" type="button" onClick={() => setShowAllDays((current) => !current)}>{showAllDays ? "Less" : "View all"}</button></div>
-            <div className="history-list">{days.slice(showAllDays ? 0 : 3).reverse().map((day) => <button className={`history-row ${selectedDayKey === day.key ? "selected" : ""}`} type="button" key={day.key} onClick={() => selectDay(day.key)}><span className="history-date"><strong>{day.shortDate}</strong><small>{day.weekday.slice(0, 3)}</small></span><span className="history-bar"><i style={{ width: `${Math.min(100, (day.calories / activeCalorieTarget) * 100)}%` }} /></span><span className="history-calories">{formatNumber(day.calories)}<small> kcal</small></span><span className="history-chevron" aria-hidden="true">›</span></button>)}</div>
-            <div className="streak-line"><span className="streak-flame" aria-hidden="true">✦</span><span><strong>4 day</strong> logging streak</span></div>
+            <div className="history-list">{days.slice(showAllDays ? 0 : 3).reverse().map((day) => <button className={`history-row ${selectedDayKey === day.key ? "selected" : ""}`} type="button" key={day.key} onClick={() => selectDay(day.key)}><span className="history-date"><strong>{day.shortDate}</strong><small>{day.weekday.slice(0, 3)}</small></span><span className="history-bar"><i style={{ width: `${calculateTargetPercent(day.calories, activeCalorieTarget)}%` }} /></span><span className="history-calories">{formatNumber(day.calories)}<small> kcal</small></span><span className="history-chevron" aria-hidden="true">›</span></button>)}</div>
+            <div className="streak-line"><span className="streak-flame" aria-hidden="true">✦</span><span><strong>{loggingStreak} day{loggingStreak === 1 ? "" : "s"}</strong> logging streak</span></div>
           </section>
 
           <section className="quick-tip" aria-label="Calocount tip"><span className="tip-icon" aria-hidden="true">i</span><p><strong>Estimates are a starting point.</strong> Add a description to your photo for a more useful result.</p></section>
         </aside>
       </div>
 
-      <footer className="app-footer"><span>Private by default</span><span className="footer-separator" aria-hidden="true">·</span><span>Last updated just now</span><span className="footer-spacer" /><button type="button">Keyboard shortcuts</button><button type="button">Send feedback</button></footer>
+      <footer className="app-footer"><span>Private by default</span><span className="footer-separator" aria-hidden="true">·</span><span>Calocount dashboard</span></footer>
     </main>
   );
 }

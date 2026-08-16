@@ -164,6 +164,65 @@ input:focus-visible {
   color: var(--orange-soft);
 }
 
+.settings-panel {
+  margin-top: 12px;
+  padding: 17px 19px 15px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: 0 12px 34px rgb(0 0 0 / 12%);
+}
+
+.settings-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.settings-heading h2 {
+  margin: 0;
+  color: var(--foreground);
+  font-size: 16px;
+  font-weight: 650;
+  letter-spacing: -.035em;
+}
+
+.settings-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 9px;
+  margin-top: 15px;
+}
+
+.settings-form label {
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.settings-form input {
+  width: 100%;
+  min-height: 31px;
+  padding: 5px 8px;
+  border: 1px solid #354150;
+  border-radius: 6px;
+  outline: 0;
+  background: #111720;
+  color: var(--foreground);
+  font-size: 11px;
+}
+
+.settings-form input:focus { border-color: var(--orange); }
+
+.settings-help {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 10px;
+}
+
 .action-feedback {
   min-height: 30px;
   margin-top: 7px;
@@ -269,6 +328,16 @@ input:focus-visible {
 .date-arrow:hover {
   background: var(--surface);
   color: var(--foreground);
+}
+
+.date-arrow:disabled {
+  cursor: default;
+  opacity: .3;
+}
+
+.date-arrow:disabled:hover {
+  background: transparent;
+  color: var(--muted);
 }
 
 .date-pill {
@@ -509,28 +578,11 @@ input:focus-visible {
   letter-spacing: -.035em;
 }
 
-.segmented-control {
-  display: flex;
-  gap: 2px;
-  padding: 3px;
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  background: var(--surface-soft);
-}
-
-.segmented-control button {
-  padding: 6px 8px;
-  border-radius: 5px;
-  background: transparent;
+.chart-range,
+.panel-meta {
   color: var(--muted);
   font-size: 10px;
   font-weight: 650;
-}
-
-.segmented-control button:hover,
-.segmented-control button.selected {
-  background: #29333e;
-  color: var(--foreground);
 }
 
 .chart-legend {
@@ -1280,17 +1332,6 @@ input:focus-visible {
   font-size: 10px;
 }
 
-.footer-spacer { flex: 1; }
-
-.app-footer button {
-  padding: 4px 0;
-  background: transparent;
-  color: #72808e;
-  font-size: 10px;
-}
-
-.app-footer button:hover { color: var(--foreground); }
-
 @media (max-width: 880px) {
   .app-shell { padding-right: 20px; padding-left: 20px; }
   .summary-grid { grid-template-columns: 1fr 1fr; }
@@ -1318,6 +1359,8 @@ input:focus-visible {
   .chart-panel,
   .macro-panel,
   .history-panel { padding: 17px 15px; }
+  .settings-form { grid-template-columns: 1fr 1fr; }
+  .settings-form .save-button { grid-column: span 2; }
   .chart-legend { margin-left: 37px; }
   .chart-plot { min-width: 0; }
   .bar { width: min(23px, 72%); }
@@ -1343,8 +1386,6 @@ input:focus-visible {
   .meal-total { min-height: 52px; }
   .meal-total { align-items: flex-start; flex-direction: column; justify-content: center; gap: 5px; }
   .app-footer { flex-wrap: wrap; padding: 10px 0; }
-  .footer-spacer { display: none; }
-  .app-footer button:first-of-type { margin-left: auto; }
 }
 
 @media (prefers-reduced-motion: reduce) {

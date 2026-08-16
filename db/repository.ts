@@ -218,37 +218,40 @@ export async function createMeal(db: AppDb, ownerKey: string, input: MealInput):
   const totals = calculateTotals(items);
   const timestamp = nowMs();
 
-  await db.transaction(async (tx) => {
-    await tx.insert(mealLogs).values({
-      id: mealId,
-      ownerKey,
-      consumedAt: input.consumedAt ?? timestamp,
-      source: input.source?.trim() || "dashboard",
-      caption: input.caption?.trim() || "",
-      mealType: input.mealType ?? null,
-      status: input.status?.trim() || "complete",
-      photoKey: input.photoKey ?? null,
-      photoMimeType: input.photoMimeType ?? null,
-      photoSizeBytes: input.photoSizeBytes ?? null,
-      totalCalories: totals.calories,
-      totalProteinG: totals.proteinG,
-      totalCarbsG: totals.carbsG,
-      totalFatG: totals.fatG,
-      confidence: input.confidence ?? null,
-      assumptionsJson: safeJson(input.assumptions, []),
-      notes: input.notes ?? null,
-      createdAt: timestamp,
-      updatedAt: timestamp,
-    }).prepare().run();
+  const mealInsert = db.insert(mealLogs).values({
+    id: mealId,
+    ownerKey,
+    consumedAt: input.consumedAt ?? timestamp,
+    source: input.source?.trim() || "dashboard",
+    caption: input.caption?.trim() || "",
+    mealType: input.mealType ?? null,
+    status: input.status?.trim() || "complete",
+    photoKey: input.photoKey ?? null,
+    photoMimeType: input.photoMimeType ?? null,
+    photoSizeBytes: input.photoSizeBytes ?? null,
+    totalCalories: totals.calories,
+    totalProteinG: totals.proteinG,
+    totalCarbsG: totals.carbsG,
+    totalFatG: totals.fatG,
+    confidence: input.confidence ?? null,
+    assumptionsJson: safeJson(input.assumptions, []),
+    notes: input.notes ?? null,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  });
 
-    if (items.length > 0) {
-      await tx.insert(mealItems).values(items.map((item) => ({
+  if (items.length > 0) {
+    await db.batch([
+      mealInsert,
+      db.insert(mealItems).values(items.map((item) => ({
         ...item,
         createdAt: timestamp,
         updatedAt: timestamp,
-      }))).prepare().run();
-    }
-  });
+      }))),
+    ]);
+  } else {
+    await db.batch([mealInsert]);
+  }
 
   const created = await findMeal(db, ownerKey, mealId);
   if (!created) throw new Error("meal_create_failed");
@@ -290,51 +293,55 @@ export async function updateMeal(
     updatedAt: timestamp,
   };
 
-  await db.transaction(async (tx) => {
-    await tx.update(mealLogs).set({
-      consumedAt: nextMeal.consumedAt,
-      source: nextMeal.source,
-      caption: nextMeal.caption,
-      mealType: nextMeal.mealType,
-      status: nextMeal.status,
-      photoKey: nextMeal.photoKey,
-      photoMimeType: nextMeal.photoMimeType,
-      photoSizeBytes: nextMeal.photoSizeBytes,
-      totalCalories: nextMeal.totalCalories,
-      totalProteinG: nextMeal.totalProteinG,
-      totalCarbsG: nextMeal.totalCarbsG,
-      totalFatG: nextMeal.totalFatG,
-      confidence: nextMeal.confidence,
-      assumptionsJson: nextMeal.assumptionsJson,
-      notes: nextMeal.notes,
-      updatedAt: timestamp,
-    }).where(and(eq(mealLogs.ownerKey, ownerKey), eq(mealLogs.id, mealId))).prepare().run();
+  const mealUpdate = db.update(mealLogs).set({
+    consumedAt: nextMeal.consumedAt,
+    source: nextMeal.source,
+    caption: nextMeal.caption,
+    mealType: nextMeal.mealType,
+    status: nextMeal.status,
+    photoKey: nextMeal.photoKey,
+    photoMimeType: nextMeal.photoMimeType,
+    photoSizeBytes: nextMeal.photoSizeBytes,
+    totalCalories: nextMeal.totalCalories,
+    totalProteinG: nextMeal.totalProteinG,
+    totalCarbsG: nextMeal.totalCarbsG,
+    totalFatG: nextMeal.totalFatG,
+    confidence: nextMeal.confidence,
+    assumptionsJson: nextMeal.assumptionsJson,
+    notes: nextMeal.notes,
+    updatedAt: timestamp,
+  }).where(and(eq(mealLogs.ownerKey, ownerKey), eq(mealLogs.id, mealId)));
+  const revisionInsert = db.insert(mealRevisions).values({
+    id: createId("revision"),
+    mealId,
+    ownerKey,
+    source,
+    beforeJson: safeJson(mealSnapshot(before), {}),
+    afterJson: safeJson({ meal: nextMeal, items: nextItems }, {}),
+    reason: patch.reason?.trim() || "correction",
+    createdAt: timestamp,
+  });
 
-    if (patch.items) {
-      await tx.delete(mealItems)
-        .where(and(eq(mealItems.ownerKey, ownerKey), eq(mealItems.mealId, mealId)))
-        .prepare()
-        .run();
-      if (nextItems.length > 0) {
-        await tx.insert(mealItems).values(nextItems.map((item) => ({
+  if (!patch.items) {
+    await db.batch([mealUpdate, revisionInsert]);
+  } else {
+    const itemDelete = db.delete(mealItems)
+      .where(and(eq(mealItems.ownerKey, ownerKey), eq(mealItems.mealId, mealId)));
+    if (nextItems.length > 0) {
+      await db.batch([
+        mealUpdate,
+        itemDelete,
+        db.insert(mealItems).values(nextItems.map((item) => ({
           ...item,
           createdAt: timestamp,
           updatedAt: timestamp,
-        }))).prepare().run();
-      }
+        }))),
+        revisionInsert,
+      ]);
+    } else {
+      await db.batch([mealUpdate, itemDelete, revisionInsert]);
     }
-
-    await tx.insert(mealRevisions).values({
-      id: createId("revision"),
-      mealId,
-      ownerKey,
-      source,
-      beforeJson: safeJson(mealSnapshot(before), {}),
-      afterJson: safeJson({ meal: nextMeal, items: nextItems }, {}),
-      reason: patch.reason?.trim() || "correction",
-      createdAt: timestamp,
-    }).prepare().run();
-  });
+  }
 
   return findMeal(db, ownerKey, mealId);
 }
@@ -441,7 +448,7 @@ export async function getDashboardSummary(db: AppDb, ownerKey: string, now = new
       averageProteinG: sevenDay.proteinG / 7,
       daysWithMeals: days.size,
     },
-    recentMeals: recentMeals.slice(0, 10),
+    recentMeals,
   };
 }
 
