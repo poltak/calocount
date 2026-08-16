@@ -1,0 +1,47 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "calocount-ingest",
+  "main": "index.ts",
+  "compatibility_date": "2026-05-22",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "calocount",
+      "migrations_dir": "../../drizzle"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "MEAL_PHOTOS",
+      "bucket_name": "calocount-meals"
+    }
+  ],
+  "queues": {
+    "producers": [
+      {
+        "binding": "MEAL_QUEUE",
+        "queue": "calocount-analysis"
+      }
+    ],
+    "consumers": [
+      {
+        "queue": "calocount-analysis",
+        "max_batch_size": 5,
+        "max_retries": 3,
+        "max_concurrency": 1
+      }
+    ]
+  },
+  "triggers": {
+    "crons": ["*/15 * * * *"]
+  },
+  "vars": {
+    "PUBLIC_ORIGIN": "https://calocount-ingest.example.workers.dev",
+    "OWNER_KEY": "default"
+  }
+}
