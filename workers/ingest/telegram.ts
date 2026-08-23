@@ -136,6 +136,63 @@ export interface TelegramPhotoStream {
   readonly contentType: string;
 }
 
+const MAX_IMAGE_SIGNATURE_BYTES = 12;
+
+function startsWithBytes(bytes: Uint8Array, signature: readonly number[]): boolean {
+  if (bytes.byteLength < signature.length) {
+    return false;
+  }
+  return signature.every((byte, index) => bytes[index] === byte);
+}
+
+function detectImageContentType(bytes: Uint8Array): string | null {
+  if (startsWithBytes(bytes, [0xff, 0xd8, 0xff])) {
+    return "image/jpeg";
+  }
+  if (startsWithBytes(bytes, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) {
+    return "image/png";
+  }
+  if (
+    startsWithBytes(bytes, [0x52, 0x49, 0x46, 0x46]) &&
+    startsWithBytes(bytes.subarray(8), [0x57, 0x45, 0x42, 0x50])
+  ) {
+    return "image/webp";
+  }
+  return null;
+}
+
+/** Inspect only the image signature while returning the untouched output stream. */
+async function detectStreamImageContentType(
+  body: ReadableStream<Uint8Array>,
+): Promise<{ readonly body: ReadableStream<Uint8Array>; readonly contentType: string } | null> {
+  const [inspectionBody, outputBody] = body.tee();
+  const reader = inspectionBody.getReader();
+  const signature = new Uint8Array(MAX_IMAGE_SIGNATURE_BYTES);
+  let signatureLength = 0;
+
+  try {
+    while (signatureLength < MAX_IMAGE_SIGNATURE_BYTES) {
+      const { done, value } = await reader.read();
+      if (done || !value) {
+        break;
+      }
+      const bytesToCopy = Math.min(value.byteLength, MAX_IMAGE_SIGNATURE_BYTES - signatureLength);
+      signature.set(value.subarray(0, bytesToCopy), signatureLength);
+      signatureLength += bytesToCopy;
+    }
+  } finally {
+    void reader.cancel().catch(() => undefined);
+    reader.releaseLock();
+  }
+
+  const contentType = detectImageContentType(signature.subarray(0, signatureLength));
+  if (!contentType) {
+    await outputBody.cancel().catch(() => undefined);
+    return null;
+  }
+  return { body: outputBody, contentType };
+}
+
 /** Download the photo as a stream so it can be written to R2 without buffering. */
 export async function downloadTelegramPhoto(
   token: string,
@@ -154,11 +211,19 @@ export async function downloadTelegramPhoto(
   if (!response.ok || !response.body) {
     throw new TelegramApiError(`telegram_photo_http_${response.status}`, response.status >= 500 || response.status === 429);
   }
-  const contentType = response.headers.get("content-type") ?? "image/jpeg";
-  if (!contentType.toLowerCase().startsWith("image/")) {
+  const contentType = response.headers.get("content-type");
+  const mediaType = contentType?.split(";", 1)[0]?.trim().toLowerCase() ?? "";
+  if (mediaType.startsWith("image/")) {
+    return { body: response.body, contentType: contentType ?? mediaType };
+  }
+  if (mediaType !== "" && mediaType !== "application/octet-stream") {
     throw new TelegramApiError("telegram_photo_not_an_image", false);
   }
-  return { body: response.body, contentType };
+  const detected = await detectStreamImageContentType(response.body);
+  if (!detected) {
+    throw new TelegramApiError("telegram_photo_not_an_image", false);
+  }
+  return detected;
 }
 
 export async function sendTelegramMealResult(

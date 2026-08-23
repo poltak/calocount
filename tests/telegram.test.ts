@@ -111,6 +111,60 @@ test("Telegram photo download calls getFile and returns the image stream", async
   assert.deepEqual(new Uint8Array(await new Response(photo.body).arrayBuffer()), imageBytes);
 });
 
+test("Telegram photo download detects JPEG bytes with a generic content type", async () => {
+  const imageBytes = Uint8Array.from([
+    0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0xff, 0xd9,
+  ]);
+  let callCount = 0;
+  const fetchFn: typeof fetch = async () => {
+    callCount += 1;
+    if (callCount === 1) {
+      return jsonResponse({ ok: true, result: { file_path: "photos/meal.jpg" } });
+    }
+    return new Response(imageBytes, {
+      status: 200,
+      headers: { "content-type": "application/octet-stream" },
+    });
+  };
+
+  const photo = await downloadTelegramPhoto("token", "file-id", fetchFn);
+
+  assert.equal(photo.contentType, "image/jpeg");
+  assert.deepEqual(new Uint8Array(await new Response(photo.body).arrayBuffer()), imageBytes);
+});
+
+test("Telegram photo download detects PNG and WebP bytes with a generic content type", async () => {
+  const fixtures = [
+    {
+      contentType: "image/png",
+      imageBytes: Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3, 4]),
+    },
+    {
+      contentType: "image/webp",
+      imageBytes: Uint8Array.from([0x52, 0x49, 0x46, 0x46, 8, 0, 0, 0, 0x57, 0x45, 0x42, 0x50, 5, 6]),
+    },
+  ];
+
+  for (const fixture of fixtures) {
+    let callCount = 0;
+    const fetchFn: typeof fetch = async () => {
+      callCount += 1;
+      if (callCount === 1) {
+        return jsonResponse({ ok: true, result: { file_path: "photos/meal.bin" } });
+      }
+      return new Response(fixture.imageBytes, {
+        status: 200,
+        headers: { "content-type": "application/octet-stream" },
+      });
+    };
+
+    const photo = await downloadTelegramPhoto("token", "file-id", fetchFn);
+
+    assert.equal(photo.contentType, fixture.contentType);
+    assert.deepEqual(new Uint8Array(await new Response(photo.body).arrayBuffer()), fixture.imageBytes);
+  }
+});
+
 test("Telegram photo download rejects non-image responses", async () => {
   let callCount = 0;
   const fetchFn: typeof fetch = async () => {
