@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { drizzle } from "drizzle-orm/d1";
 import * as schema from "../db/schema";
-import { createMeal, updateMeal } from "../db/repository";
+import { createMeal, deleteMeal, updateMeal } from "../db/repository";
 
 type Row = Record<string, unknown>;
 
@@ -181,6 +181,11 @@ function assertBatchTables(
       if (/insert into ["`]meal_logs["`]/i.test(sql)) return "meal_logs insert";
       if (/update ["`]meal_logs["`]/i.test(sql)) return "meal_logs update";
       if (/delete from ["`]meal_items["`]/i.test(sql)) return "meal_items delete";
+      if (/delete from ["`]analysis_jobs["`]/i.test(sql)) return "analysis_jobs delete";
+      if (/delete from ["`]meal_revisions["`]/i.test(sql)) return "meal_revisions delete";
+      if (/delete from ["`]ai_runs["`]/i.test(sql)) return "ai_runs delete";
+      if (/delete from ["`]telegram_updates["`]/i.test(sql)) return "telegram_updates delete";
+      if (/delete from ["`]meal_logs["`]/i.test(sql)) return "meal_logs delete";
       if (/insert into ["`]meal_items["`]/i.test(sql)) return "meal_items insert";
       if (/insert into ["`]meal_revisions["`]/i.test(sql)) return "meal_revisions insert";
       return sql;
@@ -296,5 +301,29 @@ test("updateMeal batches replacement delete, insert, and revision atomically", a
   assert.ok(batch[1]?.values.includes("meal-update-items"));
   assert.ok(batch[2]?.values.includes("New item"));
   assert.ok(batch[3]?.values.some((value) => String(value).includes("replace estimate")));
+  assertNoSqlTransaction(client);
+});
+
+test("deleteMeal batches dependent rows before the meal and returns its snapshot", async () => {
+  const { client, db } = createRecordingDb("meal-delete", [
+    itemRow("old-item", "meal-delete"),
+  ]);
+
+  const deleted = await deleteMeal(db, OWNER_KEY, "meal-delete");
+
+  assert.equal(deleted?.meal.id, "meal-delete");
+  assertBatchTables(client, [
+    "meal_items delete",
+    "analysis_jobs delete",
+    "meal_revisions delete",
+    "ai_runs delete",
+    "telegram_updates delete",
+    "meal_logs delete",
+  ]);
+  const batch = client.batches[0] ?? [];
+  for (const statement of batch) {
+    assert.ok(statement.values.includes(OWNER_KEY));
+    assert.ok(statement.values.includes("meal-delete"));
+  }
   assertNoSqlTransaction(client);
 });

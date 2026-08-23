@@ -1,7 +1,8 @@
-import { findMeal, updateMeal } from "../../../../db/repository";
+import { deleteMeal, findMeal, updateMeal } from "../../../../db/repository";
 import {
   ApiError,
   getRequestDb,
+  getPhotosBucket,
   jsonResponse,
   parseJsonBody,
   requireApiIdentity,
@@ -33,5 +34,30 @@ export async function PATCH(request: Request, context: RouteContext): Promise<Re
     const meal = await updateMeal(getRequestDb(), identity.ownerKey, await mealId(context), patch, "dashboard");
     if (!meal) throw new ApiError(404, "not_found", "Meal not found.");
     return jsonResponse({ meal: serialiseMeal(meal) });
+  });
+}
+
+export async function DELETE(request: Request, context: RouteContext): Promise<Response> {
+  return withApiErrors(async () => {
+    const identity = requireApiIdentity(request);
+    const id = await mealId(context);
+    const meal = await deleteMeal(getRequestDb(), identity.ownerKey, id);
+    if (!meal) throw new ApiError(404, "not_found", "Meal not found.");
+
+    let photoDeleted = true;
+    if (meal.meal.photoKey) {
+      try {
+        await getPhotosBucket().delete(meal.meal.photoKey);
+      } catch (error) {
+        photoDeleted = false;
+        console.error(JSON.stringify({
+          event: "meal_photo_delete_error",
+          mealId: id,
+          error: error instanceof Error ? error.message : "unknown_error",
+        }));
+      }
+    }
+
+    return jsonResponse({ deleted: true, mealId: id, photoDeleted });
   });
 }

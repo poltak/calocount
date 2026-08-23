@@ -52,3 +52,28 @@ test("removes the starter preview surface", async () => {
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   await assert.rejects(access(new URL("app/_sites-preview", projectRoot)));
 });
+
+test("meal rows expose a confirmed delete action and API removes dependent data", async () => {
+  const [page, route, repository] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/meals/[id]/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../db/repository.ts", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(page, /className="meal-actions"/);
+  assert.match(page, /async function deleteMeal\(mealId: string\)/);
+  assert.match(page, /window\.confirm\(/);
+  assert.match(page, /method: "DELETE"/);
+  assert.match(page, /aria-label=\{`Delete \$\{meal\.name\}`\}/);
+  assert.match(page, /mealDeleteInFlight/);
+  assert.match(route, /export async function DELETE/);
+  assert.match(route, /await getPhotosBucket\(\)\.delete\(meal\.meal\.photoKey\)/);
+  assert.match(route, /photoDeleted/);
+  assert.match(repository, /export async function deleteMeal/);
+  assert.match(repository, /db\.delete\(mealItems\)/);
+  assert.match(repository, /db\.delete\(analysisJobs\)/);
+  assert.match(repository, /db\.delete\(mealRevisions\)/);
+  assert.match(repository, /db\.delete\(aiRuns\)/);
+  assert.match(repository, /db\.delete\(telegramUpdates\)/);
+  assert.match(repository, /db\.delete\(mealLogs\)/);
+});

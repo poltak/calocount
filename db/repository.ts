@@ -346,6 +346,32 @@ export async function updateMeal(
   return findMeal(db, ownerKey, mealId);
 }
 
+/**
+ * Delete a meal and all records that belong to its analysis history.
+ *
+ * The meal row is deleted last so the batch remains safe if foreign keys are
+ * enabled for these tables in a later schema revision.
+ */
+export async function deleteMeal(
+  db: AppDb,
+  ownerKey: string,
+  mealId: string,
+): Promise<MealWithItems | null> {
+  const existing = await findMeal(db, ownerKey, mealId);
+  if (!existing) return null;
+
+  await db.batch([
+    db.delete(mealItems).where(and(eq(mealItems.ownerKey, ownerKey), eq(mealItems.mealId, mealId))),
+    db.delete(analysisJobs).where(and(eq(analysisJobs.ownerKey, ownerKey), eq(analysisJobs.mealId, mealId))),
+    db.delete(mealRevisions).where(and(eq(mealRevisions.ownerKey, ownerKey), eq(mealRevisions.mealId, mealId))),
+    db.delete(aiRuns).where(and(eq(aiRuns.ownerKey, ownerKey), eq(aiRuns.mealId, mealId))),
+    db.delete(telegramUpdates).where(and(eq(telegramUpdates.ownerKey, ownerKey), eq(telegramUpdates.mealId, mealId))),
+    db.delete(mealLogs).where(and(eq(mealLogs.ownerKey, ownerKey), eq(mealLogs.id, mealId))),
+  ]);
+
+  return existing;
+}
+
 export async function getSettings(db: AppDb, ownerKey: string) {
   return db
     .select()

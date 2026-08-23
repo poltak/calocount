@@ -1060,7 +1060,7 @@ input:focus-visible {
 .meal-list-head,
 .meal-row {
   display: grid;
-  grid-template-columns: 35px minmax(0, 1fr) 82px 51px 38px;
+  grid-template-columns: 35px minmax(0, 1fr) 82px 51px minmax(76px, auto);
   align-items: center;
   gap: 11px;
 }
@@ -1156,6 +1156,26 @@ input:focus-visible {
 }
 
 .edit-button:hover { color: var(--orange-soft); }
+
+.meal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+.edit-button:disabled,
+.delete-button:disabled { cursor: wait; opacity: .55; }
+
+.delete-button {
+  padding: 6px 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 10px;
+  text-align: right;
+}
+
+.delete-button:hover { color: #efb09c; }
 
 .inline-editor {
   display: grid;
@@ -1375,10 +1395,10 @@ input:focus-visible {
   .add-meal-form .wide-field { grid-column: span 2; }
   .save-button { grid-column: span 2; }
   .meal-list-head { display: none; }
-  .meal-row { grid-template-columns: 35px minmax(0, 1fr) 67px 36px; gap: 8px; }
+  .meal-row { grid-template-columns: 35px minmax(0, 1fr) 67px minmax(68px, auto); gap: 8px; }
   .calories-stat { grid-column: 3; grid-row: 1; }
   .protein-stat { grid-column: 3; grid-row: 1; margin-top: 31px; font-size: 10px; }
-  .edit-button { grid-column: 4; grid-row: 1; }
+  .meal-actions { grid-column: 4; grid-row: 1; }
   .inline-editor { grid-template-columns: 1fr 1fr; padding-left: 43px; }
   .inline-editor label:first-child { grid-column: span 2; }
   .editor-actions { grid-column: span 2; justify-content: stretch; }

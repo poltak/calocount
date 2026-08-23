@@ -414,6 +414,9 @@ export default function Home() {
   const [dataMessage, setDataMessage] = useState<string | null>("Loading your saved log — local demo data is visible until it arrives.");
   const [actionState, setActionState] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [deletingMealId, setDeletingMealId] = useState<string | null>(null);
+  const mealDeleteInFlight = useRef<string | null>(null);
+  const actionInProgress = Boolean(actionState?.endsWith("…"));
 
   const selectedDay = days.find((day) => day.key === selectedDayKey) ?? days[4];
   const totalCalories = selectedDay.calories;
@@ -531,6 +534,19 @@ export default function Home() {
     }));
   }
 
+  function removeMealFromDays(mealId: string) {
+    setDays((currentDays) => currentDays.map((day) => {
+      const meals = day.meals.filter((meal) => meal.id !== mealId);
+      if (meals.length === day.meals.length) return day;
+      return {
+        ...day,
+        meals,
+        calories: meals.reduce((total, meal) => total + meal.calories, 0),
+        protein: meals.reduce((total, meal) => total + meal.protein, 0),
+      };
+    }));
+  }
+
   async function saveMeal(mealId: string, operation: "edit" | "correction") {
     const meal = days.flatMap((day) => day.meals).find((entry) => entry.id === mealId);
     if (!meal) return;
@@ -566,6 +582,47 @@ export default function Home() {
       setActionError(error instanceof Error ? error.message : "The meal could not be saved.");
     } finally {
       setActionState(null);
+    }
+  }
+
+  async function deleteMeal(mealId: string) {
+    if (mealDeleteInFlight.current) return;
+    const meal = days.flatMap((day) => day.meals).find((entry) => entry.id === mealId);
+    if (!meal) return;
+    if (!window.confirm(`Delete "${meal.name}"? This removes the meal and its analysis data. This cannot be undone.`)) return;
+
+    mealDeleteInFlight.current = mealId;
+    setDeletingMealId(mealId);
+    setActionError(null);
+    if (dataMode !== "live") {
+      removeMealFromDays(mealId);
+      setEditingMealId(null);
+      setActionState("Meal deleted locally.");
+      mealDeleteInFlight.current = null;
+      setDeletingMealId(null);
+      return;
+    }
+
+    setActionState("Deleting meal…");
+    try {
+      const response = await fetch(`/api/meals/${encodeURIComponent(mealId)}`, { method: "DELETE" });
+      const responseBody = await response.json().catch(() => null);
+      if (!response.ok) {
+        const errorRecord = asRecord(asRecord(responseBody)?.error);
+        throw new Error(stringOr(errorRecord?.message, "The meal could not be deleted."));
+      }
+      removeMealFromDays(mealId);
+      setEditingMealId(null);
+      const result = asRecord(responseBody);
+      setActionState(result?.photoDeleted === false
+        ? "Meal deleted. Its photo could not be removed."
+        : "Meal deleted.");
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "The meal could not be deleted.");
+      setActionState(null);
+    } finally {
+      mealDeleteInFlight.current = null;
+      setDeletingMealId(null);
     }
   }
 
@@ -845,7 +902,10 @@ export default function Home() {
                   <div className={`meal-avatar ${meal.kind}`} aria-hidden="true">{mealPlaceholders[meal.kind]}</div>
                   <div className="meal-info"><div className="meal-name-line"><strong>{meal.name}</strong><time>{meal.time}</time></div><span>{meal.description}</span></div>
                   <div className="meal-stat calories-stat">{formatNumber(meal.calories)} <small>kcal</small></div><div className="meal-stat protein-stat">{meal.protein}<small>g</small></div>
-                  <button className="edit-button" type="button" onClick={() => setEditingMealId(editingMealId === meal.id ? null : meal.id)} aria-expanded={editingMealId === meal.id} aria-label={`Edit ${meal.name}`}>Edit</button>
+                  <div className="meal-actions">
+                    <button className="edit-button" type="button" disabled={actionInProgress || deletingMealId !== null} onClick={() => setEditingMealId(editingMealId === meal.id ? null : meal.id)} aria-expanded={editingMealId === meal.id} aria-label={`Edit ${meal.name}`}>Edit</button>
+                    <button className="delete-button" type="button" disabled={actionInProgress || deletingMealId !== null} onClick={() => void deleteMeal(meal.id)} aria-label={`Delete ${meal.name}`} aria-busy={deletingMealId === meal.id}>{deletingMealId === meal.id ? "Deleting…" : "Delete"}</button>
+                  </div>
                 </div>
                 {editingMealId === meal.id ? <div className="inline-editor">
                   <label>Name<input value={meal.name} onChange={(event) => updateMeal(meal.id, { name: event.target.value })} /></label>
