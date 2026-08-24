@@ -19,12 +19,15 @@ import {
   isAuthorizedWebhookRequest,
   verifyMediaToken,
 } from "./security";
+import { cleanupUnlinkedMealPhotos } from "./photo-cleanup";
+import { storeMealPhoto } from "./photos";
 import {
   downloadTelegramPhoto,
   parseTelegramMealMessage,
   sendTelegramMealResult,
   sendTelegramSafeError,
   TelegramApiError,
+  type TelegramSafeErrorKind,
 } from "./telegram";
 import type {
   IngestEnvironment,
@@ -53,6 +56,10 @@ function safeErrorCode(error: unknown): string {
     return error.message.slice(0, 80);
   }
   return "ingest_error";
+}
+
+export function classifyTelegramFailure(error: unknown): TelegramSafeErrorKind {
+  return error instanceof AnalyzerRequestError && error.status === 402 ? "provider" : "photo";
 }
 
 function isRetryable(error: unknown): boolean {
@@ -188,15 +195,15 @@ async function processJob(jobId: string, env: IngestEnvironment): Promise<JobOut
   }
 
   try {
-    const downloaded = await downloadTelegramPhoto(env.TELEGRAM_BOT_TOKEN, job.telegramFileId);
-    const photoKey = `meals/${job.id}/original`;
-    await env.MEAL_PHOTOS.put(photoKey, downloaded.body, {
-      httpMetadata: { contentType: downloaded.contentType },
-      customMetadata: { jobId: job.id },
+    const storedPhoto = await storeMealPhoto({
+      db: env.DB,
+      bucket: env.MEAL_PHOTOS,
+      job,
+      download: () => downloadTelegramPhoto(env.TELEGRAM_BOT_TOKEN!, job.telegramFileId),
     });
 
     const token = await createMediaToken(
-      photoKey,
+      storedPhoto.photoKey,
       env.MEDIA_SIGNING_SECRET,
       Date.now(),
       MAX_MEDIA_TOKEN_SECONDS,
@@ -214,8 +221,8 @@ async function processJob(jobId: string, env: IngestEnvironment): Promise<JobOut
       job,
       analysis.result,
       analysis.trace,
-      photoKey,
-      downloaded.contentType,
+      storedPhoto.photoKey,
+      storedPhoto.photoMimeType,
     );
     try {
       await sendTelegramMealResult(env.TELEGRAM_BOT_TOKEN, job.telegramChatId, analysis.result);
@@ -233,7 +240,9 @@ async function processJob(jobId: string, env: IngestEnvironment): Promise<JobOut
       } else {
         await markJobFailed(env.DB, job.id, errorCode);
         try {
-          await sendTelegramSafeError(env.TELEGRAM_BOT_TOKEN, job.telegramChatId);
+          await sendTelegramSafeError(env.TELEGRAM_BOT_TOKEN, job.telegramChatId, {
+            kind: classifyTelegramFailure(error),
+          });
         } catch (sendError) {
           console.error(JSON.stringify({ event: "telegram_error_result_error", code: safeErrorCode(sendError), jobId: job.id }));
         }
@@ -275,6 +284,12 @@ async function handleScheduled(env: IngestEnvironment): Promise<void> {
     } catch (error) {
       console.error(JSON.stringify({ event: "stale_job_requeue_error", code: safeErrorCode(error), jobId }));
     }
+  }
+  try {
+    const cleanup = await cleanupUnlinkedMealPhotos({ bucket: env.MEAL_PHOTOS, db: env.DB });
+    console.log(JSON.stringify({ event: "meal_photo_cleanup", ...cleanup }));
+  } catch (error) {
+    console.error(JSON.stringify({ event: "meal_photo_cleanup_error", code: safeErrorCode(error) }));
   }
 }
 

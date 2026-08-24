@@ -14,6 +14,13 @@ export class TelegramApiError extends Error {
   }
 }
 
+export type TelegramSafeErrorKind = "photo" | "provider";
+
+export interface TelegramSafeErrorOptions {
+  readonly kind?: TelegramSafeErrorKind;
+  readonly fetchFn?: typeof fetch;
+}
+
 function recordOf(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return null;
@@ -259,8 +266,13 @@ export async function sendTelegramMealResult(
 export async function sendTelegramSafeError(
   token: string,
   chatId: string,
-  fetchFn: typeof fetch = fetch,
+  options: TelegramSafeErrorOptions | typeof fetch = {},
 ): Promise<void> {
+  const resolvedOptions = typeof options === "function" ? { fetchFn: options } : options;
+  const fetchFn = resolvedOptions.fetchFn ?? fetch;
+  const text = resolvedOptions.kind === "provider"
+    ? "The AI service is not available. Check its billing and configuration, then try again."
+    : "I could not estimate this meal. Please try the photo again.";
   await telegramJson(
     token,
     "sendMessage",
@@ -269,7 +281,7 @@ export async function sendTelegramSafeError(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         chat_id: chatId,
-        text: "I could not estimate this meal. Please try the photo again.",
+        text,
         disable_web_page_preview: true,
       }),
     },

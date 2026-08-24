@@ -8,6 +8,8 @@ import {
   sendTelegramSafeError,
   TelegramApiError,
 } from "../workers/ingest/telegram";
+import { classifyTelegramFailure } from "../workers/ingest/index";
+import { AnalyzerRequestError } from "../workers/ingest/analyzers";
 import type { MealAnalysisResult } from "../workers/ingest/types";
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -263,11 +265,37 @@ test("Telegram safe error delivery uses fixed text without provider details", as
     return jsonResponse({ ok: true, result: { message_id: 56 } });
   };
 
-  await sendTelegramSafeError("token", "-67890", fetchFn);
+  await sendTelegramSafeError("token", "-67890", { fetchFn });
 
   const payload = JSON.parse(String(seenInit?.body)) as Record<string, unknown>;
   assert.equal(payload.chat_id, "-67890");
   assert.equal(payload.text, "I could not estimate this meal. Please try the photo again.");
   assert.equal(payload.disable_web_page_preview, true);
   assert.doesNotMatch(String(payload.text), /provider|token|secret|error/i);
+});
+
+test("Telegram safe error delivery uses fixed text for provider billing failures", async () => {
+  let seenInit: RequestInit | undefined;
+  const fetchFn: typeof fetch = async (_input, init) => {
+    seenInit = init;
+    return jsonResponse({ ok: true, result: { message_id: 57 } });
+  };
+
+  await sendTelegramSafeError("token", "-67890", { kind: "provider", fetchFn });
+
+  const payload = JSON.parse(String(seenInit?.body)) as Record<string, unknown>;
+  assert.equal(payload.text, "The AI service is not available. Check its billing and configuration, then try again.");
+  assert.doesNotMatch(String(payload.text), /token|secret|account|identity|provider_http/i);
+});
+
+test("Telegram failure classification distinguishes provider billing from photo failures", () => {
+  assert.equal(
+    classifyTelegramFailure(new AnalyzerRequestError("provider_http_402_payment_required", false, 402)),
+    "provider",
+  );
+  assert.equal(
+    classifyTelegramFailure(new AnalyzerRequestError("telegram_photo_not_an_image", false)),
+    "photo",
+  );
+  assert.equal(classifyTelegramFailure(new Error("provider details must stay private")), "photo");
 });

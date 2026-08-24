@@ -30,6 +30,12 @@ export interface EnsureJobResult {
   readonly created: boolean;
 }
 
+export interface MealPhotoMetadata {
+  readonly photoKey: string;
+  readonly photoMimeType: string;
+  readonly photoSizeBytes?: number | null;
+}
+
 interface TelegramUpdateRow {
   readonly id: string;
   readonly meal_id: string | null;
@@ -263,6 +269,39 @@ export async function loadAnalysisJob(
   return loadJobById(db, jobId);
 }
 
+/**
+ * Record ownership of an R2 object before any external inference call starts.
+ *
+ * The conditional key check prevents a later retry or analysis completion from
+ * replacing a different photo that was already linked to the meal.
+ */
+export async function persistMealPhoto(
+  db: D1Database,
+  job: StoredAnalysisJob,
+  photo: MealPhotoMetadata,
+): Promise<void> {
+  const result = await db
+    .prepare(
+      `UPDATE meal_logs
+       SET photo_key = ?, photo_mime_type = ?, photo_size_bytes = ?, updated_at = ?
+       WHERE id = ? AND owner_key = ? AND (photo_key IS NULL OR photo_key = ?)`,
+    )
+    .bind(
+      photo.photoKey,
+      photo.photoMimeType,
+      photo.photoSizeBytes ?? null,
+      nowMs(),
+      job.mealId,
+      job.ownerKey,
+      photo.photoKey,
+    )
+    .run();
+
+  if ((result.meta?.changes ?? 0) !== 1) {
+    throw new Error("meal_photo_persist_conflict");
+  }
+}
+
 export async function markJobRetry(
   db: D1Database,
   jobId: string,
@@ -318,13 +357,15 @@ export async function saveMealAndTrace(
   const timestamp = nowMs();
   const assumptionsJson = JSON.stringify(analysis.assumptions);
 
-  await db
+  const mealUpdate = await db
     .prepare(
       `UPDATE meal_logs
-       SET status = 'complete', photo_key = ?, photo_mime_type = ?,
+       SET status = 'complete',
+           photo_key = COALESCE(photo_key, ?),
+           photo_mime_type = CASE WHEN photo_key IS NULL THEN ? ELSE photo_mime_type END,
            total_calories = ?, total_protein_g = ?, total_carbs_g = ?,
            total_fat_g = ?, confidence = ?, assumptions_json = ?, updated_at = ?
-       WHERE id = ? AND owner_key = ?`,
+       WHERE id = ? AND owner_key = ? AND (photo_key IS NULL OR photo_key = ?)`,
     )
     .bind(
       photoKey,
@@ -338,8 +379,13 @@ export async function saveMealAndTrace(
       timestamp,
       job.mealId,
       job.ownerKey,
+      photoKey,
     )
     .run();
+
+  if ((mealUpdate.meta?.changes ?? 0) !== 1) {
+    throw new Error("meal_photo_persist_conflict");
+  }
 
   await db
     .prepare(`DELETE FROM meal_items WHERE meal_id = ? AND owner_key = ?`)
