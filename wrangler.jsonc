@@ -2,7 +2,7 @@
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "calocount-app",
   "main": "worker/index.ts",
-  "compatibility_date": "2026-05-22",
+  "compatibility_date": "2026-08-23",
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
     "directory": "dist/client",
@@ -13,6 +13,7 @@
     {
       "binding": "DB",
       "database_name": "calocount",
+      "database_id": "a8d1973b-03e6-4c71-b9cd-40ecc335e3f8",
       "migrations_dir": "drizzle"
     }
   ],
