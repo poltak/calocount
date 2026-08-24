@@ -318,7 +318,7 @@ export async function updateMeal(
     source,
     beforeJson: safeJson(mealSnapshot(before), {}),
     afterJson: safeJson({ meal: nextMeal, items: nextItems }, {}),
-    reason: patch.reason?.trim() || "correction",
+    reason: patch.reason?.trim() || (source === "dashboard" ? "edit" : "correction"),
     createdAt: timestamp,
   });
 

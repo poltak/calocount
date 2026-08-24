@@ -304,6 +304,52 @@ test("updateMeal batches replacement delete, insert, and revision atomically", a
   assertNoSqlTransaction(client);
 });
 
+test("updateMeal defaults revision reason from source and keeps explicit reasons", async () => {
+  const dashboard = createRecordingDb("meal-update-dashboard-reason", [
+    itemRow("old-item", "meal-update-dashboard-reason"),
+  ]);
+  await updateMeal(
+    dashboard.db,
+    OWNER_KEY,
+    "meal-update-dashboard-reason",
+    { caption: "Dashboard edit" },
+    "dashboard",
+  );
+  const dashboardRevision = dashboard.client.batches[0]?.find(({ sql }) => /meal_revisions/i.test(sql));
+  assert.ok(dashboardRevision);
+  assert.ok(dashboardRevision.values.includes("dashboard"));
+  assert.ok(dashboardRevision.values.includes("edit"));
+
+  const correction = createRecordingDb("meal-update-correction-reason", [
+    itemRow("old-item", "meal-update-correction-reason"),
+  ]);
+  await updateMeal(
+    correction.db,
+    OWNER_KEY,
+    "meal-update-correction-reason",
+    { caption: "Correction" },
+    "correction",
+  );
+  const correctionRevision = correction.client.batches[0]?.find(({ sql }) => /meal_revisions/i.test(sql));
+  assert.ok(correctionRevision);
+  assert.equal(correctionRevision.values.filter((value) => value === "correction").length, 2);
+
+  const explicit = createRecordingDb("meal-update-explicit-reason", [
+    itemRow("old-item", "meal-update-explicit-reason"),
+  ]);
+  await updateMeal(
+    explicit.db,
+    OWNER_KEY,
+    "meal-update-explicit-reason",
+    { caption: "Explicit reason", reason: "nutrition correction" },
+    "dashboard",
+  );
+  const explicitRevision = explicit.client.batches[0]?.find(({ sql }) => /meal_revisions/i.test(sql));
+  assert.ok(explicitRevision);
+  assert.ok(explicitRevision.values.includes("nutrition correction"));
+  assert.ok(!explicitRevision.values.includes("edit"));
+});
+
 test("deleteMeal batches dependent rows before the meal and returns its snapshot", async () => {
   const { client, db } = createRecordingDb("meal-delete", [
     itemRow("old-item", "meal-delete"),
