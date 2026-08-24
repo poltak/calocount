@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { CSSProperties, FormEvent } from "react";
+import type { CSSProperties, FormEvent, PointerEvent as ReactPointerEvent } from "react";
 
 import {
   calculateLoggingStreak,
@@ -10,6 +10,8 @@ import {
   compareAverageToTarget,
   getAdjacentDayKey,
 } from "./dashboard-calculations";
+import { getMealSwipeAction } from "./meal-swipe";
+import { photoUrlForKey } from "./photo-url";
 
 type DayKey = "sun" | "mon" | "tue" | "wed" | "thu" | "fri" | "sat";
 
@@ -20,6 +22,10 @@ type Meal = {
   description: string;
   calories: number;
   protein: number;
+  carbs?: number;
+  fat?: number;
+  photoKey?: string | null;
+  photoMimeType?: string | null;
   kind: "breakfast" | "lunch" | "snack" | "dinner";
 };
 
@@ -53,6 +59,8 @@ type SerializedMeal = {
   totalProteinG: number;
   totalCarbsG: number;
   totalFatG: number;
+  photoKey: string | null;
+  photoMimeType: string | null;
   items: SerializedMealItem[];
 };
 
@@ -77,6 +85,13 @@ type DashboardSummary = {
 };
 
 type DataMode = "loading" | "live" | "demo";
+type DashboardSection = "today" | "meals" | "trend" | "plan";
+type MealSwipeStart = {
+  mealId: string;
+  pointerId: number;
+  startX: number;
+  startY: number;
+};
 
 const calorieTarget = 2400;
 const proteinTarget = 160;
@@ -248,6 +263,8 @@ function parseSerializedMeal(value: unknown): SerializedMeal | null {
     totalProteinG: numberOr(record.totalProteinG),
     totalCarbsG: numberOr(record.totalCarbsG),
     totalFatG: numberOr(record.totalFatG),
+    photoKey: typeof record.photoKey === "string" && record.photoKey.length > 0 ? record.photoKey : null,
+    photoMimeType: typeof record.photoMimeType === "string" && record.photoMimeType.length > 0 ? record.photoMimeType : null,
     items,
   };
 }
@@ -325,6 +342,10 @@ function mapRemoteMeal(meal: SerializedMeal): Meal {
     description: meal.caption || itemNames.join(", ") || "Logged from dashboard",
     calories: meal.totalCalories,
     protein: meal.totalProteinG,
+    carbs: meal.totalCarbsG,
+    fat: meal.totalFatG,
+    photoKey: meal.photoKey,
+    photoMimeType: meal.photoMimeType,
     kind,
   };
 }
@@ -350,8 +371,8 @@ function buildLiveDays(summary: DashboardSummary): Day[] {
       ...labels,
       calories: isToday ? summary.today.calories : meals.reduce((total, meal) => total + meal.calories, 0),
       protein: isToday ? summary.today.proteinG : meals.reduce((total, meal) => total + meal.protein, 0),
-      carbs: isToday ? summary.today.carbsG : undefined,
-      fat: isToday ? summary.today.fatG : undefined,
+      carbs: isToday ? summary.today.carbsG : meals.reduce((total, meal) => total + (meal.carbs ?? 0), 0),
+      fat: isToday ? summary.today.fatG : meals.reduce((total, meal) => total + (meal.fat ?? 0), 0),
       meals,
     };
   });
@@ -370,8 +391,8 @@ function mealPayload(meal: Meal, consumedAt?: number) {
       unit: "serving",
       calories: meal.calories,
       proteinG: meal.protein,
-      carbsG: 0,
-      fatG: 0,
+      carbsG: meal.carbs ?? 0,
+      fatG: meal.fat ?? 0,
       source: "dashboard",
     }],
   };
@@ -400,9 +421,11 @@ export default function Home() {
   const [days, setDays] = useState(demoDays);
   const [selectedDayKey, setSelectedDayKey] = useState<DayKey>("thu");
   const [editingMealId, setEditingMealId] = useState<string | null>(null);
+  const [openMealId, setOpenMealId] = useState<string | null>(null);
   const [showAddMeal, setShowAddMeal] = useState(false);
   const [showAllDays, setShowAllDays] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [activeSection, setActiveSection] = useState<DashboardSection>("today");
   const [settingsDraft, setSettingsDraft] = useState({ calories: String(calorieTarget), proteinG: String(proteinTarget) });
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [settingsSaving, setSettingsSaving] = useState(false);
@@ -415,7 +438,11 @@ export default function Home() {
   const [actionState, setActionState] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [deletingMealId, setDeletingMealId] = useState<string | null>(null);
+  const [previewMeal, setPreviewMeal] = useState<Meal | null>(null);
+  const [failedPhotoKeys, setFailedPhotoKeys] = useState<Set<string>>(() => new Set());
   const mealDeleteInFlight = useRef<string | null>(null);
+  const mealSwipeRef = useRef<MealSwipeStart | null>(null);
+  const previewCloseRef = useRef<HTMLButtonElement>(null);
   const actionInProgress = Boolean(actionState?.endsWith("…"));
 
   const selectedDay = days.find((day) => day.key === selectedDayKey) ?? days[4];
@@ -502,6 +529,80 @@ export default function Home() {
     };
   }, []);
 
+  useEffect(() => {
+    function syncSectionFromHash() {
+      const section = window.location.hash.slice(1);
+      if (section === "today" || section === "meals" || section === "trend" || section === "plan") {
+        setActiveSection(section);
+      } else {
+        setActiveSection("today");
+      }
+    }
+
+    syncSectionFromHash();
+    window.addEventListener("hashchange", syncSectionFromHash);
+    return () => window.removeEventListener("hashchange", syncSectionFromHash);
+  }, []);
+
+  useEffect(() => {
+    if (!previewMeal) return;
+    const previousFocus = document.activeElement;
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setPreviewMeal(null);
+    }
+    document.addEventListener("keydown", closeOnEscape);
+    previewCloseRef.current?.focus();
+    return () => {
+      document.removeEventListener("keydown", closeOnEscape);
+      if (previousFocus instanceof HTMLElement && previousFocus.isConnected) previousFocus.focus();
+    };
+  }, [previewMeal]);
+
+  function handleMealPointerDown(mealId: string, event: ReactPointerEvent<HTMLDivElement>) {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    mealSwipeRef.current = {
+      mealId,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function finishMealPointer(mealId: string, event: ReactPointerEvent<HTMLDivElement>) {
+    const swipe = mealSwipeRef.current;
+    if (!swipe || swipe.mealId !== mealId || swipe.pointerId !== event.pointerId) return;
+    mealSwipeRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+
+    const action = getMealSwipeAction({
+      deltaX: event.clientX - swipe.startX,
+      deltaY: event.clientY - swipe.startY,
+    });
+    if (action === "open") setOpenMealId(mealId);
+    if (action === "close") setOpenMealId(null);
+  }
+
+  function cancelMealPointer(mealId: string, event: ReactPointerEvent<HTMLDivElement>) {
+    const swipe = mealSwipeRef.current;
+    if (!swipe || swipe.mealId !== mealId || swipe.pointerId !== event.pointerId) return;
+    mealSwipeRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  }
+
+  function markPhotoUnavailable(photoKey: string) {
+    setFailedPhotoKeys((current) => {
+      if (current.has(photoKey)) return current;
+      const next = new Set(current);
+      next.add(photoKey);
+      return next;
+    });
+  }
+
   function updateMeal(mealId: string, changes: Partial<Meal>) {
     setDays((currentDays) =>
       currentDays.map((day) => {
@@ -512,6 +613,8 @@ export default function Home() {
           meals: nextMeals,
           calories: nextMeals.reduce((total, meal) => total + meal.calories, 0),
           protein: nextMeals.reduce((total, meal) => total + meal.protein, 0),
+          carbs: nextMeals.reduce((total, meal) => total + (meal.carbs ?? 0), 0),
+          fat: nextMeals.reduce((total, meal) => total + (meal.fat ?? 0), 0),
         };
       }),
     );
@@ -530,6 +633,8 @@ export default function Home() {
         meals,
         calories: meals.reduce((total, meal) => total + meal.calories, 0),
         protein: meals.reduce((total, meal) => total + meal.protein, 0),
+        carbs: meals.reduce((total, meal) => total + (meal.carbs ?? 0), 0),
+        fat: meals.reduce((total, meal) => total + (meal.fat ?? 0), 0),
       };
     }));
   }
@@ -543,11 +648,13 @@ export default function Home() {
         meals,
         calories: meals.reduce((total, meal) => total + meal.calories, 0),
         protein: meals.reduce((total, meal) => total + meal.protein, 0),
+        carbs: meals.reduce((total, meal) => total + (meal.carbs ?? 0), 0),
+        fat: meals.reduce((total, meal) => total + (meal.fat ?? 0), 0),
       };
     }));
   }
 
-  async function saveMeal(mealId: string, operation: "edit" | "correction") {
+  async function saveMeal(mealId: string) {
     const meal = days.flatMap((day) => day.meals).find((entry) => entry.id === mealId);
     if (!meal) return;
     setActionError(null);
@@ -555,19 +662,12 @@ export default function Home() {
       setEditingMealId(null);
       return;
     }
-    const actionLabel = operation === "correction" ? "Saving correction" : "Saving edit";
-    setActionState(`${actionLabel}…`);
+    setActionState("Saving changes…");
     try {
-      const endpoint = operation === "correction"
-        ? `/api/meals/${encodeURIComponent(meal.id)}/corrections`
-        : `/api/meals/${encodeURIComponent(meal.id)}`;
-      const response = await fetch(endpoint, {
-        method: operation === "correction" ? "POST" : "PATCH",
+      const response = await fetch(`/api/meals/${encodeURIComponent(meal.id)}`, {
+        method: "PATCH",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          ...mealPayload(meal),
-          ...(operation === "correction" ? { reason: "Dashboard correction" } : {}),
-        }),
+        body: JSON.stringify(mealPayload(meal)),
       });
       const responseBody = await response.json().catch(() => null);
       if (!response.ok) {
@@ -592,6 +692,7 @@ export default function Home() {
     if (!window.confirm(`Delete "${meal.name}"? This removes the meal and its analysis data. This cannot be undone.`)) return;
 
     mealDeleteInFlight.current = mealId;
+    setOpenMealId(null);
     setDeletingMealId(mealId);
     setActionError(null);
     if (dataMode !== "live") {
@@ -635,6 +736,8 @@ export default function Home() {
     const description = String(form.get("description") || "Added from dashboard").trim();
     const calories = Number(form.get("calories") || 0);
     const protein = Number(form.get("protein") || 0);
+    const carbs = Number(form.get("carbs") || 0);
+    const fat = Number(form.get("fat") || 0);
     const nextMeal: Meal = {
       id: `meal-${Date.now()}`,
       time: "Now",
@@ -642,6 +745,8 @@ export default function Home() {
       description,
       calories,
       protein,
+      carbs,
+      fat,
       kind: "snack",
     };
 
@@ -677,6 +782,8 @@ export default function Home() {
                 meals: [...day.meals, nextMeal],
                 calories: day.calories + calories,
                 protein: day.protein + protein,
+                carbs: (day.carbs ?? 0) + carbs,
+                fat: (day.fat ?? 0) + fat,
               }
             : day,
         ),
@@ -825,10 +932,10 @@ export default function Home() {
       </section>
 
       <nav className="jump-nav" aria-label="Dashboard sections">
-        <a className="active" href="#today">Today</a>
-        <a href="#meals">Meals</a>
-        <a href="#trend">Trend</a>
-        <a href="#plan">Rest of day</a>
+        <a className={activeSection === "today" ? "active" : ""} href="#today" aria-current={activeSection === "today" ? "page" : undefined}>Today</a>
+        <a className={activeSection === "meals" ? "active" : ""} href="#meals" aria-current={activeSection === "meals" ? "page" : undefined}>Meals</a>
+        <a className={activeSection === "trend" ? "active" : ""} href="#trend" aria-current={activeSection === "trend" ? "page" : undefined}>Trend</a>
+        <a className={activeSection === "plan" ? "active" : ""} href="#plan" aria-current={activeSection === "plan" ? "page" : undefined}>Rest of day</a>
       </nav>
 
       <section className="summary-grid" aria-label="Daily calorie and protein summary">
@@ -890,30 +997,73 @@ export default function Home() {
               <div className="form-heading"><div><strong>Log a meal</strong><span>Use a quick estimate now. You can edit it later.</span></div><button className="close-button" type="button" onClick={() => setShowAddMeal(false)} aria-label="Close add meal form">×</button></div>
               <label>Meal name<input name="name" placeholder="e.g. Turkey sandwich" required /></label>
               <label className="wide-field">Description<input name="description" placeholder="Ingredients or a short note" /></label>
-              <label>Calories<input name="calories" type="number" min="0" step="10" placeholder="450" required /></label>
-              <label>Protein (g)<input name="protein" type="number" min="0" step="1" placeholder="30" required /></label>
+              <label>Calories<input name="calories" type="number" min="0" step="any" placeholder="450" required /></label>
+              <label>Protein (g)<input name="protein" type="number" min="0" step="any" placeholder="30" /></label>
+              <label>Carbs (g)<input name="carbs" type="number" min="0" step="any" placeholder="45" /></label>
+              <label>Fat (g)<input name="fat" type="number" min="0" step="any" placeholder="15" /></label>
               <button className="save-button" type="submit">Save meal</button>
             </form> : null}
 
             {selectedDay.meals.length > 0 ? <div className="meal-list">
-              <div className="meal-list-head" aria-hidden="true"><span>Meal</span><span>Energy</span><span>Protein</span><span /></div>
+              <div className="meal-list-head" aria-hidden="true"><span /><span>Meal</span><span>Energy</span><span>Protein</span><span>Carbs</span><span>Fat</span><span /></div>
               {selectedDay.meals.map((meal) => <div className="meal-group" key={meal.id}>
-                <div className="meal-row">
-                  <div className={`meal-avatar ${meal.kind}`} aria-hidden="true">{mealPlaceholders[meal.kind]}</div>
-                  <div className="meal-info"><div className="meal-name-line"><strong>{meal.name}</strong><time>{meal.time}</time></div><span>{meal.description}</span></div>
-                  <div className="meal-stat calories-stat">{formatNumber(meal.calories)} <small>kcal</small></div><div className="meal-stat protein-stat">{meal.protein}<small>g</small></div>
-                  <div className="meal-actions">
+                <div className={`meal-row${openMealId === meal.id ? " is-actions-open" : ""}`}>
+                  <div
+                    className="meal-row-content"
+                    onPointerDown={(event) => handleMealPointerDown(meal.id, event)}
+                    onPointerUp={(event) => finishMealPointer(meal.id, event)}
+                    onPointerCancel={(event) => cancelMealPointer(meal.id, event)}
+                  >
+                    {meal.photoKey && !failedPhotoKeys.has(meal.photoKey) && photoUrlForKey(meal.photoKey) ? <button
+                      className="meal-photo-button"
+                      type="button"
+                      aria-label={`View photo of ${meal.name}`}
+                      onPointerDown={(event) => event.stopPropagation()}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setPreviewMeal(meal);
+                      }}
+                    >
+                      {/* The private R2 route needs a native image element so the browser can lazy-load it. */}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        className="meal-photo"
+                        src={photoUrlForKey(meal.photoKey) ?? undefined}
+                        alt={meal.name}
+                        loading="lazy"
+                        decoding="async"
+                        onError={() => markPhotoUnavailable(meal.photoKey as string)}
+                      />
+                    </button> : <div className={`meal-avatar ${meal.kind}`} aria-hidden="true">{mealPlaceholders[meal.kind]}</div>}
+                    <div className="meal-info"><div className="meal-name-line"><strong>{meal.name}</strong><time>{meal.time}</time></div><span>{meal.description}</span></div>
+                    <div className="meal-stat calories-stat" data-label="Energy">{formatNumber(meal.calories)} <small>kcal</small></div>
+                    <div className="meal-stat protein-stat" data-label="Protein">{formatNumber(meal.protein)}<small>g</small></div>
+                    <div className="meal-stat carbs-stat" data-label="Carbs">{formatNumber(meal.carbs ?? 0)}<small>g</small></div>
+                    <div className="meal-stat fat-stat" data-label="Fat">{formatNumber(meal.fat ?? 0)}<small>g</small></div>
+                  </div>
+                  <button
+                    className="meal-actions-toggle"
+                    type="button"
+                    aria-expanded={openMealId === meal.id}
+                    aria-controls={`meal-actions-${meal.id}`}
+                    aria-label={`${openMealId === meal.id ? "Close" : "Open"} actions for ${meal.name}`}
+                    onClick={() => setOpenMealId((current) => current === meal.id ? null : meal.id)}
+                  >
+                    {openMealId === meal.id ? "×" : "⋯"}
+                  </button>
+                  <div className="meal-actions" id={`meal-actions-${meal.id}`}>
                     <button className="edit-button" type="button" disabled={actionInProgress || deletingMealId !== null} onClick={() => setEditingMealId(editingMealId === meal.id ? null : meal.id)} aria-expanded={editingMealId === meal.id} aria-label={`Edit ${meal.name}`}>Edit</button>
                     <button className="delete-button" type="button" disabled={actionInProgress || deletingMealId !== null} onClick={() => void deleteMeal(meal.id)} aria-label={`Delete ${meal.name}`} aria-busy={deletingMealId === meal.id}>{deletingMealId === meal.id ? "Deleting…" : "Delete"}</button>
                   </div>
                 </div>
                 {editingMealId === meal.id ? <div className="inline-editor">
                   <label>Name<input value={meal.name} onChange={(event) => updateMeal(meal.id, { name: event.target.value })} /></label>
-                  <label>Calories<input type="number" min="0" value={meal.calories} onChange={(event) => updateMeal(meal.id, { calories: Number(event.target.value) })} /></label>
-                  <label>Protein<input type="number" min="0" value={meal.protein} onChange={(event) => updateMeal(meal.id, { protein: Number(event.target.value) })} /></label>
+                  <label>Calories<input type="number" min="0" step="any" value={meal.calories} onChange={(event) => updateMeal(meal.id, { calories: Number(event.target.value) })} /></label>
+                  <label>Protein<input type="number" min="0" step="any" value={meal.protein} onChange={(event) => updateMeal(meal.id, { protein: Number(event.target.value) })} /></label>
+                  <label>Carbs<input type="number" min="0" step="any" value={meal.carbs ?? 0} onChange={(event) => updateMeal(meal.id, { carbs: Number(event.target.value) })} /></label>
+                  <label>Fat<input type="number" min="0" step="any" value={meal.fat ?? 0} onChange={(event) => updateMeal(meal.id, { fat: Number(event.target.value) })} /></label>
                   <div className="editor-actions">
-                    <button className="done-button" type="button" disabled={Boolean(actionState)} onClick={() => void saveMeal(meal.id, "edit")}>{dataMode === "live" ? "Save edit" : "Done"}</button>
-                    <button className="correction-button" type="button" disabled={Boolean(actionState)} onClick={() => void saveMeal(meal.id, "correction")}>Save correction</button>
+                    <button className="done-button" type="button" disabled={Boolean(actionState)} onClick={() => void saveMeal(meal.id)}>Save changes</button>
                   </div>
                 </div> : null}
               </div>)}
@@ -946,6 +1096,31 @@ export default function Home() {
           <section className="quick-tip" aria-label="Calocount tip"><span className="tip-icon" aria-hidden="true">i</span><p><strong>Estimates are a starting point.</strong> Add a description to your photo for a more useful result.</p></section>
         </aside>
       </div>
+
+      {previewMeal ? <div
+        className="photo-preview-backdrop"
+        role="presentation"
+        onClick={(event) => {
+          if (event.target === event.currentTarget) setPreviewMeal(null);
+        }}
+      >
+        <div className="photo-preview-dialog" role="dialog" aria-modal="true" aria-labelledby="photo-preview-title">
+          <button ref={previewCloseRef} className="close-button photo-preview-close" type="button" onClick={() => setPreviewMeal(null)} aria-label="Close photo preview">×</button>
+          <div className="photo-preview-media">
+            {previewMeal.photoKey && !failedPhotoKeys.has(previewMeal.photoKey) && photoUrlForKey(previewMeal.photoKey) ? <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+              className="photo-preview-image"
+              src={photoUrlForKey(previewMeal.photoKey) ?? undefined}
+              alt={previewMeal.name}
+              decoding="async"
+              onError={() => markPhotoUnavailable(previewMeal.photoKey as string)}
+              />
+            </> : <p className="photo-preview-fallback" role="status">Photo unavailable</p>}
+          </div>
+          <p className="photo-preview-title" id="photo-preview-title">{previewMeal.name}</p>
+        </div>
+      </div> : null}
 
       <footer className="app-footer"><span>Private by default</span><span className="footer-separator" aria-hidden="true">·</span><span>Calocount dashboard</span></footer>
     </main>

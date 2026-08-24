@@ -53,6 +53,64 @@ test("removes the starter preview surface", async () => {
   await assert.rejects(access(new URL("app/_sites-preview", projectRoot)));
 });
 
+test("meal form accepts precise calories and captures every displayed macro", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+
+  assert.match(page, /name="calories"[^>]*step="any"/);
+  assert.match(page, /name="protein"[^>]*step="any"/);
+  assert.match(page, /name="carbs"[^>]*step="any"/);
+  assert.match(page, /name="fat"[^>]*step="any"/);
+  assert.doesNotMatch(page.match(/<input name="protein"[^>]*>/)?.[0] ?? "", /\brequired\b/);
+  assert.doesNotMatch(page.match(/<input name="carbs"[^>]*>/)?.[0] ?? "", /\brequired\b/);
+  assert.doesNotMatch(page.match(/<input name="fat"[^>]*>/)?.[0] ?? "", /\brequired\b/);
+  assert.match(page, /const carbs = Number\(form\.get\("carbs"\)/);
+  assert.match(page, /const fat = Number\(form\.get\("fat"\)/);
+  assert.match(page, /carbsG: meal\.carbs \?\? 0/);
+  assert.match(page, /fatG: meal\.fat \?\? 0/);
+});
+
+test("dashboard section tabs use hash-backed active state", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+
+  assert.match(page, /window\.addEventListener\("hashchange"/);
+  assert.match(page, /activeSection === "today" \? "active" : ""/);
+  assert.match(page, /activeSection === "meals" \? "active" : ""/);
+  assert.match(page, /activeSection === "trend" \? "active" : ""/);
+  assert.match(page, /activeSection === "plan" \? "active" : ""/);
+  assert.doesNotMatch(page, /<a className="active" href="#today">/);
+});
+
+test("jump navigation is responsive and meal rows show every macro", async () => {
+  const [page, css] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(css, /\.jump-nav\s*{\s*display:\s*none;/);
+  assert.match(css, /@media \(max-width: 880px\)[\s\S]*?\.jump-nav\s*{\s*display:\s*flex;/);
+  assert.match(page, /meal-list-head[\s\S]*?<span>Meal<\/span><span>Energy<\/span><span>Protein<\/span><span>Carbs<\/span><span>Fat<\/span>/);
+  assert.match(page, /className="meal-stat carbs-stat"/);
+  assert.match(page, /className="meal-stat fat-stat"/);
+  assert.match(page, /data-label="Energy"/);
+  assert.match(page, /data-label="Protein"/);
+  assert.match(page, /data-label="Carbs"/);
+  assert.match(page, /data-label="Fat"/);
+});
+
+test("meal editor uses one PATCH save action", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+
+  assert.match(page, /async function saveMeal\(mealId: string\)/);
+  assert.match(page, /setActionState\("Saving changes…"\)/);
+  assert.match(page, /method: "PATCH"/);
+  assert.match(page, /body: JSON\.stringify\(mealPayload\(meal\)\)/);
+  assert.match(page, /onClick=\{\(\) => void saveMeal\(meal\.id\)\}/);
+  assert.match(page, />Save changes<\/button>/);
+  assert.doesNotMatch(page, /Save correction/);
+  assert.doesNotMatch(page, /saveMeal\(meal\.id,\s*"(?:edit|correction)"\)/);
+  assert.doesNotMatch(page, /operation === "correction"/);
+});
+
 test("meal rows expose a confirmed delete action and API removes dependent data", async () => {
   const [page, route, repository] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
