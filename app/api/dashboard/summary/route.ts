@@ -9,7 +9,7 @@ import { serialiseMeals, withoutOwnerKey } from "../../_lib/serialise";
 
 export async function GET(request: Request): Promise<Response> {
   return withApiErrors(async () => {
-    const identity = requireApiIdentity(request);
+    const identity = await requireApiIdentity(request);
     const summary = await getDashboardSummary(getRequestDb(), identity.ownerKey);
     return jsonResponse({
       ...summary,

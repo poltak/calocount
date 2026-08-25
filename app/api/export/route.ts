@@ -41,7 +41,7 @@ function csvExport(meals: ReturnType<typeof serialiseMeals>): string {
 
 export async function GET(request: Request): Promise<Response> {
   return withApiErrors(async () => {
-    const identity = requireApiIdentity(request);
+    const identity = await requireApiIdentity(request);
     const db = getRequestDb();
     const [mealRows, settings, runs] = await Promise.all([
       allMeals(db, identity.ownerKey),

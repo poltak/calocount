@@ -3,6 +3,8 @@ import { drizzle, type AnyD1Database } from "drizzle-orm/d1";
 import * as schema from "./schema";
 
 type StringEnvKey =
+  | "CALOCOUNT_ACCESS_AUDIENCE"
+  | "CALOCOUNT_ACCESS_TEAM_DOMAIN"
   | "CALOCOUNT_ALLOWED_EMAIL"
   | "CALOCOUNT_ALLOWED_USER_ID"
   | "CALOCOUNT_ALLOW_LOCAL"
@@ -13,7 +15,7 @@ export function getRuntimeEnv(): Env {
 }
 
 export function getEnvValue(name: StringEnvKey): string | undefined {
-  return getRuntimeEnv()[name];
+  return (getRuntimeEnv() as unknown as Record<string, string | undefined>)[name];
 }
 
 export function getEnvBinding<K extends "DB" | "PHOTOS">(

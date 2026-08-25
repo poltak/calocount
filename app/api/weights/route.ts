@@ -28,7 +28,7 @@ function parseLogicalDate(value: unknown): string {
 
 export async function PUT(request: Request): Promise<Response> {
   return withApiErrors(async () => {
-    const identity = requireApiIdentity(request);
+    const identity = await requireApiIdentity(request);
     const body = await parseJsonBody(request);
     const logicalDate = parseLogicalDate(body.logicalDate);
     const weightKg = optionalNumber(body.weightKg, "weightKg", { min: 1, max: 1_000 });

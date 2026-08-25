@@ -2,6 +2,10 @@
 CALOCOUNT_ALLOW_LOCAL=true
 CALOCOUNT_OWNER_KEY=local-owner
 
+# Cloudflare Access values used when CALOCOUNT_ALLOW_LOCAL=false.
+CALOCOUNT_ACCESS_TEAM_DOMAIN=
+CALOCOUNT_ACCESS_AUDIENCE=
+
 # Production allowlist. Set one or both as encrypted Worker values.
 CALOCOUNT_ALLOWED_EMAIL=
 CALOCOUNT_ALLOWED_USER_ID=

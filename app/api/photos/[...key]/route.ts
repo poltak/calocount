@@ -20,7 +20,7 @@ function safePhotoKey(value: string[] | string): string {
 
 export async function GET(request: Request, context: RouteContext): Promise<Response> {
   return withApiErrors(async () => {
-    const identity = requireApiIdentity(request);
+    const identity = await requireApiIdentity(request);
     const params = await context.params;
     let key: string;
     try {

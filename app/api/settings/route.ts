@@ -36,7 +36,7 @@ function publicSettings(value: Awaited<ReturnType<typeof getSettings>>) {
 
 export async function GET(request: Request): Promise<Response> {
   return withApiErrors(async () => {
-    const identity = requireApiIdentity(request);
+    const identity = await requireApiIdentity(request);
     const settings = await getSettings(getRequestDb(), identity.ownerKey);
     return jsonResponse({ settings: publicSettings(settings) });
   });
@@ -44,7 +44,7 @@ export async function GET(request: Request): Promise<Response> {
 
 export async function PATCH(request: Request): Promise<Response> {
   return withApiErrors(async () => {
-    const identity = requireApiIdentity(request);
+    const identity = await requireApiIdentity(request);
     const patch = parsePatch(await parseJsonBody(request));
     const db = getRequestDb();
     if (patch.activeAiProfileId) {

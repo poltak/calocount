@@ -18,7 +18,7 @@ function queryNumber(value: string | null, field: string): number | undefined {
 }
 export async function GET(request: Request): Promise<Response> {
   return withApiErrors(async () => {
-    const identity = requireApiIdentity(request);
+    const identity = await requireApiIdentity(request);
     const url = new URL(request.url);
     const entries = await listMeals(getRequestDb(), identity.ownerKey, {
       from: queryNumber(url.searchParams.get("from"), "from"),
@@ -32,7 +32,7 @@ export async function GET(request: Request): Promise<Response> {
 
 export async function POST(request: Request): Promise<Response> {
   return withApiErrors(async () => {
-    const identity = requireApiIdentity(request);
+    const identity = await requireApiIdentity(request);
     const input = parseMealInput(await parseJsonBody(request));
     const meal = await createMeal(getRequestDb(), identity.ownerKey, input);
     return jsonResponse({ meal: serialiseMeal(meal) }, { status: 201 });

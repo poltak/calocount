@@ -1,4 +1,12 @@
 import { getDb, getEnvBinding, getEnvValue } from "../../../db";
+import {
+  AccessJwtError,
+  accessIdentityFromClaims,
+  isOwnerAllowlistConfigured,
+  isOwnerIdentityAllowed,
+  localApiIdentity,
+  verifyAccessJwt,
+} from "./access-jwt";
 
 export class ApiError extends Error {
   constructor(
@@ -20,7 +28,7 @@ export type ApiIdentity = {
 function firstHeader(request: Request, names: string[]): string | null {
   for (const name of names) {
     const value = request.headers.get(name)?.trim();
-    if (value) return value;
+    if (value && value.length <= 512) return value;
   }
   return null;
 }
@@ -29,7 +37,7 @@ function firstHeader(request: Request, names: string[]): string | null {
  * Require a Cloudflare Access or Sites identity. Anonymous access is only
  * enabled when CALOCOUNT_ALLOW_LOCAL is explicitly set to "true".
  */
-export function requireApiIdentity(request: Request): ApiIdentity {
+export async function requireApiIdentity(request: Request): Promise<ApiIdentity> {
   const email = firstHeader(request, [
     "cf-access-authenticated-user-email",
     "oai-authenticated-user-email",
@@ -40,24 +48,55 @@ export function requireApiIdentity(request: Request): ApiIdentity {
   ]);
   const allowedEmail = getEnvValue("CALOCOUNT_ALLOWED_EMAIL")?.trim().toLowerCase();
   const allowedUserId = getEnvValue("CALOCOUNT_ALLOWED_USER_ID")?.trim();
+  const allowLocal = getEnvValue("CALOCOUNT_ALLOW_LOCAL") === "true";
 
-  if (!email && !userId) {
-    if (getEnvValue("CALOCOUNT_ALLOW_LOCAL") !== "true") {
+  if (allowLocal) {
+    if (!email && !userId && !allowedEmail && !allowedUserId) {
+      return localApiIdentity({ ownerKey: getEnvValue("CALOCOUNT_OWNER_KEY") });
+    }
+  } else {
+    if (!getEnvValue("CALOCOUNT_ACCESS_TEAM_DOMAIN")?.trim() || !getEnvValue("CALOCOUNT_ACCESS_AUDIENCE")?.trim()) {
+      throw new ApiError(503, "auth_unavailable", "Owner authentication is not configured.");
+    }
+    if (!isOwnerAllowlistConfigured({ allowedEmail, allowedUserId })) {
+      throw new ApiError(503, "auth_unavailable", "Owner authentication is not configured.");
+    }
+
+    let claims;
+    try {
+      claims = await verifyAccessJwt(request, {
+        teamDomain: getEnvValue("CALOCOUNT_ACCESS_TEAM_DOMAIN"),
+        audience: getEnvValue("CALOCOUNT_ACCESS_AUDIENCE"),
+      });
+    } catch (error) {
+      if (error instanceof AccessJwtError && error.code === "config") {
+        throw new ApiError(503, "auth_unavailable", "Owner authentication is not configured.");
+      }
+      if (error instanceof AccessJwtError && error.code === "jwks") {
+        throw new ApiError(503, "auth_unavailable", "Owner authentication is temporarily unavailable.");
+      }
       throw new ApiError(401, "unauthorized", "Sign-in is required.");
     }
+
+    const identity = accessIdentityFromClaims(claims);
+    if (!identity.email && !identity.userId) {
+      throw new ApiError(401, "unauthorized", "Sign-in is required.");
+    }
+    if (!isOwnerIdentityAllowed({ identity, allowedEmail, allowedUserId })) {
+      throw new ApiError(403, "forbidden", "This account is not allowed.");
+    }
+
+    return {
+      ownerKey: getEnvValue("CALOCOUNT_OWNER_KEY")?.trim() || identity.userId || identity.email || "owner",
+      userId: identity.userId,
+      email: identity.email,
+    };
   }
-  if (allowedEmail && email?.toLowerCase() !== allowedEmail) {
-    throw new ApiError(403, "forbidden", "This account is not allowed.");
-  }
-  if (allowedUserId && userId !== allowedUserId) {
+  if (!isOwnerIdentityAllowed({ identity: { email, userId }, allowedEmail, allowedUserId })) {
     throw new ApiError(403, "forbidden", "This account is not allowed.");
   }
 
-  return {
-    ownerKey: getEnvValue("CALOCOUNT_OWNER_KEY")?.trim() || userId || email || "local",
-    userId,
-    email,
-  };
+  return localApiIdentity({ ownerKey: getEnvValue("CALOCOUNT_OWNER_KEY"), userId, email });
 }
 
 export function jsonResponse(data: unknown, init?: ResponseInit): Response {

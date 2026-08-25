@@ -14,7 +14,7 @@ type RouteContext = { params: Promise<{ id: string }> | { id: string } };
 
 export async function POST(request: Request, context: RouteContext): Promise<Response> {
   return withApiErrors(async () => {
-    const identity = requireApiIdentity(request);
+    const identity = await requireApiIdentity(request);
     const id = (await context.params).id?.trim();
     if (!id || id.length > 120) throw new ApiError(400, "invalid_id", "The meal ID is invalid.");
     const body = await parseJsonBody(request);

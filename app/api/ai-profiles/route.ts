@@ -176,7 +176,7 @@ function publicProfile(profile: Awaited<ReturnType<typeof getAiProfile>>) {
 
 export async function GET(request: Request): Promise<Response> {
   return withApiErrors(async () => {
-    const identity = requireApiIdentity(request);
+    const identity = await requireApiIdentity(request);
     const profiles = await listAiProfiles(getRequestDb(), identity.ownerKey);
     return jsonResponse({ profiles: profiles.map((profile) => publicProfile(profile)) });
   });
@@ -184,7 +184,7 @@ export async function GET(request: Request): Promise<Response> {
 
 export async function POST(request: Request): Promise<Response> {
   return withApiErrors(async () => {
-    const identity = requireApiIdentity(request);
+    const identity = await requireApiIdentity(request);
     const parsed = parseProfile(await parseJsonBody(request), false);
     const input: AiProfileInput = { ...parsed, primaryModel: parsed.primaryModel ?? "" };
     const profile = await createAiProfile(getRequestDb(), identity.ownerKey, input);
@@ -194,7 +194,7 @@ export async function POST(request: Request): Promise<Response> {
 
 export async function PATCH(request: Request): Promise<Response> {
   return withApiErrors(async () => {
-    const identity = requireApiIdentity(request);
+    const identity = await requireApiIdentity(request);
     const body = await parseJsonBody(request);
     const profileInput = parseProfile(body, true);
     const profileId = profileInput.id;

@@ -20,7 +20,7 @@ async function mealId(context: RouteContext): Promise<string> {
 }
 export async function GET(request: Request, context: RouteContext): Promise<Response> {
   return withApiErrors(async () => {
-    const identity = requireApiIdentity(request);
+    const identity = await requireApiIdentity(request);
     const meal = await findMeal(getRequestDb(), identity.ownerKey, await mealId(context));
     if (!meal) throw new ApiError(404, "not_found", "Meal not found.");
     return jsonResponse({ meal: serialiseMeal(meal) });
@@ -29,7 +29,7 @@ export async function GET(request: Request, context: RouteContext): Promise<Resp
 
 export async function PATCH(request: Request, context: RouteContext): Promise<Response> {
   return withApiErrors(async () => {
-    const identity = requireApiIdentity(request);
+    const identity = await requireApiIdentity(request);
     const patch = parseMealInput(await parseJsonBody(request), true);
     const meal = await updateMeal(getRequestDb(), identity.ownerKey, await mealId(context), patch, "dashboard");
     if (!meal) throw new ApiError(404, "not_found", "Meal not found.");
@@ -39,7 +39,7 @@ export async function PATCH(request: Request, context: RouteContext): Promise<Re
 
 export async function DELETE(request: Request, context: RouteContext): Promise<Response> {
   return withApiErrors(async () => {
-    const identity = requireApiIdentity(request);
+    const identity = await requireApiIdentity(request);
     const id = await mealId(context);
     const meal = await deleteMeal(getRequestDb(), identity.ownerKey, id);
     if (!meal) throw new ApiError(404, "not_found", "Meal not found.");
