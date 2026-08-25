@@ -16,8 +16,8 @@ function logAccessJwtFailure(error: unknown): void {
   console.warn(JSON.stringify({ event: ACCESS_JWT_FAILURE_EVENT, code, reason }));
 }
 
-function logAccessConfigurationFailure(): void {
-  logAccessJwtFailure(new AccessJwtError("config", "config_missing"));
+function logAccessConfigurationFailure(reason: "access_settings_missing" | "owner_allowlist_missing"): void {
+  logAccessJwtFailure(new AccessJwtError("config", reason));
 }
 
 export class ApiError extends Error {
@@ -75,11 +75,11 @@ export async function requireApiIdentity(request: Request): Promise<ApiIdentity>
     }
   } else {
     if (!getEnvValue("CALOCOUNT_ACCESS_TEAM_DOMAIN")?.trim() || !getEnvValue("CALOCOUNT_ACCESS_AUDIENCE")?.trim()) {
-      logAccessConfigurationFailure();
+      logAccessConfigurationFailure("access_settings_missing");
       throw new ApiError(503, "auth_unavailable", "Owner authentication is not configured.");
     }
     if (!isOwnerAllowlistConfigured({ allowedEmail, allowedUserId })) {
-      logAccessConfigurationFailure();
+      logAccessConfigurationFailure("owner_allowlist_missing");
       throw new ApiError(503, "auth_unavailable", "Owner authentication is not configured.");
     }
 

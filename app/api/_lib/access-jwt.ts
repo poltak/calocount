@@ -14,6 +14,8 @@ export type AccessJwtFailureCode = "config" | "token" | "jwks";
 
 export type AccessJwtFailureReason =
   | "config_missing"
+  | "access_settings_missing"
+  | "owner_allowlist_missing"
   | "config_invalid"
   | "jwks_fetch_failed"
   | "jwks_http_error"

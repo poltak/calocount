@@ -328,6 +328,9 @@ test("Access JWT diagnostics contain only the stable event, code, and reason", a
     source,
     /console\.warn\(JSON\.stringify\(\{ event: ACCESS_JWT_FAILURE_EVENT, code, reason \}\)\);/,
   );
+  assert.match(source, /logAccessConfigurationFailure\("access_settings_missing"\)/);
+  assert.match(source, /logAccessConfigurationFailure\("owner_allowlist_missing"\)/);
+  assert.doesNotMatch(source, /logAccessConfigurationFailure\(\)/);
   assert.doesNotMatch(
     source,
     /console\.warn\(JSON\.stringify\(\{[^}]*\b(?:request|token|headers|claims|email|userId|url|status|message)\b/iu,
