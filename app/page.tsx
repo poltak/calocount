@@ -8,6 +8,7 @@ import {
   calculateLoggingStreak,
   calculateMacroPercentages,
   calculateTargetPercent,
+  calculateWeightChartScale,
   compareAverageToTarget,
   getAdjacentDayKey,
 } from "./dashboard-calculations";
@@ -514,6 +515,21 @@ export default function Home() {
     () => calculateCalorieChartScale(chartValues.map((day) => day.value), activeCalorieTarget),
     [activeCalorieTarget, chartValues],
   );
+
+  const weightChartValues = useMemo(
+    () => days.map((day) => ({
+      label: `${day.weekday.slice(0, 3)} ${day.shortDate}`,
+      value: day.weight?.weightKg ?? null,
+    })),
+    [days],
+  );
+
+  const weightChartScale = useMemo(
+    () => calculateWeightChartScale(weightChartValues.map((day) => day.value)),
+    [weightChartValues],
+  );
+
+  const hasWeightData = weightChartValues.some((day) => day.value !== null);
 
   const averageCalories = useMemo(
     () => chartValues.length === 0 ? 0 : Math.round(chartValues.reduce((total, day) => total + day.value, 0) / chartValues.length),
@@ -1110,6 +1126,29 @@ export default function Home() {
                 <div className="bars">{chartValues.map((day, index) => <div className="bar-column" key={day.label}><div className="bar-value">{day.value.toLocaleString()}</div><div className="bar" style={{ height: `${Math.max(12, chartScale.valueHeightPercents[index] ?? 0)}%` }} /><span>{day.label}</span></div>)}</div>
               </div>
             </div>
+          </section>
+
+          <section className="panel chart-panel weight-trend-panel" aria-labelledby="weight-trend-title">
+            <div className="panel-heading">
+              <div><p className="eyebrow">A quick view</p><h2 id="weight-trend-title">Weight trend</h2></div>
+              <span className="chart-range">Past 7 days</span>
+            </div>
+            {hasWeightData ? <>
+              <div className="chart-legend"><span><i className="legend-swatch weight-swatch" /> Weight (kg)</span></div>
+              <div className="bar-chart weight-chart" role="img" aria-label="Recorded weight for the past seven days in kilograms; missing days are shown as gaps">
+                <div className="chart-y-axis" aria-hidden="true">{weightChartScale.tickValues.map((value) => <span key={value}>{formatWeight(value)}</span>)}</div>
+                <div className="chart-plot">
+                  <div className="grid-line line-one" /><div className="grid-line line-two" /><div className="grid-line line-three" />
+                  <div className="bars weight-bars">{weightChartValues.map((day, index) => <div className={`bar-column weight-column${day.value === null ? " missing" : ""}`} key={day.label}>
+                    {day.value === null ? <span className="weight-gap" aria-hidden="true">—</span> : <>
+                      <div className="bar-value">{formatWeight(day.value)} kg</div>
+                      <div className="bar weight-bar" style={{ height: `${Math.max(8, weightChartScale.valueHeightPercents[index] ?? 0)}%` }} />
+                    </>}
+                    <span>{day.label}</span>
+                  </div>)}</div>
+                </div>
+              </div>
+            </> : <div className="chart-empty" role="status"><strong>No weight records for the past seven days</strong><span>Record a daily weight to see your trend.</span></div>}
           </section>
 
           <section className="panel weight-panel" aria-labelledby="weight-title">

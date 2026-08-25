@@ -30,6 +30,13 @@ export type CalorieChartScale = {
   tickValues: readonly number[];
 };
 
+export type WeightChartScale = {
+  minWeightKg: number;
+  maxWeightKg: number;
+  valueHeightPercents: readonly (number | null)[];
+  tickValues: readonly number[];
+};
+
 const caloriesPerGram = {
   carbs: 4,
   protein: 4,
@@ -103,6 +110,42 @@ export function calculateCalorieChartScale(values: readonly number[], target: nu
     targetHeightPercent,
     targetLineTopPercent: 100 - targetHeightPercent,
     valueHeightPercents: safeValues.map(toHeightPercent),
+    tickValues,
+  };
+}
+
+export function calculateWeightChartScale(values: readonly (number | null)[]): WeightChartScale {
+  const finiteValues = values.filter((value): value is number => (
+    typeof value === "number" && Number.isFinite(value) && value > 0
+  ));
+  if (finiteValues.length === 0) {
+    return {
+      minWeightKg: 0,
+      maxWeightKg: 0,
+      valueHeightPercents: values.map(() => null),
+      tickValues: [],
+    };
+  }
+
+  const observedMin = Math.min(...finiteValues);
+  const observedMax = Math.max(...finiteValues);
+  const padding = Math.max((observedMax - observedMin) * 0.2, 0.5);
+  const minWeightKg = Math.max(0, Math.floor((observedMin - padding) * 10) / 10);
+  const maxWeightKg = Math.ceil((observedMax + padding) * 10) / 10;
+  const range = Math.max(maxWeightKg - minWeightKg, 1);
+  const valueHeightPercents = values.map((value) => (
+    typeof value === "number" && Number.isFinite(value) && value > 0
+      ? ((value - minWeightKg) / range) * 100
+      : null
+  ));
+  const tickValues = [0, 0.25, 0.5, 0.75, 1].map((ratio) => (
+    Math.round((minWeightKg + range * ratio) * 10) / 10
+  )).reverse();
+
+  return {
+    minWeightKg,
+    maxWeightKg,
+    valueHeightPercents,
     tickValues,
   };
 }

@@ -87,6 +87,21 @@ test("daily weight supports add and edit with kilograms and an automatic saved t
   assert.match(repository, /recordedAt: timestamp/);
 });
 
+test("weight trend plots recorded days and keeps gaps visible", async () => {
+  const [page, css] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(page, /<h2 id="weight-trend-title">Weight trend<\/h2>/);
+  assert.match(page, /value: day\.weight\?\.weightKg \?\? null/);
+  assert.match(page, /Recorded weight for the past seven days in kilograms; missing days are shown as gaps/);
+  assert.match(page, /No weight records for the past seven days/);
+  assert.match(page, /weightChartScale\.valueHeightPercents\[index\]/);
+  assert.match(css, /\.weight-bar\s*{/);
+  assert.match(css, /\.chart-empty\s*{/);
+});
+
 test("dashboard section tabs use hash-backed active state", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
 

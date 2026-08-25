@@ -606,6 +606,7 @@ input:focus-visible {
 }
 
 .calorie-swatch { background: var(--orange); }
+.weight-swatch { background: var(--green); }
 
 .legend-line {
   width: 13px;
@@ -716,6 +717,45 @@ input:focus-visible {
 }
 
 .bar-column:hover .bar-value { opacity: 1; }
+
+.weight-bar {
+  min-height: 8px;
+  background: linear-gradient(180deg, #a4d9b7 0%, #5da982 100%);
+  box-shadow: 0 4px 12px rgb(99 187 139 / 13%);
+}
+
+.weight-column:nth-child(5) .weight-bar { background: linear-gradient(180deg, #b8e7c6 0%, #72ba91 100%); }
+
+.weight-gap {
+  height: 21px;
+  padding-top: 8px;
+  color: #65717e;
+  font-size: 10px;
+}
+
+.chart-empty {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  min-height: 215px;
+  margin-top: 9px;
+  padding: 24px;
+  border: 1px dashed #354150;
+  border-radius: 9px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.chart-empty strong {
+  color: var(--muted-strong);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.chart-empty span {
+  margin-top: 6px;
+  font-size: 10px;
+}
 
 .ai-note {
   position: relative;

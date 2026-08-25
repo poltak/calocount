@@ -6,6 +6,7 @@ import {
   calculateLoggingStreak,
   calculateMacroPercentages,
   calculateTargetPercent,
+  calculateWeightChartScale,
   compareAverageToTarget,
   getAdjacentDayKey,
 } from "../app/dashboard-calculations";
@@ -39,6 +40,24 @@ test("calorie chart scale leaves headroom and aligns dynamic ticks with grid lin
     const tickValue = scale.tickValues[index + 1];
     assert.ok(Math.abs(100 - (tickValue / scale.maxCalories) * 100 - topPercent) < 1e-9);
   });
+});
+
+test("weight chart scale keeps missing days as gaps and uses recorded values", () => {
+  const scale = calculateWeightChartScale([73.4, null, 72.8]);
+
+  assert.equal(scale.valueHeightPercents.length, 3);
+  assert.equal(scale.valueHeightPercents[1], null);
+  assert.ok((scale.valueHeightPercents[0] ?? 0) > (scale.valueHeightPercents[2] ?? 0));
+  assert.equal(scale.tickValues.length, 5);
+  assert.ok(scale.minWeightKg < 72.8);
+  assert.ok(scale.maxWeightKg > 73.4);
+});
+
+test("empty weight chart scale has no plotted values", () => {
+  const scale = calculateWeightChartScale([null, null]);
+
+  assert.deepEqual(scale.valueHeightPercents, [null, null]);
+  assert.deepEqual(scale.tickValues, []);
 });
 
 test("macro percentages use calorie values and total 100", () => {
