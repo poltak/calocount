@@ -1,11 +1,26 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 import { inflateSync } from "node:zlib";
-import manifest from "../app/manifest";
 
 const projectRoot = fileURLToPath(new URL("..", import.meta.url));
+
+type PwaManifest = {
+  name?: string;
+  short_name?: string;
+  start_url?: string;
+  scope?: string;
+  display?: string;
+  theme_color?: string;
+  background_color?: string;
+  icons?: Array<{
+    src?: string;
+    sizes?: string;
+    type?: string;
+    purpose?: string;
+  }>;
+};
 
 async function readPngDimensions(path: string) {
   const file = await readFile(path);
@@ -40,7 +55,9 @@ async function readPngCornerRgb(path: string) {
 }
 
 test("manifest has the fields required for mobile installation", async () => {
-  const appManifest = manifest();
+  const appManifest = JSON.parse(
+    await readFile(`${projectRoot}/public/manifest.webmanifest`, "utf8"),
+  ) as PwaManifest;
 
   assert.equal(appManifest.name, "Calocount — simple calorie tracking");
   assert.equal(appManifest.short_name, "Calocount");
@@ -84,4 +101,16 @@ test("the app registers and serves a network-only service worker", async () => {
   assert.match(serviceWorker, /event\.respondWith\(fetch\(request\)\)/);
   assert.match(serviceWorker, /url\.pathname\.startsWith\("\/api\/"\)/);
   assert.doesNotMatch(serviceWorker, /caches\.(open|match|put)/);
+});
+
+test("layout emits one credentialed manifest link for Access-protected installs", async () => {
+  const layout = await readFile(`${projectRoot}/app/layout.tsx`, "utf8");
+
+  assert.equal((layout.match(/rel="manifest"/g) ?? []).length, 1);
+  assert.match(
+    layout,
+    /<link rel="manifest" href="\/manifest\.webmanifest" crossOrigin="use-credentials" \/>/,
+  );
+  assert.doesNotMatch(layout, /^\s*manifest\s*:/m);
+  await assert.rejects(access(`${projectRoot}/app/manifest.ts`));
 });

@@ -23,7 +23,6 @@ export async function generateMetadata(): Promise<Metadata> {
     title,
     description,
     applicationName: "Calocount",
-    manifest: "/manifest.webmanifest",
     icons: {
       icon: [
         { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
@@ -61,6 +60,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <link rel="manifest" href="/manifest.webmanifest" crossOrigin="use-credentials" />
+      </head>
       <body>
         <PwaRegistration />
         {children}
