@@ -6,6 +6,12 @@ CALOCOUNT_OWNER_KEY=local-owner
 CALOCOUNT_ACCESS_TEAM_DOMAIN=
 CALOCOUNT_ACCESS_AUDIENCE=
 
-# Production allowlist. Set one or both as encrypted Worker values.
+# Preferred production owner email secret. Set it with:
+# npx wrangler secret put CALOCOUNT_OWNER_EMAIL
+CALOCOUNT_OWNER_EMAIL=
+
+# Legacy fallback for older local or deployed configurations. Do not use this
+# name for a new production secret when the dashboard has an existing variable
+# binding with the same name.
 CALOCOUNT_ALLOWED_EMAIL=
 CALOCOUNT_ALLOWED_USER_ID=

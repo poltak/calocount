@@ -33,6 +33,13 @@ function firstHeader(request: Request, names: string[]): string | null {
   return null;
 }
 
+function configuredOwnerEmail(): string | undefined {
+  // Use the encrypted production secret first. The old name remains a fallback
+  // for local development and deployments that still use the older config.
+  const value = getEnvValue("CALOCOUNT_OWNER_EMAIL")?.trim() || getEnvValue("CALOCOUNT_ALLOWED_EMAIL")?.trim();
+  return value?.toLowerCase();
+}
+
 /**
  * Require a Cloudflare Access or Sites identity. Anonymous access is only
  * enabled when CALOCOUNT_ALLOW_LOCAL is explicitly set to "true".
@@ -46,7 +53,7 @@ export async function requireApiIdentity(request: Request): Promise<ApiIdentity>
     "cf-access-authenticated-user-id",
     "oai-authenticated-user-id",
   ]);
-  const allowedEmail = getEnvValue("CALOCOUNT_ALLOWED_EMAIL")?.trim().toLowerCase();
+  const allowedEmail = configuredOwnerEmail();
   const allowedUserId = getEnvValue("CALOCOUNT_ALLOWED_USER_ID")?.trim();
   const allowLocal = getEnvValue("CALOCOUNT_ALLOW_LOCAL") === "true";
 

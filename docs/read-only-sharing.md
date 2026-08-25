@@ -27,11 +27,11 @@ Set the following values on the dashboard Worker. Keep the owner allowlist value
 | --- | --- | --- |
 | `CALOCOUNT_ACCESS_TEAM_DOMAIN` | Worker variable | The Cloudflare Access team domain, without a URL path. |
 | `CALOCOUNT_ACCESS_AUDIENCE` | Worker variable | The Access application audience (`aud`) for the protected Calocount app. |
-| `CALOCOUNT_ALLOWED_EMAIL` | Encrypted Worker secret | The owner email, or use the user ID secret below. |
+| `CALOCOUNT_OWNER_EMAIL` | Encrypted Worker secret | The owner email, or use the user ID secret below. |
 | `CALOCOUNT_ALLOWED_USER_ID` | Encrypted Worker secret | The owner Access user ID, or use the email secret above. |
 | `CALOCOUNT_ALLOW_LOCAL` | Worker variable | `false` in production. `true` is for local development only. |
 
-Configure at least one of `CALOCOUNT_ALLOWED_EMAIL` and `CALOCOUNT_ALLOWED_USER_ID`. Use the value that is stable in the Access identity for the owner. If both are set, both checks must match. Keep `CALOCOUNT_OWNER_KEY` stable for the existing D1 data owner; changing it can make existing data appear to be missing.
+Configure at least one of `CALOCOUNT_OWNER_EMAIL` and `CALOCOUNT_ALLOWED_USER_ID`. Use the value that is stable in the Access identity for the owner. If both are set, both checks must match. `CALOCOUNT_ALLOWED_EMAIL` is a legacy fallback for local or older deployments; use `CALOCOUNT_OWNER_EMAIL` for a new production secret. Keep `CALOCOUNT_OWNER_KEY` stable for the existing D1 data owner; changing it can make existing data appear to be missing.
 
 The Access team domain and audience are not secrets, but they must match the Access app that protects the owner dashboard. The Worker validates the JWT against the Access public keys. The old pattern of trusting `Cf-Access-Authenticated-User-Email` or another identity header alone is not an acceptable production configuration.
 
@@ -68,7 +68,7 @@ Keep the existing whole-app Cloudflare Access protection in place until the appl
 
 1. Create or use the feature branch. Review the migration, API projection, auth changes, and read-only UI.
 2. Apply the additive D1 migration to the remote `calocount` database. Do this while the existing Access application still protects every app path.
-3. Set `CALOCOUNT_ALLOWED_EMAIL` or `CALOCOUNT_ALLOWED_USER_ID` as an encrypted Worker secret. Set the Access variables and `CALOCOUNT_ALLOW_LOCAL=false`.
+3. Set `CALOCOUNT_OWNER_EMAIL` or `CALOCOUNT_ALLOWED_USER_ID` as an encrypted Worker secret. Set the Access variables and `CALOCOUNT_ALLOW_LOCAL=false`.
 4. Build and deploy the dashboard Worker.
 5. Sign in as the owner and verify the normal dashboard, private APIs, photo delivery, and write flows. Verify that an anonymous request to `/share/<token>` and `/api/share/<token>/summary` is still protected before changing Access.
 6. In Cloudflare Access, add narrow public Bypass applications or path rules for `/share/*` and `/api/share/*`. Keep the existing root application and its owner policy. More-specific public paths must not make `/`, `/api/*`, or `/api/share-links*` public.
