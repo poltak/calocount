@@ -953,8 +953,8 @@ export default function Home() {
         <article className="summary-card protein-card">
           <div className="summary-copy">
             <div className="card-label-row"><span className="metric-dot protein-dot" aria-hidden="true" /><span className="card-label">Protein</span></div>
-            <p className="metric-value">{totalProtein}g <span>/ {activeProteinTarget}g</span></p>
-            <p className="metric-subtitle">{remainingProtein >= 0 ? `${formatNumber(remainingProtein)}g left to reach your target` : `${Math.abs(remainingProtein)}g above target`}</p>
+            <p className="metric-value">{formatNumber(totalProtein)}g <span>/ {activeProteinTarget}g</span></p>
+            <p className="metric-subtitle">{remainingProtein >= 0 ? `${formatNumber(remainingProtein)}g left to reach your target` : `${formatNumber(Math.abs(remainingProtein))}g above target`}</p>
           </div>
           <div className="metric-ring protein-ring" style={{ "--progress": `${calculateTargetPercent(totalProtein, activeProteinTarget)}%` } as CSSProperties} aria-label={`${calculateTargetPercent(totalProtein, activeProteinTarget)} percent of protein target`} role="img"><strong>{calculateTargetPercent(totalProtein, activeProteinTarget)}%</strong></div>
         </article>
@@ -1068,7 +1068,7 @@ export default function Home() {
                 </div> : null}
               </div>)}
             </div> : <div className="empty-meals"><span className="empty-icon" aria-hidden="true">＋</span><strong>No meals logged for {selectedDay.weekday}</strong><span>Tap “Add meal” to record what you ate.</span></div>}
-            <div className="meal-total"><span>Total for {selectedDay.weekday}</span><strong>{formatNumber(totalCalories)} <small>kcal</small> <i /> {totalProtein}g <small>protein</small></strong></div>
+            <div className="meal-total"><span>Total for {selectedDay.weekday}</span><strong>{formatNumber(totalCalories)} <small>kcal</small> <i /> {formatNumber(totalProtein)}g <small>protein</small></strong></div>
           </section>
         </section>
 
