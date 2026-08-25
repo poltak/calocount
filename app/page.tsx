@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, FormEvent, PointerEvent as ReactPointerEvent } from "react";
 
 import {
@@ -94,7 +94,7 @@ type DashboardSummary = {
   recentWeights: DailyWeight[];
 };
 
-type DataMode = "loading" | "live" | "demo";
+type DataMode = "loading" | "live" | "demo" | "error";
 type DashboardSection = "today" | "meals" | "trend" | "macros";
 type MealSwipeStart = {
   mealId: string;
@@ -105,6 +105,20 @@ type MealSwipeStart = {
 
 const calorieTarget = 2400;
 const proteinTarget = 160;
+
+type DashboardProps = {
+  readOnly?: boolean;
+  shareToken?: string;
+};
+
+type ShareLink = {
+  id: string;
+  label: string | null;
+  createdAt: string | null;
+  expiresAt: string | null;
+  revokedAt: string | null;
+  status: "active" | "revoked" | "expired";
+};
 
 // This dataset is used only when the local API is unauthenticated or has no D1 binding.
 const demoDays: Day[] = [
@@ -339,6 +353,11 @@ function parseDashboardSummary(value: unknown): DashboardSummary | null {
   };
 }
 
+function parseDashboardPayload(value: unknown) {
+  const record = asRecord(value);
+  return parseDashboardSummary(record?.summary ?? record?.dashboard ?? value);
+}
+
 function dateKeyFromTimestamp(timestamp: number) {
   return new Date(timestamp).toISOString().slice(0, 10);
 }
@@ -376,7 +395,7 @@ function mealKind(value: string | null): Meal["kind"] {
   return "snack";
 }
 
-function mapRemoteMeal(meal: SerializedMeal): Meal {
+function mapRemoteMeal(meal: SerializedMeal, includePhotos = true): Meal {
   const kind = mealKind(meal.mealType);
   const itemNames = meal.items.map((item) => item.name).filter(Boolean);
   const name = itemNames[0] ?? meal.caption.split(",")[0]?.trim() ?? `${kind[0].toUpperCase()}${kind.slice(1)} meal`;
@@ -389,13 +408,13 @@ function mapRemoteMeal(meal: SerializedMeal): Meal {
     protein: meal.totalProteinG,
     carbs: meal.totalCarbsG,
     fat: meal.totalFatG,
-    photoKey: meal.photoKey,
-    photoMimeType: meal.photoMimeType,
+    photoKey: includePhotos ? meal.photoKey : null,
+    photoMimeType: includePhotos ? meal.photoMimeType : null,
     kind,
   };
 }
 
-function buildLiveDays(summary: DashboardSummary): Day[] {
+function buildLiveDays(summary: DashboardSummary, includePhotos = true): Day[] {
   const summaryDate = new Date(`${summary.date}T12:00:00.000Z`);
   const mealsByDate = new Map<string, Meal[]>();
   const weightsByDate = new Map(
@@ -404,7 +423,7 @@ function buildLiveDays(summary: DashboardSummary): Day[] {
   for (const serializedMeal of summary.recentMeals) {
     const key = dateKeyFromTimestamp(serializedMeal.consumedAt);
     const meals = mealsByDate.get(key) ?? [];
-    meals.push(mapRemoteMeal(serializedMeal));
+    meals.push(mapRemoteMeal(serializedMeal, includePhotos));
     mealsByDate.set(key, meals);
   }
   return Array.from({ length: 7 }, (_, index) => {
@@ -466,7 +485,64 @@ function parseSettingsTargets(value: unknown) {
   };
 }
 
-export default function Home() {
+function parseShareLink(value: unknown): ShareLink | null {
+  const record = asRecord(value);
+  if (!record || typeof record.id !== "string") return null;
+  const expiresAt = typeof record.expiresAt === "string" ? record.expiresAt : null;
+  const revokedAt = typeof record.revokedAt === "string" ? record.revokedAt : null;
+  const suppliedStatus = record.status === "active" || record.status === "revoked" || record.status === "expired"
+    ? record.status
+    : null;
+  const status = revokedAt
+    ? "revoked"
+    : expiresAt && Date.parse(expiresAt) <= Date.now()
+      ? "expired"
+      : suppliedStatus ?? "active";
+  return {
+    id: record.id,
+    label: typeof record.label === "string" && record.label.trim() ? record.label : null,
+    createdAt: typeof record.createdAt === "string" ? record.createdAt : null,
+    expiresAt,
+    revokedAt,
+    status,
+  };
+}
+
+function parseShareLinksResponse(value: unknown): ShareLink[] {
+  const record = asRecord(value);
+  const values = Array.isArray(value)
+    ? value
+    : Array.isArray(record?.links)
+      ? record.links
+      : Array.isArray(record?.shareLinks)
+        ? record.shareLinks
+        : [];
+  return values.flatMap((link) => {
+    const parsed = parseShareLink(link);
+    return parsed ? [parsed] : [];
+  });
+}
+
+function shareLinkFromCreateResponse(value: unknown): ShareLink | null {
+  const record = asRecord(value);
+  return parseShareLink(record?.link ?? record?.shareLink ?? value);
+}
+
+function shareUrlFromCreateResponse(value: unknown): string | null {
+  const record = asRecord(value);
+  const linkRecord = asRecord(record?.link ?? record?.shareLink);
+  const candidates = [record?.url, record?.shareUrl, linkRecord?.url, linkRecord?.shareUrl];
+  return candidates.find((candidate): candidate is string => typeof candidate === "string" && candidate.startsWith("http")) ?? null;
+}
+
+function formatShareLinkDate(value: string | null) {
+  if (!value) return "No expiry";
+  const timestamp = Date.parse(value);
+  if (!Number.isFinite(timestamp)) return "Date unavailable";
+  return new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(new Date(timestamp));
+}
+
+export function Dashboard({ readOnly = false, shareToken }: DashboardProps) {
   const [days, setDays] = useState(demoDays);
   const [selectedDayKey, setSelectedDayKey] = useState<DayKey>("thu");
   const [editingMealId, setEditingMealId] = useState<string | null>(null);
@@ -477,6 +553,16 @@ export default function Home() {
   const [weightSaving, setWeightSaving] = useState(false);
   const [showAllDays, setShowAllDays] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showShareLinks, setShowShareLinks] = useState(false);
+  const [shareLinks, setShareLinks] = useState<ShareLink[]>([]);
+  const [shareLinksLoading, setShareLinksLoading] = useState(false);
+  const [shareLinksError, setShareLinksError] = useState<string | null>(null);
+  const [shareLabel, setShareLabel] = useState("");
+  const [shareExpiry, setShareExpiry] = useState("");
+  const [shareCreating, setShareCreating] = useState(false);
+  const [shareRevokingId, setShareRevokingId] = useState<string | null>(null);
+  const [createdShareUrl, setCreatedShareUrl] = useState<string | null>(null);
+  const [shareCopyState, setShareCopyState] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<DashboardSection>("today");
   const [settingsDraft, setSettingsDraft] = useState({ calories: String(calorieTarget), proteinG: String(proteinTarget) });
   const [settingsLoading, setSettingsLoading] = useState(false);
@@ -485,7 +571,9 @@ export default function Home() {
   const settingsReadVersion = useRef(0);
   const [dataMode, setDataMode] = useState<DataMode>("loading");
   const [targets, setTargets] = useState({ calories: calorieTarget, proteinG: proteinTarget });
-  const [dataMessage, setDataMessage] = useState<string | null>("Loading your saved log — local demo data is visible until it arrives.");
+  const [dataMessage, setDataMessage] = useState<string | null>(readOnly
+    ? "Loading the shared log…"
+    : "Loading your saved log — local demo data is visible until it arrives.");
   const [actionState, setActionState] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [deletingMealId, setDeletingMealId] = useState<string | null>(null);
@@ -495,6 +583,9 @@ export default function Home() {
   const weightSaveInFlight = useRef(false);
   const mealSwipeRef = useRef<MealSwipeStart | null>(null);
   const previewCloseRef = useRef<HTMLButtonElement>(null);
+  const shareListInFlight = useRef(false);
+  const shareCreateInFlight = useRef(false);
+  const shareRevokeInFlight = useRef<string | null>(null);
   const actionInProgress = Boolean(actionState?.endsWith("…"));
 
   const selectedDay = days.find((day) => day.key === selectedDayKey) ?? days[4];
@@ -565,22 +656,32 @@ export default function Home() {
     let cancelled = false;
     async function loadDashboard() {
       try {
-        const response = await fetch("/api/dashboard/summary", { cache: "no-store" });
+        const endpoint = shareToken
+          ? `/api/share/${encodeURIComponent(shareToken)}/summary`
+          : "/api/dashboard/summary";
+        const response = await fetch(endpoint, { cache: "no-store" });
         if (!response.ok) {
           if (!cancelled) {
-            setDataMode("demo");
-            setDataMessage(response.status === 503
-              ? "Demo mode — no D1 database binding is available, so changes stay local."
-              : response.status === 401
-                ? "Demo mode — sign in to load your saved meals. Changes stay local for now."
-                : "Demo mode — saved data is unavailable, so changes stay local.");
+            if (readOnly) {
+              setDataMode("error");
+              setDataMessage(response.status === 404
+                ? "This shared link is not available. It may be revoked or expired."
+                : "The shared log could not be loaded. Try the link again later.");
+            } else {
+              setDataMode("demo");
+              setDataMessage(response.status === 503
+                ? "Demo mode — no D1 database binding is available, so changes stay local."
+                : response.status === 401
+                  ? "Demo mode — sign in to load your saved meals. Changes stay local for now."
+                  : "Demo mode — saved data is unavailable, so changes stay local.");
+            }
           }
           return;
         }
-        const parsed = parseDashboardSummary(await response.json());
+        const parsed = parseDashboardPayload(await response.json());
         if (!parsed) throw new Error("invalid_dashboard_summary");
         if (cancelled) return;
-        const liveDays = buildLiveDays(parsed);
+        const liveDays = buildLiveDays(parsed, !readOnly);
         setTargets({
           calories: parsed.targets.calories ?? calorieTarget,
           proteinG: parsed.targets.proteinG ?? proteinTarget,
@@ -591,8 +692,10 @@ export default function Home() {
         setDataMessage(null);
       } catch {
         if (!cancelled) {
-          setDataMode("demo");
-          setDataMessage("Demo mode — the saved log could not be reached, so changes stay local.");
+          setDataMode(readOnly ? "error" : "demo");
+          setDataMessage(readOnly
+            ? "The shared log could not be loaded. Try the link again later."
+            : "Demo mode — the saved log could not be reached, so changes stay local.");
         }
       }
     }
@@ -600,7 +703,7 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [readOnly, shareToken]);
 
   useEffect(() => {
     function syncSectionFromHash() {
@@ -632,6 +735,7 @@ export default function Home() {
   }, [previewMeal]);
 
   function handleMealPointerDown(mealId: string, event: ReactPointerEvent<HTMLDivElement>) {
+    if (readOnly) return;
     if (event.pointerType === "mouse" && event.button !== 0) return;
     mealSwipeRef.current = {
       mealId,
@@ -643,6 +747,7 @@ export default function Home() {
   }
 
   function finishMealPointer(mealId: string, event: ReactPointerEvent<HTMLDivElement>) {
+    if (readOnly) return;
     const swipe = mealSwipeRef.current;
     if (!swipe || swipe.mealId !== mealId || swipe.pointerId !== event.pointerId) return;
     mealSwipeRef.current = null;
@@ -659,6 +764,7 @@ export default function Home() {
   }
 
   function cancelMealPointer(mealId: string, event: ReactPointerEvent<HTMLDivElement>) {
+    if (readOnly) return;
     const swipe = mealSwipeRef.current;
     if (!swipe || swipe.mealId !== mealId || swipe.pointerId !== event.pointerId) return;
     mealSwipeRef.current = null;
@@ -677,6 +783,7 @@ export default function Home() {
   }
 
   function updateMeal(mealId: string, changes: Partial<Meal>) {
+    if (readOnly) return;
     setDays((currentDays) =>
       currentDays.map((day) => {
         if (day.key !== selectedDayKey) return day;
@@ -728,6 +835,7 @@ export default function Home() {
   }
 
   async function saveMeal(mealId: string) {
+    if (readOnly) return;
     const meal = days.flatMap((day) => day.meals).find((entry) => entry.id === mealId);
     if (!meal) return;
     setActionError(null);
@@ -759,6 +867,7 @@ export default function Home() {
   }
 
   async function deleteMeal(mealId: string) {
+    if (readOnly) return;
     if (mealDeleteInFlight.current) return;
     const meal = days.flatMap((day) => day.meals).find((entry) => entry.id === mealId);
     if (!meal) return;
@@ -801,6 +910,7 @@ export default function Home() {
   }
 
   async function addMeal(event: FormEvent<HTMLFormElement>) {
+    if (readOnly) return;
     event.preventDefault();
     setActionError(null);
     const formElement = event.currentTarget;
@@ -874,12 +984,14 @@ export default function Home() {
   }
 
   function openWeightEditor() {
+    if (readOnly) return;
     setWeightDraft(selectedWeight ? String(selectedWeight.weightKg) : "");
     setShowWeightForm(true);
     setActionError(null);
   }
 
   async function saveWeight(event: FormEvent<HTMLFormElement>) {
+    if (readOnly) return;
     event.preventDefault();
     if (weightSaveInFlight.current) return;
     const weightKg = Number(weightDraft);
@@ -932,6 +1044,7 @@ export default function Home() {
   }
 
   async function openSettings() {
+    if (readOnly) return;
     const readVersion = settingsReadVersion.current + 1;
     settingsReadVersion.current = readVersion;
     setSettingsDraft({ calories: String(activeCalorieTarget), proteinG: String(activeProteinTarget) });
@@ -963,6 +1076,7 @@ export default function Home() {
   }
 
   async function saveSettings() {
+    if (readOnly) return;
     if (settingsSaveInFlight.current) return;
     const calories = Number(settingsDraft.calories);
     const proteinG = Number(settingsDraft.proteinG);
@@ -1005,6 +1119,124 @@ export default function Home() {
     }
   }
 
+  const loadShareLinks = useCallback(async () => {
+    if (readOnly || shareListInFlight.current) return;
+    shareListInFlight.current = true;
+    setShareLinksLoading(true);
+    setShareLinksError(null);
+    try {
+      const response = await fetch("/api/share-links", { cache: "no-store" });
+      const responseBody = await response.json().catch(() => null);
+      if (!response.ok) {
+        const errorRecord = asRecord(asRecord(responseBody)?.error);
+        throw new Error(stringOr(errorRecord?.message, "The share links could not be loaded."));
+      }
+      setShareLinks(parseShareLinksResponse(responseBody));
+    } catch (error) {
+      setShareLinksError(error instanceof Error ? error.message : "The share links could not be loaded.");
+    } finally {
+      shareListInFlight.current = false;
+      setShareLinksLoading(false);
+    }
+  }, [readOnly]);
+
+  async function createShareLink(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (readOnly || shareCreateInFlight.current) return;
+    shareCreateInFlight.current = true;
+    setShareCreating(true);
+    setShareLinksError(null);
+    setShareCopyState(null);
+    setCreatedShareUrl(null);
+    try {
+      const response = await fetch("/api/share-links", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          label: shareLabel.trim() || null,
+          expiresAt: shareExpiry ? new Date(shareExpiry).toISOString() : null,
+        }),
+      });
+      const responseBody = await response.json().catch(() => null);
+      if (!response.ok) {
+        const errorRecord = asRecord(asRecord(responseBody)?.error);
+        throw new Error(stringOr(errorRecord?.message, "The share link could not be created."));
+      }
+      const created = shareLinkFromCreateResponse(responseBody);
+      if (created) setShareLinks((current) => [created, ...current.filter((link) => link.id !== created.id)]);
+      const shareUrl = shareUrlFromCreateResponse(responseBody);
+      setCreatedShareUrl(shareUrl);
+      setShareCopyState(shareUrl
+        ? "Link created. Copy it now; the raw URL will not be shown again."
+        : "Link created, but the raw URL was not returned. Create a new link only if you need another URL.");
+      setShareLabel("");
+      setShareExpiry("");
+      await loadShareLinks();
+    } catch (error) {
+      setShareLinksError(error instanceof Error ? error.message : "The share link could not be created.");
+    } finally {
+      shareCreateInFlight.current = false;
+      setShareCreating(false);
+    }
+  }
+
+  async function copyCreatedShareUrl() {
+    if (!createdShareUrl || shareCopyState === "Copying…") return;
+    setShareCopyState("Copying…");
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(createdShareUrl);
+      } else {
+        const input = document.createElement("textarea");
+        input.value = createdShareUrl;
+        input.setAttribute("readonly", "true");
+        input.style.position = "fixed";
+        input.style.opacity = "0";
+        document.body.appendChild(input);
+        input.select();
+        const copied = document.execCommand("copy");
+        input.remove();
+        if (!copied) throw new Error("copy_failed");
+      }
+      setShareCopyState("Copied. The link is ready to share.");
+    } catch {
+      setShareCopyState("Copy failed. Select the URL and copy it manually.");
+    }
+  }
+
+  async function revokeShareLink(link: ShareLink) {
+    if (readOnly || link.status !== "active" || shareRevokeInFlight.current) return;
+    if (!window.confirm(`Revoke ${link.label ? `“${link.label}”` : "this share link"}? Anyone using it will lose access.`)) return;
+    shareRevokeInFlight.current = link.id;
+    setShareRevokingId(link.id);
+    setShareLinksError(null);
+    try {
+      const response = await fetch(`/api/share-links/${encodeURIComponent(link.id)}`, { method: "DELETE" });
+      const responseBody = await response.json().catch(() => null);
+      if (!response.ok) {
+        const errorRecord = asRecord(asRecord(responseBody)?.error);
+        throw new Error(stringOr(errorRecord?.message, "The share link could not be revoked."));
+      }
+      setShareLinks((current) => current.map((item) => item.id === link.id
+        ? { ...item, status: "revoked", revokedAt: new Date().toISOString() }
+        : item));
+    } catch (error) {
+      setShareLinksError(error instanceof Error ? error.message : "The share link could not be revoked.");
+    } finally {
+      shareRevokeInFlight.current = null;
+      setShareRevokingId(null);
+    }
+  }
+
+  function toggleShareLinks() {
+    if (showShareLinks) {
+      setShowShareLinks(false);
+      return;
+    }
+    setShowShareLinks(true);
+    void loadShareLinks();
+  }
+
   function selectDay(key: DayKey) {
     setSelectedDayKey(key);
     setEditingMealId(null);
@@ -1020,18 +1252,21 @@ export default function Home() {
   return (
     <main className="app-shell">
       <header className="topbar">
-        <a className="brand" href="#today" aria-label="Calocount home">
+        <a className="brand" href="#today" aria-label={readOnly ? "Calocount shared view" : "Calocount home"}>
           <span className="brand-mark" aria-hidden="true"><span /><span /><span /></span>
           <span>calocount</span>
         </a>
         <div className="topbar-actions">
-          <span className="sync-status"><span className="status-dot" aria-hidden="true" /> {dataMode === "live" ? "Live data" : dataMode === "loading" ? "Loading" : "Demo mode"}</span>
-          <button className="icon-button" type="button" onClick={() => void openSettings()} aria-label="Open settings" aria-expanded={showSettings} aria-controls="settings-panel"><span aria-hidden="true">⚙</span></button>
-          <span className="avatar" aria-label="Account"><span aria-hidden="true">M</span></span>
+          <span className="sync-status"><span className="status-dot" aria-hidden="true" /> {readOnly ? "Shared read-only" : dataMode === "live" ? "Live data" : dataMode === "loading" ? "Loading" : "Demo mode"}</span>
+          {!readOnly ? <>
+            <button className="share-nav-button" type="button" onClick={toggleShareLinks} aria-label="Manage share links" aria-expanded={showShareLinks} aria-controls="share-links-panel">Share view</button>
+            <button className="icon-button" type="button" onClick={() => void openSettings()} aria-label="Open settings" aria-expanded={showSettings} aria-controls="settings-panel"><span aria-hidden="true">⚙</span></button>
+          </> : null}
+          <span className="avatar" aria-label={readOnly ? "Shared read-only view" : "Account"}><span aria-hidden="true">{readOnly ? "↗" : "M"}</span></span>
         </div>
       </header>
 
-      {showSettings ? <section className="settings-panel" id="settings-panel" role="dialog" aria-labelledby="settings-title">
+      {!readOnly && showSettings ? <section className="settings-panel" id="settings-panel" role="dialog" aria-labelledby="settings-title">
         <div className="settings-heading"><div><p className="eyebrow">Personal targets</p><h2 id="settings-title">Daily targets</h2></div><button className="close-button" type="button" onClick={() => setShowSettings(false)} aria-label="Close settings">×</button></div>
         <form className="settings-form" onSubmit={(event) => { event.preventDefault(); void saveSettings(); }}>
           <label>Calories<input name="daily-calorie-target" type="number" min="1" max="100000" step="10" value={settingsDraft.calories} onChange={(event) => setSettingsDraft((current) => ({ ...current, calories: event.target.value }))} required /></label>
@@ -1041,9 +1276,39 @@ export default function Home() {
         <p className="settings-help" role="status">{settingsLoading ? "Loading saved targets…" : "Targets guide the rings, trend line, and daily nudge."}</p>
       </section> : null}
 
+      {!readOnly && showShareLinks ? <section className="share-links-panel" id="share-links-panel" role="dialog" aria-labelledby="share-links-title">
+        <div className="settings-heading"><div><p className="eyebrow">Sharing</p><h2 id="share-links-title">Read-only links</h2></div><button className="close-button" type="button" onClick={() => setShowShareLinks(false)} aria-label="Close share links">×</button></div>
+        <p className="share-links-intro">Anyone with an active link can view your dashboard. They cannot add, edit, or delete anything.</p>
+        <form className="share-link-form" onSubmit={(event) => void createShareLink(event)}>
+          <label>Label <span>(optional)</span><input name="share-label" value={shareLabel} onChange={(event) => setShareLabel(event.target.value)} placeholder="e.g. Coach" maxLength={80} /></label>
+          <label>Expires <span>(optional)</span><input name="share-expiry" type="datetime-local" value={shareExpiry} onChange={(event) => setShareExpiry(event.target.value)} /></label>
+          <button className="save-button" type="submit" disabled={shareCreating}>{shareCreating ? "Creating…" : "Create share link"}</button>
+        </form>
+        {createdShareUrl ? <div className="share-created" role="status">
+          <label htmlFor="created-share-url">New share URL</label>
+          <div className="share-created-row"><input id="created-share-url" value={createdShareUrl} readOnly /><button className="copy-button" type="button" onClick={() => void copyCreatedShareUrl} disabled={shareCopyState === "Copying…"}>{shareCopyState === "Copying…" ? "Copying…" : "Copy link"}</button></div>
+          <p>{shareCopyState}</p>
+        </div> : shareCopyState ? <p className="share-link-status" role="status">{shareCopyState}</p> : null}
+        {shareLinksError ? <p className="share-link-error" role="alert">{shareLinksError}</p> : null}
+        <div className="share-links-list" aria-live="polite">
+          <div className="share-links-list-heading"><strong>Your links</strong><button className="more-button" type="button" onClick={() => void loadShareLinks()} disabled={shareLinksLoading}>{shareLinksLoading ? "Loading…" : "Refresh"}</button></div>
+          {shareLinksLoading && shareLinks.length === 0 ? <p className="share-links-empty">Loading links…</p> : shareLinks.length === 0 ? <p className="share-links-empty">No share links yet.</p> : shareLinks.map((link) => <div className={`share-link-row ${link.status}`} key={link.id}>
+            <div><strong>{link.label ?? "Unlabelled link"}</strong><span>{link.status === "active" ? `Expires ${formatShareLinkDate(link.expiresAt)}` : link.status === "revoked" ? "Revoked" : `Expired ${formatShareLinkDate(link.expiresAt)}`}</span></div>
+            <span className={`share-link-badge ${link.status}`}>{link.status}</span>
+            {link.status === "active" ? <button className="revoke-button" type="button" onClick={() => void revokeShareLink(link)} disabled={shareRevokingId !== null} aria-busy={shareRevokingId === link.id}>{shareRevokingId === link.id ? "Revoking…" : "Revoke"}</button> : null}
+          </div>)}
+        </div>
+      </section> : null}
+
       {dataMessage ? <div className={`data-banner ${dataMode}`} role="status"><span aria-hidden="true">{dataMode === "live" ? "✓" : dataMode === "loading" ? "…" : "i"}</span>{dataMessage}</div> : null}
+      {readOnly && dataMode === "live" ? <div className="data-banner shared" role="status"><span aria-hidden="true">✓</span>Shared read-only view — changes are disabled.</div> : null}
       {actionState || actionError ? <div className={`action-feedback ${actionError ? "error" : ""}`} role={actionError ? "alert" : "status"}>{actionError ?? actionState}</div> : null}
 
+      {readOnly && dataMode !== "live" ? <section className="share-state" aria-live="polite">
+        <span className="share-state-mark" aria-hidden="true">{dataMode === "loading" ? "…" : "!"}</span>
+        <h1>{dataMode === "loading" ? "Loading shared log" : "Shared log unavailable"}</h1>
+        <p>{dataMessage ?? "This shared link is not available."}</p>
+      </section> : <>
       <section className="date-strip" aria-label="Choose a day">
         <div className="date-heading">
           <p className="eyebrow">Your log</p>
@@ -1154,14 +1419,14 @@ export default function Home() {
           <section className="panel weight-panel" aria-labelledby="weight-title">
             <div className="panel-heading weight-heading">
               <div><p className="eyebrow">Daily check-in</p><h2 id="weight-title">Weight</h2></div>
-              <button
+              {!readOnly ? <button
                 className="primary-button"
                 type="button"
                 disabled={weightSaving}
                 onClick={openWeightEditor}
               >
                 {selectedWeight ? "Edit weight" : "Add weight"}
-              </button>
+              </button> : <span className="panel-meta">read only</span>}
             </div>
             <div className={`weight-reading${selectedWeight ? "" : " empty"}`}>
               {selectedWeight ? <>
@@ -1174,7 +1439,7 @@ export default function Home() {
                 <span>Add one value for {selectedDay.weekday}.</span>
               </>}
             </div>
-            {showWeightForm ? <form className="weight-form" onSubmit={saveWeight}>
+            {!readOnly && showWeightForm ? <form className="weight-form" onSubmit={saveWeight}>
               <label>
                 Weight (kg)
                 <input
@@ -1204,9 +1469,9 @@ export default function Home() {
           </section>
 
           <section className="panel meals-panel" id="meals" aria-labelledby="meals-title">
-            <div className="panel-heading meal-heading"><div><p className="eyebrow">What you ate</p><h2 id="meals-title">Meals <span>{selectedDay.meals.length}</span></h2></div><button className="primary-button" type="button" onClick={() => setShowAddMeal((current) => !current)}><span aria-hidden="true">＋</span> Add meal</button></div>
+            <div className="panel-heading meal-heading"><div><p className="eyebrow">What you ate</p><h2 id="meals-title">Meals <span>{selectedDay.meals.length}</span></h2></div>{!readOnly ? <button className="primary-button" type="button" onClick={() => setShowAddMeal((current) => !current)}><span aria-hidden="true">＋</span> Add meal</button> : <span className="panel-meta">read only</span>}</div>
 
-            {showAddMeal ? <form className="add-meal-form" onSubmit={addMeal}>
+            {!readOnly && showAddMeal ? <form className="add-meal-form" onSubmit={addMeal}>
               <div className="form-heading"><div><strong>Log a meal</strong><span>Use a quick estimate now. You can edit it later.</span></div><button className="close-button" type="button" onClick={() => setShowAddMeal(false)} aria-label="Close add meal form">×</button></div>
               <label>Meal name<input name="name" placeholder="e.g. Turkey sandwich" required /></label>
               <label className="wide-field">Description<input name="description" placeholder="Ingredients or a short note" /></label>
@@ -1227,7 +1492,7 @@ export default function Home() {
                     onPointerUp={(event) => finishMealPointer(meal.id, event)}
                     onPointerCancel={(event) => cancelMealPointer(meal.id, event)}
                   >
-                    {meal.photoKey && !failedPhotoKeys.has(meal.photoKey) && photoUrlForKey(meal.photoKey) ? <button
+                    {!readOnly && meal.photoKey && !failedPhotoKeys.has(meal.photoKey) && photoUrlForKey(meal.photoKey) ? <button
                       className="meal-photo-button"
                       type="button"
                       aria-label={`View photo of ${meal.name}`}
@@ -1254,7 +1519,7 @@ export default function Home() {
                     <div className="meal-stat carbs-stat" data-label="Carbs">{formatNumber(meal.carbs ?? 0)}<small>g</small></div>
                     <div className="meal-stat fat-stat" data-label="Fat">{formatNumber(meal.fat ?? 0)}<small>g</small></div>
                   </div>
-                  <button
+                  {!readOnly ? <button
                     className="meal-actions-toggle"
                     type="button"
                     aria-expanded={openMealId === meal.id}
@@ -1263,13 +1528,13 @@ export default function Home() {
                     onClick={() => setOpenMealId((current) => current === meal.id ? null : meal.id)}
                   >
                     {openMealId === meal.id ? "×" : "⋯"}
-                  </button>
-                  <div className="meal-actions" id={`meal-actions-${meal.id}`}>
+                  </button> : null}
+                  {!readOnly ? <div className="meal-actions" id={`meal-actions-${meal.id}`}>
                     <button className="edit-button" type="button" disabled={actionInProgress || deletingMealId !== null} onClick={() => setEditingMealId(editingMealId === meal.id ? null : meal.id)} aria-expanded={editingMealId === meal.id} aria-label={`Edit ${meal.name}`}>Edit</button>
                     <button className="delete-button" type="button" disabled={actionInProgress || deletingMealId !== null} onClick={() => void deleteMeal(meal.id)} aria-label={`Delete ${meal.name}`} aria-busy={deletingMealId === meal.id}>{deletingMealId === meal.id ? "Deleting…" : "Delete"}</button>
-                  </div>
+                  </div> : null}
                 </div>
-                {editingMealId === meal.id ? <div className="inline-editor">
+                {!readOnly && editingMealId === meal.id ? <div className="inline-editor">
                   <label>Name<input value={meal.name} onChange={(event) => updateMeal(meal.id, { name: event.target.value })} /></label>
                   <label>Calories<input type="number" min="0" step="any" value={meal.calories} onChange={(event) => updateMeal(meal.id, { calories: Number(event.target.value) })} /></label>
                   <label>Protein<input type="number" min="0" step="any" value={meal.protein} onChange={(event) => updateMeal(meal.id, { protein: Number(event.target.value) })} /></label>
@@ -1280,7 +1545,7 @@ export default function Home() {
                   </div>
                 </div> : null}
               </div>)}
-            </div> : <div className="empty-meals"><span className="empty-icon" aria-hidden="true">＋</span><strong>No meals logged for {selectedDay.weekday}</strong><span>Tap “Add meal” to record what you ate.</span></div>}
+            </div> : <div className="empty-meals"><span className="empty-icon" aria-hidden="true">{readOnly ? "·" : "＋"}</span><strong>No meals logged for {selectedDay.weekday}</strong><span>{readOnly ? "No meals were logged for this day." : "Tap “Add meal” to record what you ate."}</span></div>}
             <div className="meal-total"><span>Total for {selectedDay.weekday}</span><strong>{formatNumber(totalCalories)} <small>kcal</small> <i /> {formatNumber(totalProtein)}g <small>protein</small></strong></div>
           </section>
         </section>
@@ -1327,7 +1592,13 @@ export default function Home() {
         </div>
       </div> : null}
 
-      <footer className="app-footer"><span>Private by default</span><span className="footer-separator" aria-hidden="true">·</span><span>Calocount dashboard</span></footer>
+      </>}
+
+      <footer className="app-footer"><span>{readOnly ? "Shared read-only view" : "Private by default"}</span><span className="footer-separator" aria-hidden="true">·</span><span>Calocount dashboard</span></footer>
     </main>
   );
+}
+
+export default function Home() {
+  return <Dashboard />;
 }

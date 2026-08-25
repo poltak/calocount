@@ -1,6 +1,6 @@
 # Calocount
 
-Calocount is a private, single-user calorie tracker. Send a meal photo and caption to Telegram. The app estimates nutrition, stores the structured result, and shows a compact Caltrack-inspired dashboard.
+Calocount is a private, single-user calorie tracker with optional read-only sharing. Send a meal photo and caption to Telegram. The app estimates nutrition, stores the structured result, and shows a compact Caltrack-inspired dashboard.
 
 The application backend uses Cloudflare Workers, D1, R2, Queues, Cron Triggers, Static Assets, and Access. OpenRouter is the default AI gateway. A direct xAI adapter is included.
 
@@ -18,7 +18,8 @@ The application backend uses Cloudflare Workers, D1, R2, Queues, Cron Triggers, 
 - OpenRouter and direct xAI adapters behind `MealAnalyzer`
 - provider, model, latency, token, and cost records
 - JSON and CSV export
-- Cloudflare Access-compatible API authorization
+- Cloudflare Access JWT authorization with an owner allowlist
+- Expiring, revocable read-only share links
 
 WHOOP, Apple Health, body-fat, sleep, recovery, and step integrations are intentionally not included.
 
@@ -32,6 +33,7 @@ worker/              dashboard Worker entry point
 workers/ingest/      Telegram, Queue, Cron, R2, and AI Worker
 tests/               rendered UI, data, security, schema, and adapter tests
 docs/architecture.md detailed runtime flow and boundaries
+docs/read-only-sharing.md share-link data boundary and rollout runbook
 ```
 
 ## Local dashboard
@@ -51,7 +53,7 @@ npm run dev
 
 Open `http://localhost:3000`.
 
-The dashboard uses demo data when local D1 is not ready. Set `CALOCOUNT_ALLOW_LOCAL=true` only in `.dev.vars`. Production fails closed and must use an identity header supplied by Cloudflare Access.
+The dashboard uses demo data when local D1 is not ready. Set `CALOCOUNT_ALLOW_LOCAL=true` only in `.dev.vars`. Production must set `CALOCOUNT_ALLOW_LOCAL=false` and use a valid, signed Cloudflare Access JWT. Identity headers by themselves are not trusted.
 
 ## Local D1
 
@@ -160,11 +162,13 @@ npx wrangler deploy --config workers/ingest/wrangler.jsonc
 
 Then:
 
-1. Put Cloudflare Access in front of `calocount-app` and allow only your email.
+1. Put Cloudflare Access in front of `calocount-app` and allow only the owner. Keep the whole app behind this policy while you deploy and verify the sharing code.
 2. Leave `calocount-ingest` public.
 3. Set `PUBLIC_ORIGIN` to the ingest Worker's HTTPS origin.
 4. Register `https://<ingest-origin>/telegram/webhook` with Telegram and send `TELEGRAM_WEBHOOK_SECRET` as Telegram's secret token.
 5. Send one test meal photo and confirm that the job, photo, meal items, and AI run appear.
+
+For read-only sharing, follow [docs/read-only-sharing.md](docs/read-only-sharing.md). The safe order is to apply the additive D1 migration, set the encrypted owner allowlist, deploy, and test while the existing whole-app Access protection remains. Only then add narrow Access bypasses for `/share/*`, `/api/share/*`, and the exact non-data static assets required by the deployed share page. Do not bypass the root app, general API routes, or owner share-link routes.
 
 Cloudflare deployment and Telegram registration are not done automatically by this repository because they require your account, resource IDs, and secrets.
 
@@ -173,6 +177,9 @@ Cloudflare deployment and Telegram registration are not done automatically by th
 - Meal photos stay in a private R2 bucket.
 - The dashboard streams photos through an authorized API route.
 - The AI service receives a signed image URL that expires in five minutes.
+- Share URLs are bearer credentials. The raw random token is returned once; each link can expire or be revoked.
+- A public share page exposes only the selected dashboard projection: targets, meal and macro totals, seven-day trend, recent weights, and recent meal-item nutrition.
+- Public sharing does not expose photos, captions, notes, assumptions, confidence, AI/provider data, Telegram data, or private settings.
 - Normal logs do not include captions, images, signed URLs, or full provider payloads.
 - Nutrition values are estimates, not medical measurements.
 

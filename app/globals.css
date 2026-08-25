@@ -164,6 +164,17 @@ input:focus-visible {
   color: var(--orange-soft);
 }
 
+.data-banner.shared {
+  border-color: #3f5a4b;
+  background: #17231e;
+  color: var(--green);
+}
+
+.data-banner.shared > span {
+  background: #2a4939;
+  color: var(--green);
+}
+
 .settings-panel {
   margin-top: 12px;
   padding: 17px 19px 15px;
@@ -221,6 +232,241 @@ input:focus-visible {
   margin: 10px 0 0;
   color: var(--muted);
   font-size: 10px;
+}
+
+.share-nav-button {
+  min-height: 29px;
+  padding: 0 9px;
+  border: 1px solid #394657;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted-strong);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.share-nav-button:hover,
+.share-nav-button[aria-expanded="true"] {
+  border-color: #5b6b79;
+  background: var(--surface);
+  color: var(--foreground);
+}
+
+.share-links-panel {
+  margin-top: 12px;
+  padding: 17px 19px 15px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: 0 12px 34px rgb(0 0 0 / 12%);
+}
+
+.share-links-intro {
+  max-width: 620px;
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.share-link-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, .65fr) auto;
+  align-items: end;
+  gap: 9px;
+  margin-top: 15px;
+}
+
+.share-link-form label {
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.share-link-form label span { color: #65717e; }
+
+.share-link-form input,
+.share-created-row input {
+  width: 100%;
+  min-height: 31px;
+  padding: 5px 8px;
+  border: 1px solid #354150;
+  border-radius: 6px;
+  outline: 0;
+  background: #111720;
+  color: var(--foreground);
+  font-size: 11px;
+}
+
+.share-link-form input:focus,
+.share-created-row input:focus { border-color: var(--orange); }
+
+.share-created {
+  margin-top: 13px;
+  padding: 11px;
+  border: 1px solid #3f5a4b;
+  border-radius: 8px;
+  background: #17231e;
+}
+
+.share-created > label {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--green);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.share-created-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.share-created-row input {
+  min-width: 0;
+  color: var(--muted-strong);
+}
+
+.copy-button,
+.revoke-button {
+  min-height: 31px;
+  padding: 0 10px;
+  border: 1px solid #4b5f6b;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--blue);
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.copy-button:hover,
+.revoke-button:hover {
+  border-color: var(--blue);
+  background: #25323e;
+}
+
+.copy-button:disabled,
+.revoke-button:disabled { cursor: wait; opacity: .55; }
+
+.share-created p,
+.share-link-status,
+.share-link-error,
+.share-links-empty {
+  margin: 7px 0 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.share-link-error { color: #efb09c; }
+
+.share-links-list {
+  margin-top: 17px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.share-links-list-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 39px;
+  color: var(--muted-strong);
+  font-size: 11px;
+}
+
+.share-link-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 49px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.share-link-row > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.share-link-row strong {
+  overflow: hidden;
+  color: var(--muted-strong);
+  font-size: 11px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.share-link-row > div span {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.share-link-badge {
+  padding: 3px 6px;
+  border-radius: 4px;
+  background: #27333d;
+  color: var(--muted-strong);
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.share-link-badge.active { background: #253c31; color: var(--green); }
+.share-link-badge.revoked { background: #392b2c; color: #d5a8a4; }
+.share-link-badge.expired { background: #3d362b; color: var(--orange-soft); }
+
+.revoke-button {
+  min-height: 26px;
+  padding: 0 7px;
+  border-color: #60464a;
+  color: #dda7a3;
+}
+
+.revoke-button:hover { border-color: #c5817b; background: #38272a; }
+
+.share-state {
+  display: grid;
+  justify-items: center;
+  min-height: 340px;
+  margin-top: 14px;
+  padding: 60px 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  text-align: center;
+}
+
+.share-state-mark {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid #556779;
+  border-radius: 50%;
+  color: var(--blue);
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.share-state h1 {
+  margin: 16px 0 0;
+  color: var(--foreground);
+  font-size: 20px;
+  font-weight: 650;
+  letter-spacing: -.04em;
+}
+
+.share-state p {
+  max-width: 390px;
+  margin: 9px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .action-feedback {
@@ -1588,6 +1834,7 @@ input:focus-visible {
   .app-shell { padding: 0 13px 25px; }
   .topbar { min-height: 61px; }
   .sync-status { display: none; }
+  .share-nav-button { min-height: 27px; padding: 0 7px; font-size: 10px; }
   .date-strip { display: block; padding-top: 24px; }
   .date-controls { justify-content: space-between; margin-top: 15px; }
   .date-pills { justify-content: space-between; flex: 1; }
@@ -1604,6 +1851,14 @@ input:focus-visible {
   .history-panel { padding: 17px 15px; }
   .settings-form { grid-template-columns: 1fr 1fr; }
   .settings-form .save-button { grid-column: span 2; }
+  .share-link-form { grid-template-columns: 1fr 1fr; }
+  .share-link-form .save-button { grid-column: span 2; }
+  .share-created-row { align-items: stretch; flex-direction: column; }
+  .share-created-row .copy-button { width: 100%; }
+  .share-link-row { grid-template-columns: minmax(0, 1fr) auto; gap: 7px; padding: 7px 0; }
+  .share-link-row .share-link-badge { grid-column: 2; grid-row: 1; }
+  .share-link-row .revoke-button { grid-column: 2; grid-row: 2; }
+  .share-state { min-height: 285px; padding: 42px 20px; }
   .chart-legend { margin-left: 37px; }
   .chart-plot { min-width: 0; }
   .bar { width: min(23px, 72%); }

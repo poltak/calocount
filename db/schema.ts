@@ -217,6 +217,24 @@ export const telegramUpdates = sqliteTable(
   ],
 );
 
+/** Share links expose a read-only projection without storing the raw token. */
+export const shareLinks = sqliteTable(
+  "share_links",
+  {
+    id: text("id").primaryKey(),
+    ownerKey: text("owner_key").notNull(),
+    tokenHash: text("token_hash").notNull(),
+    label: text("label"),
+    ...createdAt(),
+    expiresAt: integer("expires_at", { mode: "number" }),
+    revokedAt: integer("revoked_at", { mode: "number" }),
+  },
+  (table) => [
+    uniqueIndex("share_links_token_hash_idx").on(table.tokenHash),
+    index("share_links_owner_created_idx").on(table.ownerKey, table.createdAt),
+  ],
+);
+
 export type Settings = typeof settings.$inferSelect;
 export type MealLog = typeof mealLogs.$inferSelect;
 export type MealItem = typeof mealItems.$inferSelect;
@@ -225,3 +243,4 @@ export type MealRevision = typeof mealRevisions.$inferSelect;
 export type AiProfile = typeof aiProfiles.$inferSelect;
 export type AiRun = typeof aiRuns.$inferSelect;
 export type TelegramUpdate = typeof telegramUpdates.$inferSelect;
+export type ShareLink = typeof shareLinks.$inferSelect;
