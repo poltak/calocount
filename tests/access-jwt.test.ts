@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { webcrypto } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
@@ -261,4 +262,18 @@ test("oversized JWT and oversized JWK responses are rejected", async (t) => {
       (error: unknown) => error instanceof AccessJwtError && error.code === "jwks",
     );
   });
+});
+
+test("Access JWT diagnostics contain only the stable event and failure code", async () => {
+  const source = await readFile(new URL("../app/api/_lib/http.ts", import.meta.url), "utf8");
+
+  assert.match(
+    source,
+    /const code = error instanceof AccessJwtError \? error\.code : "unexpected";/,
+  );
+  assert.match(
+    source,
+    /console\.warn\(JSON\.stringify\(\{ event: ACCESS_JWT_FAILURE_EVENT, code \}\)\);/,
+  );
+  assert.doesNotMatch(source, /console\.warn\(JSON\.stringify\(\{[^}]*\b(?:request|token|headers|claims|email|userId|url|message)\b/iu);
 });

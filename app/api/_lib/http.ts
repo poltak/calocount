@@ -8,6 +8,13 @@ import {
   verifyAccessJwt,
 } from "./access-jwt";
 
+const ACCESS_JWT_FAILURE_EVENT = "calocount_access_jwt_verification_failed";
+
+function logAccessJwtFailure(error: unknown): void {
+  const code = error instanceof AccessJwtError ? error.code : "unexpected";
+  console.warn(JSON.stringify({ event: ACCESS_JWT_FAILURE_EVENT, code }));
+}
+
 export class ApiError extends Error {
   constructor(
     public readonly status: number,
@@ -76,6 +83,7 @@ export async function requireApiIdentity(request: Request): Promise<ApiIdentity>
         audience: getEnvValue("CALOCOUNT_ACCESS_AUDIENCE"),
       });
     } catch (error) {
+      logAccessJwtFailure(error);
       if (error instanceof AccessJwtError && error.code === "config") {
         throw new ApiError(503, "auth_unavailable", "Owner authentication is not configured.");
       }
