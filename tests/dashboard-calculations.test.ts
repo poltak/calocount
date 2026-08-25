@@ -2,12 +2,44 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  calculateCalorieChartScale,
   calculateLoggingStreak,
   calculateMacroPercentages,
   calculateTargetPercent,
   compareAverageToTarget,
   getAdjacentDayKey,
 } from "../app/dashboard-calculations";
+
+test("calorie chart bars and target line use the same scale", () => {
+  const scale = calculateCalorieChartScale([2337], 2100);
+
+  assert.ok(scale.valueHeightPercents[0] > scale.targetHeightPercent);
+});
+
+test("calorie chart scale handles empty data and targets above actuals", () => {
+  const emptyScale = calculateCalorieChartScale([], 0);
+  assert.equal(emptyScale.maxCalories, 2600);
+  assert.equal(emptyScale.targetHeightPercent, 0);
+  assert.deepEqual(emptyScale.valueHeightPercents, []);
+
+  const targetAboveActualScale = calculateCalorieChartScale([1200], 3000);
+  assert.equal(targetAboveActualScale.maxCalories, 3300);
+  assert.ok(targetAboveActualScale.targetHeightPercent < 100);
+  assert.ok(targetAboveActualScale.valueHeightPercents[0] < targetAboveActualScale.targetHeightPercent);
+});
+
+test("calorie chart scale leaves headroom and aligns dynamic ticks with grid lines", () => {
+  const scale = calculateCalorieChartScale([3000], 3000);
+
+  assert.ok(scale.valueHeightPercents[0] < 100);
+  assert.ok(scale.targetHeightPercent < 100);
+  assert.deepEqual(scale.tickValues, [3300, 2541, 1782, 1023, 0]);
+
+  [23, 46, 69].forEach((topPercent, index) => {
+    const tickValue = scale.tickValues[index + 1];
+    assert.ok(Math.abs(100 - (tickValue / scale.maxCalories) * 100 - topPercent) < 1e-9);
+  });
+});
 
 test("macro percentages use calorie values and total 100", () => {
   assert.deepEqual(

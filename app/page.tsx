@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, FormEvent, PointerEvent as ReactPointerEvent } from "react";
 
 import {
+  calculateCalorieChartScale,
   calculateLoggingStreak,
   calculateMacroPercentages,
   calculateTargetPercent,
@@ -219,6 +220,10 @@ const mealPlaceholders: Record<Meal["kind"], string> = {
 
 function formatNumber(value: number) {
   return new Intl.NumberFormat("en-US").format(value);
+}
+
+function formatChartTick(value: number) {
+  return value === 0 ? "0" : `${(value / 1000).toFixed(1)}k`;
 }
 
 const orderedDayKeys: DayKey[] = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
@@ -456,6 +461,11 @@ export default function Home() {
   const chartValues = useMemo(
     () => days.map((day) => ({ label: `${day.weekday.slice(0, 3)} ${day.shortDate}`, value: day.calories })),
     [days],
+  );
+
+  const chartScale = useMemo(
+    () => calculateCalorieChartScale(chartValues.map((day) => day.value), activeCalorieTarget),
+    [activeCalorieTarget, chartValues],
   );
 
   const averageCalories = useMemo(
@@ -982,10 +992,10 @@ export default function Home() {
             </div>
             <div className="chart-legend"><span><i className="legend-swatch calorie-swatch" /> Calories</span><span><i className="legend-line" /> Target {formatNumber(activeCalorieTarget)}</span></div>
             <div className="bar-chart" role="img" aria-label={`Calorie intake for the past seven days compared with a ${activeCalorieTarget} calorie target`}>
-              <div className="chart-y-axis" aria-hidden="true"><span>2.6k</span><span>2.0k</span><span>1.4k</span><span>0.8k</span><span>0</span></div>
+              <div className="chart-y-axis" aria-hidden="true">{chartScale.tickValues.map((value) => <span key={value}>{formatChartTick(value)}</span>)}</div>
               <div className="chart-plot">
-                <div className="target-line"><span>{formatNumber(activeCalorieTarget)}</span></div><div className="grid-line line-one" /><div className="grid-line line-two" /><div className="grid-line line-three" />
-                <div className="bars">{chartValues.map((day) => <div className="bar-column" key={day.label}><div className="bar-value">{day.value.toLocaleString()}</div><div className="bar" style={{ height: `${Math.max(12, (day.value / 2600) * 100)}%` }} /><span>{day.label}</span></div>)}</div>
+                <div className="target-line" style={{ top: `${chartScale.targetLineTopPercent}%` }}><span>{formatNumber(activeCalorieTarget)}</span></div><div className="grid-line line-one" /><div className="grid-line line-two" /><div className="grid-line line-three" />
+                <div className="bars">{chartValues.map((day, index) => <div className="bar-column" key={day.label}><div className="bar-value">{day.value.toLocaleString()}</div><div className="bar" style={{ height: `${Math.max(12, chartScale.valueHeightPercents[index] ?? 0)}%` }} /><span>{day.label}</span></div>)}</div>
               </div>
             </div>
           </section>

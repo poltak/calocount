@@ -22,11 +22,25 @@ export type AverageComparison = {
 
 export type AdjacentDirection = "previous" | "next";
 
+export type CalorieChartScale = {
+  maxCalories: number;
+  targetHeightPercent: number;
+  targetLineTopPercent: number;
+  valueHeightPercents: readonly number[];
+  tickValues: readonly number[];
+};
+
 const caloriesPerGram = {
   carbs: 4,
   protein: 4,
   fat: 9,
 } as const;
+
+const defaultCalorieChartMax = 2600;
+const calorieChartTickStep = 100;
+const calorieChartHeadroomPercent = 10;
+const calorieChartGridLineTopPercents = [23, 46, 69] as const;
+const defaultCalorieChartTicks = [2600, 2000, 1400, 800, 0] as const;
 
 function nonNegativeFinite(value: number) {
   return Number.isFinite(value) ? Math.max(0, value) : 0;
@@ -64,6 +78,33 @@ export function calculateTargetPercent(value: number, target: number) {
   const safeTarget = nonNegativeFinite(target);
   if (safeTarget <= 0) return 0;
   return Math.min(100, Math.round((safeValue / safeTarget) * 100));
+}
+
+export function calculateCalorieChartScale(values: readonly number[], target: number): CalorieChartScale {
+  const safeValues = values.map(nonNegativeFinite);
+  const safeTarget = nonNegativeFinite(target);
+  const requiredMax = Math.max(defaultCalorieChartMax, safeTarget, ...safeValues);
+  const maxWithHeadroom = requiredMax > defaultCalorieChartMax
+    ? (requiredMax * (100 + calorieChartHeadroomPercent)) / 100
+    : defaultCalorieChartMax;
+  const maxCalories = Math.ceil(maxWithHeadroom / calorieChartTickStep) * calorieChartTickStep;
+  const toHeightPercent = (value: number) => (value / maxCalories) * 100;
+  const targetHeightPercent = toHeightPercent(safeTarget);
+  const tickValues = maxCalories === defaultCalorieChartMax
+    ? defaultCalorieChartTicks
+    : [
+      maxCalories,
+      ...calorieChartGridLineTopPercents.map((topPercent) => (maxCalories * (100 - topPercent)) / 100),
+      0,
+    ];
+
+  return {
+    maxCalories,
+    targetHeightPercent,
+    targetLineTopPercent: 100 - targetHeightPercent,
+    valueHeightPercents: safeValues.map(toHeightPercent),
+    tickValues,
+  };
 }
 
 export function calculateLoggingStreak(days: readonly LoggingDay[], endDate?: string) {
