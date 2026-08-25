@@ -86,7 +86,7 @@ type DashboardSummary = {
 };
 
 type DataMode = "loading" | "live" | "demo";
-type DashboardSection = "today" | "meals" | "trend" | "plan";
+type DashboardSection = "today" | "meals" | "trend" | "macros";
 type MealSwipeStart = {
   mealId: string;
   pointerId: number;
@@ -436,7 +436,6 @@ export default function Home() {
   const [settingsSaving, setSettingsSaving] = useState(false);
   const settingsSaveInFlight = useRef(false);
   const settingsReadVersion = useRef(0);
-  const [noteDismissed, setNoteDismissed] = useState(false);
   const [dataMode, setDataMode] = useState<DataMode>("loading");
   const [targets, setTargets] = useState({ calories: calorieTarget, proteinG: proteinTarget });
   const [dataMessage, setDataMessage] = useState<string | null>("Loading your saved log — local demo data is visible until it arrives.");
@@ -945,7 +944,7 @@ export default function Home() {
         <a className={activeSection === "today" ? "active" : ""} href="#today" aria-current={activeSection === "today" ? "page" : undefined}>Today</a>
         <a className={activeSection === "meals" ? "active" : ""} href="#meals" aria-current={activeSection === "meals" ? "page" : undefined}>Meals</a>
         <a className={activeSection === "trend" ? "active" : ""} href="#trend" aria-current={activeSection === "trend" ? "page" : undefined}>Trend</a>
-        <a className={activeSection === "plan" ? "active" : ""} href="#plan" aria-current={activeSection === "plan" ? "page" : undefined}>Rest of day</a>
+        <a className={activeSection === "macros" ? "active" : ""} href="#macros" aria-current={activeSection === "macros" ? "page" : undefined}>Macros</a>
       </nav>
 
       <section className="summary-grid" aria-label="Daily calorie and protein summary">
@@ -1083,8 +1082,8 @@ export default function Home() {
         </section>
 
         <aside className="side-column">
-          <section className="panel macro-panel" aria-labelledby="macro-title">
-            <div className="panel-heading compact-heading"><div><p className="eyebrow">Daily split</p><h2 id="macro-title">Macros</h2></div><span className="panel-meta">per day</span></div>
+          <section className="panel macro-panel" aria-labelledby="macros">
+            <div className="panel-heading compact-heading"><div><p className="eyebrow">Daily split</p><h2 id="macros">Macros</h2></div><span className="panel-meta">per day</span></div>
             <div className="macro-donut" style={{ background: macroValues.gradient }} role="img" aria-label={`Estimated daily macro split: ${macroValues.carbs} percent carbohydrates, ${macroValues.protein} percent protein, ${macroValues.fat} percent fat`}><div><strong>{formatNumber(totalCalories)}</strong><span>kcal</span></div></div>
             <div className="macro-legend"><div><span className="macro-key carbs" /><span>Carbs</span><strong>{macroValues.carbs}%</strong></div><div><span className="macro-key protein" /><span>Protein</span><strong>{macroValues.protein}%</strong></div><div><span className="macro-key fat" /><span>Fat</span><strong>{macroValues.fat}%</strong></div></div>
           </section>
