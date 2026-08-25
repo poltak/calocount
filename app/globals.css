@@ -1008,6 +1008,96 @@ input:focus-visible {
 
 .quick-tip strong { color: var(--muted-strong); }
 
+.weight-panel { padding: 21px; }
+
+.weight-reading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 17px;
+  padding: 14px 15px;
+  border: 1px solid #354150;
+  border-radius: 9px;
+  background: #111820;
+}
+
+.weight-reading strong {
+  color: var(--foreground);
+  font-size: 24px;
+  letter-spacing: -.04em;
+}
+
+.weight-reading strong small {
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0;
+}
+
+.weight-reading time,
+.weight-reading span {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.weight-reading.empty {
+  align-items: center;
+}
+
+.weight-reading.empty strong {
+  color: var(--muted-strong);
+  font-size: 12px;
+  letter-spacing: 0;
+}
+
+.weight-form {
+  display: grid;
+  grid-template-columns: minmax(140px, 180px) auto auto;
+  align-items: end;
+  gap: 9px;
+  margin-top: 12px;
+}
+
+.weight-form label {
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.weight-form input {
+  width: 100%;
+  min-height: 31px;
+  padding: 5px 8px;
+  border: 1px solid #354150;
+  border-radius: 6px;
+  outline: 0;
+  background: #111720;
+  color: var(--foreground);
+  font-size: 11px;
+}
+
+.weight-form input:focus { border-color: var(--orange); }
+
+.cancel-button {
+  min-height: 31px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted-strong);
+}
+
+.cancel-button:hover {
+  background: rgb(255 255 255 / 5%);
+  color: var(--foreground);
+}
+
+.cancel-button:disabled,
+.weight-heading .primary-button:disabled {
+  cursor: wait;
+  opacity: .55;
+}
+
 .meals-panel { overflow: hidden; }
 
 .meal-heading,
@@ -1469,6 +1559,7 @@ input:focus-visible {
   .summary-card { min-height: 126px; }
   .content-grid { margin-top: 10px; }
   .chart-panel,
+  .weight-panel,
   .macro-panel,
   .history-panel { padding: 17px 15px; }
   .settings-form { grid-template-columns: 1fr 1fr; }
@@ -1486,6 +1577,10 @@ input:focus-visible {
   .add-meal-form label:first-of-type,
   .add-meal-form .wide-field { grid-column: span 2; }
   .save-button { grid-column: span 2; }
+  .weight-form { grid-template-columns: 1fr 1fr; }
+  .weight-form label { grid-column: span 2; }
+  .weight-form .save-button { grid-column: auto; }
+  .weight-reading { align-items: flex-start; flex-direction: column; gap: 5px; }
   .meal-list-head { display: none; }
   .meal-row {
     position: relative;

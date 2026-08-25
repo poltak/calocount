@@ -38,6 +38,22 @@ export const settings = sqliteTable(
   (table) => [uniqueIndex("settings_owner_key_idx").on(table.ownerKey)],
 );
 
+export const dailyWeights = sqliteTable(
+  "daily_weights",
+  {
+    id: text("id").primaryKey(),
+    ownerKey: text("owner_key").notNull(),
+    logicalDate: text("logical_date").notNull(),
+    weightKg: real("weight_kg").notNull(),
+    recordedAt: integer("recorded_at", { mode: "number" }).notNull(),
+    ...createdAt(),
+    ...updatedAt(),
+  },
+  (table) => [
+    uniqueIndex("daily_weights_owner_date_idx").on(table.ownerKey, table.logicalDate),
+  ],
+);
+
 export const mealLogs = sqliteTable(
   "meal_logs",
   {

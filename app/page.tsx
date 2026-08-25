@@ -40,6 +40,7 @@ type Day = {
   carbs?: number;
   fat?: number;
   meals: Meal[];
+  weight?: DailyWeight | null;
 };
 
 type SerializedMealItem = {
@@ -65,6 +66,12 @@ type SerializedMeal = {
   items: SerializedMealItem[];
 };
 
+type DailyWeight = {
+  logicalDate: string;
+  weightKg: number;
+  recordedAt: number;
+};
+
 type DashboardSummary = {
   date: string;
   targets: { calories: number | null; proteinG: number | null };
@@ -83,6 +90,7 @@ type DashboardSummary = {
     daysWithMeals: number;
   };
   recentMeals: SerializedMeal[];
+  recentWeights: DailyWeight[];
 };
 
 type DataMode = "loading" | "live" | "demo";
@@ -274,6 +282,19 @@ function parseSerializedMeal(value: unknown): SerializedMeal | null {
   };
 }
 
+function parseDailyWeight(value: unknown): DailyWeight | null {
+  const record = asRecord(value);
+  if (!record || typeof record.logicalDate !== "string") return null;
+  const weightKg = numberOr(record.weightKg, Number.NaN);
+  const recordedAt = numberOr(record.recordedAt, Number.NaN);
+  if (!Number.isFinite(weightKg) || !Number.isFinite(recordedAt)) return null;
+  return { logicalDate: record.logicalDate, weightKg, recordedAt };
+}
+
+function parseWeightResponse(value: unknown): DailyWeight | null {
+  return parseDailyWeight(asRecord(value)?.weight);
+}
+
 function parseDashboardSummary(value: unknown): DashboardSummary | null {
   const record = asRecord(value);
   const targets = asRecord(record?.targets);
@@ -283,6 +304,12 @@ function parseDashboardSummary(value: unknown): DashboardSummary | null {
   const recentMeals = Array.isArray(record.recentMeals)
     ? record.recentMeals.flatMap((meal) => {
         const parsed = parseSerializedMeal(meal);
+        return parsed ? [parsed] : [];
+      })
+    : [];
+  const recentWeights = Array.isArray(record.recentWeights)
+    ? record.recentWeights.flatMap((weight) => {
+        const parsed = parseDailyWeight(weight);
         return parsed ? [parsed] : [];
       })
     : [];
@@ -307,6 +334,7 @@ function parseDashboardSummary(value: unknown): DashboardSummary | null {
       daysWithMeals: numberOr(sevenDay.daysWithMeals),
     },
     recentMeals,
+    recentWeights,
   };
 }
 
@@ -329,6 +357,17 @@ function dayLabelForDate(date: string) {
 
 function fullDateLabel(date: string) {
   return new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" }).format(new Date(`${date}T12:00:00.000Z`));
+}
+
+function formatWeight(weightKg: number) {
+  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(weightKg);
+}
+
+function formatRecordedTime(recordedAt: number) {
+  return new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(recordedAt));
 }
 
 function mealKind(value: string | null): Meal["kind"] {
@@ -358,6 +397,9 @@ function mapRemoteMeal(meal: SerializedMeal): Meal {
 function buildLiveDays(summary: DashboardSummary): Day[] {
   const summaryDate = new Date(`${summary.date}T12:00:00.000Z`);
   const mealsByDate = new Map<string, Meal[]>();
+  const weightsByDate = new Map(
+    summary.recentWeights.map((weight) => [weight.logicalDate, weight]),
+  );
   for (const serializedMeal of summary.recentMeals) {
     const key = dateKeyFromTimestamp(serializedMeal.consumedAt);
     const meals = mealsByDate.get(key) ?? [];
@@ -379,6 +421,7 @@ function buildLiveDays(summary: DashboardSummary): Day[] {
       carbs: isToday ? summary.today.carbsG : meals.reduce((total, meal) => total + (meal.carbs ?? 0), 0),
       fat: isToday ? summary.today.fatG : meals.reduce((total, meal) => total + (meal.fat ?? 0), 0),
       meals,
+      weight: weightsByDate.get(date) ?? null,
     };
   });
 }
@@ -428,6 +471,9 @@ export default function Home() {
   const [editingMealId, setEditingMealId] = useState<string | null>(null);
   const [openMealId, setOpenMealId] = useState<string | null>(null);
   const [showAddMeal, setShowAddMeal] = useState(false);
+  const [showWeightForm, setShowWeightForm] = useState(false);
+  const [weightDraft, setWeightDraft] = useState("");
+  const [weightSaving, setWeightSaving] = useState(false);
   const [showAllDays, setShowAllDays] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [activeSection, setActiveSection] = useState<DashboardSection>("today");
@@ -445,11 +491,13 @@ export default function Home() {
   const [previewMeal, setPreviewMeal] = useState<Meal | null>(null);
   const [failedPhotoKeys, setFailedPhotoKeys] = useState<Set<string>>(() => new Set());
   const mealDeleteInFlight = useRef<string | null>(null);
+  const weightSaveInFlight = useRef(false);
   const mealSwipeRef = useRef<MealSwipeStart | null>(null);
   const previewCloseRef = useRef<HTMLButtonElement>(null);
   const actionInProgress = Boolean(actionState?.endsWith("…"));
 
   const selectedDay = days.find((day) => day.key === selectedDayKey) ?? days[4];
+  const selectedWeight = selectedDay.weight ?? null;
   const totalCalories = selectedDay.calories;
   const totalProtein = selectedDay.protein;
   const activeCalorieTarget = targets.calories ?? calorieTarget;
@@ -803,6 +851,70 @@ export default function Home() {
     formElement.reset();
   }
 
+  function setWeightForDate(logicalDate: string, weight: DailyWeight | null) {
+    setDays((currentDays) => currentDays.map((day) => (
+      day.date === logicalDate ? { ...day, weight } : day
+    )));
+  }
+
+  function openWeightEditor() {
+    setWeightDraft(selectedWeight ? String(selectedWeight.weightKg) : "");
+    setShowWeightForm(true);
+    setActionError(null);
+  }
+
+  async function saveWeight(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (weightSaveInFlight.current) return;
+    const weightKg = Number(weightDraft);
+    if (!Number.isFinite(weightKg) || weightKg < 1 || weightKg > 1_000) {
+      setActionError("Enter a weight between 1 and 1,000 kg.");
+      return;
+    }
+
+    const logicalDate = selectedDay.date;
+    const previousWeight = selectedWeight;
+    const optimisticWeight = { logicalDate, weightKg, recordedAt: Date.now() };
+    weightSaveInFlight.current = true;
+    setWeightSaving(true);
+    setActionError(null);
+    setActionState(dataMode === "live" ? "Saving weight…" : null);
+    setWeightForDate(logicalDate, optimisticWeight);
+
+    try {
+      let savedWeight = optimisticWeight;
+      if (dataMode === "live") {
+        const response = await fetch("/api/weights", {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ logicalDate, weightKg }),
+        });
+        const responseBody = await response.json().catch(() => null);
+        if (!response.ok) {
+          const errorRecord = asRecord(asRecord(responseBody)?.error);
+          throw new Error(stringOr(errorRecord?.message, "The weight could not be saved."));
+        }
+        const parsedWeight = parseWeightResponse(responseBody);
+        if (!parsedWeight) throw new Error("The saved weight response was invalid.");
+        savedWeight = parsedWeight;
+      }
+
+      setWeightForDate(logicalDate, savedWeight);
+      setWeightDraft(String(savedWeight.weightKg));
+      setShowWeightForm(false);
+      setActionState(dataMode === "live"
+        ? "Weight saved."
+        : "Demo mode — weight updated locally for this session.");
+    } catch (error) {
+      setWeightForDate(logicalDate, previousWeight);
+      setActionError(error instanceof Error ? error.message : "The weight could not be saved.");
+      setActionState(null);
+    } finally {
+      weightSaveInFlight.current = false;
+      setWeightSaving(false);
+    }
+  }
+
   async function openSettings() {
     const readVersion = settingsReadVersion.current + 1;
     settingsReadVersion.current = readVersion;
@@ -881,6 +993,7 @@ export default function Home() {
     setSelectedDayKey(key);
     setEditingMealId(null);
     setShowAddMeal(false);
+    setShowWeightForm(false);
   }
 
   function moveSelectedDay(direction: "previous" | "next") {
@@ -997,6 +1110,58 @@ export default function Home() {
                 <div className="bars">{chartValues.map((day, index) => <div className="bar-column" key={day.label}><div className="bar-value">{day.value.toLocaleString()}</div><div className="bar" style={{ height: `${Math.max(12, chartScale.valueHeightPercents[index] ?? 0)}%` }} /><span>{day.label}</span></div>)}</div>
               </div>
             </div>
+          </section>
+
+          <section className="panel weight-panel" aria-labelledby="weight-title">
+            <div className="panel-heading weight-heading">
+              <div><p className="eyebrow">Daily check-in</p><h2 id="weight-title">Weight</h2></div>
+              <button
+                className="primary-button"
+                type="button"
+                disabled={weightSaving}
+                onClick={openWeightEditor}
+              >
+                {selectedWeight ? "Edit weight" : "Add weight"}
+              </button>
+            </div>
+            <div className={`weight-reading${selectedWeight ? "" : " empty"}`}>
+              {selectedWeight ? <>
+                <strong>{formatWeight(selectedWeight.weightKg)} <small>kg</small></strong>
+                <time dateTime={new Date(selectedWeight.recordedAt).toISOString()}>
+                  Saved at {formatRecordedTime(selectedWeight.recordedAt)}
+                </time>
+              </> : <>
+                <strong>No weight recorded</strong>
+                <span>Add one value for {selectedDay.weekday}.</span>
+              </>}
+            </div>
+            {showWeightForm ? <form className="weight-form" onSubmit={saveWeight}>
+              <label>
+                Weight (kg)
+                <input
+                  name="weightKg"
+                  type="number"
+                  min="1"
+                  max="1000"
+                  step="0.1"
+                  inputMode="decimal"
+                  value={weightDraft}
+                  onChange={(event) => setWeightDraft(event.target.value)}
+                  required
+                />
+              </label>
+              <button className="save-button" type="submit" disabled={weightSaving}>
+                {weightSaving ? "Saving…" : selectedWeight ? "Save changes" : "Save weight"}
+              </button>
+              <button
+                className="cancel-button"
+                type="button"
+                disabled={weightSaving}
+                onClick={() => setShowWeightForm(false)}
+              >
+                Cancel
+              </button>
+            </form> : null}
           </section>
 
           <section className="panel meals-panel" id="meals" aria-labelledby="meals-title">

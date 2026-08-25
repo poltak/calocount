@@ -73,10 +73,29 @@ function settingsRow(ownerKey: string): Row {
   };
 }
 
+function weightRow(
+  id: string,
+  ownerKey: string,
+  logicalDate: string,
+  weightKg: number,
+  recordedAt: number,
+): Row {
+  return {
+    id,
+    owner_key: ownerKey,
+    logical_date: logicalDate,
+    weight_kg: weightKg,
+    recorded_at: recordedAt,
+    created_at: recordedAt,
+    updated_at: recordedAt,
+  };
+}
+
 class SummaryD1Database {
   constructor(
     readonly meals: Row[],
     readonly settings: Row,
+    readonly weights: Row[],
   ) {}
 
   prepare(sql: string): D1PreparedStatement {
@@ -108,6 +127,20 @@ class SummaryD1Database {
     }
 
     if (sql.includes('from "meal_items"')) return result();
+
+    if (sql.includes('from "daily_weights"')) {
+      const [ownerKey, from, to] = values.filter(
+        (value): value is string => typeof value === "string",
+      );
+      return result(this.weights
+        .filter((weight) => (
+          weight.owner_key === ownerKey
+          && String(weight.logical_date) >= String(from)
+          && String(weight.logical_date) <= String(to)
+        ))
+        .sort((left, right) => String(right.logical_date).localeCompare(String(left.logical_date)))
+        .slice(0, 366));
+    }
 
     const ownerKey = values.find((value): value is string => typeof value === "string");
     const timestamps = values.filter(
@@ -189,17 +222,36 @@ function createSummaryDb(now: Date) {
   meals.push(mealRow("outside-before", OWNER_KEY, start.getTime() - 7 * DAY_MS, 999, 99));
   meals.push(mealRow("outside-after", OWNER_KEY, start.getTime() + DAY_MS, 999, 99));
   meals.push(mealRow("other-owner", OTHER_OWNER, start.getTime() + 3_600_000, 999, 99));
+  const weights = Array.from({ length: 7 }, (_, day) => {
+    const logicalDate = new Date(start.getTime() - day * DAY_MS).toISOString().slice(0, 10);
+    return weightRow(`weight-${day}`, OWNER_KEY, logicalDate, 73 + day / 10, start.getTime() + day);
+  });
+  weights.push(weightRow(
+    "outside-weight",
+    OWNER_KEY,
+    new Date(start.getTime() - 7 * DAY_MS).toISOString().slice(0, 10),
+    99,
+    start.getTime(),
+  ));
+  weights.push(weightRow(
+    "other-owner-weight",
+    OTHER_OWNER,
+    start.toISOString().slice(0, 10),
+    99,
+    start.getTime(),
+  ));
   return {
     start,
     meals,
+    weights,
     db: drizzle(
-      new SummaryD1Database(meals, settingsRow(OWNER_KEY)) as unknown as D1Database,
+      new SummaryD1Database(meals, settingsRow(OWNER_KEY), weights) as unknown as D1Database,
       { schema },
     ),
   };
 }
 
-test("dashboard summary returns all seven-day meals and matching totals", async () => {
+test("dashboard summary returns all seven-day meals, weights, and matching totals", async () => {
   const now = new Date("2025-06-15T12:00:00Z");
   const { db, start, meals } = createSummaryDb(now);
   const summary = await getDashboardSummary(db, OWNER_KEY, now);
@@ -230,4 +282,12 @@ test("dashboard summary returns all seven-day meals and matching totals", async 
   assert.equal(summary.sevenDay.averageProteinG, expectedProtein / 7);
   assert.equal(summary.sevenDay.daysWithMeals, 7);
   assert.ok(!summary.recentMeals.some(({ meal }) => ["outside-before", "outside-after", "other-owner"].includes(meal.id)));
+  assert.equal(summary.recentWeights.length, 7);
+  assert.deepEqual(
+    summary.recentWeights.map((weight) => weight.logicalDate),
+    Array.from({ length: 7 }, (_, day) => (
+      new Date(start.getTime() - day * DAY_MS).toISOString().slice(0, 10)
+    )),
+  );
+  assert.ok(!summary.recentWeights.some((weight) => weight.id === "outside-weight" || weight.id === "other-owner-weight"));
 });

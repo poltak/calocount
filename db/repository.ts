@@ -13,6 +13,7 @@ import {
   aiProfiles,
   aiRuns,
   analysisJobs,
+  dailyWeights,
   mealItems,
   mealLogs,
   mealRevisions,
@@ -58,6 +59,11 @@ export type MealPatch = Partial<MealInput> & {
 export type MealWithItems = {
   meal: typeof mealLogs.$inferSelect;
   items: Array<typeof mealItems.$inferSelect>;
+};
+
+export type DailyWeightInput = {
+  logicalDate: string;
+  weightKg: number;
 };
 
 export type SettingsPatch = Partial<{
@@ -190,6 +196,89 @@ export async function listMeals(
   }
 
   return meals.map((meal) => ({ meal, items: itemMap.get(meal.id) ?? [] }));
+}
+
+export async function getDailyWeight({
+  db,
+  ownerKey,
+  logicalDate,
+}: {
+  db: AppDb;
+  ownerKey: string;
+  logicalDate: string;
+}) {
+  return db
+    .select()
+    .from(dailyWeights)
+    .where(and(
+      eq(dailyWeights.ownerKey, ownerKey),
+      eq(dailyWeights.logicalDate, logicalDate),
+    ))
+    .limit(1)
+    .prepare()
+    .get();
+}
+
+export async function listDailyWeights({
+  db,
+  ownerKey,
+  from,
+  to,
+}: {
+  db: AppDb;
+  ownerKey: string;
+  from?: string;
+  to?: string;
+}) {
+  const conditions = [eq(dailyWeights.ownerKey, ownerKey)];
+  if (from) conditions.push(gte(dailyWeights.logicalDate, from));
+  if (to) conditions.push(lte(dailyWeights.logicalDate, to));
+
+  return db
+    .select()
+    .from(dailyWeights)
+    .where(and(...conditions))
+    .orderBy(desc(dailyWeights.logicalDate))
+    .limit(366)
+    .prepare()
+    .all();
+}
+
+export async function upsertDailyWeight({
+  db,
+  ownerKey,
+  input,
+}: {
+  db: AppDb;
+  ownerKey: string;
+  input: DailyWeightInput;
+}) {
+  const timestamp = nowMs();
+  await db
+    .insert(dailyWeights)
+    .values({
+      id: createId("weight"),
+      ownerKey,
+      logicalDate: input.logicalDate,
+      weightKg: input.weightKg,
+      recordedAt: timestamp,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    })
+    .onConflictDoUpdate({
+      target: [dailyWeights.ownerKey, dailyWeights.logicalDate],
+      set: {
+        weightKg: input.weightKg,
+        recordedAt: timestamp,
+        updatedAt: timestamp,
+      },
+    })
+    .prepare()
+    .run();
+
+  const saved = await getDailyWeight({ db, ownerKey, logicalDate: input.logicalDate });
+  if (!saved) throw new Error("daily_weight_save_failed");
+  return saved;
 }
 
 export async function findMeal(db: AppDb, ownerKey: string, mealId: string): Promise<MealWithItems | null> {
@@ -423,7 +512,9 @@ export async function getDashboardSummary(db: AppDb, ownerKey: string, now = new
   const startMs = start.getTime();
   const endMs = startMs + 86_400_000;
   const weekStartMs = startMs - 6 * 86_400_000;
-  const [settingsRow, today, recentMeals] = await Promise.all([
+  const logicalDate = start.toISOString().slice(0, 10);
+  const weekStartDate = new Date(weekStartMs).toISOString().slice(0, 10);
+  const [settingsRow, today, recentMeals, recentWeights] = await Promise.all([
     getSettings(db, ownerKey),
     db.select({
       calories: sql<number>`coalesce(sum(${mealLogs.totalCalories}), 0)`,
@@ -438,6 +529,7 @@ export async function getDashboardSummary(db: AppDb, ownerKey: string, now = new
       lt(mealLogs.consumedAt, endMs),
     )).prepare().get(),
     listMeals(db, ownerKey, { from: weekStartMs, to: endMs, limit: 500 }),
+    listDailyWeights({ db, ownerKey, from: weekStartDate, to: logicalDate }),
   ]);
 
   const days = new Map<string, { calories: number; proteinG: number }>();
@@ -455,7 +547,7 @@ export async function getDashboardSummary(db: AppDb, ownerKey: string, now = new
   );
 
   return {
-    date: start.toISOString().slice(0, 10),
+    date: logicalDate,
     targets: {
       calories: settingsRow?.dailyCalorieTarget ?? null,
       proteinG: settingsRow?.dailyProteinTargetG ?? null,
@@ -475,6 +567,7 @@ export async function getDashboardSummary(db: AppDb, ownerKey: string, now = new
       daysWithMeals: days.size,
     },
     recentMeals,
+    recentWeights,
   };
 }
 

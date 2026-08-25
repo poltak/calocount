@@ -69,6 +69,24 @@ test("meal form accepts precise calories and captures every displayed macro", as
   assert.match(page, /fatG: meal\.fat \?\? 0/);
 });
 
+test("daily weight supports add and edit with kilograms and an automatic saved time", async () => {
+  const [page, route, repository] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/weights/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../db/repository.ts", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(page, /selectedWeight \? "Edit weight" : "Add weight"/);
+  assert.match(page, /name="weightKg"[\s\S]*?type="number"[\s\S]*?step="0\.1"/);
+  assert.match(page, /Saved at \{formatRecordedTime\(selectedWeight\.recordedAt\)\}/);
+  assert.match(page, /method: "PUT"/);
+  assert.match(page, /body: JSON\.stringify\(\{ logicalDate, weightKg \}\)/);
+  assert.match(page, /setWeightForDate\(logicalDate, optimisticWeight\)/);
+  assert.match(page, /setWeightForDate\(logicalDate, previousWeight\)/);
+  assert.doesNotMatch(route, /body\.recordedAt/);
+  assert.match(repository, /recordedAt: timestamp/);
+});
+
 test("dashboard section tabs use hash-backed active state", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
 
