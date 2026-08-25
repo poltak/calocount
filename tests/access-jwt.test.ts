@@ -164,9 +164,21 @@ test("missing Access configuration fails before any key fetch", async () => {
         return Response.json({ keys: [] });
       },
     }),
-    (error: unknown) => error instanceof AccessJwtError && error.code === "config",
+    (error: unknown) =>
+      error instanceof AccessJwtError && error.code === "config" && error.reason === "config_missing",
   );
   assert.equal(fetchCalls, 0);
+});
+
+test("invalid Access configuration reports a stable reason", async () => {
+  const keys = await signingKeys();
+  const token = await accessToken(keys.privateKey);
+
+  await assert.rejects(
+    verifyAccessJwt(request(token), verifyOptions(await verifier(keys.publicKey), { teamDomain: "https://invalid/path" })),
+    (error: unknown) =>
+      error instanceof AccessJwtError && error.code === "config" && error.reason === "config_invalid",
+  );
 });
 
 test("production owner allowlist requires an email or user ID", () => {
@@ -259,12 +271,49 @@ test("oversized JWT and oversized JWK responses are rejected", async (t) => {
     const jwk = await webcrypto.subtle.exportKey("jwk", keys.publicKey);
     await assert.rejects(
       verifyAccessJwt(request(token), verifyOptions(async () => new Response(`{"keys":[${JSON.stringify({ ...jwk, kid: "test-key", alg: "RS256" })}]}${" ".repeat(131_072)}`))),
-      (error: unknown) => error instanceof AccessJwtError && error.code === "jwks",
+      (error: unknown) =>
+        error instanceof AccessJwtError && error.code === "jwks" && error.reason === "jwks_too_large",
     );
   });
 });
 
-test("Access JWT diagnostics contain only the stable event and failure code", async () => {
+test("JWKS failures use stable, non-sensitive reason codes", async (t) => {
+  const keys = await signingKeys();
+  const token = await accessToken(keys.privateKey);
+
+  await t.test("fetch failure", async () => {
+    await assert.rejects(
+      verifyAccessJwt(
+        request(token),
+        verifyOptions(async () => {
+          throw new Error("private fetch details");
+        }),
+      ),
+      (error: unknown) =>
+        error instanceof AccessJwtError && error.code === "jwks" && error.reason === "jwks_fetch_failed",
+    );
+  });
+
+  await t.test("HTTP failure", async () => {
+    await assert.rejects(
+      verifyAccessJwt(request(token), verifyOptions(async () => new Response("private response", { status: 503 }))),
+      (error: unknown) =>
+        error instanceof AccessJwtError && error.code === "jwks" && error.reason === "jwks_http_error",
+    );
+  });
+
+  await t.test("invalid JSON or shape", async () => {
+    await assert.rejects(
+      verifyAccessJwt(request(token), verifyOptions(async () => new Response("{"))),
+      (error: unknown) =>
+        error instanceof AccessJwtError &&
+        error.code === "jwks" &&
+        error.reason === "jwks_invalid_json_or_shape",
+    );
+  });
+});
+
+test("Access JWT diagnostics contain only the stable event, code, and reason", async () => {
   const source = await readFile(new URL("../app/api/_lib/http.ts", import.meta.url), "utf8");
 
   assert.match(
@@ -273,7 +322,17 @@ test("Access JWT diagnostics contain only the stable event and failure code", as
   );
   assert.match(
     source,
-    /console\.warn\(JSON\.stringify\(\{ event: ACCESS_JWT_FAILURE_EVENT, code \}\)\);/,
+    /const reason = error instanceof AccessJwtError \? error\.reason : "unexpected";/,
   );
-  assert.doesNotMatch(source, /console\.warn\(JSON\.stringify\(\{[^}]*\b(?:request|token|headers|claims|email|userId|url|message)\b/iu);
+  assert.match(
+    source,
+    /console\.warn\(JSON\.stringify\(\{ event: ACCESS_JWT_FAILURE_EVENT, code, reason \}\)\);/,
+  );
+  assert.doesNotMatch(
+    source,
+    /console\.warn\(JSON\.stringify\(\{[^}]*\b(?:request|token|headers|claims|email|userId|url|status|message)\b/iu,
+  );
+
+  const verifierSource = await readFile(new URL("../app/api/_lib/access-jwt.ts", import.meta.url), "utf8");
+  assert.doesNotMatch(verifierSource, /fail\(\s*["'][^"']+["']\s*\)/u);
 });

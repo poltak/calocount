@@ -12,7 +12,8 @@ const ACCESS_JWT_FAILURE_EVENT = "calocount_access_jwt_verification_failed";
 
 function logAccessJwtFailure(error: unknown): void {
   const code = error instanceof AccessJwtError ? error.code : "unexpected";
-  console.warn(JSON.stringify({ event: ACCESS_JWT_FAILURE_EVENT, code }));
+  const reason = error instanceof AccessJwtError ? error.reason : "unexpected";
+  console.warn(JSON.stringify({ event: ACCESS_JWT_FAILURE_EVENT, code, reason }));
 }
 
 export class ApiError extends Error {
