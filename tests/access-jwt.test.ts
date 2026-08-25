@@ -330,6 +330,22 @@ test("Access JWT diagnostics contain only the stable event, code, and reason", a
   );
   assert.match(source, /logAccessConfigurationFailure\("access_settings_missing"\)/);
   assert.match(source, /logAccessConfigurationFailure\("owner_allowlist_missing"\)/);
+  assert.match(
+    source,
+    /throw new ApiError\(503, "auth_access_settings_missing", "Owner authentication is not configured\."\)/,
+  );
+  assert.match(
+    source,
+    /throw new ApiError\(503, "auth_owner_allowlist_missing", "Owner authentication is not configured\."\)/,
+  );
+  assert.match(
+    source,
+    /if \(error instanceof AccessJwtError && error\.code === "config"\) \{[\s\S]*?throw new ApiError\(503, "auth_unavailable"/,
+  );
+  assert.match(
+    source,
+    /if \(error instanceof AccessJwtError && error\.code === "jwks"\) \{[\s\S]*?throw new ApiError\(503, "auth_unavailable"/,
+  );
   assert.doesNotMatch(source, /logAccessConfigurationFailure\(\)/);
   assert.doesNotMatch(
     source,

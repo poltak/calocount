@@ -76,11 +76,11 @@ export async function requireApiIdentity(request: Request): Promise<ApiIdentity>
   } else {
     if (!getEnvValue("CALOCOUNT_ACCESS_TEAM_DOMAIN")?.trim() || !getEnvValue("CALOCOUNT_ACCESS_AUDIENCE")?.trim()) {
       logAccessConfigurationFailure("access_settings_missing");
-      throw new ApiError(503, "auth_unavailable", "Owner authentication is not configured.");
+      throw new ApiError(503, "auth_access_settings_missing", "Owner authentication is not configured.");
     }
     if (!isOwnerAllowlistConfigured({ allowedEmail, allowedUserId })) {
       logAccessConfigurationFailure("owner_allowlist_missing");
-      throw new ApiError(503, "auth_unavailable", "Owner authentication is not configured.");
+      throw new ApiError(503, "auth_owner_allowlist_missing", "Owner authentication is not configured.");
     }
 
     let claims;
