@@ -1,6 +1,14 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
+import { PwaRegistration } from "./pwa-registration";
 import "./globals.css";
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#0f131b",
+  colorScheme: "dark",
+};
 
 export async function generateMetadata(): Promise<Metadata> {
   const requestHeaders = await headers();
@@ -14,6 +22,23 @@ export async function generateMetadata(): Promise<Metadata> {
     metadataBase,
     title,
     description,
+    applicationName: "Calocount",
+    manifest: "/manifest.webmanifest",
+    icons: {
+      icon: [
+        { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+        { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+      ],
+      apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+    },
+    appleWebApp: {
+      capable: true,
+      title: "Calocount",
+      statusBarStyle: "black-translucent",
+    },
+    other: {
+      "apple-mobile-web-app-capable": "yes",
+    },
     openGraph: {
       title,
       description,
@@ -36,7 +61,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <PwaRegistration />
+        {children}
+      </body>
     </html>
   );
 }
