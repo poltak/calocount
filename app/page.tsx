@@ -358,6 +358,24 @@ function parseDashboardPayload(value: unknown) {
   return parseDashboardSummary(record?.summary ?? record?.dashboard ?? value);
 }
 
+export function dashboardFailureMessage(status: number, responseBody: unknown): string {
+  const errorCode = asRecord(asRecord(responseBody)?.error)?.code;
+  if (status === 401) return "Demo mode — sign in to load your saved meals. Changes stay local for now.";
+  if (errorCode === "database_unavailable") {
+    return "Demo mode — no D1 database binding is available, so changes stay local.";
+  }
+  if (errorCode === "auth_access_settings_missing") {
+    return "Demo mode — owner sign-in settings are incomplete, so changes stay local.";
+  }
+  if (errorCode === "auth_owner_allowlist_missing") {
+    return "Demo mode — owner allowlist is incomplete, so changes stay local.";
+  }
+  if (errorCode === "auth_unavailable") {
+    return "Demo mode — owner authentication is temporarily unavailable, so changes stay local.";
+  }
+  return "Demo mode — saved data is unavailable, so changes stay local.";
+}
+
 function dateKeyFromTimestamp(timestamp: number) {
   return new Date(timestamp).toISOString().slice(0, 10);
 }
@@ -668,12 +686,9 @@ export function Dashboard({ readOnly = false, shareToken }: DashboardProps) {
                 ? "This shared link is not available. It may be revoked or expired."
                 : "The shared log could not be loaded. Try the link again later.");
             } else {
+              const responseBody = await response.json().catch(() => null);
               setDataMode("demo");
-              setDataMessage(response.status === 503
-                ? "Demo mode — no D1 database binding is available, so changes stay local."
-                : response.status === 401
-                  ? "Demo mode — sign in to load your saved meals. Changes stay local for now."
-                  : "Demo mode — saved data is unavailable, so changes stay local.");
+              setDataMessage(dashboardFailureMessage(response.status, responseBody));
             }
           }
           return;
