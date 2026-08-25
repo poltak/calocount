@@ -1083,14 +1083,6 @@ export default function Home() {
         </section>
 
         <aside className="side-column">
-          {!noteDismissed ? <section className="ai-note" id="plan" aria-labelledby="plan-title">
-            <div className="ai-note-topline"><span className="sparkle" aria-hidden="true">✦</span><span>Calocount AI</span><button className="close-button" type="button" onClick={() => setNoteDismissed(true)} aria-label="Dismiss AI note">×</button></div>
-            <h2 id="plan-title">A small nudge for the rest of your day</h2>
-            <p>You are {remainingCalories > 0 ? `${formatNumber(remainingCalories)} kcal` : "at your target"} away from today&apos;s goal. A protein-forward dinner will keep you close to your {activeProteinTarget}g target.</p>
-            <div className="ai-suggestion"><span className="suggestion-icon" aria-hidden="true">↗</span><div><strong>Try 35–45g protein</strong><span>Lean protein, vegetables, and a small carb portion</span></div></div>
-            <button className="text-button" type="button" onClick={() => setShowAddMeal(true)}>Log dinner idea <span aria-hidden="true">→</span></button>
-          </section> : <button className="show-note-button" type="button" onClick={() => setNoteDismissed(false)}>Show daily nudge</button>}
-
           <section className="panel macro-panel" aria-labelledby="macro-title">
             <div className="panel-heading compact-heading"><div><p className="eyebrow">Daily split</p><h2 id="macro-title">Macros</h2></div><span className="panel-meta">per day</span></div>
             <div className="macro-donut" style={{ background: macroValues.gradient }} role="img" aria-label={`Estimated daily macro split: ${macroValues.carbs} percent carbohydrates, ${macroValues.protein} percent protein, ${macroValues.fat} percent fat`}><div><strong>{formatNumber(totalCalories)}</strong><span>kcal</span></div></div>
