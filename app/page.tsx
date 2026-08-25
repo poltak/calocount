@@ -541,7 +541,7 @@ export default function Home() {
   useEffect(() => {
     function syncSectionFromHash() {
       const section = window.location.hash.slice(1);
-      if (section === "today" || section === "meals" || section === "trend" || section === "plan") {
+      if (section === "today" || section === "meals" || section === "trend" || section === "macros") {
         setActiveSection(section);
       } else {
         setActiveSection("today");

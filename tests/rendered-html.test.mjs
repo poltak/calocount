@@ -76,7 +76,7 @@ test("dashboard section tabs use hash-backed active state", async () => {
   assert.match(page, /activeSection === "today" \? "active" : ""/);
   assert.match(page, /activeSection === "meals" \? "active" : ""/);
   assert.match(page, /activeSection === "trend" \? "active" : ""/);
-  assert.match(page, /activeSection === "plan" \? "active" : ""/);
+  assert.match(page, /activeSection === "macros" \? "active" : ""/);
   assert.doesNotMatch(page, /<a className="active" href="#today">/);
 });
 
