@@ -1510,7 +1510,7 @@ input:focus-visible {
   .meal-row.is-actions-open .meal-row-content { transform: translateX(-120px); }
   .meal-avatar { grid-column: 1; grid-row: 1; }
   .meal-info { grid-column: 2 / span 4; grid-row: 1; padding-right: 34px; }
-  .meal-stat { grid-row: 2; flex-wrap: wrap; justify-content: flex-start; font-size: 10px; }
+  .meal-stat { grid-row: 2; flex-wrap: wrap; justify-content: flex-start; font-size: 10px; text-align: left; }
   .meal-stat::before {
     flex-basis: 100%;
     color: var(--muted);
