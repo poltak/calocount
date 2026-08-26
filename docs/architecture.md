@@ -29,12 +29,20 @@ The PWA manifest starts at `/owner` while keeping `id` and `scope` at `/`. This
 keeps installed launches in the private owner dashboard without changing the
 site identity or service-worker scope.
 
-Cloudflare Access configuration is not implied by this source tree. Keep the
-existing broad protection while deploying and testing. Before a broad hostname
-is made public, live-verify private applications covering the exact `/owner`
-path and its descendants and `/api/*`. Then verify each public exception and
-static/PWA asset path from deployed requests. Record the final Access path list;
-do not infer it from this document.
+The production Cloudflare Access layout was live-verified on 2026-08-26. The
+existing private Access application protects exact `/owner`, `/owner/*`, and
+`/api/*` destinations with the existing owner Allow policy and the same owner
+JWT audience. A separate Access application protects the exact
+`/api/public/summary` destination with Bypass Everyone. `/` and static/PWA
+assets are public because no Access destination matches them. Do not add root or
+static bypass exceptions, a broad `/*` or `/_next/*` bypass, or an `/api/*`
+bypass.
+
+Anonymous and authenticated live checks passed: the public root and summary
+load without login, owner pages and private APIs require the owner Access
+session, static/PWA assets are reachable anonymously, and removed share routes
+return `404` when reached. Recheck the live Access path list after every Access
+change; this document describes the verified state, not automatic enforcement.
 
 ### Future route and Access review rule
 
@@ -43,8 +51,8 @@ default unless a private Cloudflare Access destination covers them. Before any
 deployment, give explicit privacy and Access review to every new page outside
 `/owner`, every new public API exception, and every new server route outside
 `/api`. Verify the anonymous and owner behavior from deployed requests. This is
-a repository rule for future changes; it does not confirm that the live Access
-configuration already matches this layout.
+a repository rule for future changes; the current layout was verified on
+2026-08-26.
 
 ## Meal flow
 

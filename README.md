@@ -169,15 +169,22 @@ npx wrangler deploy --config workers/ingest/wrangler.jsonc
 
 Then:
 
-1. Keep the existing whole-app Cloudflare Access protection in place while you deploy and verify the route split. Before making the broad hostname public, create and live-verify private Access coverage for the exact `/owner` path and its descendants, plus `/api/*`. The PWA manifest starts at `/owner`; its `id` and `scope` remain `/`.
+1. Review the public projection, route conditions, and owner JWT checks. The PWA manifest starts at `/owner`; its `id` and `scope` remain `/`.
 2. Leave `calocount-ingest` public.
 3. Set `PUBLIC_ORIGIN` to the ingest Worker's HTTPS origin.
 4. Register `https://<ingest-origin>/telegram/webhook` with Telegram and send `TELEGRAM_WEBHOOK_SECRET` as Telegram's secret token.
 5. Send one test meal photo and confirm that the job, photo, meal items, and AI run appear.
 
-For the public/owner route split, follow [docs/read-only-sharing.md](docs/read-only-sharing.md). The safe order is to apply the additive D1 migration, set the `CALOCOUNT_ALLOWED_EMAIL_SHA256` binding (or a compatibility email/user ID allowlist), deploy, and test while the existing whole-app Access protection remains. Verify `/owner` and `/api/*` as private first. Only after that live verification add the reviewed public exceptions for `/`, `/api/public/summary`, and the exact non-data static/PWA assets required by the deployed pages. Do not assume this README defines the final Access paths; record them from live Cloudflare verification. Do not make owner APIs public.
+For the public/owner route split, follow [docs/read-only-sharing.md](docs/read-only-sharing.md). The production Access layout was live-verified on 2026-08-26:
 
-Future route rule: for the intended public-root/private-owner layout, treat routes as public by default unless a private Cloudflare Access destination covers them. Any new page outside `/owner`, any new public API exception, or any new server route outside `/api` requires explicit privacy and Access review before deployment. Verify the anonymous and owner behavior from deployed requests. This documents the required review process; it does not confirm that the live Access configuration already matches this layout.
+- The existing private Access application protects the exact `/owner`, `/owner/*`, and `/api/*` destinations with the existing owner Allow policy and the same owner JWT audience.
+- A separate Access application for the exact `/api/public/summary` destination uses Bypass Everyone.
+- `/` and the static/PWA assets are public because no Access destination matches them. Do not add root or static bypass exceptions.
+- Anonymous and authenticated checks passed: the public root and summary load without login, owner pages and private APIs require the owner Access session, static/PWA assets are reachable anonymously, and the removed share routes return `404` when reached.
+
+Do not add a broad `/*`, `/_next/*`, or `/api/*` bypass. Do not make owner APIs public.
+
+Future route rule: for the public-root/private-owner layout, treat routes as public by default unless a private Cloudflare Access destination covers them. Any new page outside `/owner`, any new public API exception, or any new server route outside `/api` requires explicit privacy and Access review before deployment. Verify the anonymous and owner behavior from deployed requests, including the Access path list.
 
 Cloudflare deployment and Telegram registration are not done automatically by this repository because they require your account, resource IDs, and secrets.
 

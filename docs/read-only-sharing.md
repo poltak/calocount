@@ -16,11 +16,11 @@ compatibility; do not remove or alter them without a separate database decision.
 
 | Path | Access rule | Purpose |
 | --- | --- | --- |
-| `/` | Public after staged Access verification | Read-only dashboard UI |
-| `/owner` and `/owner/*` | Private Cloudflare Access and server-side signed JWT check | Owner read-write dashboard |
-| `/api/public/summary` | Public only as a narrow exception | Explicit read-only dashboard projection |
+| `/` | Public because no Access destination matches it | Read-only dashboard UI |
+| `/owner` and `/owner/*` | Existing private Cloudflare Access application, existing owner Allow policy and audience, plus server-side signed JWT check | Owner read-write dashboard |
+| `/api/public/summary` | Separate exact Cloudflare Access application with Bypass Everyone | Explicit read-only dashboard projection |
 | `/api/*` in general | Private Cloudflare Access and server-side owner authentication | Owner data and all write operations |
-| `/_next/static/*`, manifest, service worker, and required icons | Public static assets required by the public root and PWA | JavaScript, CSS, and install metadata only |
+| `/_next/static/*`, manifest, service worker, and required icons | Public because no Access destination matches them | JavaScript, CSS, and install metadata only |
 | photos, exports, AI routes, settings, and other owner APIs | Private | Sensitive data and mutations |
 
 The public summary endpoint resolves the stable configured owner key. It fails
@@ -52,32 +52,27 @@ dashboard. The owner Access application must cover the exact `/owner` path and
 its descendants. The manifest, service worker, icons, and generated static
 assets must be available to the browser so installation can complete.
 
-## Production rollout
+## Production Access configuration
 
-Use a staged Access rollout. Keep the current whole-site protection enabled
-while deploying and testing the route split.
+The following layout was live-verified on 2026-08-26:
 
-1. Review the public projection, route conditions, and owner JWT checks.
-2. Apply only the existing additive D1 migrations. Do not remove or modify the
-   compatibility `share_links` migration or schema declaration.
-3. Configure the owner Access variables and allowlist. Keep
-   `CALOCOUNT_ALLOW_LOCAL=false` in production.
-4. Build and deploy the dashboard Worker.
-5. In an authenticated browser, verify `/owner`, the dashboard summary, photos,
-   and representative owner writes.
-6. In Cloudflare Access, create or verify private applications for the exact
-   `/owner` path and descendants and for `/api/*`.
-7. Only after those private paths pass live tests, add the narrow public
-   exceptions for `/`, `/api/public/summary`, and the exact non-data static/PWA
-   assets used by the deployed public page. Do not add a broad `/*`, `/_next/*`,
-   or `/api/*` bypass.
-8. In a separate anonymous browser, verify the public root and summary, then
-   retry private paths and write methods. Record the final Access path list and
-   deployed commit.
+1. The existing private Access application protects exact `/owner`, `/owner/*`,
+   and `/api/*` destinations with the existing owner Allow policy and the same
+   owner JWT audience.
+2. A separate Access application protects the exact `/api/public/summary`
+   destination with Bypass Everyone. It is more specific than `/api/*`.
+3. `/` and the static/PWA assets are public because no Access destination
+   matches them. Do not add root or static bypass exceptions, a broad `/*`
+   bypass, a broad `/_next/*` bypass, or an `/api/*` bypass.
+4. Anonymous and authenticated live checks passed: the public root and summary
+   load without login; `/owner` and private APIs require the owner Access
+   session; static/PWA assets are reachable anonymously; and removed share
+   routes return `404` when reached.
 
-Cloudflare Access path precedence and policy behavior must be checked against
-the live dashboard. A source document does not prove that the live Access
-configuration matches the intended boundary.
+Keep `CALOCOUNT_ALLOW_LOCAL=false` in production. Review the public projection,
+route conditions, and owner JWT checks before each deployment. Apply only the
+existing additive D1 migrations; do not remove or modify the compatibility
+`share_links` migration or schema declaration.
 
 ## Future route review rule
 
@@ -89,13 +84,14 @@ covers them. Before every deployment, explicitly review:
 - every new server route outside `/api`.
 
 For each change, test both anonymous and owner behavior from the deployed
-application. This rule is mandatory for future agents and does not confirm the
-current live Access configuration.
+application and review the live Access path list. This rule is mandatory for
+future agents; the current layout was verified on 2026-08-26.
 
 ## Rollback
 
-If the public page, projection, or authentication boundary is wrong, remove or
-disable the public root and public summary exceptions first. Restore private
-coverage for `/owner` and `/api/*`, then verify both anonymous and authenticated
-requests. If the Worker is wrong, redeploy the last known-good version. Keep
+If the public page, projection, or authentication boundary is wrong, restore the
+broad Worker destination on the existing private Access application and remove
+or disable the exact `/api/public/summary` Bypass Everyone application. Verify
+that anonymous requests receive Access and that the authenticated owner route
+still works. If the Worker is wrong, redeploy the last known-good version. Keep
 the existing D1 migration history intact.
