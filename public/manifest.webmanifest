@@ -3,7 +3,7 @@
   "short_name": "Calocount",
   "description": "Photo meals. Clear calorie and protein numbers.",
   "id": "/",
-  "start_url": "/",
+  "start_url": "/owner",
   "scope": "/",
   "display": "standalone",
   "display_override": ["standalone", "minimal-ui"],

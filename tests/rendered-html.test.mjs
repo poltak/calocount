@@ -33,9 +33,9 @@ test("server-renders the Calocount dashboard", async () => {
   const html = await response.text();
   assert.match(html, /<title>Calocount — simple calorie tracking<\/title>/i);
   assert.match(html, /Calocount/);
-  assert.match(html, /Calories/);
-  assert.match(html, /Protein/);
-  assert.match(html, /Today/);
+  assert.match(html, /Public read-only/);
+  assert.match(html, /Loading public dashboard/);
+  assert.doesNotMatch(html, /Greek yogurt bowl|Demo mode/);
   assert.match(html, /og\.png/);
   assert.doesNotMatch(html, /Your site is taking shape|Building your site|codex-preview/i);
 });

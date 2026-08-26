@@ -9,6 +9,7 @@ const projectRoot = fileURLToPath(new URL("..", import.meta.url));
 type PwaManifest = {
   name?: string;
   short_name?: string;
+  id?: string;
   start_url?: string;
   scope?: string;
   display?: string;
@@ -61,7 +62,8 @@ test("manifest has the fields required for mobile installation", async () => {
 
   assert.equal(appManifest.name, "Calocount — simple calorie tracking");
   assert.equal(appManifest.short_name, "Calocount");
-  assert.equal(appManifest.start_url, "/");
+  assert.equal(appManifest.id, "/");
+  assert.equal(appManifest.start_url, "/owner");
   assert.equal(appManifest.scope, "/");
   assert.equal(appManifest.display, "standalone");
   assert.equal(appManifest.theme_color, "#0f131b");

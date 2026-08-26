@@ -45,6 +45,7 @@ test("owner share controls use guarded create, list, copy, and revoke flows", as
   assert.match(page, /fetch\("\/api\/share-links", \{[\s\S]*?method: "POST"/);
   assert.match(page, /fetch\(`\/api\/share-links\/\$\{encodeURIComponent\(link\.id\)\}`, \{ method: "DELETE" \}\)/);
   assert.match(page, /navigator\.clipboard\?\.writeText/);
+  assert.match(page, /onClick=\{\(\) => void copyCreatedShareUrl\(\)\}/);
   assert.match(page, /Link created, but the raw URL was not returned/);
   assert.match(page, /Revoke/);
   assert.match(page, /share-label/);

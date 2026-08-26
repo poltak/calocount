@@ -94,7 +94,7 @@ type DashboardSummary = {
   recentWeights: DailyWeight[];
 };
 
-type DataMode = "loading" | "live" | "demo" | "error";
+type DataMode = "loading" | "live" | "error";
 type DashboardSection = "today" | "meals" | "trend" | "macros";
 type MealSwipeStart = {
   mealId: string;
@@ -109,6 +109,7 @@ const proteinTarget = 160;
 type DashboardProps = {
   readOnly?: boolean;
   shareToken?: string;
+  publicView?: boolean;
 };
 
 type ShareLink = {
@@ -120,108 +121,15 @@ type ShareLink = {
   status: "active" | "revoked" | "expired";
 };
 
-// This dataset is used only when the local API is unauthenticated or has no D1 binding.
-const demoDays: Day[] = [
-  {
-    key: "sun",
-    date: "2025-06-08",
-    shortDate: "8",
-    weekday: "Sunday",
-    calories: 2280,
-    protein: 148,
-    meals: [],
-  },
-  {
-    key: "mon",
-    date: "2025-06-09",
-    shortDate: "9",
-    weekday: "Monday",
-    calories: 2490,
-    protein: 164,
-    meals: [],
-  },
-  {
-    key: "tue",
-    date: "2025-06-10",
-    shortDate: "10",
-    weekday: "Tuesday",
-    calories: 2170,
-    protein: 151,
-    meals: [],
-  },
-  {
-    key: "wed",
-    date: "2025-06-11",
-    shortDate: "11",
-    weekday: "Wednesday",
-    calories: 2360,
-    protein: 158,
-    meals: [],
-  },
-  {
-    key: "thu",
-    date: "2025-06-12",
-    shortDate: "12",
-    weekday: "Thursday",
-    calories: 1860,
-    protein: 131,
-    meals: [
-      {
-        id: "breakfast",
-        time: "08:10",
-        name: "Greek yogurt bowl",
-        description: "Greek yogurt, blueberries, granola, honey",
-        calories: 420,
-        protein: 31,
-        kind: "breakfast",
-      },
-      {
-        id: "lunch",
-        time: "12:35",
-        name: "Chicken rice bowl",
-        description: "Grilled chicken, jasmine rice, avocado, greens",
-        calories: 680,
-        protein: 48,
-        kind: "lunch",
-      },
-      {
-        id: "snack",
-        time: "15:50",
-        name: "Apple and peanut butter",
-        description: "One apple with two tablespoons peanut butter",
-        calories: 290,
-        protein: 8,
-        kind: "snack",
-      },
-      {
-        id: "dinner",
-        time: "19:20",
-        name: "Salmon soba plate",
-        description: "Miso salmon, soba noodles, edamame, cucumber",
-        calories: 470,
-        protein: 44,
-        kind: "dinner",
-      },
-    ],
-  },
-  {
-    key: "fri",
-    date: "2025-06-13",
-    shortDate: "13",
-    weekday: "Friday",
-    calories: 2420,
-    protein: 166,
-    meals: [],
-  },
-  {
-    key: "sat",
-    date: "2025-06-14",
-    shortDate: "14",
-    weekday: "Saturday",
-    calories: 2310,
-    protein: 154,
-    meals: [],
-  },
+// Neutral placeholders stay hidden until the live summary has loaded.
+const initialDays: Day[] = [
+  { key: "sun", date: "1970-01-04", shortDate: "4", weekday: "Sunday", calories: 0, protein: 0, meals: [] },
+  { key: "mon", date: "1970-01-05", shortDate: "5", weekday: "Monday", calories: 0, protein: 0, meals: [] },
+  { key: "tue", date: "1970-01-06", shortDate: "6", weekday: "Tuesday", calories: 0, protein: 0, meals: [] },
+  { key: "wed", date: "1970-01-07", shortDate: "7", weekday: "Wednesday", calories: 0, protein: 0, meals: [] },
+  { key: "thu", date: "1970-01-08", shortDate: "8", weekday: "Thursday", calories: 0, protein: 0, meals: [] },
+  { key: "fri", date: "1970-01-09", shortDate: "9", weekday: "Friday", calories: 0, protein: 0, meals: [] },
+  { key: "sat", date: "1970-01-10", shortDate: "10", weekday: "Saturday", calories: 0, protein: 0, meals: [] },
 ];
 
 const dayLabels: Record<DayKey, string> = {
@@ -360,20 +268,20 @@ function parseDashboardPayload(value: unknown) {
 
 export function dashboardFailureMessage(status: number, responseBody: unknown): string {
   const errorCode = asRecord(asRecord(responseBody)?.error)?.code;
-  if (status === 401) return "Demo mode — sign in to load your saved meals. Changes stay local for now.";
+  if (status === 401) return "Your saved log could not be loaded. Sign in again and try again.";
   if (errorCode === "database_unavailable") {
-    return "Demo mode — no D1 database binding is available, so changes stay local.";
+    return "Your saved log is unavailable because the database is not configured.";
   }
   if (errorCode === "auth_access_settings_missing") {
-    return "Demo mode — owner sign-in settings are incomplete, so changes stay local.";
+    return "Your saved log is unavailable because owner sign-in is not configured.";
   }
   if (errorCode === "auth_owner_allowlist_missing") {
-    return "Demo mode — owner allowlist is incomplete, so changes stay local.";
+    return "Your saved log is unavailable because owner access is not configured.";
   }
   if (errorCode === "auth_unavailable") {
-    return "Demo mode — owner authentication is temporarily unavailable, so changes stay local.";
+    return "Your saved log is unavailable because owner authentication is temporarily unavailable.";
   }
-  return "Demo mode — saved data is unavailable, so changes stay local.";
+  return "Your saved log is unavailable. Try again later.";
 }
 
 function dateKeyFromTimestamp(timestamp: number) {
@@ -560,8 +468,8 @@ function formatShareLinkDate(value: string | null) {
   return new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(new Date(timestamp));
 }
 
-export function Dashboard({ readOnly = false, shareToken }: DashboardProps) {
-  const [days, setDays] = useState(demoDays);
+export function Dashboard({ readOnly = false, shareToken, publicView = false }: DashboardProps) {
+  const [days, setDays] = useState(initialDays);
   const [selectedDayKey, setSelectedDayKey] = useState<DayKey>("thu");
   const [editingMealId, setEditingMealId] = useState<string | null>(null);
   const [openMealId, setOpenMealId] = useState<string | null>(null);
@@ -590,8 +498,8 @@ export function Dashboard({ readOnly = false, shareToken }: DashboardProps) {
   const [dataMode, setDataMode] = useState<DataMode>("loading");
   const [targets, setTargets] = useState({ calories: calorieTarget, proteinG: proteinTarget });
   const [dataMessage, setDataMessage] = useState<string | null>(readOnly
-    ? "Loading the shared log…"
-    : "Loading your saved log — local demo data is visible until it arrives.");
+    ? publicView ? "Loading the public dashboard…" : "Loading the shared log…"
+    : "Loading your saved log…");
   const [actionState, setActionState] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [deletingMealId, setDeletingMealId] = useState<string | null>(null);
@@ -676,18 +584,22 @@ export function Dashboard({ readOnly = false, shareToken }: DashboardProps) {
       try {
         const endpoint = shareToken
           ? `/api/share/${encodeURIComponent(shareToken)}/summary`
-          : "/api/dashboard/summary";
+          : publicView
+            ? "/api/public/summary"
+            : "/api/dashboard/summary";
         const response = await fetch(endpoint, { cache: "no-store" });
         if (!response.ok) {
           if (!cancelled) {
             if (readOnly) {
               setDataMode("error");
-              setDataMessage(response.status === 404
-                ? "This shared link is not available. It may be revoked or expired."
-                : "The shared log could not be loaded. Try the link again later.");
+              setDataMessage(publicView
+                ? "The public dashboard could not be loaded. Try again later."
+                : response.status === 404
+                  ? "This shared link is not available. It may be revoked or expired."
+                  : "The shared log could not be loaded. Try the link again later.");
             } else {
               const responseBody = await response.json().catch(() => null);
-              setDataMode("demo");
+              setDataMode("error");
               setDataMessage(dashboardFailureMessage(response.status, responseBody));
             }
           }
@@ -707,10 +619,10 @@ export function Dashboard({ readOnly = false, shareToken }: DashboardProps) {
         setDataMessage(null);
       } catch {
         if (!cancelled) {
-          setDataMode(readOnly ? "error" : "demo");
+          setDataMode("error");
           setDataMessage(readOnly
-            ? "The shared log could not be loaded. Try the link again later."
-            : "Demo mode — the saved log could not be reached, so changes stay local.");
+            ? publicView ? "The public dashboard could not be loaded. Try again later." : "The shared log could not be loaded. Try the link again later."
+            : "Your saved log is unavailable. Try again later.");
         }
       }
     }
@@ -718,7 +630,7 @@ export function Dashboard({ readOnly = false, shareToken }: DashboardProps) {
     return () => {
       cancelled = true;
     };
-  }, [readOnly, shareToken]);
+  }, [publicView, readOnly, shareToken]);
 
   useEffect(() => {
     function syncSectionFromHash() {
@@ -850,14 +762,10 @@ export function Dashboard({ readOnly = false, shareToken }: DashboardProps) {
   }
 
   async function saveMeal(mealId: string) {
-    if (readOnly) return;
+    if (readOnly || dataMode !== "live") return;
     const meal = days.flatMap((day) => day.meals).find((entry) => entry.id === mealId);
     if (!meal) return;
     setActionError(null);
-    if (dataMode !== "live") {
-      setEditingMealId(null);
-      return;
-    }
     setActionState("Saving changes…");
     try {
       const response = await fetch(`/api/meals/${encodeURIComponent(meal.id)}`, {
@@ -882,7 +790,7 @@ export function Dashboard({ readOnly = false, shareToken }: DashboardProps) {
   }
 
   async function deleteMeal(mealId: string) {
-    if (readOnly) return;
+    if (readOnly || dataMode !== "live") return;
     if (mealDeleteInFlight.current) return;
     const meal = days.flatMap((day) => day.meals).find((entry) => entry.id === mealId);
     if (!meal) return;
@@ -892,15 +800,6 @@ export function Dashboard({ readOnly = false, shareToken }: DashboardProps) {
     setOpenMealId(null);
     setDeletingMealId(mealId);
     setActionError(null);
-    if (dataMode !== "live") {
-      removeMealFromDays(mealId);
-      setEditingMealId(null);
-      setActionState("Meal deleted locally.");
-      mealDeleteInFlight.current = null;
-      setDeletingMealId(null);
-      return;
-    }
-
     setActionState("Deleting meal…");
     try {
       const response = await fetch(`/api/meals/${encodeURIComponent(mealId)}`, { method: "DELETE" });
@@ -925,7 +824,7 @@ export function Dashboard({ readOnly = false, shareToken }: DashboardProps) {
   }
 
   async function addMeal(event: FormEvent<HTMLFormElement>) {
-    if (readOnly) return;
+    if (readOnly || dataMode !== "live") return;
     event.preventDefault();
     setActionError(null);
     const formElement = event.currentTarget;
@@ -948,45 +847,28 @@ export function Dashboard({ readOnly = false, shareToken }: DashboardProps) {
       kind: "snack",
     };
 
-    if (dataMode === "live") {
-      setActionError(null);
-      setActionState("Adding meal…");
-      try {
-        const response = await fetch("/api/meals", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(mealPayload(nextMeal, mealDateTimestamp(selectedDay.date))),
-        });
-        const responseBody = await response.json().catch(() => null);
-        if (!response.ok) {
-          const errorRecord = asRecord(asRecord(responseBody)?.error);
-          throw new Error(stringOr(errorRecord?.message, "The meal could not be added."));
-        }
-        const parsedMeal = parseMealResponse(responseBody);
-        if (!parsedMeal) throw new Error("The added meal response was invalid.");
-        replaceRemoteMeal(parsedMeal);
-      } catch (error) {
-        setActionError(error instanceof Error ? error.message : "The meal could not be added.");
-        setActionState(null);
-        return;
+    setActionError(null);
+    setActionState("Adding meal…");
+    try {
+      const response = await fetch("/api/meals", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(mealPayload(nextMeal, mealDateTimestamp(selectedDay.date))),
+      });
+      const responseBody = await response.json().catch(() => null);
+      if (!response.ok) {
+        const errorRecord = asRecord(asRecord(responseBody)?.error);
+        throw new Error(stringOr(errorRecord?.message, "The meal could not be added."));
       }
+      const parsedMeal = parseMealResponse(responseBody);
+      if (!parsedMeal) throw new Error("The added meal response was invalid.");
+      replaceRemoteMeal(parsedMeal);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "The meal could not be added.");
       setActionState(null);
-    } else {
-      setDays((currentDays) =>
-        currentDays.map((day) =>
-          day.key === selectedDayKey
-            ? {
-                ...day,
-                meals: [...day.meals, nextMeal],
-                calories: day.calories + calories,
-                protein: day.protein + protein,
-                carbs: (day.carbs ?? 0) + carbs,
-                fat: (day.fat ?? 0) + fat,
-              }
-            : day,
-        ),
-      );
+      return;
     }
+    setActionState(null);
 
     setShowAddMeal(false);
     formElement.reset();
@@ -999,14 +881,14 @@ export function Dashboard({ readOnly = false, shareToken }: DashboardProps) {
   }
 
   function openWeightEditor() {
-    if (readOnly) return;
+    if (readOnly || dataMode !== "live") return;
     setWeightDraft(selectedWeight ? String(selectedWeight.weightKg) : "");
     setShowWeightForm(true);
     setActionError(null);
   }
 
   async function saveWeight(event: FormEvent<HTMLFormElement>) {
-    if (readOnly) return;
+    if (readOnly || dataMode !== "live") return;
     event.preventDefault();
     if (weightSaveInFlight.current) return;
     const weightKg = Number(weightDraft);
@@ -1021,33 +903,27 @@ export function Dashboard({ readOnly = false, shareToken }: DashboardProps) {
     weightSaveInFlight.current = true;
     setWeightSaving(true);
     setActionError(null);
-    setActionState(dataMode === "live" ? "Saving weight…" : null);
+    setActionState("Saving weight…");
     setWeightForDate(logicalDate, optimisticWeight);
 
     try {
-      let savedWeight = optimisticWeight;
-      if (dataMode === "live") {
-        const response = await fetch("/api/weights", {
-          method: "PUT",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ logicalDate, weightKg }),
-        });
-        const responseBody = await response.json().catch(() => null);
-        if (!response.ok) {
-          const errorRecord = asRecord(asRecord(responseBody)?.error);
-          throw new Error(stringOr(errorRecord?.message, "The weight could not be saved."));
-        }
-        const parsedWeight = parseWeightResponse(responseBody);
-        if (!parsedWeight) throw new Error("The saved weight response was invalid.");
-        savedWeight = parsedWeight;
+      const response = await fetch("/api/weights", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ logicalDate, weightKg }),
+      });
+      const responseBody = await response.json().catch(() => null);
+      if (!response.ok) {
+        const errorRecord = asRecord(asRecord(responseBody)?.error);
+        throw new Error(stringOr(errorRecord?.message, "The weight could not be saved."));
       }
+      const savedWeight = parseWeightResponse(responseBody);
+      if (!savedWeight) throw new Error("The saved weight response was invalid.");
 
       setWeightForDate(logicalDate, savedWeight);
       setWeightDraft(String(savedWeight.weightKg));
       setShowWeightForm(false);
-      setActionState(dataMode === "live"
-        ? "Weight saved."
-        : "Demo mode — weight updated locally for this session.");
+      setActionState("Weight saved.");
     } catch (error) {
       setWeightForDate(logicalDate, previousWeight);
       setActionError(error instanceof Error ? error.message : "The weight could not be saved.");
@@ -1059,15 +935,13 @@ export function Dashboard({ readOnly = false, shareToken }: DashboardProps) {
   }
 
   async function openSettings() {
-    if (readOnly) return;
+    if (readOnly || dataMode !== "live") return;
     const readVersion = settingsReadVersion.current + 1;
     settingsReadVersion.current = readVersion;
     setSettingsDraft({ calories: String(activeCalorieTarget), proteinG: String(activeProteinTarget) });
     setShowSettings(true);
     setActionError(null);
     setActionState(null);
-    if (dataMode === "demo") return;
-
     setSettingsLoading(true);
     try {
       const response = await fetch("/api/settings", { cache: "no-store" });
@@ -1091,7 +965,7 @@ export function Dashboard({ readOnly = false, shareToken }: DashboardProps) {
   }
 
   async function saveSettings() {
-    if (readOnly) return;
+    if (readOnly || dataMode !== "live") return;
     if (settingsSaveInFlight.current) return;
     const calories = Number(settingsDraft.calories);
     const proteinG = Number(settingsDraft.proteinG);
@@ -1106,26 +980,24 @@ export function Dashboard({ readOnly = false, shareToken }: DashboardProps) {
     setSettingsSaving(true);
     try {
       let nextTargets = { calories, proteinG };
-      if (dataMode === "live") {
-        const response = await fetch("/api/settings", {
-          method: "PATCH",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ dailyCalorieTarget: calories, dailyProteinTargetG: proteinG }),
-        });
-        const responseBody = await response.json().catch(() => null);
-        if (!response.ok) {
-          const errorRecord = asRecord(asRecord(responseBody)?.error);
-          throw new Error(stringOr(errorRecord?.message, "The targets could not be saved."));
-        }
-        const parsed = parseSettingsTargets(responseBody);
-        if (parsed && Number.isFinite(parsed.calories) && Number.isFinite(parsed.proteinG)) {
-          nextTargets = { calories: parsed.calories, proteinG: parsed.proteinG };
-        }
+      const response = await fetch("/api/settings", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ dailyCalorieTarget: calories, dailyProteinTargetG: proteinG }),
+      });
+      const responseBody = await response.json().catch(() => null);
+      if (!response.ok) {
+        const errorRecord = asRecord(asRecord(responseBody)?.error);
+        throw new Error(stringOr(errorRecord?.message, "The targets could not be saved."));
+      }
+      const parsed = parseSettingsTargets(responseBody);
+      if (parsed && Number.isFinite(parsed.calories) && Number.isFinite(parsed.proteinG)) {
+        nextTargets = { calories: parsed.calories, proteinG: parsed.proteinG };
       }
       setTargets(nextTargets);
       setSettingsDraft({ calories: String(nextTargets.calories), proteinG: String(nextTargets.proteinG) });
       setShowSettings(false);
-      setActionState(dataMode === "live" ? "Targets saved." : "Demo mode — targets updated locally for this session.");
+      setActionState("Targets saved.");
     } catch (error) {
       setActionError(error instanceof Error ? error.message : "The targets could not be saved.");
     } finally {
@@ -1135,7 +1007,7 @@ export function Dashboard({ readOnly = false, shareToken }: DashboardProps) {
   }
 
   const loadShareLinks = useCallback(async () => {
-    if (readOnly || shareListInFlight.current) return;
+    if (readOnly || dataMode !== "live" || shareListInFlight.current) return;
     shareListInFlight.current = true;
     setShareLinksLoading(true);
     setShareLinksError(null);
@@ -1153,11 +1025,11 @@ export function Dashboard({ readOnly = false, shareToken }: DashboardProps) {
       shareListInFlight.current = false;
       setShareLinksLoading(false);
     }
-  }, [readOnly]);
+  }, [dataMode, readOnly]);
 
   async function createShareLink(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (readOnly || shareCreateInFlight.current) return;
+    if (readOnly || dataMode !== "live" || shareCreateInFlight.current) return;
     shareCreateInFlight.current = true;
     setShareCreating(true);
     setShareLinksError(null);
@@ -1220,7 +1092,7 @@ export function Dashboard({ readOnly = false, shareToken }: DashboardProps) {
   }
 
   async function revokeShareLink(link: ShareLink) {
-    if (readOnly || link.status !== "active" || shareRevokeInFlight.current) return;
+    if (readOnly || dataMode !== "live" || link.status !== "active" || shareRevokeInFlight.current) return;
     if (!window.confirm(`Revoke ${link.label ? `“${link.label}”` : "this share link"}? Anyone using it will lose access.`)) return;
     shareRevokeInFlight.current = link.id;
     setShareRevokingId(link.id);
@@ -1244,6 +1116,7 @@ export function Dashboard({ readOnly = false, shareToken }: DashboardProps) {
   }
 
   function toggleShareLinks() {
+    if (readOnly || dataMode !== "live") return;
     if (showShareLinks) {
       setShowShareLinks(false);
       return;
@@ -1267,21 +1140,21 @@ export function Dashboard({ readOnly = false, shareToken }: DashboardProps) {
   return (
     <main className="app-shell">
       <header className="topbar">
-        <a className="brand" href="#today" aria-label={readOnly ? "Calocount shared view" : "Calocount home"}>
+        <a className="brand" href="#today" aria-label={readOnly ? publicView ? "Calocount public view" : "Calocount shared view" : "Calocount home"}>
           <span className="brand-mark" aria-hidden="true"><span /><span /><span /></span>
           <span>calocount</span>
         </a>
         <div className="topbar-actions">
-          <span className="sync-status"><span className="status-dot" aria-hidden="true" /> {readOnly ? "Shared read-only" : dataMode === "live" ? "Live data" : dataMode === "loading" ? "Loading" : "Demo mode"}</span>
-          {!readOnly ? <>
+          <span className="sync-status"><span className="status-dot" aria-hidden="true" /> {readOnly ? publicView ? "Public read-only" : "Shared read-only" : dataMode === "live" ? "Live data" : dataMode === "loading" ? "Loading" : "Unavailable"}</span>
+          {!readOnly && dataMode === "live" ? <>
             <button className="share-nav-button" type="button" onClick={toggleShareLinks} aria-label="Manage share links" aria-expanded={showShareLinks} aria-controls="share-links-panel">Share view</button>
             <button className="icon-button" type="button" onClick={() => void openSettings()} aria-label="Open settings" aria-expanded={showSettings} aria-controls="settings-panel"><span aria-hidden="true">⚙</span></button>
           </> : null}
-          <span className="avatar" aria-label={readOnly ? "Shared read-only view" : "Account"}><span aria-hidden="true">{readOnly ? "↗" : "M"}</span></span>
+          <span className="avatar" aria-label={readOnly ? publicView ? "Public read-only view" : "Shared read-only view" : "Account"}><span aria-hidden="true">{readOnly ? "↗" : "M"}</span></span>
         </div>
       </header>
 
-      {!readOnly && showSettings ? <section className="settings-panel" id="settings-panel" role="dialog" aria-labelledby="settings-title">
+      {!readOnly && dataMode === "live" && showSettings ? <section className="settings-panel" id="settings-panel" role="dialog" aria-labelledby="settings-title">
         <div className="settings-heading"><div><p className="eyebrow">Personal targets</p><h2 id="settings-title">Daily targets</h2></div><button className="close-button" type="button" onClick={() => setShowSettings(false)} aria-label="Close settings">×</button></div>
         <form className="settings-form" onSubmit={(event) => { event.preventDefault(); void saveSettings(); }}>
           <label>Calories<input name="daily-calorie-target" type="number" min="1" max="100000" step="10" value={settingsDraft.calories} onChange={(event) => setSettingsDraft((current) => ({ ...current, calories: event.target.value }))} required /></label>
@@ -1291,7 +1164,7 @@ export function Dashboard({ readOnly = false, shareToken }: DashboardProps) {
         <p className="settings-help" role="status">{settingsLoading ? "Loading saved targets…" : "Targets guide the rings, trend line, and daily nudge."}</p>
       </section> : null}
 
-      {!readOnly && showShareLinks ? <section className="share-links-panel" id="share-links-panel" role="dialog" aria-labelledby="share-links-title">
+      {!readOnly && dataMode === "live" && showShareLinks ? <section className="share-links-panel" id="share-links-panel" role="dialog" aria-labelledby="share-links-title">
         <div className="settings-heading"><div><p className="eyebrow">Sharing</p><h2 id="share-links-title">Read-only links</h2></div><button className="close-button" type="button" onClick={() => setShowShareLinks(false)} aria-label="Close share links">×</button></div>
         <p className="share-links-intro">Anyone with an active link can view your dashboard. They cannot add, edit, or delete anything.</p>
         <form className="share-link-form" onSubmit={(event) => void createShareLink(event)}>
@@ -1301,7 +1174,7 @@ export function Dashboard({ readOnly = false, shareToken }: DashboardProps) {
         </form>
         {createdShareUrl ? <div className="share-created" role="status">
           <label htmlFor="created-share-url">New share URL</label>
-          <div className="share-created-row"><input id="created-share-url" value={createdShareUrl} readOnly /><button className="copy-button" type="button" onClick={() => void copyCreatedShareUrl} disabled={shareCopyState === "Copying…"}>{shareCopyState === "Copying…" ? "Copying…" : "Copy link"}</button></div>
+          <div className="share-created-row"><input id="created-share-url" value={createdShareUrl} readOnly /><button className="copy-button" type="button" onClick={() => void copyCreatedShareUrl()} disabled={shareCopyState === "Copying…"}>{shareCopyState === "Copying…" ? "Copying…" : "Copy link"}</button></div>
           <p>{shareCopyState}</p>
         </div> : shareCopyState ? <p className="share-link-status" role="status">{shareCopyState}</p> : null}
         {shareLinksError ? <p className="share-link-error" role="alert">{shareLinksError}</p> : null}
@@ -1316,13 +1189,19 @@ export function Dashboard({ readOnly = false, shareToken }: DashboardProps) {
       </section> : null}
 
       {dataMessage ? <div className={`data-banner ${dataMode}`} role="status"><span aria-hidden="true">{dataMode === "live" ? "✓" : dataMode === "loading" ? "…" : "i"}</span>{dataMessage}</div> : null}
-      {readOnly && dataMode === "live" ? <div className="data-banner shared" role="status"><span aria-hidden="true">✓</span>Shared read-only view — changes are disabled.</div> : null}
+      {readOnly && dataMode === "live" ? <div className="data-banner shared" role="status"><span aria-hidden="true">✓</span>{publicView ? "Public read-only view — changes are disabled." : "Shared read-only view — changes are disabled."}</div> : null}
       {actionState || actionError ? <div className={`action-feedback ${actionError ? "error" : ""}`} role={actionError ? "alert" : "status"}>{actionError ?? actionState}</div> : null}
 
-      {readOnly && dataMode !== "live" ? <section className="share-state" aria-live="polite">
+      {dataMode !== "live" ? <section className="share-state" aria-live="polite">
         <span className="share-state-mark" aria-hidden="true">{dataMode === "loading" ? "…" : "!"}</span>
-        <h1>{dataMode === "loading" ? "Loading shared log" : "Shared log unavailable"}</h1>
-        <p>{dataMessage ?? "This shared link is not available."}</p>
+        <h1>{dataMode === "loading"
+          ? publicView ? "Loading public dashboard" : readOnly ? "Loading shared log" : "Loading your saved log"
+          : publicView ? "Public dashboard unavailable" : readOnly ? "Shared log unavailable" : "Your dashboard is unavailable"}</h1>
+        <p>{dataMessage ?? (publicView
+          ? "The public dashboard could not be loaded."
+          : readOnly
+            ? "This shared link is not available."
+            : "Your saved log is unavailable. Try again later.")}</p>
       </section> : <>
       <section className="date-strip" aria-label="Choose a day">
         <div className="date-heading">
@@ -1609,11 +1488,11 @@ export function Dashboard({ readOnly = false, shareToken }: DashboardProps) {
 
       </>}
 
-      <footer className="app-footer"><span>{readOnly ? "Shared read-only view" : "Private by default"}</span><span className="footer-separator" aria-hidden="true">·</span><span>Calocount dashboard</span></footer>
+      <footer className="app-footer"><span>{readOnly ? publicView ? "Public read-only view" : "Shared read-only view" : "Private by default"}</span><span className="footer-separator" aria-hidden="true">·</span><span>Calocount dashboard</span></footer>
     </main>
   );
 }
 
 export default function Home() {
-  return <Dashboard />;
+  return <Dashboard readOnly publicView />;
 }

@@ -1,19 +1,35 @@
 # Read-only sharing
 
-Calocount can create a public dashboard link for people who do not have a Cloudflare Access account. The normal owner app remains private. A public link gives read-only access to a small, explicit data projection. It does not give access to the private dashboard or to any write API.
+Calocount has a public read-only dashboard at `/` and a private owner dashboard at `/owner`. It can also create a public dashboard link for people who do not have a Cloudflare Access account. A public view gives read-only access to a small, explicit data projection. It does not give access to the private dashboard or to any write API.
 
 ## Security boundary
 
-There are two separate access paths:
+There are separate public and owner paths. The route split below is the planned
+application boundary. It is not a record of a live Cloudflare Access change.
+Before the broad hostname can be public, specific private Access applications
+must be active for `/owner` and its descendants (including the exact `/owner`
+path) and for `/api/*`. Public exceptions such as `/`, `/api/public/summary`,
+and the reviewed share/static paths can then be added only after live
+verification. The final Access path list must be recorded from the deployed
+dashboard; do not infer it from this document alone.
 
 | Path | Access rule | Purpose |
 | --- | --- | --- |
-| `/` and the normal app | Cloudflare Access plus a server-side signed JWT check | Owner dashboard |
-| `/api/*` in general | Private | Owner data and all write operations |
+| `/` | Intended public read-only route; final Access path requires live verification | Public dashboard view |
+| `/owner` and `/owner/*` | Private Access application plus a server-side signed JWT check | Owner dashboard |
+| `/api/public/summary` | Intended public exception after the private `/api/*` boundary is active | Explicit read-only dashboard projection |
+| `/api/*` in general | Private Access application, with only explicitly reviewed public exceptions | Owner data and all write operations |
 | `/api/share-links` and `/api/share-links/*` | Private | Create, list, and revoke links |
-| `/share/<token>` | Public only after a narrow Access bypass is configured | Read-only dashboard |
+| `/share/<token>` | Public only after a narrow Access bypass is configured | Token-based read-only dashboard |
 | `/api/share/<token>/*` | Public only after a narrow Access bypass is configured | Read-only summary data |
+| `/_next/static/*`, `/manifest.webmanifest`, `/sw.js`, and required icons | Public static assets for the public root and PWA | No dashboard data or write access |
 | photos, exports, AI routes, and settings | Private | Sensitive data and mutations |
+
+The installable PWA starts at `/owner`. Its manifest keeps `id` and `scope` at
+`/`, so an installed app stays associated with the same Calocount site while
+opening the private owner dashboard. The owner Access application must cover
+that exact start path and its descendants before the broad hostname is made
+public.
 
 The owner API does not trust a user-supplied identity header. In production, the Worker verifies the Cloudflare Access JWT signature and claims, then checks the identity against the configured owner allowlist. A forged email or user ID header is not sufficient. Missing JWT configuration or a missing owner allowlist fails closed.
 
@@ -72,9 +88,9 @@ Keep the existing whole-app Cloudflare Access protection in place until the appl
 2. Apply the additive D1 migration to the remote `calocount` database. Do this while the existing Access application still protects every app path.
 3. Set the `CALOCOUNT_ALLOWED_EMAIL_SHA256` Worker variable to the owner email digest, or use one of the compatibility allowlists in a runtime that exposes encrypted Worker secrets to the app. Set the Access variables and `CALOCOUNT_ALLOW_LOCAL=false`.
 4. Build and deploy the dashboard Worker.
-5. Sign in as the owner and verify the normal dashboard, private APIs, photo delivery, and write flows. Verify that an anonymous request to `/share/<token>` and `/api/share/<token>/summary` is still protected before changing Access.
-6. In Cloudflare Access, add narrow public Bypass applications or path rules for `/share/*` and `/api/share/*`. Keep the existing root application and its owner policy. More-specific public paths must not make `/`, `/api/*`, or `/api/share-links*` public.
-7. Load the deployed share page in a separate anonymous browser. Inspect its network requests and add only the exact non-data static asset paths that the built page needs. Do not guess hashed filenames. Do not add a broad `/*`, `/_next/*`, or `/api/*` bypass. Do not make photos, manifests, exports, AI, or settings public unless a separate reviewed decision explicitly requires it.
+5. Sign in as the owner at `/owner` and verify the normal dashboard, private APIs, photo delivery, and write flows. Verify that an anonymous request to `/owner`, `/api/*`, `/share/<token>`, and `/api/share/<token>/summary` is still protected before changing Access.
+6. In Cloudflare Access, first create and verify the private applications for the exact `/owner` path and its descendants, plus `/api/*`. Only then add public exceptions for `/`, `/api/public/summary`, `/share/*`, and `/api/share/*`. The exact static/PWA paths must be verified from live requests. Do not assume this document's route patterns are the final application paths. More-specific public paths must not make `/api/share-links*`, photos, exports, AI, settings, or other owner paths public.
+7. Load the deployed root and share page in a separate anonymous browser. Inspect their network requests and add only the exact non-data static asset paths that the built pages need. The public root needs its manifest, service worker, icons, and generated JavaScript/CSS; do not guess hashed filenames. Do not add a broad `/*`, `/_next/*`, or `/api/*` bypass. Do not make photos, exports, AI, or settings public unless a separate reviewed decision explicitly requires it.
 8. Re-test both anonymous sharing and owner access. Record the final Access path list and the deployed commit.
 
 Cloudflare Access `Bypass` disables Access enforcement and Access logging for the matched request. This is why the public paths must stay narrow and the Worker must enforce the share-token lookup, expiry, revocation, projection, and no-store response itself.
@@ -94,25 +110,26 @@ Then test the deployed app in two separate browser sessions.
 
 Owner session:
 
-- Access login reaches `/` and the dashboard loads real data.
+- Access login reaches `/owner` and the dashboard loads real data.
 - `/api/dashboard/summary`, `/api/meals`, `/api/settings`, `/api/weights`, `/api/export`, and `/api/photos/...` remain available only to the owner.
 - Create a link with a label and a future expiry. Confirm that the raw URL is shown once and that the owner can copy it.
 - List active, expired, and revoked links. Revoke the test link and confirm that it is no longer readable.
 
 Anonymous session:
 
+- `/` loads the public read-only dashboard without an Access login after the verified public exception is active.
 - The complete share URL loads without an Access login.
 - The summary request returns only the documented projection and uses `Cache-Control: no-store`.
 - The page has no write controls and sends no owner write requests.
-- `/`, `/api/dashboard/summary`, `/api/meals`, `/api/settings`, `/api/weights`, `/api/export`, `/api/photos/...`, `/api/share-links`, and `/api/share-links/<id>` remain private. Expect the Access challenge or another configured private response; do not treat a public success as acceptable.
+- `/owner`, `/owner/...`, `/api/dashboard/summary`, `/api/meals`, `/api/settings`, `/api/weights`, `/api/export`, `/api/photos/...`, `/api/share-links`, and `/api/share-links/<id>` remain private. Expect the Access challenge or another configured private response; do not treat a public success as acceptable.
 - A malformed, unknown, expired, or revoked token returns the same generic not-found response and does not reveal owner data.
-- Only the exact static assets recorded during the deployed share-page load are public. A guessed or unrelated asset path is not a reason to widen the bypass.
+- Only the exact static and PWA assets recorded during deployed root/share-page loads are public. A guessed or unrelated asset path is not a reason to widen the bypass.
 - Confirm the projection has weights, completed meal and macro totals, trend points, and targets, and has no meal status, photos, captions, notes, AI/provider fields, Telegram data, or private settings.
 
 ## Rollback
 
-If the public page, projection, or auth check is wrong, remove or disable the narrow `/share/*`, `/api/share/*`, and static-asset Bypass rules first. The existing whole-app Access application then protects the site again. Do not disable the root Access application.
+If the public page, projection, or auth check is wrong, remove or disable the public `/`, `/api/public/summary`, `/share/*`, `/api/share/*`, and static-asset exceptions first. Restore the private `/owner` and `/api/*` boundaries, then verify them live. Do not rely on an assumed root-path rule for rollback.
 
 If the Worker deployment is wrong, redeploy the last known-good dashboard version while the root Access application remains enabled. Keep the additive D1 migration in place; do not remove migration history or reset the production database. Revoke any test links that were exposed during the test.
 
-After rollback, confirm from an anonymous browser that `/share/<token>`, `/api/share/<token>/summary`, `/`, and the private APIs all have the intended protection. Record the failed path, Access rule, deployment version, and link status before attempting another rollout.
+After rollback, confirm from an anonymous browser that `/`, `/share/<token>`, `/api/share/<token>/summary`, `/owner`, and the private APIs all have the intended protection. Record the failed path, Access rule, deployment version, and link status before attempting another rollout.

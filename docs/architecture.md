@@ -1,6 +1,6 @@
 # Calocount architecture
 
-Calocount is a private, single-user meal tracker. It uses Cloudflare free-tier services for the complete application backend.
+Calocount is a single-user meal tracker. The public root is read-only, and the owner dashboard is private and read-write. It uses Cloudflare free-tier services for the complete application backend.
 
 ## Runtime services
 
@@ -9,7 +9,32 @@ Calocount is a private, single-user meal tracker. It uses Cloudflare free-tier s
 - A private R2 bucket stores meal photos.
 - The ingest Worker receives Telegram updates and consumes analysis jobs from Cloudflare Queues.
 - A Cron Trigger recovers stale jobs and deletes photos after the retention period.
-- Cloudflare Access protects the app Worker. The Telegram webhook stays on a separate public Worker.
+- Cloudflare Access protects the private owner route and private APIs. The Telegram webhook stays on a separate public Worker.
+
+## HTTP route boundary
+
+The application has two dashboard entry points:
+
+- `/` is the public read-only dashboard. It loads only the explicit projection from `GET /api/public/summary`.
+- `/owner` is the private read-write dashboard. It uses the existing signed-JWT owner APIs.
+
+`/api/public/summary` resolves the configured stable owner key, fails closed when
+that key is absent, returns `Cache-Control: no-store`, and removes owner keys,
+captions, notes, photos, AI fields, and other private data. All other `/api/*`
+routes are private owner routes unless a separately reviewed public exception is
+verified. `/share/<token>` and its summary endpoint remain optional bearer-link
+read-only paths.
+
+The PWA manifest starts at `/owner` while keeping `id` and `scope` at `/`. This
+keeps installed launches in the private owner dashboard without changing the
+site identity or service-worker scope.
+
+Cloudflare Access configuration is not implied by this source tree. Keep the
+existing broad protection while deploying and testing. Before a broad hostname
+is made public, live-verify private applications covering the exact `/owner`
+path and its descendants and `/api/*`. Then verify each public exception and
+static/PWA asset path from deployed requests. Record the final Access path list;
+do not infer it from this document.
 
 ## Meal flow
 

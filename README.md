@@ -1,6 +1,6 @@
 # Calocount
 
-Calocount is a private, single-user calorie tracker with optional read-only sharing. Send a meal photo and caption to Telegram. The app estimates nutrition, stores the structured result, and shows a compact Caltrack-inspired dashboard.
+Calocount is a single-user calorie tracker with a public read-only dashboard, a private owner dashboard, and optional read-only sharing. Send a meal photo and caption to Telegram. The app estimates nutrition, stores the structured result, and shows a compact Caltrack-inspired dashboard.
 
 The application backend uses Cloudflare Workers, D1, R2, Queues, Cron Triggers, Static Assets, and Access. OpenRouter is the default AI gateway. A direct xAI adapter is included.
 
@@ -9,7 +9,7 @@ The application backend uses Cloudflare Workers, D1, R2, Queues, Cron Triggers, 
 - Caltrack-inspired dark dashboard with today and seven-day views
 - calories, protein, carbohydrates, and fat
 - meal detail, additions, edits, and correction history
-- live API data with a clear local demo fallback
+- live API data with a clear fail-closed unavailable state
 - private R2 photo delivery
 - Telegram webhook allowlist and duplicate-update protection
 - durable D1 analysis jobs and Queue processing
@@ -53,7 +53,7 @@ npm run dev
 
 Open `http://localhost:3000`.
 
-The dashboard uses demo data when local D1 is not ready. Set `CALOCOUNT_ALLOW_LOCAL=true` only in `.dev.vars`. Production must set `CALOCOUNT_ALLOW_LOCAL=false` and use a valid, signed Cloudflare Access JWT. Identity headers by themselves are not trusted.
+The owner dashboard waits for live API data and fails closed when local D1 or owner authentication is not ready. Set `CALOCOUNT_ALLOW_LOCAL=true` only in `.dev.vars` while running a configured local stack. Production must set `CALOCOUNT_ALLOW_LOCAL=false` and use a valid, signed Cloudflare Access JWT. Identity headers by themselves are not trusted. The public root uses only `/api/public/summary` and does not fall back to owner or demo data.
 
 ## Local D1
 
@@ -170,13 +170,13 @@ npx wrangler deploy --config workers/ingest/wrangler.jsonc
 
 Then:
 
-1. Put Cloudflare Access in front of `calocount-app` and allow only the owner. Keep the whole app behind this policy while you deploy and verify the sharing code.
+1. Keep the existing whole-app Cloudflare Access protection in place while you deploy and verify the route split. Before making the broad hostname public, create and live-verify private Access coverage for the exact `/owner` path and its descendants, plus `/api/*`. The PWA manifest starts at `/owner`; its `id` and `scope` remain `/`.
 2. Leave `calocount-ingest` public.
 3. Set `PUBLIC_ORIGIN` to the ingest Worker's HTTPS origin.
 4. Register `https://<ingest-origin>/telegram/webhook` with Telegram and send `TELEGRAM_WEBHOOK_SECRET` as Telegram's secret token.
 5. Send one test meal photo and confirm that the job, photo, meal items, and AI run appear.
 
-For read-only sharing, follow [docs/read-only-sharing.md](docs/read-only-sharing.md). The safe order is to apply the additive D1 migration, set the `CALOCOUNT_ALLOWED_EMAIL_SHA256` binding (or a compatibility email/user ID allowlist), deploy, and test while the existing whole-app Access protection remains. Only then add narrow Access bypasses for `/share/*`, `/api/share/*`, and the exact non-data static assets required by the deployed share page. Do not bypass the root app, general API routes, or owner share-link routes.
+For the public/owner route split and read-only sharing, follow [docs/read-only-sharing.md](docs/read-only-sharing.md). The safe order is to apply the additive D1 migration, set the `CALOCOUNT_ALLOWED_EMAIL_SHA256` binding (or a compatibility email/user ID allowlist), deploy, and test while the existing whole-app Access protection remains. Verify `/owner` and `/api/*` as private first. Only after that live verification add the reviewed public exceptions for `/`, `/api/public/summary`, `/share/*`, `/api/share/*`, and the exact non-data static/PWA assets required by the deployed pages. Do not assume this README defines the final Access paths; record them from live Cloudflare verification. Do not make `/api/share-links*` or other owner APIs public.
 
 Cloudflare deployment and Telegram registration are not done automatically by this repository because they require your account, resource IDs, and secrets.
 
