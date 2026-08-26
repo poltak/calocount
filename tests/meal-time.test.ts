@@ -61,7 +61,7 @@ test("add meal form submits its validated local time", async () => {
   assert.match(page, /<label>Time<input name="time" type="time" defaultValue=\{localTimeValue\(\)\} required/);
   assert.match(page, /const time = String\(form\.get\("time"\) \|\| ""\)/);
   assert.match(page, /mealDateTimestamp\(\{ date: selectedDay\.date, time \}\)/);
-  assert.match(page, /body: JSON\.stringify\(mealPayload\(nextMeal, consumedAt\)\)/);
+  assert.match(page, /mealRequestOptions\(mealPayload\(nextMeal, consumedAt\), photo\)/);
   assert.match(page, /setActionError\("Enter a valid meal time\."\)/);
 });
 

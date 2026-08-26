@@ -7,6 +7,7 @@ import {
   calculateCalorieChartScale,
   calculateLoggingStreak,
   calculateMacroPercentages,
+  calculateMacroTrend,
   calculateTargetPercent,
   calculateWeightChartScale,
   compareAverageToTarget,
@@ -385,6 +386,29 @@ function mealPayload(meal: Meal, consumedAt?: number) {
   };
 }
 
+const mealPhotoAccept = "image/jpeg,image/png,image/webp";
+const maxDashboardMealPhotoBytes = 10 * 1024 * 1024;
+
+function mealRequestOptions(payload: ReturnType<typeof mealPayload>, photo?: File | null): Pick<RequestInit, "body" | "headers"> {
+  if (!photo || photo.size === 0) {
+    return {
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    };
+  }
+
+  const form = new FormData();
+  form.set("payload", JSON.stringify(payload));
+  form.set("photo", photo, photo.name);
+  return { body: form };
+}
+
+function mealPhotoError(photo: File): string | null {
+  if (!mealPhotoAccept.split(",").includes(photo.type)) return "Select a JPEG, PNG, or WebP image.";
+  if (photo.size > maxDashboardMealPhotoBytes) return "Select an image that is 10 MB or smaller.";
+  return null;
+}
+
 export function localTimeValue(date = new Date()) {
   return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 }
@@ -453,9 +477,12 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
   const [actionState, setActionState] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [deletingMealId, setDeletingMealId] = useState<string | null>(null);
+  const [copyingMealId, setCopyingMealId] = useState<string | null>(null);
+  const [mealPhotoDrafts, setMealPhotoDrafts] = useState<Record<string, File | null>>({});
   const [previewMeal, setPreviewMeal] = useState<Meal | null>(null);
   const [failedPhotoKeys, setFailedPhotoKeys] = useState<Set<string>>(() => new Set());
   const mealDeleteInFlight = useRef<string | null>(null);
+  const mealCopyInFlight = useRef<string | null>(null);
   const weightSaveInFlight = useRef(false);
   const mealSwipeRef = useRef<MealSwipeStart | null>(null);
   const previewCloseRef = useRef<HTMLButtonElement>(null);
@@ -494,6 +521,21 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
   );
 
   const hasWeightData = weightChartValues.some((day) => day.value !== null);
+
+  const macroTrendValues = useMemo(
+    () => calculateMacroTrend(days.map((day) => ({
+      date: day.date,
+      carbsG: day.carbs ?? 0,
+      proteinG: day.protein,
+      fatG: day.fat ?? 0,
+    }))).map((day, index) => ({
+      ...day,
+      label: `${days[index]?.weekday.slice(0, 3) ?? ""} ${days[index]?.shortDate ?? ""}`.trim(),
+    })),
+    [days],
+  );
+
+  const hasMacroTrendData = macroTrendValues.some((day) => day.hasData);
 
   const averageCalories = useMemo(
     () => chartValues.length === 0 ? 0 : Math.round(chartValues.reduce((total, day) => total + day.value, 0) / chartValues.length),
@@ -711,8 +753,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     try {
       const response = await fetch(`/api/meals/${encodeURIComponent(meal.id)}`, {
         method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(mealPayload(meal)),
+        ...mealRequestOptions(mealPayload(meal), mealPhotoDrafts[mealId]),
       });
       const responseBody = await response.json().catch(() => null);
       if (!response.ok) {
@@ -723,6 +764,11 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
       if (!parsedMeal) throw new Error("The saved meal response was invalid.");
       replaceRemoteMeal(parsedMeal);
       setEditingMealId(null);
+      setMealPhotoDrafts((current) => {
+        const next = { ...current };
+        delete next[mealId];
+        return next;
+      });
     } catch (error) {
       setActionError(error instanceof Error ? error.message : "The meal could not be saved.");
     } finally {
@@ -764,12 +810,57 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     }
   }
 
+  async function copyMealToToday(mealId: string) {
+    if (readOnly || dataMode !== "live" || mealCopyInFlight.current) return;
+    const meal = days.flatMap((day) => day.meals).find((entry) => entry.id === mealId);
+    const today = days.at(-1);
+    if (!meal || !today || selectedDay.date === today.date) return;
+
+    mealCopyInFlight.current = mealId;
+    setCopyingMealId(mealId);
+    setOpenMealId(null);
+    setActionError(null);
+    setActionState("Copying meal to today…");
+    try {
+      const consumedAt = mealDateTimestamp({ date: today.date, time: localTimeValue() }) ?? Date.now();
+      const response = await fetch(`/api/meals/${encodeURIComponent(mealId)}/copy`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ consumedAt }),
+      });
+      const responseBody = await response.json().catch(() => null);
+      if (!response.ok) {
+        const errorRecord = asRecord(asRecord(responseBody)?.error);
+        throw new Error(stringOr(errorRecord?.message, "The meal could not be copied."));
+      }
+      const parsedMeal = parseMealResponse(responseBody);
+      if (!parsedMeal) throw new Error("The copied meal response was invalid.");
+      replaceRemoteMeal(parsedMeal);
+      setActionState(`Copied “${meal.name}” to today.`);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "The meal could not be copied.");
+      setActionState(null);
+    } finally {
+      mealCopyInFlight.current = null;
+      setCopyingMealId(null);
+    }
+  }
+
   async function addMeal(event: FormEvent<HTMLFormElement>) {
     if (readOnly || dataMode !== "live") return;
     event.preventDefault();
     setActionError(null);
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
+    const photoEntry = form.get("photo");
+    const photo = photoEntry instanceof File && photoEntry.size > 0 ? photoEntry : null;
+    if (photo) {
+      const photoError = mealPhotoError(photo);
+      if (photoError) {
+        setActionError(photoError);
+        return;
+      }
+    }
     const name = String(form.get("name") || "New meal").trim();
     const description = String(form.get("description") || "Added from dashboard").trim();
     const calories = Number(form.get("calories") || 0);
@@ -800,8 +891,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     try {
       const response = await fetch("/api/meals", {
         method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(mealPayload(nextMeal, consumedAt)),
+        ...mealRequestOptions(mealPayload(nextMeal, consumedAt), photo),
       });
       const responseBody = await response.json().catch(() => null);
       if (!response.ok) {
@@ -1112,6 +1202,43 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
             </> : <div className="chart-empty" role="status"><strong>No weight records for the past seven days</strong><span>Record a daily weight to see your trend.</span></div>}
           </section>
 
+          <section className="panel chart-panel macro-trend-panel" aria-labelledby="macro-trend-title">
+            <div className="panel-heading">
+              <div><p className="eyebrow">A quick view</p><h2 id="macro-trend-title">Macros trend</h2></div>
+              <span className="chart-range">Past 7 days</span>
+            </div>
+            {hasMacroTrendData ? <>
+              <div className="chart-legend macro-trend-legend">
+                <span><i className="legend-swatch macro-carbs-swatch" /> Carbs</span>
+                <span><i className="legend-swatch macro-protein-swatch" /> Protein</span>
+                <span><i className="legend-swatch macro-fat-swatch" /> Fat</span>
+              </div>
+              <div className="macro-trend-chart" role="group" aria-label="Calorie-weighted carbohydrate, protein, and fat split for the past seven days; days without macro data are shown as gaps">
+                <div className="macro-trend-y-axis" aria-hidden="true"><span>100%</span><span>50%</span><span>0%</span></div>
+                <div className="macro-trend-plot">
+                  <div className="macro-mid-line" aria-hidden="true" />
+                  <div className="macro-trend-bars">{macroTrendValues.map((day) => <div
+                    className={`macro-trend-column${day.hasData ? "" : " missing"}`}
+                    key={day.date}
+                    role="img"
+                    aria-label={day.hasData
+                      ? `${day.label}: ${day.percentages.carbs}% carbohydrates, ${day.percentages.protein}% protein, ${day.percentages.fat}% fat`
+                      : `${day.label}: no macro data`}
+                  >
+                    <div className="macro-stack" title={day.hasData ? `${day.percentages.carbs}% carbs · ${day.percentages.protein}% protein · ${day.percentages.fat}% fat` : "No macro data"}>
+                      {day.hasData ? <>
+                        <span className="macro-segment fat" style={{ height: `${day.percentages.fat}%` }} />
+                        <span className="macro-segment protein" style={{ height: `${day.percentages.protein}%` }} />
+                        <span className="macro-segment carbs" style={{ height: `${day.percentages.carbs}%` }} />
+                      </> : <span className="macro-gap" aria-hidden="true">—</span>}
+                    </div>
+                    <span>{day.label}</span>
+                  </div>)}</div>
+                </div>
+              </div>
+            </> : <div className="chart-empty" role="status"><strong>No macro records for the past seven days</strong><span>Add protein, carbs, or fat to a meal to see the daily split.</span></div>}
+          </section>
+
           <section className="panel weight-panel" aria-labelledby="weight-title">
             <div className="panel-heading weight-heading">
               <div><p className="eyebrow">Daily check-in</p><h2 id="weight-title">Weight</h2></div>
@@ -1175,13 +1302,14 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
               <label>Protein (g)<input name="protein" type="number" min="0" step="any" placeholder="30" /></label>
               <label>Carbs (g)<input name="carbs" type="number" min="0" step="any" placeholder="45" /></label>
               <label>Fat (g)<input name="fat" type="number" min="0" step="any" placeholder="15" /></label>
+              <label className="meal-photo-field">Photo (optional)<input name="photo" type="file" accept={mealPhotoAccept} /><small>JPEG, PNG, or WebP · up to 10 MB</small></label>
               <button className="save-button" type="submit">Save meal</button>
             </form> : null}
 
             {selectedDay.meals.length > 0 ? <div className="meal-list">
               <div className="meal-list-head" aria-hidden="true"><span /><span>Meal</span><span>Energy</span><span>Protein</span><span>Carbs</span><span>Fat</span><span /></div>
               {selectedDay.meals.map((meal) => <div className="meal-group" key={meal.id}>
-                <div className={`meal-row${openMealId === meal.id ? " is-actions-open" : ""}`}>
+                <div className={`meal-row${openMealId === meal.id ? " is-actions-open" : ""}${selectedDay.date !== days.at(-1)?.date ? " has-copy-action" : ""}`}>
                   <div
                     className="meal-row-content"
                     onPointerDown={(event) => handleMealPointerDown(meal.id, event)}
@@ -1226,16 +1354,43 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
                     {openMealId === meal.id ? "×" : "⋯"}
                   </button> : null}
                   {!readOnly ? <div className="meal-actions" id={`meal-actions-${meal.id}`}>
-                    <button className="edit-button" type="button" disabled={actionInProgress || deletingMealId !== null} onClick={() => setEditingMealId(editingMealId === meal.id ? null : meal.id)} aria-expanded={editingMealId === meal.id} aria-label={`Edit ${meal.name}`}>Edit</button>
+                    {selectedDay.date !== days.at(-1)?.date ? <button className="copy-button" type="button" disabled={actionInProgress || deletingMealId !== null || copyingMealId !== null} onClick={() => void copyMealToToday(meal.id)} aria-label={`Copy ${meal.name} to today`} aria-busy={copyingMealId === meal.id}>{copyingMealId === meal.id ? "Copying…" : "Copy to today"}</button> : null}
+                    <button className="edit-button" type="button" disabled={actionInProgress || deletingMealId !== null} onClick={() => {
+                      const isClosing = editingMealId === meal.id;
+                      setEditingMealId(isClosing ? null : meal.id);
+                      if (isClosing) setMealPhotoDrafts((current) => {
+                        const next = { ...current };
+                        delete next[meal.id];
+                        return next;
+                      });
+                    }} aria-expanded={editingMealId === meal.id} aria-label={`Edit ${meal.name}`}>Edit</button>
                     <button className="delete-button" type="button" disabled={actionInProgress || deletingMealId !== null} onClick={() => void deleteMeal(meal.id)} aria-label={`Delete ${meal.name}`} aria-busy={deletingMealId === meal.id}>{deletingMealId === meal.id ? "Deleting…" : "Delete"}</button>
                   </div> : null}
                 </div>
                 {!readOnly && editingMealId === meal.id ? <div className="inline-editor">
                   <label>Name<input value={meal.name} onChange={(event) => updateMeal(meal.id, { name: event.target.value })} /></label>
+                  <label className="editor-description-field">Description<input value={meal.description} onChange={(event) => updateMeal(meal.id, { description: event.target.value })} /></label>
                   <label>Calories<input type="number" min="0" step="any" value={meal.calories} onChange={(event) => updateMeal(meal.id, { calories: Number(event.target.value) })} /></label>
                   <label>Protein<input type="number" min="0" step="any" value={meal.protein} onChange={(event) => updateMeal(meal.id, { protein: Number(event.target.value) })} /></label>
                   <label>Carbs<input type="number" min="0" step="any" value={meal.carbs ?? 0} onChange={(event) => updateMeal(meal.id, { carbs: Number(event.target.value) })} /></label>
                   <label>Fat<input type="number" min="0" step="any" value={meal.fat ?? 0} onChange={(event) => updateMeal(meal.id, { fat: Number(event.target.value) })} /></label>
+                  <label className="editor-photo-field">{meal.photoKey ? "Replace photo (optional)" : "Photo (optional)"}<input
+                    type="file"
+                    accept={mealPhotoAccept}
+                    onChange={(event) => {
+                      const photo = event.target.files?.[0] ?? null;
+                      if (photo) {
+                        const photoError = mealPhotoError(photo);
+                        if (photoError) {
+                          event.target.value = "";
+                          setActionError(photoError);
+                          return;
+                        }
+                      }
+                      setActionError(null);
+                      setMealPhotoDrafts((current) => ({ ...current, [meal.id]: photo }));
+                    }}
+                  /><small>{mealPhotoDrafts[meal.id]?.name ?? (meal.photoKey ? "Current photo stays unless you select a replacement." : "JPEG, PNG, or WebP · up to 10 MB")}</small></label>
                   <div className="editor-actions">
                     <button className="done-button" type="button" disabled={Boolean(actionState)} onClick={() => void saveMeal(meal.id)}>Save changes</button>
                   </div>

@@ -136,7 +136,7 @@ test("meal editor uses one PATCH save action", async () => {
   assert.match(page, /async function saveMeal\(mealId: string\)/);
   assert.match(page, /setActionState\("Saving changes…"\)/);
   assert.match(page, /method: "PATCH"/);
-  assert.match(page, /body: JSON\.stringify\(mealPayload\(meal\)\)/);
+  assert.match(page, /mealRequestOptions\(mealPayload\(meal\), mealPhotoDrafts\[mealId\]\)/);
   assert.match(page, /onClick=\{\(\) => void saveMeal\(meal\.id\)\}/);
   assert.match(page, />Save changes<\/button>/);
   assert.doesNotMatch(page, /Save correction/);

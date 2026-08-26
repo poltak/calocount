@@ -658,6 +658,9 @@ input:focus-visible {
 
 .calorie-swatch { background: var(--orange); }
 .weight-swatch { background: var(--green); }
+.macro-carbs-swatch { background: var(--blue); }
+.macro-protein-swatch { background: var(--green); }
+.macro-fat-swatch { background: var(--orange); }
 
 .legend-line {
   width: 13px;
@@ -757,6 +760,98 @@ input:focus-visible {
 }
 
 .bar-column:nth-child(5) .bar { background: linear-gradient(180deg, #ffd18f 0%, #e88b4c 100%); }
+
+.macro-trend-legend { flex-wrap: wrap; }
+
+.macro-trend-chart {
+  display: grid;
+  grid-template-columns: 37px minmax(0, 1fr);
+  height: 215px;
+  margin-top: 9px;
+}
+
+.macro-trend-y-axis {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 3px 5px 21px 0;
+  color: #778391;
+  font-size: 9px;
+  text-align: right;
+}
+
+.macro-trend-plot {
+  position: relative;
+  min-width: 0;
+  border-top: 1px solid rgb(70 81 94 / 25%);
+  border-bottom: 1px solid var(--line);
+}
+
+.macro-mid-line {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  left: 0;
+  border-top: 1px solid rgb(70 81 94 / 25%);
+}
+
+.macro-trend-bars {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: space-around;
+  gap: 8px;
+  padding: 0 5px;
+}
+
+.macro-trend-column {
+  position: relative;
+  display: flex;
+  flex: 1;
+  max-width: 54px;
+  height: 100%;
+  flex-direction: column;
+  justify-content: end;
+}
+
+.macro-stack {
+  position: relative;
+  display: flex;
+  width: min(30px, 72%);
+  height: calc(100% - 21px);
+  min-height: 24px;
+  margin: 0 auto;
+  overflow: hidden;
+  flex-direction: column;
+  justify-content: flex-end;
+  border-radius: 5px 5px 2px 2px;
+  background: #202b36;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 14%);
+}
+
+.macro-segment { display: block; width: 100%; min-height: 1px; }
+.macro-segment.carbs { background: var(--blue); }
+.macro-segment.protein { background: var(--green); }
+.macro-segment.fat { background: var(--orange); }
+
+.macro-gap {
+  display: grid;
+  height: 100%;
+  place-items: center;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.macro-trend-column > span {
+  height: 21px;
+  padding-top: 8px;
+  color: #788492;
+  font-size: 9px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.macro-trend-column.missing .macro-stack { background: transparent; box-shadow: none; }
 
 .bar-value {
   position: absolute;
@@ -1365,6 +1460,17 @@ input:focus-visible {
 
 .edit-button:hover { color: var(--orange-soft); }
 
+.copy-button {
+  padding: 6px 0;
+  background: transparent;
+  color: var(--blue);
+  font-size: 10px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.copy-button:hover { color: #acd8ee; }
+
 .meal-actions {
   display: flex;
   align-items: center;
@@ -1375,7 +1481,8 @@ input:focus-visible {
 .meal-actions-toggle { display: none; }
 
 .edit-button:disabled,
-.delete-button:disabled { cursor: wait; opacity: .55; }
+.delete-button:disabled,
+.copy-button:disabled { cursor: wait; opacity: .55; }
 
 .delete-button {
   padding: 6px 0;
@@ -1389,7 +1496,7 @@ input:focus-visible {
 
 .inline-editor {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) repeat(4, 75px) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) repeat(4, 75px) auto;
   align-items: end;
   gap: 8px;
   padding: 0 0 12px 46px;
@@ -1416,6 +1523,35 @@ input:focus-visible {
   font-size: 11px;
 }
 
+.inline-editor input[type="file"],
+.add-meal-form input[type="file"] {
+  padding: 4px;
+  color: var(--muted-strong);
+  font-size: 9px;
+}
+
+.inline-editor input[type="file"]::file-selector-button,
+.add-meal-form input[type="file"]::file-selector-button {
+  margin-right: 7px;
+  padding: 4px 7px;
+  border: 0;
+  border-radius: 4px;
+  background: #2a3643;
+  color: var(--muted-strong);
+  font: inherit;
+}
+
+.inline-editor label > small,
+.add-meal-form label > small {
+  color: #778391;
+  font-size: 8px;
+  line-height: 1.3;
+}
+
+.editor-description-field { grid-column: span 1; }
+.editor-photo-field { grid-column: 1 / span 2; }
+.meal-photo-field { grid-column: 1 / span 2; }
+
 .inline-editor input:focus,
 .add-meal-form input:focus { border-color: var(--orange); }
 
@@ -1433,7 +1569,7 @@ input:focus-visible {
   align-items: center;
   justify-content: flex-end;
   gap: 6px;
-  grid-column: span 1;
+  grid-column: 7;
 }
 
 .correction-button {
@@ -1667,7 +1803,8 @@ input:focus-visible {
   .meal-total { padding-right: 15px; padding-left: 15px; }
   .add-meal-form { grid-template-columns: 1fr 1fr; margin-right: 15px; margin-left: 15px; }
   .add-meal-form label:first-of-type,
-  .add-meal-form .wide-field { grid-column: span 2; }
+  .add-meal-form .wide-field,
+  .add-meal-form .meal-photo-field { grid-column: span 2; }
   .save-button { grid-column: span 2; }
   .weight-form { grid-template-columns: 1fr 1fr; }
   .weight-form label { grid-column: span 2; }
@@ -1695,6 +1832,7 @@ input:focus-visible {
     transition: transform 160ms ease;
   }
   .meal-row.is-actions-open .meal-row-content { transform: translateX(-120px); }
+  .meal-row.has-copy-action.is-actions-open .meal-row-content { transform: translateX(-190px); }
   .meal-avatar { grid-column: 1; grid-row: 1; }
   .meal-info { grid-column: 2 / span 4; grid-row: 1; padding-right: 34px; }
   .meal-stat { grid-row: 2; flex-wrap: wrap; justify-content: flex-start; font-size: 10px; text-align: left; }
@@ -1725,6 +1863,7 @@ input:focus-visible {
     background: #1d2630;
     visibility: hidden;
   }
+  .meal-row.has-copy-action .meal-actions { width: 190px; }
   .meal-row.is-actions-open .meal-actions { visibility: visible; }
   .meal-actions-toggle {
     position: absolute;
@@ -1745,9 +1884,12 @@ input:focus-visible {
   }
   .meal-actions-toggle:hover { color: var(--foreground); }
   .meal-actions .edit-button,
-  .meal-actions .delete-button { text-align: left; }
+  .meal-actions .delete-button,
+  .meal-actions .copy-button { text-align: left; }
   .inline-editor { grid-template-columns: 1fr 1fr; padding-left: 43px; }
-  .inline-editor label:first-child { grid-column: span 2; }
+  .inline-editor label:first-child,
+  .inline-editor .editor-description-field,
+  .inline-editor .editor-photo-field { grid-column: span 2; }
   .editor-actions { grid-column: span 2; justify-content: stretch; }
   .editor-actions button { flex: 1; }
   .meal-total { min-height: 52px; }
