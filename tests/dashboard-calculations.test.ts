@@ -5,6 +5,7 @@ import {
   calculateCalorieChartScale,
   calculateLoggingStreak,
   calculateMacroPercentages,
+  calculateMacroTrend,
   calculateTargetPercent,
   calculateWeightChartScale,
   compareAverageToTarget,
@@ -72,6 +73,72 @@ test("empty macro data returns zero percentages", () => {
     calculateMacroPercentages({ carbsG: 0, proteinG: 0, fatG: 0 }),
     { carbs: 0, protein: 0, fat: 0 },
   );
+});
+
+test("macro trend uses calorie-weighted percentages for each day", () => {
+  assert.deepEqual(
+    calculateMacroTrend([{ date: "2025-06-12", carbsG: 50, proteinG: 25, fatG: 10 }]),
+    [{
+      date: "2025-06-12",
+      totalCalories: 390,
+      percentages: { carbs: 51, protein: 26, fat: 23 },
+      hasData: true,
+    }],
+  );
+});
+
+test("macro trend keeps empty days as explicit zero data", () => {
+  const trend = calculateMacroTrend([
+    { date: "2025-06-08", carbsG: 0, proteinG: 0, fatG: 0 },
+    { date: "2025-06-09", carbsG: 20, proteinG: 10, fatG: 5 },
+    { date: "2025-06-10", carbsG: 0, proteinG: 0, fatG: 0 },
+  ]);
+
+  assert.equal(trend.length, 3);
+  assert.deepEqual(trend[0], {
+    date: "2025-06-08",
+    totalCalories: 0,
+    percentages: { carbs: 0, protein: 0, fat: 0 },
+    hasData: false,
+  });
+  assert.equal(trend[1]?.hasData, true);
+  assert.equal(trend[2]?.totalCalories, 0);
+});
+
+test("non-empty macro trend splits always round to exactly 100", () => {
+  const trend = calculateMacroTrend([
+    { date: "2025-06-08", carbsG: 1, proteinG: 2, fatG: 3 },
+    { date: "2025-06-09", carbsG: 17.5, proteinG: 23.25, fatG: 8.75 },
+    { date: "2025-06-10", carbsG: 25.25, proteinG: 24.75, fatG: 0 },
+  ]);
+
+  trend.forEach((day) => {
+    assert.equal(day.hasData, true);
+    assert.equal(day.percentages.carbs + day.percentages.protein + day.percentages.fat, 100);
+  });
+});
+
+test("macro trend sanitizes invalid input without invalid output numbers", () => {
+  const trend = calculateMacroTrend([{
+    date: "2025-06-08",
+    carbsG: Number.NaN,
+    proteinG: Number.POSITIVE_INFINITY,
+    fatG: -10,
+  }]);
+
+  assert.deepEqual(trend[0], {
+    date: "2025-06-08",
+    totalCalories: 0,
+    percentages: { carbs: 0, protein: 0, fat: 0 },
+    hasData: false,
+  });
+  const outputNumbers = [
+    trend[0]?.totalCalories,
+    trend[0]?.percentages.carbs,
+    trend[0]?.percentages.protein,
+    trend[0]?.percentages.fat,
+  ];
+  outputNumbers.forEach((value) => assert.equal(Number.isFinite(value), true));
 });
 
 test("logging streak counts consecutive logged days ending on the selected day", () => {

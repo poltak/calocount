@@ -10,6 +10,17 @@ export type MacroPercentages = {
   fat: number;
 };
 
+export type MacroTrendInput = MacroGrams & {
+  date: string;
+};
+
+export type MacroTrendDay = {
+  date: string;
+  totalCalories: number;
+  percentages: MacroPercentages;
+  hasData: boolean;
+};
+
 export type LoggingDay = {
   date: string;
   meals: readonly unknown[];
@@ -53,6 +64,18 @@ function nonNegativeFinite(value: number) {
   return Number.isFinite(value) ? Math.max(0, value) : 0;
 }
 
+function macroCalorieValues({ carbsG, proteinG, fatG }: MacroGrams) {
+  return {
+    carbs: nonNegativeFinite(carbsG) * caloriesPerGram.carbs,
+    protein: nonNegativeFinite(proteinG) * caloriesPerGram.protein,
+    fat: nonNegativeFinite(fatG) * caloriesPerGram.fat,
+  };
+}
+
+function totalMacroCalories(values: ReturnType<typeof macroCalorieValues>) {
+  return values.carbs + values.protein + values.fat;
+}
+
 function dateTimestamp(date: string) {
   const timestamp = Date.parse(`${date}T12:00:00.000Z`);
   return Number.isFinite(timestamp) ? timestamp : null;
@@ -63,21 +86,31 @@ function dateFromTimestamp(timestamp: number) {
 }
 
 export function calculateMacroPercentages({ carbsG, proteinG, fatG }: MacroGrams): MacroPercentages {
-  const calorieValues = {
-    carbs: nonNegativeFinite(carbsG) * caloriesPerGram.carbs,
-    protein: nonNegativeFinite(proteinG) * caloriesPerGram.protein,
-    fat: nonNegativeFinite(fatG) * caloriesPerGram.fat,
-  };
-  const totalCalories = calorieValues.carbs + calorieValues.protein + calorieValues.fat;
+  const calorieValues = macroCalorieValues({ carbsG, proteinG, fatG });
+  const totalCalories = totalMacroCalories(calorieValues);
   if (totalCalories <= 0) return { carbs: 0, protein: 0, fat: 0 };
 
   const carbs = Math.round((calorieValues.carbs / totalCalories) * 100);
-  const protein = Math.round((calorieValues.protein / totalCalories) * 100);
+  const roundedProtein = Math.round((calorieValues.protein / totalCalories) * 100);
+  const protein = Math.min(roundedProtein, 100 - carbs);
   return {
     carbs,
     protein,
     fat: Math.max(0, 100 - carbs - protein),
   };
+}
+
+export function calculateMacroTrend(days: readonly MacroTrendInput[]): MacroTrendDay[] {
+  return days.map((day) => {
+    const calorieValues = macroCalorieValues(day);
+    const totalCalories = totalMacroCalories(calorieValues);
+    return {
+      date: day.date,
+      totalCalories,
+      percentages: calculateMacroPercentages(day),
+      hasData: totalCalories > 0,
+    };
+  });
 }
 
 export function calculateTargetPercent(value: number, target: number) {
