@@ -145,13 +145,15 @@ Apply migrations before the first production request:
 npx wrangler d1 migrations apply calocount --remote
 ```
 
-Set secrets with `wrangler secret put`. Do not put secret values in either JSONC file. For a production owner email, use the new encrypted secret name:
+Do not put plaintext email values in either JSONC file. For a new production owner allowlist, use the `CALOCOUNT_ALLOWED_EMAIL_SHA256` variable in `wrangler.jsonc`. Its value is the SHA-256 digest of the trimmed, lower-case Access email.
+
+Encrypted plaintext email bindings remain for compatibility with older or local deployments:
 
 ```bash
 npx wrangler secret put CALOCOUNT_OWNER_EMAIL
 ```
 
-`CALOCOUNT_ALLOWED_EMAIL` is retained only as a fallback for older or local configurations. Keep `CALOCOUNT_ALLOWED_USER_ID` if you use the Access user ID allowlist instead of an email.
+`CALOCOUNT_ALLOWED_EMAIL` is retained only as a fallback for older or local configurations. Keep `CALOCOUNT_ALLOWED_USER_ID` if you use the Access user ID allowlist instead of an email. If several allowlists are configured, all of them must match; a malformed email hash fails closed.
 
 Build and deploy the private app:
 
@@ -174,7 +176,7 @@ Then:
 4. Register `https://<ingest-origin>/telegram/webhook` with Telegram and send `TELEGRAM_WEBHOOK_SECRET` as Telegram's secret token.
 5. Send one test meal photo and confirm that the job, photo, meal items, and AI run appear.
 
-For read-only sharing, follow [docs/read-only-sharing.md](docs/read-only-sharing.md). The safe order is to apply the additive D1 migration, set the encrypted `CALOCOUNT_OWNER_EMAIL` secret (or the user ID secret), deploy, and test while the existing whole-app Access protection remains. Only then add narrow Access bypasses for `/share/*`, `/api/share/*`, and the exact non-data static assets required by the deployed share page. Do not bypass the root app, general API routes, or owner share-link routes.
+For read-only sharing, follow [docs/read-only-sharing.md](docs/read-only-sharing.md). The safe order is to apply the additive D1 migration, set the `CALOCOUNT_ALLOWED_EMAIL_SHA256` binding (or a compatibility email/user ID allowlist), deploy, and test while the existing whole-app Access protection remains. Only then add narrow Access bypasses for `/share/*`, `/api/share/*`, and the exact non-data static assets required by the deployed share page. Do not bypass the root app, general API routes, or owner share-link routes.
 
 Cloudflare deployment and Telegram registration are not done automatically by this repository because they require your account, resource IDs, and secrets.
 

@@ -27,6 +27,7 @@
     "CALOCOUNT_OWNER_KEY": "default",
     "CALOCOUNT_ACCESS_TEAM_DOMAIN": "spring-lab-47cd.cloudflareaccess.com",
     "CALOCOUNT_ACCESS_AUDIENCE": "0b991e6ebd3ffc3e33f960120865ed5f3ece8eccba95be4d0560dc2c08de17dd",
+    "CALOCOUNT_ALLOWED_EMAIL_SHA256": "734c5bf80348310718911461f2475f9c01419e7f40d0235fbf572c3d0e4cab0e",
     "CALOCOUNT_ALLOW_LOCAL": "false"
   },
   "observability": {

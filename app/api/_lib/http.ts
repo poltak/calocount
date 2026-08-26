@@ -52,6 +52,11 @@ function configuredOwnerEmail(): string | undefined {
   return value?.toLowerCase();
 }
 
+function configuredOwnerEmailSha256(): string | undefined {
+  const value = getEnvValue("CALOCOUNT_ALLOWED_EMAIL_SHA256")?.trim();
+  return value || undefined;
+}
+
 /**
  * Require a Cloudflare Access or Sites identity. Anonymous access is only
  * enabled when CALOCOUNT_ALLOW_LOCAL is explicitly set to "true".
@@ -66,11 +71,12 @@ export async function requireApiIdentity(request: Request): Promise<ApiIdentity>
     "oai-authenticated-user-id",
   ]);
   const allowedEmail = configuredOwnerEmail();
+  const allowedEmailSha256 = configuredOwnerEmailSha256();
   const allowedUserId = getEnvValue("CALOCOUNT_ALLOWED_USER_ID")?.trim();
   const allowLocal = getEnvValue("CALOCOUNT_ALLOW_LOCAL") === "true";
 
   if (allowLocal) {
-    if (!email && !userId && !allowedEmail && !allowedUserId) {
+    if (!email && !userId && !allowedEmail && !allowedEmailSha256 && !allowedUserId) {
       return localApiIdentity({ ownerKey: getEnvValue("CALOCOUNT_OWNER_KEY") });
     }
   } else {
@@ -78,7 +84,7 @@ export async function requireApiIdentity(request: Request): Promise<ApiIdentity>
       logAccessConfigurationFailure("access_settings_missing");
       throw new ApiError(503, "auth_access_settings_missing", "Owner authentication is not configured.");
     }
-    if (!isOwnerAllowlistConfigured({ allowedEmail, allowedUserId })) {
+    if (!isOwnerAllowlistConfigured({ allowedEmail, allowedEmailSha256, allowedUserId })) {
       logAccessConfigurationFailure("owner_allowlist_missing");
       throw new ApiError(503, "auth_owner_allowlist_missing", "Owner authentication is not configured.");
     }
@@ -104,7 +110,7 @@ export async function requireApiIdentity(request: Request): Promise<ApiIdentity>
     if (!identity.email && !identity.userId) {
       throw new ApiError(401, "unauthorized", "Sign-in is required.");
     }
-    if (!isOwnerIdentityAllowed({ identity, allowedEmail, allowedUserId })) {
+    if (!(await isOwnerIdentityAllowed({ identity, allowedEmail, allowedEmailSha256, allowedUserId }))) {
       throw new ApiError(403, "forbidden", "This account is not allowed.");
     }
 
@@ -114,7 +120,7 @@ export async function requireApiIdentity(request: Request): Promise<ApiIdentity>
       email: identity.email,
     };
   }
-  if (!isOwnerIdentityAllowed({ identity: { email, userId }, allowedEmail, allowedUserId })) {
+  if (!(await isOwnerIdentityAllowed({ identity: { email, userId }, allowedEmail, allowedEmailSha256, allowedUserId }))) {
     throw new ApiError(403, "forbidden", "This account is not allowed.");
   }
 

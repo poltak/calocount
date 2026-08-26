@@ -6,6 +6,7 @@ const MAX_JWK_MODULUS_BYTES = 8_192;
 const MAX_JWK_EXPONENT_BYTES = 64;
 const MAX_CLAIM_BYTES = 4_096;
 const CLOCK_TOLERANCE_SECONDS = 60;
+const SHA256_HEX_PATTERN = /^[0-9a-f]{64}$/iu;
 
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
@@ -69,22 +70,60 @@ export function localApiIdentity(options: {
 
 export function isOwnerAllowlistConfigured(options: {
   allowedEmail?: string;
+  allowedEmailSha256?: string;
   allowedUserId?: string;
 }): boolean {
-  return Boolean(options.allowedEmail?.trim() || options.allowedUserId?.trim());
+  return Boolean(options.allowedEmail?.trim() || options.allowedEmailSha256?.trim() || options.allowedUserId?.trim());
 }
 
-export function isOwnerIdentityAllowed(options: {
+function normaliseEmail(value: string | null | undefined): string | null {
+  const result = value?.trim().toLowerCase();
+  return result || null;
+}
+
+async function sha256Hex(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    textEncoder.encode(value) as unknown as BufferSource,
+  );
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function constantTimeHexEqual(left: string, right: string): boolean {
+  if (left.length !== right.length) return false;
+  let difference = 0;
+  for (let index = 0; index < left.length; index += 1) {
+    difference |= left.charCodeAt(index) ^ right.charCodeAt(index);
+  }
+  return difference === 0;
+}
+
+export async function isOwnerIdentityAllowed(options: {
   identity: AccessIdentity;
   allowedEmail?: string;
+  allowedEmailSha256?: string;
   allowedUserId?: string;
-}): boolean {
-  const allowedEmail = options.allowedEmail?.trim().toLowerCase();
+}): Promise<boolean> {
+  const allowedEmail = normaliseEmail(options.allowedEmail);
+  const allowedEmailSha256 = options.allowedEmailSha256?.trim();
   const allowedUserId = options.allowedUserId?.trim();
-  const email = options.identity.email?.trim().toLowerCase() ?? null;
+  const email = normaliseEmail(options.identity.email);
   const userId = options.identity.userId?.trim() ?? null;
 
-  return (!allowedEmail || email === allowedEmail) && (!allowedUserId || userId === allowedUserId);
+  const emailMatches = !allowedEmail || email === allowedEmail;
+  const userIdMatches = !allowedUserId || userId === allowedUserId;
+  let emailHashMatches = true;
+
+  if (allowedEmailSha256) {
+    if (!SHA256_HEX_PATTERN.test(allowedEmailSha256) || !email) {
+      emailHashMatches = false;
+    } else {
+      const digest = await sha256Hex(email);
+      emailHashMatches = constantTimeHexEqual(digest, allowedEmailSha256.toLowerCase());
+    }
+  }
+
+  return emailMatches && emailHashMatches && userIdMatches;
 }
 
 function fail(code: AccessJwtFailureCode, reason: AccessJwtFailureReason, message?: string): never {

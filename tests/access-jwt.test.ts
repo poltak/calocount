@@ -17,6 +17,11 @@ const teamDomain = "team.cloudflareaccess.com";
 const audience = "calocount-audience";
 const nowSeconds = 1_750_000_000;
 
+async function sha256Hex(value: string): Promise<string> {
+  const digest = await webcrypto.subtle.digest("SHA-256", textEncoder.encode(value));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
 function base64Url(value: ArrayBuffer | Uint8Array | string): string {
   const bytes = typeof value === "string" ? textEncoder.encode(value) : new Uint8Array(value);
   let binary = "";
@@ -184,46 +189,105 @@ test("invalid Access configuration reports a stable reason", async () => {
 test("production owner allowlist requires an email or user ID", () => {
   assert.equal(isOwnerAllowlistConfigured({ allowedEmail: "", allowedUserId: " " }), false);
   assert.equal(isOwnerAllowlistConfigured({ allowedEmail: "owner@example.com" }), true);
+  assert.equal(isOwnerAllowlistConfigured({ allowedEmailSha256: "a".repeat(64) }), true);
   assert.equal(isOwnerAllowlistConfigured({ allowedUserId: "user-123" }), true);
 });
 
-test("owner email allowlist matching is case-insensitive and rejects wrong or missing email", () => {
+test("local mode does not allow anonymous access when only an email hash allowlist is configured", async () => {
+  const source = await readFile(new URL("../app/api/_lib/http.ts", import.meta.url), "utf8");
+
+  assert.match(source, /const allowLocal = getEnvValue\("CALOCOUNT_ALLOW_LOCAL"\) === "true";/);
+  assert.match(
+    source,
+    /if \(!email && !userId && !allowedEmail && !allowedEmailSha256 && !allowedUserId\) \{\s*return localApiIdentity/u,
+  );
+});
+
+test("owner email allowlist matching is case-insensitive and rejects wrong or missing email", async () => {
   const allowlist = { allowedEmail: "Owner@Example.com" };
 
   assert.equal(
-    isOwnerIdentityAllowed({ identity: { email: "owner@example.com", userId: null }, ...allowlist }),
+    await isOwnerIdentityAllowed({ identity: { email: "owner@example.com", userId: null }, ...allowlist }),
     true,
   );
   assert.equal(
-    isOwnerIdentityAllowed({ identity: { email: "other@example.com", userId: null }, ...allowlist }),
+    await isOwnerIdentityAllowed({ identity: { email: "other@example.com", userId: null }, ...allowlist }),
     false,
   );
-  assert.equal(isOwnerIdentityAllowed({ identity: { email: null, userId: "user-123" }, ...allowlist }), false);
+  assert.equal(await isOwnerIdentityAllowed({ identity: { email: null, userId: "user-123" }, ...allowlist }), false);
 });
 
-test("owner user ID allowlist accepts a matching ID and rejects wrong or missing IDs", () => {
+test("owner email hash allowlist normalizes the verified email", async () => {
+  const allowedEmailSha256 = await sha256Hex("owner@example.com");
+
+  assert.equal(
+    await isOwnerIdentityAllowed({
+      identity: { email: "  OWNER@EXAMPLE.COM ", userId: null },
+      allowedEmailSha256,
+    }),
+    true,
+  );
+});
+
+test("owner email hash allowlist rejects a wrong email or hash", async () => {
+  const allowedEmailSha256 = await sha256Hex("owner@example.com");
+  const wrongEmailSha256 = await sha256Hex("other@example.com");
+
+  assert.equal(
+    await isOwnerIdentityAllowed({
+      identity: { email: "other@example.com", userId: null },
+      allowedEmailSha256,
+    }),
+    false,
+  );
+  assert.equal(
+    await isOwnerIdentityAllowed({
+      identity: { email: "owner@example.com", userId: null },
+      allowedEmailSha256: wrongEmailSha256,
+    }),
+    false,
+  );
+});
+
+test("malformed owner email hashes fail closed", async () => {
+  for (const allowedEmailSha256 of ["not-a-hash", "a".repeat(63), "g".repeat(64)]) {
+    assert.equal(
+      await isOwnerIdentityAllowed({
+        identity: { email: "owner@example.com", userId: null },
+        allowedEmailSha256,
+      }),
+      false,
+    );
+  }
+});
+
+test("owner email, email hash, and user ID allowlists all must match", async () => {
+  const allowlist = {
+    allowedEmail: "owner@example.com",
+    allowedEmailSha256: await sha256Hex("owner@example.com"),
+    allowedUserId: "user-123",
+  };
+
+  assert.equal(
+    await isOwnerIdentityAllowed({ identity: { email: "OWNER@example.com", userId: "user-123" }, ...allowlist }),
+    true,
+  );
+  assert.equal(
+    await isOwnerIdentityAllowed({ identity: { email: "owner@example.com", userId: "user-123" }, ...allowlist, allowedEmailSha256: "a".repeat(64) }),
+    false,
+  );
+  assert.equal(
+    await isOwnerIdentityAllowed({ identity: { email: "owner@example.com", userId: "user-456" }, ...allowlist }),
+    false,
+  );
+});
+
+test("owner user ID allowlist accepts a matching ID and rejects wrong or missing IDs", async () => {
   const allowlist = { allowedUserId: "user-123" };
 
-  assert.equal(isOwnerIdentityAllowed({ identity: { email: null, userId: "user-123" }, ...allowlist }), true);
-  assert.equal(isOwnerIdentityAllowed({ identity: { email: null, userId: "user-456" }, ...allowlist }), false);
-  assert.equal(isOwnerIdentityAllowed({ identity: { email: "owner@example.com", userId: null }, ...allowlist }), false);
-});
-
-test("owner email and user ID allowlists both must match", () => {
-  const allowlist = { allowedEmail: "owner@example.com", allowedUserId: "user-123" };
-
-  assert.equal(
-    isOwnerIdentityAllowed({ identity: { email: "OWNER@example.com", userId: "user-123" }, ...allowlist }),
-    true,
-  );
-  assert.equal(
-    isOwnerIdentityAllowed({ identity: { email: "owner@example.com", userId: "user-456" }, ...allowlist }),
-    false,
-  );
-  assert.equal(
-    isOwnerIdentityAllowed({ identity: { email: "other@example.com", userId: "user-123" }, ...allowlist }),
-    false,
-  );
+  assert.equal(await isOwnerIdentityAllowed({ identity: { email: null, userId: "user-123" }, ...allowlist }), true);
+  assert.equal(await isOwnerIdentityAllowed({ identity: { email: null, userId: "user-456" }, ...allowlist }), false);
+  assert.equal(await isOwnerIdentityAllowed({ identity: { email: "owner@example.com", userId: null }, ...allowlist }), false);
 });
 
 test("legacy identity headers cannot replace the Access JWT", async () => {
