@@ -109,6 +109,106 @@ export function nowMs(): number {
   return Date.now();
 }
 
+const DAY_MS = 86_400_000;
+
+type ZonedDateParts = {
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+  minute: number;
+  second: number;
+};
+
+export type DashboardSummaryOptions = {
+  now?: Date;
+  timezone?: string;
+};
+
+function dateTimeFormatter(timezone: string) {
+  return new Intl.DateTimeFormat("en-US", {
+    calendar: "iso8601",
+    day: "2-digit",
+    hour: "2-digit",
+    hourCycle: "h23",
+    minute: "2-digit",
+    month: "2-digit",
+    numberingSystem: "latn",
+    second: "2-digit",
+    timeZone: timezone,
+    year: "numeric",
+  });
+}
+
+function datePartValue(parts: Intl.DateTimeFormatPart[], type: Intl.DateTimeFormatPartTypes): number {
+  return Number(parts.find((part) => part.type === type)?.value ?? Number.NaN);
+}
+
+function zonedDateParts(formatter: Intl.DateTimeFormat, timestamp: number): ZonedDateParts {
+  const parts = formatter.formatToParts(new Date(timestamp));
+  return {
+    year: datePartValue(parts, "year"),
+    month: datePartValue(parts, "month"),
+    day: datePartValue(parts, "day"),
+    hour: datePartValue(parts, "hour"),
+    minute: datePartValue(parts, "minute"),
+    second: datePartValue(parts, "second"),
+  };
+}
+
+function utcTimestamp(parts: Pick<ZonedDateParts, "year" | "month" | "day"> & Partial<Pick<ZonedDateParts, "hour" | "minute" | "second">>): number {
+  const date = new Date(0);
+  date.setUTCFullYear(parts.year, parts.month - 1, parts.day);
+  date.setUTCHours(parts.hour ?? 0, parts.minute ?? 0, parts.second ?? 0, 0);
+  return date.getTime();
+}
+
+function dateKeyFromParts(parts: Pick<ZonedDateParts, "year" | "month" | "day">): string {
+  return `${parts.year}-${String(parts.month).padStart(2, "0")}-${String(parts.day).padStart(2, "0")}`;
+}
+
+function shiftDateKey(date: string, days: number): string {
+  const [year, month, day] = date.split("-").map(Number);
+  const shifted = new Date(utcTimestamp({ year, month, day }) + days * DAY_MS);
+  return dateKeyFromParts({
+    year: shifted.getUTCFullYear(),
+    month: shifted.getUTCMonth() + 1,
+    day: shifted.getUTCDate(),
+  });
+}
+
+function firstInstantForLocalDate({ date, formatter }: { date: string; formatter: Intl.DateTimeFormat }): number {
+  const [year, month, day] = date.split("-").map(Number);
+  const target = utcTimestamp({ year, month, day });
+  const dateAt = (timestamp: number) => dateKeyFromParts(zonedDateParts(formatter, timestamp));
+  let low = target - 3 * DAY_MS;
+  let high = target + 3 * DAY_MS;
+
+  while (dateAt(low) >= date) low -= DAY_MS;
+  while (dateAt(high) < date) high += DAY_MS;
+  while (high - low > 1) {
+    const middle = Math.floor((low + high) / 2);
+    if (dateAt(middle) < date) low = middle;
+    else high = middle;
+  }
+  return high;
+}
+
+export function isValidTimeZone(value: unknown): value is string {
+  if (typeof value !== "string" || value.length === 0 || value.length > 100) return false;
+  try {
+    dateTimeFormatter(value).format(new Date(0));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function resolvedDashboardTimezone(requested: string | undefined): string {
+  if (isValidTimeZone(requested)) return requested;
+  return "UTC";
+}
+
 function finiteNumber(value: unknown, fallback = 0): number {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
@@ -506,16 +606,18 @@ export async function upsertSettings(db: AppDb, ownerKey: string, patch: Setting
   return saved;
 }
 
-export async function getDashboardSummary(db: AppDb, ownerKey: string, now = new Date()) {
-  const start = new Date(now);
-  start.setHours(0, 0, 0, 0);
-  const startMs = start.getTime();
-  const endMs = startMs + 86_400_000;
-  const weekStartMs = startMs - 6 * 86_400_000;
-  const logicalDate = start.toISOString().slice(0, 10);
-  const weekStartDate = new Date(weekStartMs).toISOString().slice(0, 10);
-  const [settingsRow, today, recentMeals, recentWeights] = await Promise.all([
-    getSettings(db, ownerKey),
+export async function getDashboardSummary(db: AppDb, ownerKey: string, options: DashboardSummaryOptions = {}) {
+  const settingsRow = await getSettings(db, ownerKey);
+  const timezone = resolvedDashboardTimezone(options.timezone);
+  const now = options.now ?? new Date();
+  const formatter = dateTimeFormatter(timezone);
+  const logicalDate = dateKeyFromParts(zonedDateParts(formatter, now.getTime()));
+  const weekStartDate = shiftDateKey(logicalDate, -6);
+  const endDate = shiftDateKey(logicalDate, 1);
+  const startMs = firstInstantForLocalDate({ date: logicalDate, formatter });
+  const endMs = firstInstantForLocalDate({ date: endDate, formatter });
+  const weekStartMs = firstInstantForLocalDate({ date: weekStartDate, formatter });
+  const [today, recentMeals, recentWeights] = await Promise.all([
     db.select({
       calories: sql<number>`coalesce(sum(${mealLogs.totalCalories}), 0)`,
       proteinG: sql<number>`coalesce(sum(${mealLogs.totalProteinG}), 0)`,
@@ -535,7 +637,7 @@ export async function getDashboardSummary(db: AppDb, ownerKey: string, now = new
   const days = new Map<string, { calories: number; proteinG: number }>();
   for (const entry of recentMeals) {
     if (entry.meal.status !== "complete") continue;
-    const key = new Date(entry.meal.consumedAt).toISOString().slice(0, 10);
+    const key = dateKeyFromParts(zonedDateParts(formatter, entry.meal.consumedAt));
     const current = days.get(key) ?? { calories: 0, proteinG: 0 };
     current.calories += entry.meal.totalCalories;
     current.proteinG += entry.meal.totalProteinG;

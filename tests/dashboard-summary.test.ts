@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { drizzle } from "drizzle-orm/d1";
 import * as schema from "../db/schema";
-import { getDashboardSummary } from "../db/repository";
+import { getDashboardSummary, isValidTimeZone } from "../db/repository";
 
 type Row = Record<string, unknown>;
 
@@ -57,13 +57,13 @@ function mealRow(
   };
 }
 
-function settingsRow(ownerKey: string): Row {
+function settingsRow(ownerKey: string, timezone = "UTC"): Row {
   return {
     id: `settings_${ownerKey}`,
     owner_key: ownerKey,
     telegram_user_id: null,
     telegram_chat_id: null,
-    timezone: "UTC",
+    timezone,
     daily_calorie_target: 2_000,
     daily_protein_target_g: 150,
     active_ai_profile_id: null,
@@ -204,8 +204,7 @@ class SummaryD1Statement {
 }
 
 function createSummaryDb(now: Date) {
-  const start = new Date(now);
-  start.setHours(0, 0, 0, 0);
+  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   const meals: Row[] = [];
   for (let day = 0; day < 7; day += 1) {
     const dayStart = start.getTime() - day * DAY_MS;
@@ -254,7 +253,7 @@ function createSummaryDb(now: Date) {
 test("dashboard summary returns all seven-day meals, weights, and matching totals", async () => {
   const now = new Date("2025-06-15T12:00:00Z");
   const { db, start, meals } = createSummaryDb(now);
-  const summary = await getDashboardSummary(db, OWNER_KEY, now);
+  const summary = await getDashboardSummary(db, OWNER_KEY, { now, timezone: "UTC" });
 
   const expectedMeals = meals.filter((meal) => (
     meal.owner_key === OWNER_KEY
@@ -290,4 +289,79 @@ test("dashboard summary returns all seven-day meals, weights, and matching total
     )),
   );
   assert.ok(!summary.recentWeights.some((weight) => weight.id === "outside-weight" || weight.id === "other-owner-weight"));
+});
+
+test("dashboard summary uses the requested timezone for local day boundaries and grouping", async () => {
+  const consumedAt = Date.parse("2026-08-25T23:30:00.000Z");
+  const boundaryMeal = mealRow("boundary-meal", OWNER_KEY, consumedAt, 450, 30);
+  const db = drizzle(
+    new SummaryD1Database([boundaryMeal], settingsRow(OWNER_KEY), []) as unknown as D1Database,
+    { schema },
+  );
+  const summary = await getDashboardSummary(db, OWNER_KEY, {
+    now: new Date("2026-08-26T12:00:00.000Z"),
+    timezone: "Asia/Ho_Chi_Minh",
+  });
+
+  assert.equal(summary.date, "2026-08-26");
+  assert.equal(summary.today.calories, 450);
+  assert.equal(summary.today.proteinG, 30);
+  assert.equal(summary.today.mealCount, 1);
+  assert.equal(summary.sevenDay.calories, 450);
+  assert.equal(summary.sevenDay.proteinG, 30);
+  assert.equal(summary.sevenDay.daysWithMeals, 1);
+  assert.deepEqual(summary.recentMeals.map(({ meal }) => meal.id), ["boundary-meal"]);
+});
+
+for (const scenario of [
+  {
+    date: "2026-03-08",
+    timezone: "America/Havana",
+    now: "2026-03-08T12:00:00.000Z",
+    previous: "2026-03-08T04:59:59.000Z",
+    current: "2026-03-08T05:00:00.000Z",
+  },
+  {
+    date: "2026-09-06",
+    timezone: "America/Santiago",
+    now: "2026-09-06T12:00:00.000Z",
+    previous: "2026-09-06T03:59:59.000Z",
+    current: "2026-09-06T04:00:00.000Z",
+  },
+]) {
+  test(`dashboard summary handles a midnight DST jump in ${scenario.timezone}`, async () => {
+    const meals = [
+      mealRow("previous-local-date", OWNER_KEY, Date.parse(scenario.previous), 100, 10),
+      mealRow("first-local-date", OWNER_KEY, Date.parse(scenario.current), 450, 30),
+    ];
+    const db = drizzle(
+      new SummaryD1Database(meals, settingsRow(OWNER_KEY), []) as unknown as D1Database,
+      { schema },
+    );
+    const summary = await getDashboardSummary(db, OWNER_KEY, {
+      now: new Date(scenario.now),
+      timezone: scenario.timezone,
+    });
+
+    assert.equal(summary.date, scenario.date);
+    assert.equal(summary.today.calories, 450);
+    assert.equal(summary.today.mealCount, 1);
+    assert.equal(summary.sevenDay.calories, 550);
+    assert.equal(summary.sevenDay.daysWithMeals, 2);
+  });
+}
+
+test("public summaries keep UTC when the timezone is missing or invalid", async () => {
+  assert.equal(isValidTimeZone("Asia/Ho_Chi_Minh"), true);
+  assert.equal(isValidTimeZone("Not/A_Timezone"), false);
+
+  const db = drizzle(
+    new SummaryD1Database([], settingsRow(OWNER_KEY, "Asia/Ho_Chi_Minh"), []) as unknown as D1Database,
+    { schema },
+  );
+  const now = new Date("2026-08-25T23:30:00.000Z");
+  const summary = await getDashboardSummary(db, OWNER_KEY, { now, timezone: "Not/A_Timezone" });
+  const publicSummary = await getDashboardSummary(db, OWNER_KEY, { now });
+  assert.equal(summary.date, "2026-08-25");
+  assert.equal(publicSummary.date, "2026-08-25");
 });

@@ -96,6 +96,7 @@ type DashboardSummary = {
 
 type DataMode = "loading" | "live" | "error";
 type DashboardSection = "today" | "meals" | "trend" | "macros";
+type DateKeyMode = "local" | "utc";
 type MealSwipeStart = {
   mealId: string;
   pointerId: number;
@@ -274,8 +275,10 @@ export function dashboardFailureMessage(status: number, responseBody: unknown): 
   return "Your saved log is unavailable. Try again later.";
 }
 
-function dateKeyFromTimestamp(timestamp: number) {
-  return new Date(timestamp).toISOString().slice(0, 10);
+export function dateKeyFromTimestamp(timestamp: number, { mode }: { mode: DateKeyMode }) {
+  const date = new Date(timestamp);
+  if (mode === "utc") return date.toISOString().slice(0, 10);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
 function dayKeyForDate(date: string): DayKey {
@@ -330,14 +333,14 @@ function mapRemoteMeal(meal: SerializedMeal, includePhotos = true): Meal {
   };
 }
 
-function buildLiveDays(summary: DashboardSummary, includePhotos = true): Day[] {
+function buildLiveDays(summary: DashboardSummary, includePhotos: boolean, { mode }: { mode: DateKeyMode }): Day[] {
   const summaryDate = new Date(`${summary.date}T12:00:00.000Z`);
   const mealsByDate = new Map<string, Meal[]>();
   const weightsByDate = new Map(
     summary.recentWeights.map((weight) => [weight.logicalDate, weight]),
   );
   for (const serializedMeal of summary.recentMeals) {
-    const key = dateKeyFromTimestamp(serializedMeal.consumedAt);
+    const key = dateKeyFromTimestamp(serializedMeal.consumedAt, { mode });
     const meals = mealsByDate.get(key) ?? [];
     meals.push(mapRemoteMeal(serializedMeal, includePhotos));
     mealsByDate.set(key, meals);
@@ -382,8 +385,34 @@ function mealPayload(meal: Meal, consumedAt?: number) {
   };
 }
 
-function mealDateTimestamp(date: string) {
-  return new Date(`${date}T12:00:00.000Z`).getTime();
+export function localTimeValue(date = new Date()) {
+  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
+
+export function browserTimeZone() {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  } catch {
+    return "UTC";
+  }
+}
+
+export function mealDateTimestamp({ date, time }: { date: string; time: string }): number | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(time)) return null;
+
+  const [year, month, day] = date.split("-").map(Number);
+  const [hours, minutes] = time.split(":").map(Number);
+  const parsed = new Date(0);
+  parsed.setFullYear(year, month - 1, day);
+  parsed.setHours(hours, minutes, 0, 0);
+  if (
+    parsed.getFullYear() !== year
+    || parsed.getMonth() !== month - 1
+    || parsed.getDate() !== day
+    || parsed.getHours() !== hours
+    || parsed.getMinutes() !== minutes
+  ) return null;
+  return parsed.getTime();
 }
 
 function parseMealResponse(value: unknown) {
@@ -500,7 +529,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     let cancelled = false;
     async function loadDashboard() {
       try {
-        const endpoint = publicView ? "/api/public/summary" : "/api/dashboard/summary";
+        const endpoint = publicView ? "/api/public/summary" : `/api/dashboard/summary?timezone=${encodeURIComponent(browserTimeZone())}`;
         const response = await fetch(endpoint, { cache: "no-store" });
         if (!response.ok) {
           if (!cancelled) {
@@ -520,7 +549,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
         const parsed = parseDashboardPayload(await response.json());
         if (!parsed) throw new Error("invalid_dashboard_summary");
         if (cancelled) return;
-        const liveDays = buildLiveDays(parsed, !readOnly);
+        const liveDays = buildLiveDays(parsed, !readOnly, { mode: publicView ? "utc" : "local" });
         setTargets({
           calories: parsed.targets.calories ?? calorieTarget,
           proteinG: parsed.targets.proteinG ?? proteinTarget,
@@ -641,7 +670,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
 
   function replaceRemoteMeal(remoteMeal: SerializedMeal) {
     const nextMeal = mapRemoteMeal(remoteMeal);
-    const date = dateKeyFromTimestamp(remoteMeal.consumedAt);
+    const date = dateKeyFromTimestamp(remoteMeal.consumedAt, { mode: publicView ? "utc" : "local" });
     setDays((currentDays) => currentDays.map((day) => {
       if (day.date !== date) return day;
       const meals = day.meals.some((meal) => meal.id === nextMeal.id)
@@ -747,6 +776,13 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     const protein = Number(form.get("protein") || 0);
     const carbs = Number(form.get("carbs") || 0);
     const fat = Number(form.get("fat") || 0);
+    const time = String(form.get("time") || "");
+    const consumedAt = mealDateTimestamp({ date: selectedDay.date, time });
+    if (consumedAt === null) {
+      setActionError("Enter a valid meal time.");
+      setActionState(null);
+      return;
+    }
     const nextMeal: Meal = {
       id: `meal-${Date.now()}`,
       time: "Now",
@@ -765,7 +801,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
       const response = await fetch("/api/meals", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(mealPayload(nextMeal, mealDateTimestamp(selectedDay.date))),
+        body: JSON.stringify(mealPayload(nextMeal, consumedAt)),
       });
       const responseBody = await response.json().catch(() => null);
       if (!response.ok) {
@@ -1132,7 +1168,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
             <div className="panel-heading meal-heading"><div><p className="eyebrow">What you ate</p><h2 id="meals-title">Meals <span>{selectedDay.meals.length}</span></h2></div>{!readOnly ? <button className="primary-button" type="button" onClick={() => setShowAddMeal((current) => !current)}><span aria-hidden="true">＋</span> Add meal</button> : <span className="panel-meta">read only</span>}</div>
 
             {!readOnly && showAddMeal ? <form className="add-meal-form" onSubmit={addMeal}>
-              <div className="form-heading"><div><strong>Log a meal</strong><span>Use a quick estimate now. You can edit it later.</span></div><button className="close-button" type="button" onClick={() => setShowAddMeal(false)} aria-label="Close add meal form">×</button></div>
+              <div className="form-heading"><div><strong>Log a meal</strong><span>Use a quick estimate now. You can edit it later.</span></div><label>Time<input name="time" type="time" defaultValue={localTimeValue()} required aria-label="Meal time" /></label><button className="close-button" type="button" onClick={() => setShowAddMeal(false)} aria-label="Close add meal form">×</button></div>
               <label>Meal name<input name="name" placeholder="e.g. Turkey sandwich" required /></label>
               <label className="wide-field">Description<input name="description" placeholder="Ingredients or a short note" /></label>
               <label>Calories<input name="calories" type="number" min="0" step="any" placeholder="450" required /></label>
