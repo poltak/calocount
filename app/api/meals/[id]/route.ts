@@ -1,4 +1,4 @@
-import { deleteMeal, findMeal, updateMeal } from "../../../../db/repository";
+import { deleteMeal, findMeal, hasMealPhotoReference, updateMeal } from "../../../../db/repository";
 import {
   ApiError,
   getRequestDb,
@@ -45,7 +45,7 @@ export async function DELETE(request: Request, context: RouteContext): Promise<R
     if (!meal) throw new ApiError(404, "not_found", "Meal not found.");
 
     let photoDeleted = true;
-    if (meal.meal.photoKey) {
+    if (meal.meal.photoKey && !(await hasMealPhotoReference(getRequestDb(), identity.ownerKey, meal.meal.photoKey))) {
       try {
         await getPhotosBucket().delete(meal.meal.photoKey);
       } catch (error) {

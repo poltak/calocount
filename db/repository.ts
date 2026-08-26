@@ -401,6 +401,61 @@ export async function findMeal(db: AppDb, ownerKey: string, mealId: string): Pro
   return { meal, items };
 }
 
+export type CopyMealOptions = {
+  consumedAt?: number;
+};
+
+/**
+ * Copy an owned meal into a new meal row and a new set of item rows.
+ *
+ * The photo key is intentionally reused. Photo objects are owned by their key,
+ * not by one meal row, so the caller must use reference-aware photo cleanup
+ * when either meal is later deleted.
+ */
+export async function copyMeal(
+  db: AppDb,
+  ownerKey: string,
+  mealId: string,
+  options: CopyMealOptions = {},
+): Promise<MealWithItems | null> {
+  const source = await findMeal(db, ownerKey, mealId);
+  if (!source) return null;
+
+  let assumptions: unknown[] = [];
+  try {
+    const parsed = JSON.parse(source.meal.assumptionsJson);
+    if (Array.isArray(parsed)) assumptions = parsed;
+  } catch {
+    // Keep a malformed legacy assumptions value from blocking a meal copy.
+  }
+
+  return createMeal(db, ownerKey, {
+    consumedAt: options.consumedAt ?? nowMs(),
+    source: "dashboard",
+    caption: source.meal.caption,
+    mealType: source.meal.mealType,
+    status: source.meal.status,
+    photoKey: source.meal.photoKey,
+    photoMimeType: source.meal.photoMimeType,
+    photoSizeBytes: source.meal.photoSizeBytes,
+    confidence: source.meal.confidence,
+    assumptions,
+    notes: source.meal.notes,
+    // Do not pass source item IDs. createMeal generates fresh IDs for the copy.
+    items: source.items.map((item) => ({
+      name: item.name,
+      quantity: item.quantity,
+      unit: item.unit,
+      calories: item.calories,
+      proteinG: item.proteinG,
+      carbsG: item.carbsG,
+      fatG: item.fatG,
+      confidence: item.confidence,
+      source: item.source,
+    })),
+  });
+}
+
 export async function createMeal(db: AppDb, ownerKey: string, input: MealInput): Promise<MealWithItems> {
   const mealId = input.id ?? createId("meal");
   const items = (input.items ?? []).map((item) => normaliseItem(item, ownerKey, mealId));
@@ -755,6 +810,14 @@ export async function findMealByPhotoKey(db: AppDb, ownerKey: string, photoKey: 
     eq(mealLogs.ownerKey, ownerKey),
     eq(mealLogs.photoKey, photoKey),
   )).limit(1).prepare().get();
+}
+
+export async function hasMealPhotoReference(db: AppDb, ownerKey: string, photoKey: string) {
+  const reference = await db.select({ id: mealLogs.id }).from(mealLogs).where(and(
+    eq(mealLogs.ownerKey, ownerKey),
+    eq(mealLogs.photoKey, photoKey),
+  )).limit(1).prepare().get();
+  return Boolean(reference);
 }
 
 export async function insertTelegramUpdate(
