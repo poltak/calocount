@@ -9,6 +9,14 @@ import {
   withApiErrors,
 } from "../../_lib/http";
 import { parseMealInput } from "../../_lib/meal-input";
+import {
+  isMultipartMealRequest,
+  MealPhotoError,
+  parseMultipartMealRequest,
+  type MealPhotoBucket,
+  replaceMealPhoto,
+  type ParsedMultipartMeal,
+} from "../../_lib/meal-photo";
 import { serialiseMeal } from "../../_lib/serialise";
 
 type RouteContext = { params: Promise<{ id: string }> | { id: string } };
@@ -30,10 +38,67 @@ export async function GET(request: Request, context: RouteContext): Promise<Resp
 export async function PATCH(request: Request, context: RouteContext): Promise<Response> {
   return withApiErrors(async () => {
     const identity = await requireApiIdentity(request);
-    const patch = parseMealInput(await parseJsonBody(request), true);
-    const meal = await updateMeal(getRequestDb(), identity.ownerKey, await mealId(context), patch, "dashboard");
+    let requestBody: ParsedMultipartMeal;
+    try {
+      requestBody = isMultipartMealRequest(request)
+        ? await parseMultipartMealRequest(request)
+        : { body: await parseJsonBody(request), photo: null };
+    } catch (error) {
+      if (error instanceof MealPhotoError) {
+        throw new ApiError(error.status, error.code, error.message);
+      }
+      throw error;
+    }
+
+    const patch = parseMealInput(requestBody.body, true);
+    const id = await mealId(context);
+    const db = getRequestDb();
+    let bucket: MealPhotoBucket | null = null;
+    let previousPhotoKey: string | null = null;
+
+    if (requestBody.photo) {
+      // Check ownership before uploading. This also avoids an orphan object
+      // when a caller tries to edit a meal that does not exist.
+      const existing = await findMeal(db, identity.ownerKey, id);
+      if (!existing) throw new ApiError(404, "not_found", "Meal not found.");
+      previousPhotoKey = existing.meal.photoKey;
+      bucket = getPhotosBucket() as unknown as MealPhotoBucket;
+    }
+
+    let meal;
+    let photoDeleted: boolean | undefined;
+    if (requestBody.photo && bucket) {
+      const saved = await replaceMealPhoto({
+        bucket,
+        ownerKey: identity.ownerKey,
+        mealId: id,
+        previousPhotoKey,
+        photo: requestBody.photo,
+        save: (uploaded) => {
+          patch.photoKey = uploaded.key;
+          patch.photoMimeType = uploaded.mimeType;
+          patch.photoSizeBytes = uploaded.sizeBytes;
+          return updateMeal(db, identity.ownerKey, id, patch, "dashboard").then((updated) => {
+            if (!updated) throw new ApiError(404, "not_found", "Meal not found.");
+            return updated;
+          });
+        },
+        shouldDeletePrevious: async () => (
+          !previousPhotoKey
+          || !(await hasMealPhotoReference(db, identity.ownerKey, previousPhotoKey))
+        ),
+      });
+      meal = saved.value;
+      photoDeleted = saved.previousPhotoDeleted;
+    } else {
+      meal = await updateMeal(db, identity.ownerKey, id, patch, "dashboard");
+    }
     if (!meal) throw new ApiError(404, "not_found", "Meal not found.");
-    return jsonResponse({ meal: serialiseMeal(meal) });
+
+    return jsonResponse({
+      meal: serialiseMeal(meal),
+      ...(photoDeleted === undefined ? {} : { photoDeleted }),
+    });
   });
 }
 
