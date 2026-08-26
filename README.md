@@ -178,6 +178,8 @@ Then:
 
 For the public/owner route split and read-only sharing, follow [docs/read-only-sharing.md](docs/read-only-sharing.md). The safe order is to apply the additive D1 migration, set the `CALOCOUNT_ALLOWED_EMAIL_SHA256` binding (or a compatibility email/user ID allowlist), deploy, and test while the existing whole-app Access protection remains. Verify `/owner` and `/api/*` as private first. Only after that live verification add the reviewed public exceptions for `/`, `/api/public/summary`, `/share/*`, `/api/share/*`, and the exact non-data static/PWA assets required by the deployed pages. Do not assume this README defines the final Access paths; record them from live Cloudflare verification. Do not make `/api/share-links*` or other owner APIs public.
 
+Future route rule: for the intended public-root/private-owner layout, treat routes as public by default unless a private Cloudflare Access destination covers them. Any new page outside `/owner`, any new public API exception, or any new server route outside `/api` requires explicit privacy and Access review before deployment. Verify the anonymous and owner behavior from deployed requests. This documents the required review process; it does not confirm that the live Access configuration already matches this layout.
+
 Cloudflare deployment and Telegram registration are not done automatically by this repository because they require your account, resource IDs, and secrets.
 
 ## Privacy

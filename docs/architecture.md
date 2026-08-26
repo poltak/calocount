@@ -36,6 +36,16 @@ path and its descendants and `/api/*`. Then verify each public exception and
 static/PWA asset path from deployed requests. Record the final Access path list;
 do not infer it from this document.
 
+### Future route and Access review rule
+
+For the intended public-root/private-owner layout, treat routes as public by
+default unless a private Cloudflare Access destination covers them. Before any
+deployment, give explicit privacy and Access review to every new page outside
+`/owner`, every new public API exception, and every new server route outside
+`/api`. Verify the anonymous and owner behavior from deployed requests. This is
+a repository rule for future changes; it does not confirm that the live Access
+configuration already matches this layout.
+
 ## Meal flow
 
 1. Telegram sends a photo update to the ingest Worker.
