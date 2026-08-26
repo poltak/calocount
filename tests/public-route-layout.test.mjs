@@ -7,7 +7,7 @@ test("the root route uses the public read-only dashboard source", async () => {
 
   assert.match(page, /return <Dashboard readOnly publicView \/>/);
   assert.match(page, /publicView\s*\?\s*"\/api\/public\/summary"/);
-  assert.match(page, /publicView \? "Loading the public dashboard…"/);
+  assert.match(page, /readOnly \? "Loading the public dashboard…"/);
   assert.match(page, /publicView \? "The public dashboard could not be loaded\. Try again later\."/);
   assert.doesNotMatch(page, /publicView[^\n]*dashboardFailureMessage/);
 });
@@ -41,31 +41,42 @@ test("owner failures never enable the old editable demo fallback", async () => {
 
   assert.match(page, /setDataMode\("error"\)/);
   assert.doesNotMatch(page, /setDataMode\("demo"\)/);
-  assert.match(page, /dataMode !== "live" \? <section className="share-state"/);
+  assert.match(page, /dataMode !== "live" \? <section className="dashboard-state"/);
   assert.doesNotMatch(page, /local demo data is visible|changes stay local|Demo mode/);
   assert.match(page, /if \(readOnly \|\| dataMode !== "live"\) return;/);
 });
 
-test("owner share controls stay inactive until the live summary is available", async () => {
+test("the public root has no tokenized or owner link controls", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
 
-  assert.match(page, /if \(readOnly \|\| dataMode !== "live" \|\| shareListInFlight\.current\) return;/);
-  assert.match(page, /\}, \[dataMode, readOnly\]\);/);
-  assert.match(page, /if \(readOnly \|\| dataMode !== "live" \|\| shareCreateInFlight\.current\) return;/);
-  assert.match(page, /if \(readOnly \|\| dataMode !== "live" \|\| link\.status !== "active"/);
-  assert.match(page, /function toggleShareLinks\(\) \{\s*if \(readOnly \|\| dataMode !== "live"\) return;/);
-  assert.match(page, /\{!readOnly && dataMode === "live" \? <>/);
+  assert.match(page, /publicView \? "\/api\/public\/summary"/);
+  assert.doesNotMatch(page, /share/i);
   assert.match(page, /\{!readOnly && dataMode === "live" && showSettings \?/);
-  assert.match(page, /\{!readOnly && dataMode === "live" && showShareLinks \?/);
 });
 
 test("the public root keeps every owner mutation and private photo control disabled", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
 
   assert.match(page, /if \(readOnly\) return;/);
-  assert.match(page, /className="share-nav-button"/);
   assert.match(page, /className="icon-button"/);
   assert.match(page, /className="primary-button"/);
   assert.match(page, /\{!readOnly && meal\.photoKey/);
   assert.match(page, /\{!readOnly && showWeightForm \? <form className="weight-form"/);
+});
+
+test("every write API route requires the owner identity", async () => {
+  const routePaths = [
+    "../app/api/ai-profiles/route.ts",
+    "../app/api/meals/route.ts",
+    "../app/api/meals/[id]/route.ts",
+    "../app/api/meals/[id]/corrections/route.ts",
+    "../app/api/settings/route.ts",
+    "../app/api/weights/route.ts",
+  ];
+  const routes = await Promise.all(routePaths.map((path) => readFile(new URL(path, import.meta.url), "utf8")));
+
+  for (const route of routes) {
+    assert.match(route, /requireApiIdentity\(request\)/);
+    assert.match(route, /export async function (POST|PUT|PATCH|DELETE)/);
+  }
 });

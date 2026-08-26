@@ -1,5 +1,5 @@
 import type { getDashboardSummary } from "../../../db/repository";
-import { projectPublicDashboardSummary } from "../share/_lib/projection";
+import { projectPublicDashboardSummary } from "./public-summary-projection";
 
 type DashboardSummary = Awaited<ReturnType<typeof getDashboardSummary>>;
 

@@ -17,15 +17,9 @@ import {
   mealItems,
   mealLogs,
   mealRevisions,
-  shareLinks,
   settings,
   telegramUpdates,
 } from "./schema";
-import {
-  generateShareToken,
-  hashShareToken,
-  isValidShareToken,
-} from "./share-links";
 
 export type AppDb = ReturnType<typeof getDb>;
 
@@ -97,15 +91,6 @@ export type AiProfileInput = {
   enabled?: boolean;
 };
 
-export type ShareLinkInput = {
-  label?: string | null;
-  expiresAt?: number | null;
-};
-
-export type CreatedShareLink = typeof shareLinks.$inferSelect & {
-  token: string;
-};
-
 export function createId(prefix: string): string {
   let random = `${Date.now()}`;
   if (typeof crypto !== "undefined") {
@@ -122,82 +107,6 @@ export function createId(prefix: string): string {
 
 export function nowMs(): number {
   return Date.now();
-}
-
-export async function createShareLink(
-  db: AppDb,
-  ownerKey: string,
-  input: ShareLinkInput = {},
-): Promise<CreatedShareLink> {
-  const timestamp = nowMs();
-  const token = generateShareToken();
-  const tokenHash = await hashShareToken(token);
-  const id = createId("share");
-  await db.insert(shareLinks).values({
-    id,
-    ownerKey,
-    tokenHash,
-    label: input.label ?? null,
-    createdAt: timestamp,
-    expiresAt: input.expiresAt ?? null,
-    revokedAt: null,
-  }).prepare().run();
-
-  const created = await getShareLink(db, ownerKey, id);
-  if (!created) throw new Error("share_link_create_failed");
-  return { ...created, token };
-}
-
-export async function listShareLinks(db: AppDb, ownerKey: string) {
-  return db
-    .select()
-    .from(shareLinks)
-    .where(eq(shareLinks.ownerKey, ownerKey))
-    .orderBy(desc(shareLinks.createdAt))
-    .limit(500)
-    .prepare()
-    .all();
-}
-
-export async function getShareLink(db: AppDb, ownerKey: string, id: string) {
-  return db
-    .select()
-    .from(shareLinks)
-    .where(and(eq(shareLinks.ownerKey, ownerKey), eq(shareLinks.id, id)))
-    .limit(1)
-    .prepare()
-    .get();
-}
-
-export async function revokeShareLink(db: AppDb, ownerKey: string, id: string) {
-  const existing = await getShareLink(db, ownerKey, id);
-  if (!existing) return null;
-  if (existing.revokedAt == null) {
-    await db.update(shareLinks)
-      .set({ revokedAt: nowMs() })
-      .where(and(eq(shareLinks.ownerKey, ownerKey), eq(shareLinks.id, id)))
-      .prepare()
-      .run();
-  }
-  return getShareLink(db, ownerKey, id);
-}
-
-export async function resolveShareLink(
-  db: AppDb,
-  token: string,
-  now = nowMs(),
-) {
-  if (!isValidShareToken(token)) return null;
-  const tokenHash = await hashShareToken(token);
-  const link = await db
-    .select()
-    .from(shareLinks)
-    .where(eq(shareLinks.tokenHash, tokenHash))
-    .limit(1)
-    .prepare()
-    .get();
-  if (!link || link.revokedAt != null || (link.expiresAt != null && link.expiresAt <= now)) return null;
-  return link;
 }
 
 function finiteNumber(value: unknown, fallback = 0): number {

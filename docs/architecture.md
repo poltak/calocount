@@ -22,8 +22,8 @@ The application has two dashboard entry points:
 that key is absent, returns `Cache-Control: no-store`, and removes owner keys,
 captions, notes, photos, AI fields, and other private data. All other `/api/*`
 routes are private owner routes unless a separately reviewed public exception is
-verified. `/share/<token>` and its summary endpoint remain optional bearer-link
-read-only paths.
+verified. The public root does not expose owner write controls or call private
+APIs.
 
 The PWA manifest starts at `/owner` while keeping `id` and `scope` at `/`. This
 keeps installed launches in the private owner dashboard without changing the

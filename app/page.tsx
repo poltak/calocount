@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, FormEvent, PointerEvent as ReactPointerEvent } from "react";
 
 import {
@@ -108,17 +108,7 @@ const proteinTarget = 160;
 
 type DashboardProps = {
   readOnly?: boolean;
-  shareToken?: string;
   publicView?: boolean;
-};
-
-type ShareLink = {
-  id: string;
-  label: string | null;
-  createdAt: string | null;
-  expiresAt: string | null;
-  revokedAt: string | null;
-  status: "active" | "revoked" | "expired";
 };
 
 // Neutral placeholders stay hidden until the live summary has loaded.
@@ -411,64 +401,7 @@ function parseSettingsTargets(value: unknown) {
   };
 }
 
-function parseShareLink(value: unknown): ShareLink | null {
-  const record = asRecord(value);
-  if (!record || typeof record.id !== "string") return null;
-  const expiresAt = typeof record.expiresAt === "string" ? record.expiresAt : null;
-  const revokedAt = typeof record.revokedAt === "string" ? record.revokedAt : null;
-  const suppliedStatus = record.status === "active" || record.status === "revoked" || record.status === "expired"
-    ? record.status
-    : null;
-  const status = revokedAt
-    ? "revoked"
-    : expiresAt && Date.parse(expiresAt) <= Date.now()
-      ? "expired"
-      : suppliedStatus ?? "active";
-  return {
-    id: record.id,
-    label: typeof record.label === "string" && record.label.trim() ? record.label : null,
-    createdAt: typeof record.createdAt === "string" ? record.createdAt : null,
-    expiresAt,
-    revokedAt,
-    status,
-  };
-}
-
-function parseShareLinksResponse(value: unknown): ShareLink[] {
-  const record = asRecord(value);
-  const values = Array.isArray(value)
-    ? value
-    : Array.isArray(record?.links)
-      ? record.links
-      : Array.isArray(record?.shareLinks)
-        ? record.shareLinks
-        : [];
-  return values.flatMap((link) => {
-    const parsed = parseShareLink(link);
-    return parsed ? [parsed] : [];
-  });
-}
-
-function shareLinkFromCreateResponse(value: unknown): ShareLink | null {
-  const record = asRecord(value);
-  return parseShareLink(record?.link ?? record?.shareLink ?? value);
-}
-
-function shareUrlFromCreateResponse(value: unknown): string | null {
-  const record = asRecord(value);
-  const linkRecord = asRecord(record?.link ?? record?.shareLink);
-  const candidates = [record?.url, record?.shareUrl, linkRecord?.url, linkRecord?.shareUrl];
-  return candidates.find((candidate): candidate is string => typeof candidate === "string" && candidate.startsWith("http")) ?? null;
-}
-
-function formatShareLinkDate(value: string | null) {
-  if (!value) return "No expiry";
-  const timestamp = Date.parse(value);
-  if (!Number.isFinite(timestamp)) return "Date unavailable";
-  return new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(new Date(timestamp));
-}
-
-export function Dashboard({ readOnly = false, shareToken, publicView = false }: DashboardProps) {
+export function Dashboard({ readOnly = false, publicView = false }: DashboardProps) {
   const [days, setDays] = useState(initialDays);
   const [selectedDayKey, setSelectedDayKey] = useState<DayKey>("thu");
   const [editingMealId, setEditingMealId] = useState<string | null>(null);
@@ -479,16 +412,6 @@ export function Dashboard({ readOnly = false, shareToken, publicView = false }: 
   const [weightSaving, setWeightSaving] = useState(false);
   const [showAllDays, setShowAllDays] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [showShareLinks, setShowShareLinks] = useState(false);
-  const [shareLinks, setShareLinks] = useState<ShareLink[]>([]);
-  const [shareLinksLoading, setShareLinksLoading] = useState(false);
-  const [shareLinksError, setShareLinksError] = useState<string | null>(null);
-  const [shareLabel, setShareLabel] = useState("");
-  const [shareExpiry, setShareExpiry] = useState("");
-  const [shareCreating, setShareCreating] = useState(false);
-  const [shareRevokingId, setShareRevokingId] = useState<string | null>(null);
-  const [createdShareUrl, setCreatedShareUrl] = useState<string | null>(null);
-  const [shareCopyState, setShareCopyState] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<DashboardSection>("today");
   const [settingsDraft, setSettingsDraft] = useState({ calories: String(calorieTarget), proteinG: String(proteinTarget) });
   const [settingsLoading, setSettingsLoading] = useState(false);
@@ -497,9 +420,7 @@ export function Dashboard({ readOnly = false, shareToken, publicView = false }: 
   const settingsReadVersion = useRef(0);
   const [dataMode, setDataMode] = useState<DataMode>("loading");
   const [targets, setTargets] = useState({ calories: calorieTarget, proteinG: proteinTarget });
-  const [dataMessage, setDataMessage] = useState<string | null>(readOnly
-    ? publicView ? "Loading the public dashboard…" : "Loading the shared log…"
-    : "Loading your saved log…");
+  const [dataMessage, setDataMessage] = useState<string | null>(readOnly ? "Loading the public dashboard…" : "Loading your saved log…");
   const [actionState, setActionState] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [deletingMealId, setDeletingMealId] = useState<string | null>(null);
@@ -509,9 +430,6 @@ export function Dashboard({ readOnly = false, shareToken, publicView = false }: 
   const weightSaveInFlight = useRef(false);
   const mealSwipeRef = useRef<MealSwipeStart | null>(null);
   const previewCloseRef = useRef<HTMLButtonElement>(null);
-  const shareListInFlight = useRef(false);
-  const shareCreateInFlight = useRef(false);
-  const shareRevokeInFlight = useRef<string | null>(null);
   const actionInProgress = Boolean(actionState?.endsWith("…"));
 
   const selectedDay = days.find((day) => day.key === selectedDayKey) ?? days[4];
@@ -582,11 +500,7 @@ export function Dashboard({ readOnly = false, shareToken, publicView = false }: 
     let cancelled = false;
     async function loadDashboard() {
       try {
-        const endpoint = shareToken
-          ? `/api/share/${encodeURIComponent(shareToken)}/summary`
-          : publicView
-            ? "/api/public/summary"
-            : "/api/dashboard/summary";
+        const endpoint = publicView ? "/api/public/summary" : "/api/dashboard/summary";
         const response = await fetch(endpoint, { cache: "no-store" });
         if (!response.ok) {
           if (!cancelled) {
@@ -594,9 +508,7 @@ export function Dashboard({ readOnly = false, shareToken, publicView = false }: 
               setDataMode("error");
               setDataMessage(publicView
                 ? "The public dashboard could not be loaded. Try again later."
-                : response.status === 404
-                  ? "This shared link is not available. It may be revoked or expired."
-                  : "The shared log could not be loaded. Try the link again later.");
+                : "The read-only dashboard could not be loaded. Try again later.");
             } else {
               const responseBody = await response.json().catch(() => null);
               setDataMode("error");
@@ -621,7 +533,7 @@ export function Dashboard({ readOnly = false, shareToken, publicView = false }: 
         if (!cancelled) {
           setDataMode("error");
           setDataMessage(readOnly
-            ? publicView ? "The public dashboard could not be loaded. Try again later." : "The shared log could not be loaded. Try the link again later."
+            ? publicView ? "The public dashboard could not be loaded. Try again later." : "The read-only dashboard could not be loaded. Try again later."
             : "Your saved log is unavailable. Try again later.");
         }
       }
@@ -630,7 +542,7 @@ export function Dashboard({ readOnly = false, shareToken, publicView = false }: 
     return () => {
       cancelled = true;
     };
-  }, [publicView, readOnly, shareToken]);
+  }, [publicView, readOnly]);
 
   useEffect(() => {
     function syncSectionFromHash() {
@@ -1006,125 +918,6 @@ export function Dashboard({ readOnly = false, shareToken, publicView = false }: 
     }
   }
 
-  const loadShareLinks = useCallback(async () => {
-    if (readOnly || dataMode !== "live" || shareListInFlight.current) return;
-    shareListInFlight.current = true;
-    setShareLinksLoading(true);
-    setShareLinksError(null);
-    try {
-      const response = await fetch("/api/share-links", { cache: "no-store" });
-      const responseBody = await response.json().catch(() => null);
-      if (!response.ok) {
-        const errorRecord = asRecord(asRecord(responseBody)?.error);
-        throw new Error(stringOr(errorRecord?.message, "The share links could not be loaded."));
-      }
-      setShareLinks(parseShareLinksResponse(responseBody));
-    } catch (error) {
-      setShareLinksError(error instanceof Error ? error.message : "The share links could not be loaded.");
-    } finally {
-      shareListInFlight.current = false;
-      setShareLinksLoading(false);
-    }
-  }, [dataMode, readOnly]);
-
-  async function createShareLink(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (readOnly || dataMode !== "live" || shareCreateInFlight.current) return;
-    shareCreateInFlight.current = true;
-    setShareCreating(true);
-    setShareLinksError(null);
-    setShareCopyState(null);
-    setCreatedShareUrl(null);
-    try {
-      const response = await fetch("/api/share-links", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          label: shareLabel.trim() || null,
-          expiresAt: shareExpiry ? new Date(shareExpiry).toISOString() : null,
-        }),
-      });
-      const responseBody = await response.json().catch(() => null);
-      if (!response.ok) {
-        const errorRecord = asRecord(asRecord(responseBody)?.error);
-        throw new Error(stringOr(errorRecord?.message, "The share link could not be created."));
-      }
-      const created = shareLinkFromCreateResponse(responseBody);
-      if (created) setShareLinks((current) => [created, ...current.filter((link) => link.id !== created.id)]);
-      const shareUrl = shareUrlFromCreateResponse(responseBody);
-      setCreatedShareUrl(shareUrl);
-      setShareCopyState(shareUrl
-        ? "Link created. Copy it now; the raw URL will not be shown again."
-        : "Link created, but the raw URL was not returned. Create a new link only if you need another URL.");
-      setShareLabel("");
-      setShareExpiry("");
-      await loadShareLinks();
-    } catch (error) {
-      setShareLinksError(error instanceof Error ? error.message : "The share link could not be created.");
-    } finally {
-      shareCreateInFlight.current = false;
-      setShareCreating(false);
-    }
-  }
-
-  async function copyCreatedShareUrl() {
-    if (!createdShareUrl || shareCopyState === "Copying…") return;
-    setShareCopyState("Copying…");
-    try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(createdShareUrl);
-      } else {
-        const input = document.createElement("textarea");
-        input.value = createdShareUrl;
-        input.setAttribute("readonly", "true");
-        input.style.position = "fixed";
-        input.style.opacity = "0";
-        document.body.appendChild(input);
-        input.select();
-        const copied = document.execCommand("copy");
-        input.remove();
-        if (!copied) throw new Error("copy_failed");
-      }
-      setShareCopyState("Copied. The link is ready to share.");
-    } catch {
-      setShareCopyState("Copy failed. Select the URL and copy it manually.");
-    }
-  }
-
-  async function revokeShareLink(link: ShareLink) {
-    if (readOnly || dataMode !== "live" || link.status !== "active" || shareRevokeInFlight.current) return;
-    if (!window.confirm(`Revoke ${link.label ? `“${link.label}”` : "this share link"}? Anyone using it will lose access.`)) return;
-    shareRevokeInFlight.current = link.id;
-    setShareRevokingId(link.id);
-    setShareLinksError(null);
-    try {
-      const response = await fetch(`/api/share-links/${encodeURIComponent(link.id)}`, { method: "DELETE" });
-      const responseBody = await response.json().catch(() => null);
-      if (!response.ok) {
-        const errorRecord = asRecord(asRecord(responseBody)?.error);
-        throw new Error(stringOr(errorRecord?.message, "The share link could not be revoked."));
-      }
-      setShareLinks((current) => current.map((item) => item.id === link.id
-        ? { ...item, status: "revoked", revokedAt: new Date().toISOString() }
-        : item));
-    } catch (error) {
-      setShareLinksError(error instanceof Error ? error.message : "The share link could not be revoked.");
-    } finally {
-      shareRevokeInFlight.current = null;
-      setShareRevokingId(null);
-    }
-  }
-
-  function toggleShareLinks() {
-    if (readOnly || dataMode !== "live") return;
-    if (showShareLinks) {
-      setShowShareLinks(false);
-      return;
-    }
-    setShowShareLinks(true);
-    void loadShareLinks();
-  }
-
   function selectDay(key: DayKey) {
     setSelectedDayKey(key);
     setEditingMealId(null);
@@ -1140,17 +933,16 @@ export function Dashboard({ readOnly = false, shareToken, publicView = false }: 
   return (
     <main className="app-shell">
       <header className="topbar">
-        <a className="brand" href="#today" aria-label={readOnly ? publicView ? "Calocount public view" : "Calocount shared view" : "Calocount home"}>
+        <a className="brand" href="#today" aria-label={readOnly ? "Calocount public view" : "Calocount home"}>
           <span className="brand-mark" aria-hidden="true"><span /><span /><span /></span>
           <span>calocount</span>
         </a>
         <div className="topbar-actions">
-          <span className="sync-status"><span className="status-dot" aria-hidden="true" /> {readOnly ? publicView ? "Public read-only" : "Shared read-only" : dataMode === "live" ? "Live data" : dataMode === "loading" ? "Loading" : "Unavailable"}</span>
+          <span className="sync-status"><span className="status-dot" aria-hidden="true" /> {readOnly ? "Public read-only" : dataMode === "live" ? "Live data" : dataMode === "loading" ? "Loading" : "Unavailable"}</span>
           {!readOnly && dataMode === "live" ? <>
-            <button className="share-nav-button" type="button" onClick={toggleShareLinks} aria-label="Manage share links" aria-expanded={showShareLinks} aria-controls="share-links-panel">Share view</button>
             <button className="icon-button" type="button" onClick={() => void openSettings()} aria-label="Open settings" aria-expanded={showSettings} aria-controls="settings-panel"><span aria-hidden="true">⚙</span></button>
           </> : null}
-          <span className="avatar" aria-label={readOnly ? publicView ? "Public read-only view" : "Shared read-only view" : "Account"}><span aria-hidden="true">{readOnly ? "↗" : "M"}</span></span>
+          <span className="avatar" aria-label={readOnly ? "Public read-only view" : "Account"}><span aria-hidden="true">{readOnly ? "↗" : "M"}</span></span>
         </div>
       </header>
 
@@ -1164,44 +956,18 @@ export function Dashboard({ readOnly = false, shareToken, publicView = false }: 
         <p className="settings-help" role="status">{settingsLoading ? "Loading saved targets…" : "Targets guide the rings, trend line, and daily nudge."}</p>
       </section> : null}
 
-      {!readOnly && dataMode === "live" && showShareLinks ? <section className="share-links-panel" id="share-links-panel" role="dialog" aria-labelledby="share-links-title">
-        <div className="settings-heading"><div><p className="eyebrow">Sharing</p><h2 id="share-links-title">Read-only links</h2></div><button className="close-button" type="button" onClick={() => setShowShareLinks(false)} aria-label="Close share links">×</button></div>
-        <p className="share-links-intro">Anyone with an active link can view your dashboard. They cannot add, edit, or delete anything.</p>
-        <form className="share-link-form" onSubmit={(event) => void createShareLink(event)}>
-          <label>Label <span>(optional)</span><input name="share-label" value={shareLabel} onChange={(event) => setShareLabel(event.target.value)} placeholder="e.g. Coach" maxLength={80} /></label>
-          <label>Expires <span>(optional)</span><input name="share-expiry" type="datetime-local" value={shareExpiry} onChange={(event) => setShareExpiry(event.target.value)} /></label>
-          <button className="save-button" type="submit" disabled={shareCreating}>{shareCreating ? "Creating…" : "Create share link"}</button>
-        </form>
-        {createdShareUrl ? <div className="share-created" role="status">
-          <label htmlFor="created-share-url">New share URL</label>
-          <div className="share-created-row"><input id="created-share-url" value={createdShareUrl} readOnly /><button className="copy-button" type="button" onClick={() => void copyCreatedShareUrl()} disabled={shareCopyState === "Copying…"}>{shareCopyState === "Copying…" ? "Copying…" : "Copy link"}</button></div>
-          <p>{shareCopyState}</p>
-        </div> : shareCopyState ? <p className="share-link-status" role="status">{shareCopyState}</p> : null}
-        {shareLinksError ? <p className="share-link-error" role="alert">{shareLinksError}</p> : null}
-        <div className="share-links-list" aria-live="polite">
-          <div className="share-links-list-heading"><strong>Your links</strong><button className="more-button" type="button" onClick={() => void loadShareLinks()} disabled={shareLinksLoading}>{shareLinksLoading ? "Loading…" : "Refresh"}</button></div>
-          {shareLinksLoading && shareLinks.length === 0 ? <p className="share-links-empty">Loading links…</p> : shareLinks.length === 0 ? <p className="share-links-empty">No share links yet.</p> : shareLinks.map((link) => <div className={`share-link-row ${link.status}`} key={link.id}>
-            <div><strong>{link.label ?? "Unlabelled link"}</strong><span>{link.status === "active" ? `Expires ${formatShareLinkDate(link.expiresAt)}` : link.status === "revoked" ? "Revoked" : `Expired ${formatShareLinkDate(link.expiresAt)}`}</span></div>
-            <span className={`share-link-badge ${link.status}`}>{link.status}</span>
-            {link.status === "active" ? <button className="revoke-button" type="button" onClick={() => void revokeShareLink(link)} disabled={shareRevokingId !== null} aria-busy={shareRevokingId === link.id}>{shareRevokingId === link.id ? "Revoking…" : "Revoke"}</button> : null}
-          </div>)}
-        </div>
-      </section> : null}
-
       {dataMessage ? <div className={`data-banner ${dataMode}`} role="status"><span aria-hidden="true">{dataMode === "live" ? "✓" : dataMode === "loading" ? "…" : "i"}</span>{dataMessage}</div> : null}
-      {readOnly && dataMode === "live" ? <div className="data-banner shared" role="status"><span aria-hidden="true">✓</span>{publicView ? "Public read-only view — changes are disabled." : "Shared read-only view — changes are disabled."}</div> : null}
+      {readOnly && dataMode === "live" ? <div className="data-banner public" role="status"><span aria-hidden="true">✓</span>Public read-only view — changes are disabled.</div> : null}
       {actionState || actionError ? <div className={`action-feedback ${actionError ? "error" : ""}`} role={actionError ? "alert" : "status"}>{actionError ?? actionState}</div> : null}
 
-      {dataMode !== "live" ? <section className="share-state" aria-live="polite">
-        <span className="share-state-mark" aria-hidden="true">{dataMode === "loading" ? "…" : "!"}</span>
+      {dataMode !== "live" ? <section className="dashboard-state" aria-live="polite">
+        <span className="dashboard-state-mark" aria-hidden="true">{dataMode === "loading" ? "…" : "!"}</span>
         <h1>{dataMode === "loading"
-          ? publicView ? "Loading public dashboard" : readOnly ? "Loading shared log" : "Loading your saved log"
-          : publicView ? "Public dashboard unavailable" : readOnly ? "Shared log unavailable" : "Your dashboard is unavailable"}</h1>
+          ? publicView ? "Loading public dashboard" : "Loading your saved log"
+          : publicView ? "Public dashboard unavailable" : "Your dashboard is unavailable"}</h1>
         <p>{dataMessage ?? (publicView
           ? "The public dashboard could not be loaded."
-          : readOnly
-            ? "This shared link is not available."
-            : "Your saved log is unavailable. Try again later.")}</p>
+          : "Your saved log is unavailable. Try again later.")}</p>
       </section> : <>
       <section className="date-strip" aria-label="Choose a day">
         <div className="date-heading">
@@ -1488,7 +1254,7 @@ export function Dashboard({ readOnly = false, shareToken, publicView = false }: 
 
       </>}
 
-      <footer className="app-footer"><span>{readOnly ? publicView ? "Public read-only view" : "Shared read-only view" : "Private by default"}</span><span className="footer-separator" aria-hidden="true">·</span><span>Calocount dashboard</span></footer>
+      <footer className="app-footer"><span>{readOnly ? "Public read-only view" : "Private by default"}</span><span className="footer-separator" aria-hidden="true">·</span><span>Calocount dashboard</span></footer>
     </main>
   );
 }

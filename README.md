@@ -1,6 +1,6 @@
 # Calocount
 
-Calocount is a single-user calorie tracker with a public read-only dashboard, a private owner dashboard, and optional read-only sharing. Send a meal photo and caption to Telegram. The app estimates nutrition, stores the structured result, and shows a compact Caltrack-inspired dashboard.
+Calocount is a single-user calorie tracker with a public read-only dashboard and a private owner dashboard. Send a meal photo and caption to Telegram. The app estimates nutrition, stores the structured result, and shows a compact Caltrack-inspired dashboard.
 
 The application backend uses Cloudflare Workers, D1, R2, Queues, Cron Triggers, Static Assets, and Access. OpenRouter is the default AI gateway. A direct xAI adapter is included.
 
@@ -19,7 +19,6 @@ The application backend uses Cloudflare Workers, D1, R2, Queues, Cron Triggers, 
 - provider, model, latency, token, and cost records
 - JSON and CSV export
 - Cloudflare Access JWT authorization with an owner allowlist
-- Expiring, revocable read-only share links
 
 WHOOP, Apple Health, body-fat, sleep, recovery, and step integrations are intentionally not included.
 
@@ -33,7 +32,7 @@ worker/              dashboard Worker entry point
 workers/ingest/      Telegram, Queue, Cron, R2, and AI Worker
 tests/               rendered UI, data, security, schema, and adapter tests
 docs/architecture.md detailed runtime flow and boundaries
-docs/read-only-sharing.md share-link data boundary and rollout runbook
+docs/read-only-sharing.md public/owner route boundary and rollout runbook
 ```
 
 ## Local dashboard
@@ -176,7 +175,7 @@ Then:
 4. Register `https://<ingest-origin>/telegram/webhook` with Telegram and send `TELEGRAM_WEBHOOK_SECRET` as Telegram's secret token.
 5. Send one test meal photo and confirm that the job, photo, meal items, and AI run appear.
 
-For the public/owner route split and read-only sharing, follow [docs/read-only-sharing.md](docs/read-only-sharing.md). The safe order is to apply the additive D1 migration, set the `CALOCOUNT_ALLOWED_EMAIL_SHA256` binding (or a compatibility email/user ID allowlist), deploy, and test while the existing whole-app Access protection remains. Verify `/owner` and `/api/*` as private first. Only after that live verification add the reviewed public exceptions for `/`, `/api/public/summary`, `/share/*`, `/api/share/*`, and the exact non-data static/PWA assets required by the deployed pages. Do not assume this README defines the final Access paths; record them from live Cloudflare verification. Do not make `/api/share-links*` or other owner APIs public.
+For the public/owner route split, follow [docs/read-only-sharing.md](docs/read-only-sharing.md). The safe order is to apply the additive D1 migration, set the `CALOCOUNT_ALLOWED_EMAIL_SHA256` binding (or a compatibility email/user ID allowlist), deploy, and test while the existing whole-app Access protection remains. Verify `/owner` and `/api/*` as private first. Only after that live verification add the reviewed public exceptions for `/`, `/api/public/summary`, and the exact non-data static/PWA assets required by the deployed pages. Do not assume this README defines the final Access paths; record them from live Cloudflare verification. Do not make owner APIs public.
 
 Future route rule: for the intended public-root/private-owner layout, treat routes as public by default unless a private Cloudflare Access destination covers them. Any new page outside `/owner`, any new public API exception, or any new server route outside `/api` requires explicit privacy and Access review before deployment. Verify the anonymous and owner behavior from deployed requests. This documents the required review process; it does not confirm that the live Access configuration already matches this layout.
 
@@ -187,9 +186,8 @@ Cloudflare deployment and Telegram registration are not done automatically by th
 - Meal photos stay in a private R2 bucket.
 - The dashboard streams photos through an authorized API route.
 - The AI service receives a signed image URL that expires in five minutes.
-- Share URLs are bearer credentials. The raw random token is returned once; each link can expire or be revoked.
-- A public share page exposes only the selected dashboard projection: targets, meal and macro totals, seven-day trend, recent weights, and recent meal-item nutrition.
-- Public sharing does not expose photos, captions, notes, assumptions, confidence, AI/provider data, Telegram data, or private settings.
+- The public root exposes only the selected dashboard projection: targets, meal and macro totals, seven-day trend, recent weights, and recent meal-item nutrition.
+- The public projection does not expose photos, captions, notes, assumptions, confidence, AI/provider data, Telegram data, or private settings.
 - Normal logs do not include captions, images, signed URLs, or full provider payloads.
 - Nutrition values are estimates, not medical measurements.
 

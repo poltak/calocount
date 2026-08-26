@@ -1,4 +1,4 @@
-import type { getDashboardSummary } from "../../../../db/repository";
+import type { getDashboardSummary } from "../../../db/repository";
 
 type DashboardSummary = Awaited<ReturnType<typeof getDashboardSummary>>;
 
@@ -109,7 +109,7 @@ function publicTrend(summary: DashboardSummary): PublicTrendDay[] {
 }
 
 /**
- * Build the deliberately small contract used by an anonymous share page.
+ * Build the deliberately small contract used by the anonymous root dashboard.
  * Keep this explicit: private database fields must not cross this boundary.
  */
 export function projectPublicDashboardSummary(summary: DashboardSummary) {
