@@ -29,6 +29,7 @@ type Meal = {
   fat?: number;
   photoKey?: string | null;
   photoMimeType?: string | null;
+  pending?: "creating" | "copying";
   kind: "breakfast" | "lunch" | "snack" | "dinner";
 };
 
@@ -98,6 +99,19 @@ type DashboardSummary = {
 type DataMode = "loading" | "live" | "error";
 type DashboardSection = "today" | "meals" | "trend" | "macros";
 type DateKeyMode = "local" | "utc";
+type PendingActionKind =
+  | "meal-create"
+  | "meal-save"
+  | "meal-delete"
+  | "meal-copy"
+  | "weight-save"
+  | "settings-load"
+  | "settings-save";
+type PendingAction = {
+  token: number;
+  kind: PendingActionKind;
+  id?: string;
+};
 type MealSwipeStart = {
   mealId: string;
   pointerId: number;
@@ -310,6 +324,29 @@ function formatRecordedTime(recordedAt: number) {
   }).format(new Date(recordedAt));
 }
 
+function dayWithMeals(day: Day, meals: Meal[]): Day {
+  return {
+    ...day,
+    meals,
+    calories: meals.reduce((total, meal) => total + meal.calories, 0),
+    protein: meals.reduce((total, meal) => total + meal.protein, 0),
+    carbs: meals.reduce((total, meal) => total + (meal.carbs ?? 0), 0),
+    fat: meals.reduce((total, meal) => total + (meal.fat ?? 0), 0),
+  };
+}
+
+function pendingActionLabel(action: PendingAction): string {
+  switch (action.kind) {
+    case "meal-create": return "Saving meal…";
+    case "meal-save": return "Saving changes…";
+    case "meal-delete": return "Deleting meal…";
+    case "meal-copy": return "Copying meal to today…";
+    case "weight-save": return "Saving weight…";
+    case "settings-load": return "Loading saved targets…";
+    case "settings-save": return "Saving targets…";
+  }
+}
+
 function mealKind(value: string | null): Meal["kind"] {
   if (value === "breakfast" || value === "lunch" || value === "dinner") return value;
   return "snack";
@@ -474,19 +511,33 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
   const [dataMode, setDataMode] = useState<DataMode>("loading");
   const [targets, setTargets] = useState({ calories: calorieTarget, proteinG: proteinTarget });
   const [dataMessage, setDataMessage] = useState<string | null>(readOnly ? "Loading the public dashboard…" : "Loading your saved log…");
-  const [actionState, setActionState] = useState<string | null>(null);
+  const [actionStatus, setActionStatus] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
+  const actionToken = useRef(0);
+  const pendingActionRef = useRef<PendingAction | null>(null);
+  const [dashboardReloadKey, setDashboardReloadKey] = useState(0);
+  const [dashboardLoading, setDashboardLoading] = useState(true);
+  const dashboardLoadInFlight = useRef(false);
+  const dashboardLoadVersion = useRef(0);
   const [deletingMealId, setDeletingMealId] = useState<string | null>(null);
   const [copyingMealId, setCopyingMealId] = useState<string | null>(null);
   const [mealPhotoDrafts, setMealPhotoDrafts] = useState<Record<string, File | null>>({});
   const [previewMeal, setPreviewMeal] = useState<Meal | null>(null);
   const [failedPhotoKeys, setFailedPhotoKeys] = useState<Set<string>>(() => new Set());
+  const mealCreateInFlight = useRef(false);
+  const mealSaveInFlight = useRef<Set<string>>(new Set());
   const mealDeleteInFlight = useRef<string | null>(null);
   const mealCopyInFlight = useRef<string | null>(null);
+  const settingsLoadInFlight = useRef(false);
   const weightSaveInFlight = useRef(false);
   const mealSwipeRef = useRef<MealSwipeStart | null>(null);
   const previewCloseRef = useRef<HTMLButtonElement>(null);
-  const actionInProgress = Boolean(actionState?.endsWith("…"));
+  const actionInProgress = pendingAction !== null;
+  const pendingLabel = pendingAction ? pendingActionLabel(pendingAction) : null;
+  const weightActionPending = pendingAction?.kind === "weight-save";
+  const settingsLoadPending = pendingAction?.kind === "settings-load";
+  const settingsSavePending = pendingAction?.kind === "settings-save";
 
   const selectedDay = days.find((day) => day.key === selectedDayKey) ?? days[4];
   const selectedWeight = selectedDay.weight ?? null;
@@ -567,14 +618,47 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
   const previousDayKey = getAdjacentDayKey(days, selectedDayKey, "previous");
   const nextDayKey = getAdjacentDayKey(days, selectedDayKey, "next");
 
+  function beginAction(kind: PendingActionKind, id?: string): PendingAction | null {
+    if (pendingActionRef.current) return null;
+    const action = { token: actionToken.current + 1, kind, id };
+    actionToken.current = action.token;
+    pendingActionRef.current = action;
+    setPendingAction(action);
+    return action;
+  }
+
+  function isCurrentAction(action: PendingAction) {
+    return pendingActionRef.current?.token === action.token;
+  }
+
+  function finishAction(action: PendingAction) {
+    if (!isCurrentAction(action)) return;
+    pendingActionRef.current = null;
+    setPendingAction(null);
+  }
+
+  function retryDashboard() {
+    if (dashboardLoadInFlight.current) return;
+    dashboardLoadInFlight.current = true;
+    setDashboardLoading(true);
+    setDataMode("loading");
+    setDataMessage(readOnly ? "Loading the public dashboard…" : "Loading your saved log…");
+    setActionError(null);
+    setActionStatus(null);
+    setDashboardReloadKey((current) => current + 1);
+  }
+
   useEffect(() => {
     let cancelled = false;
+    const requestVersion = dashboardLoadVersion.current + 1;
+    dashboardLoadVersion.current = requestVersion;
+    dashboardLoadInFlight.current = true;
     async function loadDashboard() {
       try {
         const endpoint = publicView ? "/api/public/summary" : `/api/dashboard/summary?timezone=${encodeURIComponent(browserTimeZone())}`;
         const response = await fetch(endpoint, { cache: "no-store" });
         if (!response.ok) {
-          if (!cancelled) {
+          if (!cancelled && dashboardLoadVersion.current === requestVersion) {
             if (readOnly) {
               setDataMode("error");
               setDataMessage(publicView
@@ -582,6 +666,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
                 : "The read-only dashboard could not be loaded. Try again later.");
             } else {
               const responseBody = await response.json().catch(() => null);
+              if (cancelled || dashboardLoadVersion.current !== requestVersion) return;
               setDataMode("error");
               setDataMessage(dashboardFailureMessage(response.status, responseBody));
             }
@@ -590,7 +675,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
         }
         const parsed = parseDashboardPayload(await response.json());
         if (!parsed) throw new Error("invalid_dashboard_summary");
-        if (cancelled) return;
+        if (cancelled || dashboardLoadVersion.current !== requestVersion) return;
         const liveDays = buildLiveDays(parsed, !readOnly, { mode: publicView ? "utc" : "local" });
         setTargets({
           calories: parsed.targets.calories ?? calorieTarget,
@@ -601,11 +686,16 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
         setDataMode("live");
         setDataMessage(null);
       } catch {
-        if (!cancelled) {
+        if (!cancelled && dashboardLoadVersion.current === requestVersion) {
           setDataMode("error");
           setDataMessage(readOnly
             ? publicView ? "The public dashboard could not be loaded. Try again later." : "The read-only dashboard could not be loaded. Try again later."
             : "Your saved log is unavailable. Try again later.");
+        }
+      } finally {
+        if (dashboardLoadVersion.current === requestVersion) {
+          dashboardLoadInFlight.current = false;
+          setDashboardLoading(false);
         }
       }
     }
@@ -613,7 +703,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     return () => {
       cancelled = true;
     };
-  }, [publicView, readOnly]);
+  }, [dashboardReloadKey, publicView, readOnly]);
 
   useEffect(() => {
     function syncSectionFromHash() {
@@ -693,19 +783,12 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
   }
 
   function updateMeal(mealId: string, changes: Partial<Meal>) {
-    if (readOnly) return;
+    if (readOnly || pendingActionRef.current) return;
     setDays((currentDays) =>
       currentDays.map((day) => {
         if (day.key !== selectedDayKey) return day;
         const nextMeals = day.meals.map((meal) => (meal.id === mealId ? { ...meal, ...changes } : meal));
-        return {
-          ...day,
-          meals: nextMeals,
-          calories: nextMeals.reduce((total, meal) => total + meal.calories, 0),
-          protein: nextMeals.reduce((total, meal) => total + meal.protein, 0),
-          carbs: nextMeals.reduce((total, meal) => total + (meal.carbs ?? 0), 0),
-          fat: nextMeals.reduce((total, meal) => total + (meal.fat ?? 0), 0),
-        };
+        return dayWithMeals(day, nextMeals);
       }),
     );
   }
@@ -718,14 +801,25 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
       const meals = day.meals.some((meal) => meal.id === nextMeal.id)
         ? day.meals.map((meal) => meal.id === nextMeal.id ? nextMeal : meal)
         : [...day.meals, nextMeal];
-      return {
-        ...day,
-        meals,
-        calories: meals.reduce((total, meal) => total + meal.calories, 0),
-        protein: meals.reduce((total, meal) => total + meal.protein, 0),
-        carbs: meals.reduce((total, meal) => total + (meal.carbs ?? 0), 0),
-        fat: meals.reduce((total, meal) => total + (meal.fat ?? 0), 0),
-      };
+      return dayWithMeals(day, meals);
+    }));
+  }
+
+  function addMealToDate(logicalDate: string, meal: Meal) {
+    setDays((currentDays) => currentDays.map((day) => (
+      day.date === logicalDate ? dayWithMeals(day, [...day.meals, meal]) : day
+    )));
+  }
+
+  function reconcileMeal(optimisticId: string, remoteMeal: SerializedMeal) {
+    const nextMeal = mapRemoteMeal(remoteMeal);
+    const date = dateKeyFromTimestamp(remoteMeal.consumedAt, { mode: publicView ? "utc" : "local" });
+    setDays((currentDays) => currentDays.map((day) => {
+      const withoutOptimistic = day.meals.filter((meal) => meal.id !== optimisticId && meal.id !== nextMeal.id);
+      if (day.date !== date) {
+        return withoutOptimistic.length === day.meals.length ? day : dayWithMeals(day, withoutOptimistic);
+      }
+      return dayWithMeals(day, [...withoutOptimistic, nextMeal]);
     }));
   }
 
@@ -733,23 +827,18 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     setDays((currentDays) => currentDays.map((day) => {
       const meals = day.meals.filter((meal) => meal.id !== mealId);
       if (meals.length === day.meals.length) return day;
-      return {
-        ...day,
-        meals,
-        calories: meals.reduce((total, meal) => total + meal.calories, 0),
-        protein: meals.reduce((total, meal) => total + meal.protein, 0),
-        carbs: meals.reduce((total, meal) => total + (meal.carbs ?? 0), 0),
-        fat: meals.reduce((total, meal) => total + (meal.fat ?? 0), 0),
-      };
+      return dayWithMeals(day, meals);
     }));
   }
 
   async function saveMeal(mealId: string) {
-    if (readOnly || dataMode !== "live") return;
+    if (readOnly || dataMode !== "live" || mealSaveInFlight.current.has(mealId)) return;
     const meal = days.flatMap((day) => day.meals).find((entry) => entry.id === mealId);
     if (!meal) return;
+    const action = beginAction("meal-save", mealId);
+    if (!action) return;
+    mealSaveInFlight.current.add(mealId);
     setActionError(null);
-    setActionState("Saving changes…");
     try {
       const response = await fetch(`/api/meals/${encodeURIComponent(meal.id)}`, {
         method: "PATCH",
@@ -762,6 +851,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
       }
       const parsedMeal = parseMealResponse(responseBody);
       if (!parsedMeal) throw new Error("The saved meal response was invalid.");
+      if (!isCurrentAction(action)) return;
       replaceRemoteMeal(parsedMeal);
       setEditingMealId(null);
       setMealPhotoDrafts((current) => {
@@ -769,10 +859,14 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
         delete next[mealId];
         return next;
       });
+      setActionStatus("Meal saved.");
     } catch (error) {
+      if (!isCurrentAction(action)) return;
       setActionError(error instanceof Error ? error.message : "The meal could not be saved.");
+      setActionStatus(null);
     } finally {
-      setActionState(null);
+      mealSaveInFlight.current.delete(mealId);
+      finishAction(action);
     }
   }
 
@@ -783,11 +877,12 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     if (!meal) return;
     if (!window.confirm(`Delete "${meal.name}"? This removes the meal and its analysis data. This cannot be undone.`)) return;
 
+    const action = beginAction("meal-delete", mealId);
+    if (!action) return;
     mealDeleteInFlight.current = mealId;
     setOpenMealId(null);
     setDeletingMealId(mealId);
     setActionError(null);
-    setActionState("Deleting meal…");
     try {
       const response = await fetch(`/api/meals/${encodeURIComponent(mealId)}`, { method: "DELETE" });
       const responseBody = await response.json().catch(() => null);
@@ -795,18 +890,21 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
         const errorRecord = asRecord(asRecord(responseBody)?.error);
         throw new Error(stringOr(errorRecord?.message, "The meal could not be deleted."));
       }
+      if (!isCurrentAction(action)) return;
       removeMealFromDays(mealId);
       setEditingMealId(null);
       const result = asRecord(responseBody);
-      setActionState(result?.photoDeleted === false
+      setActionStatus(result?.photoDeleted === false
         ? "Meal deleted. Its photo could not be removed."
         : "Meal deleted.");
     } catch (error) {
+      if (!isCurrentAction(action)) return;
       setActionError(error instanceof Error ? error.message : "The meal could not be deleted.");
-      setActionState(null);
+      setActionStatus(null);
     } finally {
       mealDeleteInFlight.current = null;
       setDeletingMealId(null);
+      finishAction(action);
     }
   }
 
@@ -816,13 +914,21 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     const today = days.at(-1);
     if (!meal || !today || selectedDay.date === today.date) return;
 
+    const action = beginAction("meal-copy", mealId);
+    if (!action) return;
     mealCopyInFlight.current = mealId;
     setCopyingMealId(mealId);
     setOpenMealId(null);
     setActionError(null);
-    setActionState("Copying meal to today…");
+    const consumedAt = mealDateTimestamp({ date: today.date, time: localTimeValue() }) ?? Date.now();
+    const optimisticMeal: Meal = {
+      ...meal,
+      id: `optimistic-copy-${action.token}`,
+      time: new Intl.DateTimeFormat("en-US", { hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(consumedAt)),
+      pending: "copying",
+    };
+    addMealToDate(today.date, optimisticMeal);
     try {
-      const consumedAt = mealDateTimestamp({ date: today.date, time: localTimeValue() }) ?? Date.now();
       const response = await fetch(`/api/meals/${encodeURIComponent(mealId)}/copy`, {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -835,20 +941,25 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
       }
       const parsedMeal = parseMealResponse(responseBody);
       if (!parsedMeal) throw new Error("The copied meal response was invalid.");
-      replaceRemoteMeal(parsedMeal);
-      setActionState(`Copied “${meal.name}” to today.`);
+      if (!isCurrentAction(action)) return;
+      reconcileMeal(optimisticMeal.id, parsedMeal);
+      setActionStatus(`Copied “${meal.name}” to today.`);
     } catch (error) {
+      if (!isCurrentAction(action)) return;
+      removeMealFromDays(optimisticMeal.id);
       setActionError(error instanceof Error ? error.message : "The meal could not be copied.");
-      setActionState(null);
+      setActionStatus(null);
     } finally {
       mealCopyInFlight.current = null;
       setCopyingMealId(null);
+      finishAction(action);
     }
   }
 
   async function addMeal(event: FormEvent<HTMLFormElement>) {
     if (readOnly || dataMode !== "live") return;
     event.preventDefault();
+    if (mealCreateInFlight.current) return;
     setActionError(null);
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
@@ -871,23 +982,27 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     const consumedAt = mealDateTimestamp({ date: selectedDay.date, time });
     if (consumedAt === null) {
       setActionError("Enter a valid meal time.");
-      setActionState(null);
+      setActionStatus(null);
       return;
     }
+    const action = beginAction("meal-create");
+    if (!action) return;
+    mealCreateInFlight.current = true;
     const nextMeal: Meal = {
-      id: `meal-${Date.now()}`,
-      time: "Now",
+      id: `optimistic-meal-${action.token}`,
+      time,
       name,
       description,
       calories,
       protein,
       carbs,
       fat,
+      pending: "creating",
       kind: "snack",
     };
 
     setActionError(null);
-    setActionState("Adding meal…");
+    addMealToDate(selectedDay.date, nextMeal);
     try {
       const response = await fetch("/api/meals", {
         method: "POST",
@@ -900,13 +1015,19 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
       }
       const parsedMeal = parseMealResponse(responseBody);
       if (!parsedMeal) throw new Error("The added meal response was invalid.");
-      replaceRemoteMeal(parsedMeal);
+      if (!isCurrentAction(action)) return;
+      reconcileMeal(nextMeal.id, parsedMeal);
+      setActionStatus("Meal added.");
     } catch (error) {
+      if (!isCurrentAction(action)) return;
+      removeMealFromDays(nextMeal.id);
       setActionError(error instanceof Error ? error.message : "The meal could not be added.");
-      setActionState(null);
+      setActionStatus(null);
       return;
+    } finally {
+      mealCreateInFlight.current = false;
+      finishAction(action);
     }
-    setActionState(null);
 
     setShowAddMeal(false);
     formElement.reset();
@@ -919,7 +1040,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
   }
 
   function openWeightEditor() {
-    if (readOnly || dataMode !== "live") return;
+    if (readOnly || dataMode !== "live" || pendingActionRef.current) return;
     setWeightDraft(selectedWeight ? String(selectedWeight.weightKg) : "");
     setShowWeightForm(true);
     setActionError(null);
@@ -938,10 +1059,11 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     const logicalDate = selectedDay.date;
     const previousWeight = selectedWeight;
     const optimisticWeight = { logicalDate, weightKg, recordedAt: Date.now() };
+    const action = beginAction("weight-save", logicalDate);
+    if (!action) return;
     weightSaveInFlight.current = true;
     setWeightSaving(true);
     setActionError(null);
-    setActionState("Saving weight…");
     setWeightForDate(logicalDate, optimisticWeight);
 
     try {
@@ -957,29 +1079,35 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
       }
       const savedWeight = parseWeightResponse(responseBody);
       if (!savedWeight) throw new Error("The saved weight response was invalid.");
+      if (!isCurrentAction(action)) return;
 
       setWeightForDate(logicalDate, savedWeight);
       setWeightDraft(String(savedWeight.weightKg));
       setShowWeightForm(false);
-      setActionState("Weight saved.");
+      setActionStatus("Weight saved.");
     } catch (error) {
+      if (!isCurrentAction(action)) return;
       setWeightForDate(logicalDate, previousWeight);
       setActionError(error instanceof Error ? error.message : "The weight could not be saved.");
-      setActionState(null);
+      setActionStatus(null);
     } finally {
       weightSaveInFlight.current = false;
       setWeightSaving(false);
+      finishAction(action);
     }
   }
 
   async function openSettings() {
-    if (readOnly || dataMode !== "live") return;
+    if (readOnly || dataMode !== "live" || settingsLoadInFlight.current) return;
+    const action = beginAction("settings-load");
+    if (!action) return;
     const readVersion = settingsReadVersion.current + 1;
     settingsReadVersion.current = readVersion;
+    settingsLoadInFlight.current = true;
     setSettingsDraft({ calories: String(activeCalorieTarget), proteinG: String(activeProteinTarget) });
     setShowSettings(true);
     setActionError(null);
-    setActionState(null);
+    setActionStatus(null);
     setSettingsLoading(true);
     try {
       const response = await fetch("/api/settings", { cache: "no-store" });
@@ -988,7 +1116,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
         throw new Error("The current targets could not be loaded.");
       }
       const parsed = parseSettingsTargets(await response.json());
-      if (!parsed || settingsReadVersion.current !== readVersion || settingsSaveInFlight.current) return;
+      if (!parsed || settingsReadVersion.current !== readVersion || settingsSaveInFlight.current || !isCurrentAction(action)) return;
       const nextTargets = {
         calories: Number.isFinite(parsed.calories) ? parsed.calories : activeCalorieTarget,
         proteinG: Number.isFinite(parsed.proteinG) ? parsed.proteinG : activeProteinTarget,
@@ -996,9 +1124,12 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
       setTargets(nextTargets);
       setSettingsDraft({ calories: String(nextTargets.calories), proteinG: String(nextTargets.proteinG) });
     } catch (error) {
+      if (!isCurrentAction(action)) return;
       setActionError(error instanceof Error ? error.message : "The current targets could not be loaded.");
     } finally {
+      settingsLoadInFlight.current = false;
       setSettingsLoading(false);
+      finishAction(action);
     }
   }
 
@@ -1012,10 +1143,14 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
       return;
     }
 
+    const action = beginAction("settings-save");
+    if (!action) return;
+    const previousTargets = targets;
     setActionError(null);
     settingsReadVersion.current += 1;
     settingsSaveInFlight.current = true;
     setSettingsSaving(true);
+    setTargets({ calories, proteinG });
     try {
       let nextTargets = { calories, proteinG };
       const response = await fetch("/api/settings", {
@@ -1032,19 +1167,25 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
       if (parsed && Number.isFinite(parsed.calories) && Number.isFinite(parsed.proteinG)) {
         nextTargets = { calories: parsed.calories, proteinG: parsed.proteinG };
       }
+      if (!isCurrentAction(action)) return;
       setTargets(nextTargets);
       setSettingsDraft({ calories: String(nextTargets.calories), proteinG: String(nextTargets.proteinG) });
       setShowSettings(false);
-      setActionState("Targets saved.");
+      setActionStatus("Targets saved.");
     } catch (error) {
+      if (!isCurrentAction(action)) return;
+      setTargets(previousTargets);
       setActionError(error instanceof Error ? error.message : "The targets could not be saved.");
+      setActionStatus(null);
     } finally {
       settingsSaveInFlight.current = false;
       setSettingsSaving(false);
+      finishAction(action);
     }
   }
 
   function selectDay(key: DayKey) {
+    if (pendingActionRef.current) return;
     setSelectedDayKey(key);
     setEditingMealId(null);
     setShowAddMeal(false);
@@ -1066,25 +1207,25 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
         <div className="topbar-actions">
           <span className="sync-status"><span className="status-dot" aria-hidden="true" /> {readOnly ? "Public read-only" : dataMode === "live" ? "Live data" : dataMode === "loading" ? "Loading" : "Unavailable"}</span>
           {!readOnly && dataMode === "live" ? <>
-            <button className="icon-button" type="button" onClick={() => void openSettings()} aria-label="Open settings" aria-expanded={showSettings} aria-controls="settings-panel"><span aria-hidden="true">⚙</span></button>
+            <button className="icon-button" type="button" onClick={() => void openSettings()} disabled={actionInProgress || settingsLoading || settingsSaving} aria-label="Open settings" aria-expanded={showSettings} aria-controls="settings-panel" aria-busy={settingsLoadPending}><span aria-hidden="true">{settingsLoadPending ? "…" : "⚙"}</span></button>
           </> : null}
           <span className="avatar" aria-label={readOnly ? "Public read-only view" : "Account"}><span aria-hidden="true">{readOnly ? "↗" : "M"}</span></span>
         </div>
       </header>
 
-      {!readOnly && dataMode === "live" && showSettings ? <section className="settings-panel" id="settings-panel" role="dialog" aria-labelledby="settings-title">
-        <div className="settings-heading"><div><p className="eyebrow">Personal targets</p><h2 id="settings-title">Daily targets</h2></div><button className="close-button" type="button" onClick={() => setShowSettings(false)} aria-label="Close settings">×</button></div>
+      {!readOnly && dataMode === "live" && showSettings ? <section className={`settings-panel${settingsLoadPending || settingsSavePending ? " is-pending" : ""}`} id="settings-panel" role="dialog" aria-labelledby="settings-title" aria-busy={settingsLoadPending || settingsSavePending}>
+        <div className="settings-heading"><div><p className="eyebrow">Personal targets</p><h2 id="settings-title">Daily targets</h2></div><button className="close-button" type="button" disabled={settingsLoading || settingsSaving} onClick={() => setShowSettings(false)} aria-label="Close settings">×</button></div>
         <form className="settings-form" onSubmit={(event) => { event.preventDefault(); void saveSettings(); }}>
-          <label>Calories<input name="daily-calorie-target" type="number" min="1" max="100000" step="10" value={settingsDraft.calories} onChange={(event) => setSettingsDraft((current) => ({ ...current, calories: event.target.value }))} required /></label>
-          <label>Protein (g)<input name="daily-protein-target" type="number" min="1" max="10000" step="1" value={settingsDraft.proteinG} onChange={(event) => setSettingsDraft((current) => ({ ...current, proteinG: event.target.value }))} required /></label>
-          <button className="save-button" type="button" onClick={() => void saveSettings()} disabled={settingsSaving}>{settingsSaving ? "Saving…" : "Save targets"}</button>
+          <label>Calories<input name="daily-calorie-target" type="number" min="1" max="100000" step="10" value={settingsDraft.calories} onChange={(event) => setSettingsDraft((current) => ({ ...current, calories: event.target.value }))} disabled={settingsLoading || settingsSaving} required /></label>
+          <label>Protein (g)<input name="daily-protein-target" type="number" min="1" max="10000" step="1" value={settingsDraft.proteinG} onChange={(event) => setSettingsDraft((current) => ({ ...current, proteinG: event.target.value }))} disabled={settingsLoading || settingsSaving} required /></label>
+          <button className="save-button" type="button" onClick={() => void saveSettings()} disabled={settingsLoading || settingsSaving} aria-busy={settingsSavePending}>{settingsSavePending ? "Saving…" : settingsLoading ? "Loading…" : "Save targets"}</button>
         </form>
-        <p className="settings-help" role="status">{settingsLoading ? "Loading saved targets…" : "Targets guide the rings, trend line, and daily nudge."}</p>
+        <p className="settings-help" role="status" aria-live="polite">{settingsLoading ? "Loading saved targets…" : settingsSaving ? "Saving targets…" : "Targets guide the rings, trend line, and daily nudge."}</p>
       </section> : null}
 
       {dataMessage ? <div className={`data-banner ${dataMode}`} role="status"><span aria-hidden="true">{dataMode === "live" ? "✓" : dataMode === "loading" ? "…" : "i"}</span>{dataMessage}</div> : null}
       {readOnly && dataMode === "live" ? <div className="data-banner public" role="status"><span aria-hidden="true">✓</span>Public read-only view — changes are disabled.</div> : null}
-      {actionState || actionError ? <div className={`action-feedback ${actionError ? "error" : ""}`} role={actionError ? "alert" : "status"}>{actionError ?? actionState}</div> : null}
+      {pendingLabel || actionStatus || actionError ? <div className={`action-feedback ${actionError ? "error" : ""}`} role={actionError ? "alert" : "status"} aria-live="polite" aria-busy={actionInProgress}>{actionError ?? pendingLabel ?? actionStatus}</div> : null}
 
       {dataMode !== "live" ? <section className="dashboard-state" aria-live="polite">
         <span className="dashboard-state-mark" aria-hidden="true">{dataMode === "loading" ? "…" : "!"}</span>
@@ -1094,6 +1235,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
         <p>{dataMessage ?? (publicView
           ? "The public dashboard could not be loaded."
           : "Your saved log is unavailable. Try again later.")}</p>
+        {dataMode === "error" ? <button className="primary-button" type="button" onClick={retryDashboard} disabled={dashboardLoading} aria-busy={dashboardLoading}>{dashboardLoading ? "Loading…" : "Try again"}</button> : null}
       </section> : <>
       <section className="date-strip" aria-label="Choose a day">
         <div className="date-heading">
@@ -1101,7 +1243,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
           <h1 id="today">{selectedDay.weekday}, {fullDateLabel(selectedDay.date)}</h1>
         </div>
         <div className="date-controls">
-          <button className="date-arrow" type="button" onClick={() => moveSelectedDay("previous")} aria-label="Previous day" disabled={!previousDayKey}>‹</button>
+          <button className="date-arrow" type="button" onClick={() => moveSelectedDay("previous")} aria-label="Previous day" disabled={actionInProgress || !previousDayKey}>‹</button>
           <div className="date-pills">
             {days.map((day) => (
               <button
@@ -1109,6 +1251,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
                 key={day.key}
                 type="button"
                 onClick={() => selectDay(day.key)}
+                disabled={actionInProgress}
                 aria-label={`${day.weekday}, ${fullDateLabel(day.date)}`}
                 aria-pressed={selectedDayKey === day.key}
               >
@@ -1116,7 +1259,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
               </button>
             ))}
           </div>
-          <button className="date-arrow" type="button" onClick={() => moveSelectedDay("next")} aria-label="Next day" disabled={!nextDayKey}>›</button>
+          <button className="date-arrow" type="button" onClick={() => moveSelectedDay("next")} aria-label="Next day" disabled={actionInProgress || !nextDayKey}>›</button>
         </div>
       </section>
 
@@ -1245,24 +1388,27 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
               {!readOnly ? <button
                 className="primary-button"
                 type="button"
-                disabled={weightSaving}
+                disabled={actionInProgress || weightSaving}
+                aria-busy={weightActionPending}
                 onClick={openWeightEditor}
               >
-                {selectedWeight ? "Edit weight" : "Add weight"}
+                {weightActionPending ? "Saving…" : selectedWeight ? "Edit weight" : "Add weight"}
               </button> : <span className="panel-meta">read only</span>}
             </div>
-            <div className={`weight-reading${selectedWeight ? "" : " empty"}`}>
+            <div className={`weight-reading${selectedWeight ? "" : " empty"}${weightActionPending ? " is-pending" : ""}`} aria-busy={weightActionPending}>
               {selectedWeight ? <>
                 <strong>{formatWeight(selectedWeight.weightKg)} <small>kg</small></strong>
                 <time dateTime={new Date(selectedWeight.recordedAt).toISOString()}>
                   Saved at {formatRecordedTime(selectedWeight.recordedAt)}
                 </time>
+                {weightActionPending ? <span className="pending-indicator" role="status">Saving…</span> : null}
               </> : <>
                 <strong>No weight recorded</strong>
                 <span>Add one value for {selectedDay.weekday}.</span>
+                {weightActionPending ? <span className="pending-indicator" role="status">Saving…</span> : null}
               </>}
             </div>
-            {!readOnly && showWeightForm ? <form className="weight-form" onSubmit={saveWeight}>
+            {!readOnly && showWeightForm ? <form className="weight-form" onSubmit={saveWeight} aria-busy={weightActionPending}>
               <label>
                 Weight (kg)
                 <input
@@ -1274,16 +1420,17 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
                   inputMode="decimal"
                   value={weightDraft}
                   onChange={(event) => setWeightDraft(event.target.value)}
+                  disabled={weightSaving || actionInProgress}
                   required
                 />
               </label>
-              <button className="save-button" type="submit" disabled={weightSaving}>
+              <button className="save-button" type="submit" disabled={weightSaving || actionInProgress} aria-busy={weightActionPending}>
                 {weightSaving ? "Saving…" : selectedWeight ? "Save changes" : "Save weight"}
               </button>
               <button
                 className="cancel-button"
                 type="button"
-                disabled={weightSaving}
+                disabled={weightSaving || actionInProgress}
                 onClick={() => setShowWeightForm(false)}
               >
                 Cancel
@@ -1292,24 +1439,24 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
           </section>
 
           <section className="panel meals-panel" id="meals" aria-labelledby="meals-title">
-            <div className="panel-heading meal-heading"><div><p className="eyebrow">What you ate</p><h2 id="meals-title">Meals <span>{selectedDay.meals.length}</span></h2></div>{!readOnly ? <button className="primary-button" type="button" onClick={() => setShowAddMeal((current) => !current)}><span aria-hidden="true">＋</span> Add meal</button> : <span className="panel-meta">read only</span>}</div>
+            <div className="panel-heading meal-heading"><div><p className="eyebrow">What you ate</p><h2 id="meals-title">Meals <span>{selectedDay.meals.length}</span></h2></div>{!readOnly ? <button className="primary-button" type="button" disabled={actionInProgress} aria-busy={pendingAction?.kind === "meal-create"} onClick={() => setShowAddMeal((current) => !current)}><span aria-hidden="true">＋</span> {pendingAction?.kind === "meal-create" ? "Saving…" : "Add meal"}</button> : <span className="panel-meta">read only</span>}</div>
 
-            {!readOnly && showAddMeal ? <form className="add-meal-form" onSubmit={addMeal}>
-              <div className="form-heading"><div><strong>Log a meal</strong><span>Use a quick estimate now. You can edit it later.</span></div><label>Time<input name="time" type="time" defaultValue={localTimeValue()} required aria-label="Meal time" /></label><button className="close-button" type="button" onClick={() => setShowAddMeal(false)} aria-label="Close add meal form">×</button></div>
-              <label>Meal name<input name="name" placeholder="e.g. Turkey sandwich" required /></label>
-              <label className="wide-field">Description<input name="description" placeholder="Ingredients or a short note" /></label>
-              <label>Calories<input name="calories" type="number" min="0" step="any" placeholder="450" required /></label>
-              <label>Protein (g)<input name="protein" type="number" min="0" step="any" placeholder="30" /></label>
-              <label>Carbs (g)<input name="carbs" type="number" min="0" step="any" placeholder="45" /></label>
-              <label>Fat (g)<input name="fat" type="number" min="0" step="any" placeholder="15" /></label>
-              <label className="meal-photo-field">Photo (optional)<input name="photo" type="file" accept={mealPhotoAccept} /><small>JPEG, PNG, or WebP · up to 10 MB</small></label>
-              <button className="save-button" type="submit">Save meal</button>
+            {!readOnly && showAddMeal ? <form className={`add-meal-form${pendingAction?.kind === "meal-create" ? " is-pending" : ""}`} onSubmit={addMeal} aria-busy={pendingAction?.kind === "meal-create"}>
+              <div className="form-heading"><div><strong>Log a meal</strong><span>Use a quick estimate now. You can edit it later.</span></div><label>Time<input name="time" type="time" defaultValue={localTimeValue()} required aria-label="Meal time" disabled={actionInProgress} /></label><button className="close-button" type="button" disabled={actionInProgress} onClick={() => setShowAddMeal(false)} aria-label="Close add meal form">×</button></div>
+              <label>Meal name<input name="name" placeholder="e.g. Turkey sandwich" required disabled={actionInProgress} /></label>
+              <label className="wide-field">Description<input name="description" placeholder="Ingredients or a short note" disabled={actionInProgress} /></label>
+              <label>Calories<input name="calories" type="number" min="0" step="any" placeholder="450" required disabled={actionInProgress} /></label>
+              <label>Protein (g)<input name="protein" type="number" min="0" step="any" placeholder="30" disabled={actionInProgress} /></label>
+              <label>Carbs (g)<input name="carbs" type="number" min="0" step="any" placeholder="45" disabled={actionInProgress} /></label>
+              <label>Fat (g)<input name="fat" type="number" min="0" step="any" placeholder="15" disabled={actionInProgress} /></label>
+              <label className="meal-photo-field">Photo (optional)<input name="photo" type="file" accept={mealPhotoAccept} disabled={actionInProgress} /><small>JPEG, PNG, or WebP · up to 10 MB</small></label>
+              <button className="save-button" type="submit" disabled={actionInProgress} aria-busy={pendingAction?.kind === "meal-create"}>{pendingAction?.kind === "meal-create" ? "Saving…" : "Save meal"}</button>
             </form> : null}
 
             {selectedDay.meals.length > 0 ? <div className="meal-list">
               <div className="meal-list-head" aria-hidden="true"><span /><span>Meal</span><span>Energy</span><span>Protein</span><span>Carbs</span><span>Fat</span><span /></div>
               {selectedDay.meals.map((meal) => <div className="meal-group" key={meal.id}>
-                <div className={`meal-row${openMealId === meal.id ? " is-actions-open" : ""}${selectedDay.date !== days.at(-1)?.date ? " has-copy-action" : ""}`}>
+                <div className={`meal-row${openMealId === meal.id ? " is-actions-open" : ""}${selectedDay.date !== days.at(-1)?.date ? " has-copy-action" : ""}${meal.pending || pendingAction?.id === meal.id ? " is-pending" : ""}`} aria-busy={Boolean(meal.pending || pendingAction?.id === meal.id)}>
                   <div
                     className="meal-row-content"
                     onPointerDown={(event) => handleMealPointerDown(meal.id, event)}
@@ -1337,7 +1484,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
                         onError={() => markPhotoUnavailable(meal.photoKey as string)}
                       />
                     </button> : <div className={`meal-avatar ${meal.kind}`} aria-hidden="true">{mealPlaceholders[meal.kind]}</div>}
-                    <div className="meal-info"><div className="meal-name-line"><strong>{meal.name}</strong><time>{meal.time}</time></div><span>{meal.description}</span></div>
+                    <div className="meal-info"><div className="meal-name-line"><strong>{meal.name}</strong><time>{meal.time}</time>{meal.pending === "creating" ? <span className="pending-indicator" role="status">Saving…</span> : null}{meal.pending === "copying" ? <span className="pending-indicator" role="status">Copying…</span> : null}{pendingAction?.kind === "meal-save" && pendingAction.id === meal.id ? <span className="pending-indicator" role="status">Saving…</span> : null}{pendingAction?.kind === "meal-delete" && pendingAction.id === meal.id ? <span className="pending-indicator" role="status">Deleting…</span> : null}{pendingAction?.kind === "meal-copy" && pendingAction.id === meal.id ? <span className="pending-indicator" role="status">Copying…</span> : null}</div><span>{meal.description}</span></div>
                     <div className="meal-stat calories-stat" data-label="Energy">{formatNumber(meal.calories)} <small>kcal</small></div>
                     <div className="meal-stat protein-stat" data-label="Protein">{formatNumber(meal.protein)}<small>g</small></div>
                     <div className="meal-stat carbs-stat" data-label="Carbs">{formatNumber(meal.carbs ?? 0)}<small>g</small></div>
@@ -1349,13 +1496,14 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
                     aria-expanded={openMealId === meal.id}
                     aria-controls={`meal-actions-${meal.id}`}
                     aria-label={`${openMealId === meal.id ? "Close" : "Open"} actions for ${meal.name}`}
+                    disabled={actionInProgress}
                     onClick={() => setOpenMealId((current) => current === meal.id ? null : meal.id)}
                   >
                     {openMealId === meal.id ? "×" : "⋯"}
                   </button> : null}
                   {!readOnly ? <div className="meal-actions" id={`meal-actions-${meal.id}`}>
                     {selectedDay.date !== days.at(-1)?.date ? <button className="copy-button" type="button" disabled={actionInProgress || deletingMealId !== null || copyingMealId !== null} onClick={() => void copyMealToToday(meal.id)} aria-label={`Copy ${meal.name} to today`} aria-busy={copyingMealId === meal.id}>{copyingMealId === meal.id ? "Copying…" : "Copy to today"}</button> : null}
-                    <button className="edit-button" type="button" disabled={actionInProgress || deletingMealId !== null} onClick={() => {
+                    <button className="edit-button" type="button" disabled={actionInProgress || deletingMealId !== null || copyingMealId !== null} onClick={() => {
                       const isClosing = editingMealId === meal.id;
                       setEditingMealId(isClosing ? null : meal.id);
                       if (isClosing) setMealPhotoDrafts((current) => {
@@ -1364,19 +1512,20 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
                         return next;
                       });
                     }} aria-expanded={editingMealId === meal.id} aria-label={`Edit ${meal.name}`}>Edit</button>
-                    <button className="delete-button" type="button" disabled={actionInProgress || deletingMealId !== null} onClick={() => void deleteMeal(meal.id)} aria-label={`Delete ${meal.name}`} aria-busy={deletingMealId === meal.id}>{deletingMealId === meal.id ? "Deleting…" : "Delete"}</button>
+                    <button className="delete-button" type="button" disabled={actionInProgress || deletingMealId !== null || copyingMealId !== null} onClick={() => void deleteMeal(meal.id)} aria-label={`Delete ${meal.name}`} aria-busy={deletingMealId === meal.id}>{deletingMealId === meal.id ? "Deleting…" : "Delete"}</button>
                   </div> : null}
                 </div>
                 {!readOnly && editingMealId === meal.id ? <div className="inline-editor">
-                  <label>Name<input value={meal.name} onChange={(event) => updateMeal(meal.id, { name: event.target.value })} /></label>
-                  <label className="editor-description-field">Description<input value={meal.description} onChange={(event) => updateMeal(meal.id, { description: event.target.value })} /></label>
-                  <label>Calories<input type="number" min="0" step="any" value={meal.calories} onChange={(event) => updateMeal(meal.id, { calories: Number(event.target.value) })} /></label>
-                  <label>Protein<input type="number" min="0" step="any" value={meal.protein} onChange={(event) => updateMeal(meal.id, { protein: Number(event.target.value) })} /></label>
-                  <label>Carbs<input type="number" min="0" step="any" value={meal.carbs ?? 0} onChange={(event) => updateMeal(meal.id, { carbs: Number(event.target.value) })} /></label>
-                  <label>Fat<input type="number" min="0" step="any" value={meal.fat ?? 0} onChange={(event) => updateMeal(meal.id, { fat: Number(event.target.value) })} /></label>
+                  <label>Name<input value={meal.name} disabled={actionInProgress} onChange={(event) => updateMeal(meal.id, { name: event.target.value })} /></label>
+                  <label className="editor-description-field">Description<input value={meal.description} disabled={actionInProgress} onChange={(event) => updateMeal(meal.id, { description: event.target.value })} /></label>
+                  <label>Calories<input type="number" min="0" step="any" value={meal.calories} disabled={actionInProgress} onChange={(event) => updateMeal(meal.id, { calories: Number(event.target.value) })} /></label>
+                  <label>Protein<input type="number" min="0" step="any" value={meal.protein} disabled={actionInProgress} onChange={(event) => updateMeal(meal.id, { protein: Number(event.target.value) })} /></label>
+                  <label>Carbs<input type="number" min="0" step="any" value={meal.carbs ?? 0} disabled={actionInProgress} onChange={(event) => updateMeal(meal.id, { carbs: Number(event.target.value) })} /></label>
+                  <label>Fat<input type="number" min="0" step="any" value={meal.fat ?? 0} disabled={actionInProgress} onChange={(event) => updateMeal(meal.id, { fat: Number(event.target.value) })} /></label>
                   <label className="editor-photo-field">{meal.photoKey ? "Replace photo (optional)" : "Photo (optional)"}<input
                     type="file"
                     accept={mealPhotoAccept}
+                    disabled={actionInProgress}
                     onChange={(event) => {
                       const photo = event.target.files?.[0] ?? null;
                       if (photo) {
@@ -1392,7 +1541,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
                     }}
                   /><small>{mealPhotoDrafts[meal.id]?.name ?? (meal.photoKey ? "Current photo stays unless you select a replacement." : "JPEG, PNG, or WebP · up to 10 MB")}</small></label>
                   <div className="editor-actions">
-                    <button className="done-button" type="button" disabled={Boolean(actionState)} onClick={() => void saveMeal(meal.id)}>Save changes</button>
+                    <button className="done-button" type="button" disabled={actionInProgress} aria-busy={pendingAction?.kind === "meal-save" && pendingAction.id === meal.id} onClick={() => void saveMeal(meal.id)}>{pendingAction?.kind === "meal-save" && pendingAction.id === meal.id ? "Saving…" : "Save changes"}</button>
                   </div>
                 </div> : null}
               </div>)}
@@ -1410,7 +1559,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
 
           <section className="panel history-panel" aria-labelledby="history-title">
             <div className="panel-heading compact-heading"><div><p className="eyebrow">Keep the thread</p><h2 id="history-title">Recent days</h2></div><button className="more-button" type="button" onClick={() => setShowAllDays((current) => !current)}>{showAllDays ? "Less" : "View all"}</button></div>
-            <div className="history-list">{days.slice(showAllDays ? 0 : 3).reverse().map((day) => <button className={`history-row ${selectedDayKey === day.key ? "selected" : ""}`} type="button" key={day.key} onClick={() => selectDay(day.key)}><span className="history-date"><strong>{day.shortDate}</strong><small>{day.weekday.slice(0, 3)}</small></span><span className="history-bar"><i style={{ width: `${calculateTargetPercent(day.calories, activeCalorieTarget)}%` }} /></span><span className="history-calories">{formatNumber(day.calories)}<small> kcal</small></span><span className="history-chevron" aria-hidden="true">›</span></button>)}</div>
+            <div className="history-list">{days.slice(showAllDays ? 0 : 3).reverse().map((day) => <button className={`history-row ${selectedDayKey === day.key ? "selected" : ""}`} type="button" key={day.key} onClick={() => selectDay(day.key)} disabled={actionInProgress}><span className="history-date"><strong>{day.shortDate}</strong><small>{day.weekday.slice(0, 3)}</small></span><span className="history-bar"><i style={{ width: `${calculateTargetPercent(day.calories, activeCalorieTarget)}%` }} /></span><span className="history-calories">{formatNumber(day.calories)}<small> kcal</small></span><span className="history-chevron" aria-hidden="true">›</span></button>)}</div>
             <div className="streak-line"><span className="streak-flame" aria-hidden="true">✦</span><span><strong>{loggingStreak} day{loggingStreak === 1 ? "" : "s"}</strong> logging streak</span></div>
           </section>
 
