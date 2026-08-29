@@ -72,7 +72,7 @@ test("owner summary requests the browser timezone and validates it server-side",
   ]);
 
   assert.match(page, /dashboard\/summary\?timezone=\$\{encodeURIComponent\(browserTimeZone\(\)\)\}/);
-  assert.match(page, /buildLiveDays\(parsed, !readOnly, \{ mode: publicView \? "utc" : "local" \}\)/);
+  assert.match(page, /buildLiveDays\(parsed, \{ mode: publicView \? "utc" : "local", publicView \}\)/);
   assert.match(page, /dateKeyFromTimestamp\(remoteMeal\.consumedAt, \{ mode: publicView \? "utc" : "local" \}\)/);
   assert.match(route, /searchParams\.get\("timezone"\)/);
   assert.match(route, /isValidTimeZone\(timezone\)/);

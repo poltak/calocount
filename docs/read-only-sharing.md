@@ -19,9 +19,10 @@ compatibility; do not remove or alter them without a separate database decision.
 | `/` | Public because no Access destination matches it | Read-only dashboard UI |
 | `/owner` and `/owner/*` | Existing private Cloudflare Access application, existing owner Allow policy and audience, plus server-side signed JWT check | Owner read-write dashboard |
 | `/api/public/summary` | Separate exact Cloudflare Access application with Bypass Everyone | Explicit read-only dashboard projection |
+| `/meal-photos/*` | Public because no Access destination matches it, with server-side projection checks | Images for completed meals in the current public seven-day projection |
 | `/api/*` in general | Private Cloudflare Access and server-side owner authentication | Owner data and all write operations |
 | `/_next/static/*`, manifest, service worker, and required icons | Public because no Access destination matches them | JavaScript, CSS, and install metadata only |
-| photos, exports, AI routes, settings, and other owner APIs | Private | Sensitive data and mutations |
+| `/api/photos/*`, exports, AI routes, settings, and other owner APIs | Private | Sensitive data and mutations |
 
 The public summary endpoint resolves the stable configured owner key. It fails
 closed when that key is absent and returns `Cache-Control: no-store`. The
@@ -30,14 +31,23 @@ projection contains only the fields required by the dashboard:
 - date and calorie/protein targets;
 - today totals;
 - seven-day totals, averages, and trend points;
-- recent completed meal totals and item nutrition; and
+- recent completed meal totals, item nutrition, and whether a public photo is available; and
 - recent weights.
 
 It does not contain owner keys, captions, notes, assumptions, confidence,
-photos or storage keys, AI/provider data, Telegram data, private settings,
-exports, or API credentials. The projection is implemented in
+photo storage keys or MIME metadata, AI/provider data, Telegram data, private
+settings, exports, or API credentials. The projection is implemented in
 `app/api/_lib/public-summary-projection.ts`. Keep the field list explicit when
 changing the public response.
+
+The anonymous `/meal-photos/<mealId>` route intentionally makes the image for a
+projected completed meal public to site viewers. It resolves the configured
+owner, reuses the current seven-day summary as its allowlist, accepts only JPEG,
+PNG, and WebP objects, and streams the private R2 object without revealing its
+storage key. ETags allow efficient browser reuse, but every request must
+revalidate the projection so removed or expired access is not cached. Pending,
+old, removed, malformed, and unprojected meals return `404`. The authenticated
+`/api/photos/*` owner route remains private.
 
 The public dashboard must not call owner APIs. Every write API route must call
 `requireApiIdentity(request)` before it reads or changes owner data. A public
@@ -61,13 +71,15 @@ The following layout was live-verified on 2026-08-26:
    owner JWT audience.
 2. A separate Access application protects the exact `/api/public/summary`
    destination with Bypass Everyone. It is more specific than `/api/*`.
-3. `/` and the static/PWA assets are public because no Access destination
-   matches them. Do not add root or static bypass exceptions, a broad `/*`
-   bypass, a broad `/_next/*` bypass, or an `/api/*` bypass.
-4. Anonymous and authenticated live checks passed: the public root and summary
-   load without login; `/owner` and private APIs require the owner Access
-   session; static/PWA assets are reachable anonymously; and removed share
-   routes return `404` when reached.
+3. `/`, `/meal-photos/*`, and the static/PWA assets are public because no Access
+   destination matches them. The photo handler enforces the public projection.
+   Do not add root or static bypass exceptions, a broad `/*` bypass, a broad
+   `/_next/*` bypass, or an `/api/*` bypass.
+4. Anonymous and authenticated live checks must confirm that the public root,
+   summary, and projected meal photos load without login; `/owner`,
+   `/api/photos/*`, and other private APIs require the owner Access session;
+   static/PWA assets are reachable anonymously; and removed share routes return
+   `404` when reached.
 
 Keep `CALOCOUNT_ALLOW_LOCAL=false` in production. Review the public projection,
 route conditions, and owner JWT checks before each deployment. Apply only the

@@ -10,7 +10,7 @@ The application backend uses Cloudflare Workers, D1, R2, Queues, Cron Triggers, 
 - calories, protein, carbohydrates, and fat
 - meal detail, additions, edits, and correction history
 - live API data with a clear fail-closed unavailable state
-- private R2 photo delivery
+- private R2 storage with scoped owner and public photo delivery
 - Telegram webhook allowlist and duplicate-update protection
 - durable D1 analysis jobs and Queue processing
 - short-lived signed AI image URLs
@@ -52,7 +52,7 @@ npm run dev
 
 Open `http://localhost:3000`.
 
-The owner dashboard waits for live API data and fails closed when local D1 or owner authentication is not ready. Set `CALOCOUNT_ALLOW_LOCAL=true` only in `.dev.vars` while running a configured local stack. Production must set `CALOCOUNT_ALLOW_LOCAL=false` and use a valid, signed Cloudflare Access JWT. Identity headers by themselves are not trusted. The public root uses only `/api/public/summary` and does not fall back to owner or demo data.
+The owner dashboard waits for live API data and fails closed when local D1 or owner authentication is not ready. Set `CALOCOUNT_ALLOW_LOCAL=true` only in `.dev.vars` while running a configured local stack. Production must set `CALOCOUNT_ALLOW_LOCAL=false` and use a valid, signed Cloudflare Access JWT. Identity headers by themselves are not trusted. The public root uses only `/api/public/summary` and `/meal-photos/*`; it does not fall back to owner or demo data.
 
 ## Local D1
 
@@ -179,8 +179,8 @@ For the public/owner route split, follow [docs/read-only-sharing.md](docs/read-o
 
 - The existing private Access application protects the exact `/owner`, `/owner/*`, and `/api/*` destinations with the existing owner Allow policy and the same owner JWT audience.
 - A separate Access application for the exact `/api/public/summary` destination uses Bypass Everyone.
-- `/` and the static/PWA assets are public because no Access destination matches them. Do not add root or static bypass exceptions.
-- Anonymous and authenticated checks passed: the public root and summary load without login, owner pages and private APIs require the owner Access session, static/PWA assets are reachable anonymously, and the removed share routes return `404` when reached.
+- `/`, `/meal-photos/*`, and the static/PWA assets are public because no Access destination matches them. The photo handler restricts delivery to completed meals in the current public projection. Do not add root or static bypass exceptions.
+- Anonymous and authenticated checks must confirm that the public root, summary, and projected photos load without login; owner pages, `/api/photos/*`, and private APIs require the owner Access session; static/PWA assets are reachable anonymously; and the removed share routes return `404` when reached.
 
 Do not add a broad `/*`, `/_next/*`, or `/api/*` bypass. Do not make owner APIs public.
 
@@ -191,10 +191,11 @@ Cloudflare deployment and Telegram registration are not done automatically by th
 ## Privacy
 
 - Meal photos stay in a private R2 bucket.
-- The dashboard streams photos through an authorized API route.
+- The owner dashboard streams photos through an authenticated API route.
+- The public root may stream photos for completed meals in its current seven-day projection through `/meal-photos/*`; raw R2 keys are not exposed.
 - The AI service receives a signed image URL that expires in five minutes.
-- The public root exposes only the selected dashboard projection: targets, meal and macro totals, seven-day trend, recent weights, and recent meal-item nutrition.
-- The public projection does not expose photos, captions, notes, assumptions, confidence, AI/provider data, Telegram data, or private settings.
+- The public root exposes only the selected dashboard projection: targets, meal and macro totals, seven-day trend, recent weights, recent meal-item nutrition, and photo availability.
+- The public projection does not expose photo storage keys, captions, notes, assumptions, confidence, AI/provider data, Telegram data, or private settings.
 - Normal logs do not include captions, images, signed URLs, or full provider payloads.
 - Nutrition values are estimates, not medical measurements.
 

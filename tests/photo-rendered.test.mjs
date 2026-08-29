@@ -2,16 +2,18 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-test("meal photos use lazy authenticated thumbnails and preserve a placeholder fallback", async () => {
+test("meal photos use lazy private or public thumbnails and preserve a placeholder fallback", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
 
   assert.match(page, /photoKey: string \| null/);
   assert.match(page, /photoMimeType: string \| null/);
-  assert.match(page, /photoUrlForKey\(meal\.photoKey\)/);
+  assert.match(page, /publicPhotoUrlForMealId\(meal\.id\)/);
+  assert.match(page, /photoUrl: publicView/);
+  assert.match(page, /\{meal\.photoUrl && !failedPhotoUrls\.has\(meal\.photoUrl\) \? <button/);
   assert.match(page, /onPointerDown=\{\(event\) => event\.stopPropagation\(\)\}/);
   assert.match(page, /loading="lazy"/);
   assert.match(page, /decoding="async"/);
-  assert.match(page, /onError=\{\(\) => markPhotoUnavailable\(meal\.photoKey as string\)\}/);
+  assert.match(page, /onError=\{\(\) => markPhotoUnavailable\(meal\.photoUrl as string\)\}/);
   assert.match(page, /className=\{`meal-avatar \$\{meal\.kind\}`\} aria-hidden="true"/);
 });
 

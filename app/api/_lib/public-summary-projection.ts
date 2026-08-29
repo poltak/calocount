@@ -1,4 +1,5 @@
 import type { getDashboardSummary } from "../../../db/repository";
+import { isPublicPhotoMimeType, isWithinPublicDateRange } from "./public-photo-policy";
 
 type DashboardSummary = Awaited<ReturnType<typeof getDashboardSummary>>;
 
@@ -16,6 +17,7 @@ type PublicMeal = {
   id: string;
   consumedAt: number;
   mealType: string | null;
+  hasPhoto: boolean;
   totalCalories: number;
   totalProteinG: number;
   totalCarbsG: number;
@@ -52,6 +54,7 @@ function publicMeal(entry: DashboardSummary["recentMeals"][number]): PublicMeal 
     id: entry.meal.id,
     consumedAt: entry.meal.consumedAt,
     mealType: entry.meal.mealType,
+    hasPhoto: Boolean(entry.meal.photoKey) && isPublicPhotoMimeType(entry.meal.photoMimeType),
     totalCalories: entry.meal.totalCalories,
     totalProteinG: entry.meal.totalProteinG,
     totalCarbsG: entry.meal.totalCarbsG,
@@ -134,7 +137,10 @@ export function projectPublicDashboardSummary(summary: DashboardSummary) {
       daysWithMeals: summary.sevenDay.daysWithMeals,
       trend: publicTrend(summary),
     },
-    recentMeals: summary.recentMeals.filter((entry) => entry.meal.status === "complete").map(publicMeal),
+    recentMeals: summary.recentMeals.filter((entry) => (
+      entry.meal.status === "complete"
+      && isWithinPublicDateRange({ consumedAt: entry.meal.consumedAt, summaryDate: summary.date })
+    )).map(publicMeal),
     recentWeights: summary.recentWeights.map(publicWeight),
   };
 }

@@ -100,4 +100,5 @@ test("public summary returns a no-store projection without private fields", asyn
   ]) assert.doesNotMatch(serialised, new RegExp(field, "i"));
   assert.equal((body.targets as Record<string, unknown>).calories, 2_100);
   assert.equal(((body.sevenDay as Record<string, unknown>).trend as Array<Record<string, unknown>>).at(-1)?.calories, 2_337);
+  assert.equal(((body.recentMeals as Array<Record<string, unknown>>)[0]).hasPhoto, true);
 });

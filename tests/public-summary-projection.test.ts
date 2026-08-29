@@ -76,6 +76,16 @@ test("public summary projection keeps dashboard data and strips private fields",
         updatedAt: 1,
       },
       items: [],
+    }, {
+      meal: {
+        id: "meal-old",
+        consumedAt: Date.parse("2026-08-18T12:00:00Z"),
+        mealType: "lunch",
+        status: "complete",
+        photoKey: "raw/old-photo-key",
+        photoMimeType: "image/jpeg",
+      },
+      items: [],
     }],
     recentWeights: [{
       id: "weight-1",
@@ -96,6 +106,7 @@ test("public summary projection keeps dashboard data and strips private fields",
     id: "meal-1",
     consumedAt: Date.parse("2026-08-25T12:00:00Z"),
     mealType: "lunch",
+    hasPhoto: true,
     totalCalories: 2_337,
     totalProteinG: 120,
     totalCarbsG: 220,
@@ -115,4 +126,37 @@ test("public summary projection keeps dashboard data and strips private fields",
     "ownerKey", "createdAt", "updatedAt", "photoKey", "caption", "notes",
     "assumptions", "confidence", "source", "provider", "telegram", "export", "rawUsage", "photoMimeType",
   ]) assert.doesNotMatch(serialised, new RegExp(field, "i"));
+});
+
+test("public summary does not advertise photos with an unsafe MIME type", () => {
+  const projection = projectPublicDashboardSummary({
+    date: "2026-08-25",
+    targets: { calories: 2_100, proteinG: 150 },
+    today: { calories: 0, proteinG: 0, carbsG: 0, fatG: 0, mealCount: 0 },
+    sevenDay: {
+      calories: 0,
+      proteinG: 0,
+      averageCalories: 0,
+      averageProteinG: 0,
+      daysWithMeals: 0,
+    },
+    recentMeals: [{
+      meal: {
+        id: "meal-unsafe",
+        consumedAt: Date.parse("2026-08-25T12:00:00Z"),
+        mealType: "lunch",
+        status: "complete",
+        photoKey: "private/unsafe-key",
+        photoMimeType: "text/html",
+        totalCalories: 0,
+        totalProteinG: 0,
+        totalCarbsG: 0,
+        totalFatG: 0,
+      },
+      items: [],
+    }],
+    recentWeights: [],
+  } as never);
+
+  assert.equal(projection.recentMeals[0]?.hasPhoto, false);
 });

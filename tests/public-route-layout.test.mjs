@@ -36,6 +36,24 @@ test("the public summary route fails closed without an owner key", async () => {
   assert.doesNotMatch(route, /export async function (POST|PUT|PATCH|DELETE)/);
 });
 
+test("the public meal-photo route is read-only and uses the configured public projection", async () => {
+  const [route, helper] = await Promise.all([
+    readFile(new URL("../app/meal-photos/[id]/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/_lib/public-meal-photo.ts", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(route, /getEnvValue\("CALOCOUNT_OWNER_KEY"\)/);
+  assert.match(route, /getDashboardSummary\(getRequestDb\(\), ownerKey\)/);
+  assert.match(route, /getPhotosBucket\(\)\.get\(photoKey\)/);
+  assert.match(route, /export async function GET/);
+  assert.doesNotMatch(route, /requireApiIdentity/);
+  assert.doesNotMatch(route, /export async function (POST|PUT|PATCH|DELETE)/);
+  assert.match(helper, /meal\.status === "complete"/);
+  assert.match(helper, /isPublicPhotoMimeType/);
+  assert.match(helper, /isWithinPublicDateRange/);
+  assert.match(helper, /"x-content-type-options": "nosniff"/);
+});
+
 test("owner failures never enable the old editable demo fallback", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
 
@@ -60,7 +78,8 @@ test("the public root keeps every owner mutation and private photo control disab
   assert.match(page, /if \(readOnly\) return;/);
   assert.match(page, /className="icon-button"/);
   assert.match(page, /className="primary-button"/);
-  assert.match(page, /\{!readOnly && meal\.photoKey/);
+  assert.match(page, /\{meal\.photoUrl && !failedPhotoUrls\.has\(meal\.photoUrl\)/);
+  assert.match(page, /\{!readOnly && editingMealId === meal\.id/);
   assert.match(page, /\{!readOnly && showWeightForm \? <form className="weight-form"/);
 });
 

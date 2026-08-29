@@ -14,7 +14,7 @@ import {
   getAdjacentDayKey,
 } from "./dashboard-calculations";
 import { getMealSwipeAction } from "./meal-swipe";
-import { photoUrlForKey } from "./photo-url";
+import { photoUrlForKey, publicPhotoUrlForMealId } from "./photo-url";
 
 type DayKey = "sun" | "mon" | "tue" | "wed" | "thu" | "fri" | "sat";
 
@@ -29,6 +29,7 @@ type Meal = {
   fat?: number;
   photoKey?: string | null;
   photoMimeType?: string | null;
+  photoUrl?: string | null;
   pending?: "creating" | "copying";
   kind: "breakfast" | "lunch" | "snack" | "dinner";
 };
@@ -66,6 +67,7 @@ type SerializedMeal = {
   totalFatG: number;
   photoKey: string | null;
   photoMimeType: string | null;
+  hasPhoto: boolean;
   items: SerializedMealItem[];
 };
 
@@ -207,6 +209,7 @@ function parseSerializedMeal(value: unknown): SerializedMeal | null {
     totalFatG: numberOr(record.totalFatG),
     photoKey: typeof record.photoKey === "string" && record.photoKey.length > 0 ? record.photoKey : null,
     photoMimeType: typeof record.photoMimeType === "string" && record.photoMimeType.length > 0 ? record.photoMimeType : null,
+    hasPhoto: record.hasPhoto === true,
     items,
   };
 }
@@ -352,7 +355,7 @@ function mealKind(value: string | null): Meal["kind"] {
   return "snack";
 }
 
-function mapRemoteMeal(meal: SerializedMeal, includePhotos = true): Meal {
+function mapRemoteMeal(meal: SerializedMeal, { publicView = false }: { publicView?: boolean } = {}): Meal {
   const kind = mealKind(meal.mealType);
   const itemNames = meal.items.map((item) => item.name).filter(Boolean);
   const name = itemNames[0] ?? meal.caption.split(",")[0]?.trim() ?? `${kind[0].toUpperCase()}${kind.slice(1)} meal`;
@@ -365,13 +368,16 @@ function mapRemoteMeal(meal: SerializedMeal, includePhotos = true): Meal {
     protein: meal.totalProteinG,
     carbs: meal.totalCarbsG,
     fat: meal.totalFatG,
-    photoKey: includePhotos ? meal.photoKey : null,
-    photoMimeType: includePhotos ? meal.photoMimeType : null,
+    photoKey: publicView ? null : meal.photoKey,
+    photoMimeType: publicView ? null : meal.photoMimeType,
+    photoUrl: publicView
+      ? meal.hasPhoto ? publicPhotoUrlForMealId(meal.id) : null
+      : photoUrlForKey(meal.photoKey),
     kind,
   };
 }
 
-function buildLiveDays(summary: DashboardSummary, includePhotos: boolean, { mode }: { mode: DateKeyMode }): Day[] {
+function buildLiveDays(summary: DashboardSummary, { mode, publicView }: { mode: DateKeyMode; publicView: boolean }): Day[] {
   const summaryDate = new Date(`${summary.date}T12:00:00.000Z`);
   const mealsByDate = new Map<string, Meal[]>();
   const weightsByDate = new Map(
@@ -380,7 +386,7 @@ function buildLiveDays(summary: DashboardSummary, includePhotos: boolean, { mode
   for (const serializedMeal of summary.recentMeals) {
     const key = dateKeyFromTimestamp(serializedMeal.consumedAt, { mode });
     const meals = mealsByDate.get(key) ?? [];
-    meals.push(mapRemoteMeal(serializedMeal, includePhotos));
+    meals.push(mapRemoteMeal(serializedMeal, { publicView }));
     mealsByDate.set(key, meals);
   }
   return Array.from({ length: 7 }, (_, index) => {
@@ -524,7 +530,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
   const [copyingMealId, setCopyingMealId] = useState<string | null>(null);
   const [mealPhotoDrafts, setMealPhotoDrafts] = useState<Record<string, File | null>>({});
   const [previewMeal, setPreviewMeal] = useState<Meal | null>(null);
-  const [failedPhotoKeys, setFailedPhotoKeys] = useState<Set<string>>(() => new Set());
+  const [failedPhotoUrls, setFailedPhotoUrls] = useState<Set<string>>(() => new Set());
   const mealCreateInFlight = useRef(false);
   const mealSaveInFlight = useRef<Set<string>>(new Set());
   const mealDeleteInFlight = useRef<string | null>(null);
@@ -676,7 +682,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
         const parsed = parseDashboardPayload(await response.json());
         if (!parsed) throw new Error("invalid_dashboard_summary");
         if (cancelled || dashboardLoadVersion.current !== requestVersion) return;
-        const liveDays = buildLiveDays(parsed, !readOnly, { mode: publicView ? "utc" : "local" });
+        const liveDays = buildLiveDays(parsed, { mode: publicView ? "utc" : "local", publicView });
         setTargets({
           calories: parsed.targets.calories ?? calorieTarget,
           proteinG: parsed.targets.proteinG ?? proteinTarget,
@@ -773,11 +779,11 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     }
   }
 
-  function markPhotoUnavailable(photoKey: string) {
-    setFailedPhotoKeys((current) => {
-      if (current.has(photoKey)) return current;
+  function markPhotoUnavailable(photoUrl: string) {
+    setFailedPhotoUrls((current) => {
+      if (current.has(photoUrl)) return current;
       const next = new Set(current);
-      next.add(photoKey);
+      next.add(photoUrl);
       return next;
     });
   }
@@ -794,7 +800,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
   }
 
   function replaceRemoteMeal(remoteMeal: SerializedMeal) {
-    const nextMeal = mapRemoteMeal(remoteMeal);
+    const nextMeal = mapRemoteMeal(remoteMeal, { publicView });
     const date = dateKeyFromTimestamp(remoteMeal.consumedAt, { mode: publicView ? "utc" : "local" });
     setDays((currentDays) => currentDays.map((day) => {
       if (day.date !== date) return day;
@@ -812,7 +818,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
   }
 
   function reconcileMeal(optimisticId: string, remoteMeal: SerializedMeal) {
-    const nextMeal = mapRemoteMeal(remoteMeal);
+    const nextMeal = mapRemoteMeal(remoteMeal, { publicView });
     const date = dateKeyFromTimestamp(remoteMeal.consumedAt, { mode: publicView ? "utc" : "local" });
     setDays((currentDays) => currentDays.map((day) => {
       const withoutOptimistic = day.meals.filter((meal) => meal.id !== optimisticId && meal.id !== nextMeal.id);
@@ -1463,7 +1469,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
                     onPointerUp={(event) => finishMealPointer(meal.id, event)}
                     onPointerCancel={(event) => cancelMealPointer(meal.id, event)}
                   >
-                    {!readOnly && meal.photoKey && !failedPhotoKeys.has(meal.photoKey) && photoUrlForKey(meal.photoKey) ? <button
+                    {meal.photoUrl && !failedPhotoUrls.has(meal.photoUrl) ? <button
                       className="meal-photo-button"
                       type="button"
                       aria-label={`View photo of ${meal.name}`}
@@ -1473,15 +1479,15 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
                         setPreviewMeal(meal);
                       }}
                     >
-                      {/* The private R2 route needs a native image element so the browser can lazy-load it. */}
+                      {/* Native images let the browser lazy-load private and public R2-backed routes. */}
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         className="meal-photo"
-                        src={photoUrlForKey(meal.photoKey) ?? undefined}
+                        src={meal.photoUrl}
                         alt={meal.name}
                         loading="lazy"
                         decoding="async"
-                        onError={() => markPhotoUnavailable(meal.photoKey as string)}
+                        onError={() => markPhotoUnavailable(meal.photoUrl as string)}
                       />
                     </button> : <div className={`meal-avatar ${meal.kind}`} aria-hidden="true">{mealPlaceholders[meal.kind]}</div>}
                     <div className="meal-info"><div className="meal-name-line"><strong>{meal.name}</strong><time>{meal.time}</time>{meal.pending === "creating" ? <span className="pending-indicator" role="status">Saving…</span> : null}{meal.pending === "copying" ? <span className="pending-indicator" role="status">Copying…</span> : null}{pendingAction?.kind === "meal-save" && pendingAction.id === meal.id ? <span className="pending-indicator" role="status">Saving…</span> : null}{pendingAction?.kind === "meal-delete" && pendingAction.id === meal.id ? <span className="pending-indicator" role="status">Deleting…</span> : null}{pendingAction?.kind === "meal-copy" && pendingAction.id === meal.id ? <span className="pending-indicator" role="status">Copying…</span> : null}</div><span>{meal.description}</span></div>
@@ -1577,14 +1583,14 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
         <div className="photo-preview-dialog" role="dialog" aria-modal="true" aria-labelledby="photo-preview-title">
           <button ref={previewCloseRef} className="close-button photo-preview-close" type="button" onClick={() => setPreviewMeal(null)} aria-label="Close photo preview">×</button>
           <div className="photo-preview-media">
-            {previewMeal.photoKey && !failedPhotoKeys.has(previewMeal.photoKey) && photoUrlForKey(previewMeal.photoKey) ? <>
+            {previewMeal.photoUrl && !failedPhotoUrls.has(previewMeal.photoUrl) ? <>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
               className="photo-preview-image"
-              src={photoUrlForKey(previewMeal.photoKey) ?? undefined}
+              src={previewMeal.photoUrl}
               alt={previewMeal.name}
               decoding="async"
-              onError={() => markPhotoUnavailable(previewMeal.photoKey as string)}
+              onError={() => markPhotoUnavailable(previewMeal.photoUrl as string)}
               />
             </> : <p className="photo-preview-fallback" role="status">Photo unavailable</p>}
           </div>

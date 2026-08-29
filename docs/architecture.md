@@ -15,15 +15,19 @@ Calocount is a single-user meal tracker. The public root is read-only, and the o
 
 The application has two dashboard entry points:
 
-- `/` is the public read-only dashboard. It loads only the explicit projection from `GET /api/public/summary`.
+- `/` is the public read-only dashboard. It loads the explicit projection from
+  `GET /api/public/summary` and projected images from `GET /meal-photos/<mealId>`.
 - `/owner` is the private read-write dashboard. It uses the existing signed-JWT owner APIs.
 
 `/api/public/summary` resolves the configured stable owner key, fails closed when
 that key is absent, returns `Cache-Control: no-store`, and removes owner keys,
-captions, notes, photos, AI fields, and other private data. All other `/api/*`
-routes are private owner routes unless a separately reviewed public exception is
-verified. The public root does not expose owner write controls or call private
-APIs.
+captions, notes, photo storage metadata, AI fields, and other private data. It
+exposes only a `hasPhoto` flag for a safe projected image. The public
+`/meal-photos/<mealId>` route rechecks the configured owner's current seven-day
+projection, streams only completed JPEG, PNG, or WebP meals from private R2, and
+requires cache revalidation. All `/api/*` routes other than the reviewed summary
+exception are private owner routes. The public root does not expose owner write
+controls or call private APIs.
 
 The PWA manifest starts at `/owner` while keeping `id` and `scope` at `/`. This
 keeps installed launches in the private owner dashboard without changing the
@@ -33,16 +37,17 @@ The production Cloudflare Access layout was live-verified on 2026-08-26. The
 existing private Access application protects exact `/owner`, `/owner/*`, and
 `/api/*` destinations with the existing owner Allow policy and the same owner
 JWT audience. A separate Access application protects the exact
-`/api/public/summary` destination with Bypass Everyone. `/` and static/PWA
-assets are public because no Access destination matches them. Do not add root or
-static bypass exceptions, a broad `/*` or `/_next/*` bypass, or an `/api/*`
-bypass.
+`/api/public/summary` destination with Bypass Everyone. `/`,
+`/meal-photos/*`, and static/PWA assets are public because no Access destination
+matches them. Do not add root or static bypass exceptions, a broad `/*` or
+`/_next/*` bypass, or an `/api/*` bypass.
 
-Anonymous and authenticated live checks passed: the public root and summary
-load without login, owner pages and private APIs require the owner Access
-session, static/PWA assets are reachable anonymously, and removed share routes
-return `404` when reached. Recheck the live Access path list after every Access
-change; this document describes the verified state, not automatic enforcement.
+Anonymous and authenticated live checks must confirm that the public root,
+summary, and projected photos load without login; owner pages, `/api/photos/*`,
+and private APIs require the owner Access session; static/PWA assets are
+reachable anonymously; and removed share routes return `404` when reached.
+Recheck the live Access path list after every Access change; this document
+describes the intended state, not automatic enforcement.
 
 ### Future route and Access review rule
 
