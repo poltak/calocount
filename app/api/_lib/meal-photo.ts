@@ -91,6 +91,33 @@ function normaliseContentType(value: string): string {
   return value.split(";", 1)[0]?.trim().toLowerCase() ?? "";
 }
 
+/** Validate downloaded or uploaded bytes against their declared image type. */
+export function validateMealPhotoBytes(
+  bytes: ArrayBuffer,
+  declaredContentType: string,
+): MealPhotoUpload {
+  if (bytes.byteLength === 0) {
+    throw new MealPhotoError(400, "invalid_photo", "The photo is empty.");
+  }
+  if (bytes.byteLength > MAX_DASHBOARD_MEAL_PHOTO_BYTES) {
+    throw new MealPhotoError(413, "payload_too_large", "The photo is too large.");
+  }
+
+  const contentType = normaliseContentType(declaredContentType);
+  if (!(SUPPORTED_MEAL_PHOTO_TYPES as readonly string[]).includes(contentType)) {
+    throw new MealPhotoError(415, "unsupported_photo_type", "The photo must be a JPEG, PNG, or WebP image.");
+  }
+  const detectedType = detectImageContentType(new Uint8Array(bytes).subarray(0, MAX_PHOTO_SIGNATURE_BYTES));
+  if (detectedType !== contentType) {
+    throw new MealPhotoError(415, "unsupported_photo_type", "The photo content does not match its image type.");
+  }
+  return {
+    bytes,
+    contentType: contentType as SupportedMealPhotoType,
+    sizeBytes: bytes.byteLength,
+  };
+}
+
 function contentLength(request: Request): number | null {
   const value = request.headers.get("content-length");
   if (!value) return null;

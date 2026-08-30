@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { drizzle } from "drizzle-orm/d1";
 import * as schema from "../db/schema";
-import { createMeal, deleteMeal, updateMeal } from "../db/repository";
+import { createMeal, createMealForExternalRequest, deleteMeal, updateMeal } from "../db/repository";
 
 type Row = Record<string, unknown>;
 
@@ -44,6 +44,7 @@ function mealRow(id: string, ownerKey = OWNER_KEY): Row {
     confidence: 0.8,
     assumptions_json: "[]",
     notes: null,
+    external_request_id: null,
     created_at: 1_700_000_000_000,
     updated_at: 1_700_000_000_000,
   };
@@ -248,6 +249,30 @@ test("createMeal batches the meal insert before one item insert and keeps totals
   assert.ok(itemInsert.values.includes(OWNER_KEY));
   assert.ok(itemInsert.values.includes("Chicken"));
   assert.ok(itemInsert.values.includes("Rice"));
+  assertNoSqlTransaction(client);
+});
+
+test("external meal writes batch conflict-safe meal and item inserts", async () => {
+  const { client, db } = createRecordingDb("meal-external-request");
+  const requestId = "c5a84680-d0c7-4af6-a4f5-89495c3923ec";
+
+  await createMealForExternalRequest(db, OWNER_KEY, requestId, {
+    name: "Chicken rice",
+    kcal: 610,
+    protein: 58,
+    carbs: 41,
+    fat: 20,
+    consumedAt: 1_700_000_000_000,
+  });
+
+  assertBatchTables(client, ["meal_logs insert", "meal_items insert"]);
+  const [mealInsert, itemInsert] = client.batches[0] ?? [];
+  assert.ok(mealInsert);
+  assert.ok(itemInsert);
+  assert.match(mealInsert.sql, /on conflict \("meal_logs"\."external_request_id"\) do nothing/i);
+  assert.match(itemInsert.sql, /on conflict \("meal_items"\."id"\) do nothing/i);
+  assert.ok(mealInsert.values.includes(requestId));
+  assert.ok(itemInsert.values.includes(`item_external_${requestId}`));
   assertNoSqlTransaction(client);
 });
 

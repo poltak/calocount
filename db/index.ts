@@ -10,7 +10,8 @@ type StringEnvKey =
   | "CALOCOUNT_ALLOWED_EMAIL"
   | "CALOCOUNT_ALLOWED_USER_ID"
   | "CALOCOUNT_ALLOW_LOCAL"
-  | "CALOCOUNT_OWNER_KEY";
+  | "CALOCOUNT_OWNER_KEY"
+  | "CALOCOUNT_CHATGPT_MEAL_TOKEN";
 
 export function getRuntimeEnv(): Env {
   return env;

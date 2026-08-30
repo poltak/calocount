@@ -133,6 +133,8 @@ export function jsonResponse(data: unknown, init?: ResponseInit): Response {
     headers: {
       "cache-control": "no-store",
       "content-type": "application/json; charset=utf-8",
+      "pragma": "no-cache",
+      "x-robots-tag": "noindex, nofollow, noarchive",
       ...init?.headers,
     },
   });

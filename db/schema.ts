@@ -74,12 +74,14 @@ export const mealLogs = sqliteTable(
     confidence: real("confidence"),
     assumptionsJson: text("assumptions_json").notNull().default("[]"),
     notes: text("notes"),
+    externalRequestId: text("external_request_id"),
     ...createdAt(),
     ...updatedAt(),
   },
   (table) => [
     index("meal_logs_owner_consumed_at_idx").on(table.ownerKey, table.consumedAt),
     index("meal_logs_owner_status_updated_idx").on(table.ownerKey, table.status, table.updatedAt),
+    uniqueIndex("meal_logs_external_request_id_idx").on(table.externalRequestId),
   ],
 );
 

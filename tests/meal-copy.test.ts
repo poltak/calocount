@@ -60,6 +60,7 @@ function mealRow({
     confidence: 0.8,
     assumptions_json: '["portion estimated"]',
     notes: "Lunch after training",
+    external_request_id: null,
     created_at: 1_700_000_000_000,
     updated_at: 1_700_000_000_000,
   };
@@ -322,6 +323,7 @@ test("copyMeal creates fresh IDs, copies meal fields and items, and preserves th
     confidence: sourceMeal.confidence,
     assumptionsJson: sourceMeal.assumptions_json,
     notes: sourceMeal.notes,
+    externalRequestId: null,
     createdAt: sourceMeal.created_at,
     updatedAt: sourceMeal.updated_at,
   });

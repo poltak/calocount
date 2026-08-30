@@ -54,6 +54,25 @@ Open `http://localhost:3000`.
 
 The owner dashboard waits for live API data and fails closed when local D1 or owner authentication is not ready. Set `CALOCOUNT_ALLOW_LOCAL=true` only in `.dev.vars` while running a configured local stack. Production must set `CALOCOUNT_ALLOW_LOCAL=false` and use a valid, signed Cloudflare Access JWT. Identity headers by themselves are not trusted. The public root uses only `/api/public/summary` and `/meal-photos/*`; it does not fall back to owner or demo data.
 
+The optional ChatGPT meal action uses `CALOCOUNT_CHATGPT_MEAL_TOKEN` from `.dev.vars`. Set a long random value in the local file (the example file contains a placeholder). For production, store it as a Worker secret:
+
+```bash
+npx wrangler secret put CALOCOUNT_CHATGPT_MEAL_TOKEN
+```
+
+Do not put this token in `wrangler.jsonc` or in application links. The endpoint is `POST /api/add-meal`. Send the token only in an `Authorization: Bearer <token>` header and send a JSON body with `request_id`, `name`, `kcal`, `protein`, `carbs`, `fat`, and ISO-8601 `eaten_at` values. `request_id` is a UUID idempotency key: repeating it returns the original meal without creating another entry.
+
+ChatGPT image actions may also send `openaiFileIdRefs` as an array of file reference objects. The endpoint accepts the first valid HTTPS JPEG, PNG, or WebP reference from an approved OpenAI file host, downloads it immediately, and stores it with the meal. Temporary links are never stored. A photo is limited to 10 MiB.
+
+For a local smoke test, use a new UUID and the token from `.dev.vars`:
+
+```bash
+curl -i http://localhost:3000/api/add-meal \
+  -H 'Authorization: Bearer replace-with-a-long-random-secret' \
+  -H 'Content-Type: application/json' \
+  --data '{"request_id":"c5a84680-d0c7-4af6-a4f5-89495c3923ec","name":"Chicken rice and morning glory","kcal":610,"protein":58,"carbs":41,"fat":20,"eaten_at":"2026-08-30T18:25:00+07:00"}'
+```
+
 ## Local D1
 
 Apply the migration to the local D1 database:

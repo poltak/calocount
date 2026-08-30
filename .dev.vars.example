@@ -1,6 +1,8 @@
 # Set this only for local development. Production must use Cloudflare Access.
 CALOCOUNT_ALLOW_LOCAL=true
 CALOCOUNT_OWNER_KEY=local-owner
+# Long random secret used only by POST /api/add-meal. Never commit a real value.
+CALOCOUNT_CHATGPT_MEAL_TOKEN=replace-with-a-long-random-secret
 
 # Cloudflare Access values used when CALOCOUNT_ALLOW_LOCAL=false.
 CALOCOUNT_ACCESS_TEAM_DOMAIN=

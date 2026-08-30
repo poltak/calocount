@@ -39,6 +39,7 @@ export type MealItemInput = {
 export type MealInput = {
   id?: string;
   consumedAt?: number;
+  externalRequestId?: string | null;
   source?: string;
   caption?: string;
   mealType?: string | null;
@@ -59,6 +60,11 @@ export type MealPatch = Partial<MealInput> & {
 export type MealWithItems = {
   meal: typeof mealLogs.$inferSelect;
   items: Array<typeof mealItems.$inferSelect>;
+};
+
+export type ExternalMealResult = {
+  created: boolean;
+  meal: MealWithItems;
 };
 
 export type DailyWeightInput = {
@@ -401,6 +407,33 @@ export async function findMeal(db: AppDb, ownerKey: string, mealId: string): Pro
   return { meal, items };
 }
 
+export async function findMealByExternalRequestId(
+  db: AppDb,
+  ownerKey: string,
+  externalRequestId: string,
+): Promise<MealWithItems | null> {
+  const meal = await db
+    .select()
+    .from(mealLogs)
+    .where(and(
+      eq(mealLogs.ownerKey, ownerKey),
+      eq(mealLogs.externalRequestId, externalRequestId),
+    ))
+    .limit(1)
+    .prepare()
+    .get();
+  if (!meal) return null;
+
+  const items = await db
+    .select()
+    .from(mealItems)
+    .where(and(eq(mealItems.ownerKey, ownerKey), eq(mealItems.mealId, meal.id)))
+    .orderBy(desc(mealItems.createdAt))
+    .prepare()
+    .all();
+  return { meal, items };
+}
+
 export type CopyMealOptions = {
   consumedAt?: number;
 };
@@ -480,6 +513,7 @@ export async function createMeal(db: AppDb, ownerKey: string, input: MealInput):
     confidence: input.confidence ?? null,
     assumptionsJson: safeJson(input.assumptions, []),
     notes: input.notes ?? null,
+    externalRequestId: input.externalRequestId ?? null,
     createdAt: timestamp,
     updatedAt: timestamp,
   });
@@ -500,6 +534,74 @@ export async function createMeal(db: AppDb, ownerKey: string, input: MealInput):
   const created = await findMeal(db, ownerKey, mealId);
   if (!created) throw new Error("meal_create_failed");
   return created;
+}
+
+/**
+ * Create the single-item meal used by the ChatGPT Action integration.
+ *
+ * Both rows use deterministic IDs derived from the UUID. D1 batches are
+ * atomic, and both inserts ignore conflicts, so concurrent retries cannot
+ * create duplicate meals or items. A retry can also repair an item that was
+ * absent from an older partially-created row.
+ */
+export async function createMealForExternalRequest(
+  db: AppDb,
+  ownerKey: string,
+  externalRequestId: string,
+  input: Omit<MealInput, "externalRequestId" | "id" | "items"> & {
+    name: string;
+    kcal: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+  },
+): Promise<ExternalMealResult> {
+  const mealId = `meal_external_${externalRequestId}`;
+  const itemId = `item_external_${externalRequestId}`;
+  const timestamp = nowMs();
+  const mealInsert = db.insert(mealLogs).values({
+    id: mealId,
+    ownerKey,
+    consumedAt: input.consumedAt ?? timestamp,
+    source: input.source?.trim() || "chatgpt",
+    caption: input.caption?.trim() || input.name.trim(),
+    mealType: input.mealType ?? null,
+    status: input.status?.trim() || "complete",
+    photoKey: input.photoKey ?? null,
+    photoMimeType: input.photoMimeType ?? null,
+    photoSizeBytes: input.photoSizeBytes ?? null,
+    totalCalories: input.kcal,
+    totalProteinG: input.protein,
+    totalCarbsG: input.carbs,
+    totalFatG: input.fat,
+    confidence: input.confidence ?? null,
+    assumptionsJson: safeJson(input.assumptions, []),
+    notes: input.notes ?? null,
+    externalRequestId,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  }).onConflictDoNothing({ target: mealLogs.externalRequestId }).returning();
+  const itemInsert = db.insert(mealItems).values({
+    id: itemId,
+    mealId,
+    ownerKey,
+    name: input.name.trim(),
+    quantity: 1,
+    unit: "serving",
+    calories: input.kcal,
+    proteinG: input.protein,
+    carbsG: input.carbs,
+    fatG: input.fat,
+    confidence: null,
+    source: input.source?.trim() || "chatgpt",
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  }).onConflictDoNothing({ target: mealItems.id });
+
+  const [insertedMeals] = await db.batch([mealInsert, itemInsert]);
+  const meal = await findMealByExternalRequestId(db, ownerKey, externalRequestId);
+  if (!meal) throw new Error("external_meal_create_failed");
+  return { created: insertedMeals.length > 0, meal };
 }
 
 export async function updateMeal(
