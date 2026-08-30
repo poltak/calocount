@@ -267,7 +267,12 @@ async function authenticate(request: Request, expectedToken: string | undefined)
   }
 }
 
-function responseForMeal(status: "created" | "already_exists", entry: MealWithItems, requestId: string): Response {
+function responseForMeal(
+  status: "created" | "already_exists",
+  entry: MealWithItems,
+  requestId: string,
+  photoStatus?: "download_failed",
+): Response {
   const meal = entry.meal;
   return Response.json({
     status,
@@ -280,6 +285,7 @@ function responseForMeal(status: "created" | "already_exists", entry: MealWithIt
     fat: meal.totalFatG,
     eaten_at: new Date(meal.consumedAt).toISOString(),
     has_image: Boolean(meal.photoKey),
+    ...(photoStatus ? { photo_status: photoStatus } : {}),
   }, {
     status: status === "created" ? 201 : 200,
     headers: ENDPOINT_HEADERS,
@@ -405,13 +411,20 @@ export async function handleAddMealRequest(
   }
 
   let uploaded: StoredAddMealPhoto | null = null;
+  let photoDownloadFailed = false;
   try {
     if (input.imageRef) {
       if (!options.fetchImage || !options.uploadPhoto) {
         throw new AddMealRequestError(503, "photos_unavailable", "Photo storage is not configured.");
       }
-      const photo = await downloadOpenAIPhoto(input.imageRef, options.fetchImage);
-      uploaded = await options.uploadPhoto(ownerKey, input.requestId, photo);
+      let photo: MealPhotoUpload | null = null;
+      try {
+        photo = await downloadOpenAIPhoto(input.imageRef, options.fetchImage);
+      } catch (error) {
+        if (!(error instanceof AddMealRequestError) || error.code !== "image_download_failed") throw error;
+        photoDownloadFailed = true;
+      }
+      if (photo) uploaded = await options.uploadPhoto(ownerKey, input.requestId, photo);
     }
 
     const result = await options.createMeal(ownerKey, input, uploaded);
@@ -419,7 +432,15 @@ export async function handleAddMealRequest(
       await cleanupPhoto(uploaded, options.deletePhoto);
       uploaded = null;
     }
-    return responseForMeal(result.created ? "created" : "already_exists", result.meal, input.requestId);
+    const responsePhotoStatus = photoDownloadFailed && !result.meal.meal.photoKey
+      ? "download_failed"
+      : undefined;
+    return responseForMeal(
+      result.created ? "created" : "already_exists",
+      result.meal,
+      input.requestId,
+      responsePhotoStatus,
+    );
   } catch (error) {
     await cleanupPhoto(uploaded, options.deletePhoto);
     throw error;

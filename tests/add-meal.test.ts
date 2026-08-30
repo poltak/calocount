@@ -204,6 +204,78 @@ test("downloads and stores the first valid OpenAI image reference", async () => 
   assert.equal((await response.json() as Record<string, unknown>).has_image, true);
 });
 
+test("records the meal and reports a failed image download", async () => {
+  let createCalls = 0;
+  let savedPhoto: StoredAddMealPhoto | null = null;
+  const response = await handler(
+    async (ownerKey, input, photo) => {
+      createCalls += 1;
+      savedPhoto = photo;
+      return { created: true, meal: entry(ownerKey, input, undefined, photo) };
+    },
+    mealBody({ openaiFileIdRefs: [imageRef()] }),
+    {
+      fetchImage: async () => {
+        throw new Error("network down");
+      },
+      uploadPhoto: async () => {
+        throw new Error("must not upload when download fails");
+      },
+    },
+  );
+
+  assert.equal(response.status, 201);
+  assert.deepEqual(await response.json(), {
+    status: "created",
+    meal_id: `meal-${REQUEST_ID}`,
+    request_id: REQUEST_ID,
+    name: "Chicken rice and morning glory",
+    kcal: 610,
+    protein: 58,
+    carbs: 41,
+    fat: 20,
+    eaten_at: "2026-08-30T11:25:00.000Z",
+    has_image: false,
+    photo_status: "download_failed",
+  });
+  assert.equal(createCalls, 1);
+  assert.equal(savedPhoto, null);
+});
+
+test("does not retry a failed image download after the meal UUID is stored", async () => {
+  let existing: MealWithItems | null = null;
+  let fetchCalls = 0;
+  let createCalls = 0;
+  const body = mealBody({ openaiFileIdRefs: [imageRef()] });
+  const options = {
+    findExistingMeal: async () => existing,
+    fetchImage: async () => {
+      fetchCalls += 1;
+      throw new Error("network down");
+    },
+    uploadPhoto: async () => {
+      throw new Error("must not upload when download fails");
+    },
+  } satisfies Partial<Omit<AddMealHandlerOptions, "createMeal" | "expectedToken" | "ownerKey" | "body">>;
+
+  const first = await handler(async (ownerKey, input, photo) => {
+    createCalls += 1;
+    existing = entry(ownerKey, input, "meal-without-photo", photo);
+    return { created: true, meal: existing };
+  }, body, options);
+  const retry = await handler(async () => {
+    createCalls += 1;
+    throw new Error("the idempotency pre-check should return first");
+  }, body, options);
+
+  assert.equal(first.status, 201);
+  assert.equal((await first.json() as Record<string, unknown>).photo_status, "download_failed");
+  assert.equal(retry.status, 200);
+  assert.equal((await retry.json() as Record<string, unknown>).has_image, false);
+  assert.equal(fetchCalls, 1);
+  assert.equal(createCalls, 1);
+});
+
 test("requires a valid Bearer token and checks it before reading the body", async () => {
   let readCalls = 0;
   let createCalls = 0;
@@ -340,25 +412,12 @@ test("rejects unsafe or unsupported image references before download", async () 
   assert.equal(fetchCalls, 0);
 });
 
-test("maps failed, mismatched, and oversized image downloads to safe errors", async () => {
+test("keeps invalid image and oversized downloads as hard errors", async () => {
   const uploadPhoto = async (_ownerKey: string, _requestId: string, photo: MealPhotoUpload) => ({
     key: "photo-test",
     mimeType: photo.contentType,
     sizeBytes: photo.sizeBytes,
   });
-  await assert.rejects(
-    () => handler(async () => {
-      throw new Error("must not create");
-    }, mealBody({ openaiFileIdRefs: [imageRef()] }), {
-      fetchImage: async () => {
-        throw new Error("network down");
-      },
-      uploadPhoto,
-    }),
-    (error: unknown) => error instanceof AddMealRequestError
-      && error.status === 502 && error.code === "image_download_failed",
-  );
-
   await assert.rejects(
     () => handler(async () => {
       throw new Error("must not create");
