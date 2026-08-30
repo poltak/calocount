@@ -14,6 +14,7 @@ const MAX_MACRO = 10_000;
 const MAX_OPENAI_FILE_REFS = 20;
 const ISO_DATETIME = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,9}))?(Z|[+-](\d{2}):(\d{2}))$/u;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
+const OPENAI_FILE_BASE_DOMAIN = "oaiusercontent.com";
 const OPENAI_FILE_HOSTS = new Set([
   "files.oaiusercontent.com",
   "files.openai.com",
@@ -162,6 +163,11 @@ function supportedContentType(value: unknown): SupportedMealPhotoType | null {
     : null;
 }
 
+function isAllowedOpenAIFileHost(hostname: string): boolean {
+  return OPENAI_FILE_HOSTS.has(hostname)
+    || hostname.endsWith(`.${OPENAI_FILE_BASE_DOMAIN}`);
+}
+
 function safeOpenAIFileUrl(value: unknown): string | null {
   if (typeof value !== "string" || !value.trim()) return null;
   let parsed: URL;
@@ -177,7 +183,7 @@ function safeOpenAIFileUrl(value: unknown): string | null {
     || parsed.port
     || !parsed.pathname
     || parsed.pathname === "/"
-    || !OPENAI_FILE_HOSTS.has(parsed.hostname.toLowerCase())
+    || !isAllowedOpenAIFileHost(parsed.hostname.toLowerCase())
   ) return null;
   return parsed.toString();
 }

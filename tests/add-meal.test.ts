@@ -288,6 +288,32 @@ test("rejects invalid JSON body values, duplicate-like values, and missing eaten
   assert.equal(calls, 0);
 });
 
+test("accepts regional OpenAI image hosts and rejects deceptive lookalikes", () => {
+  const regionalLink = "https://sdmntpraustraliaeast.oaiusercontent.com/file-123?sig=temporary";
+  const regionalRequest = parseAddMealRequest(mealBody({
+    openaiFileIdRefs: [imageRef({ download_link: regionalLink })],
+  }), NOW);
+  assert.equal(regionalRequest.imageRef?.downloadLink, regionalLink);
+
+  const legacyLink = "https://files.openai.com/file-123?sig=temporary";
+  const legacyRequest = parseAddMealRequest(mealBody({
+    openaiFileIdRefs: [imageRef({ download_link: legacyLink })],
+  }), NOW);
+  assert.equal(legacyRequest.imageRef?.downloadLink, legacyLink);
+
+  for (const downloadLink of [
+    "https://oaiusercontent.com/file-123",
+    "https://eviloaiusercontent.com/file-123",
+    "https://oaiusercontent.com.evil.example/file-123",
+  ]) {
+    assert.throws(
+      () => parseAddMealRequest(mealBody({ openaiFileIdRefs: [imageRef({ download_link: downloadLink })] }), NOW),
+      (error: unknown) => error instanceof AddMealRequestError
+        && error.status === 400 && error.code === "invalid_image_refs",
+    );
+  }
+});
+
 test("rejects unsafe or unsupported image references before download", async () => {
   const refs = [
     imageRef({ mime_type: "image/gif" }),
