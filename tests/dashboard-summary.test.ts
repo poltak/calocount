@@ -263,6 +263,7 @@ test("dashboard summary returns all seven-day meals, weights, and matching total
   const expectedCalories = expectedMeals.reduce((total, meal) => total + Number(meal.total_calories), 0);
   const expectedProtein = expectedMeals.reduce((total, meal) => total + Number(meal.total_protein_g), 0);
   const todayMeals = expectedMeals.filter((meal) => Number(meal.consumed_at) >= start.getTime());
+  const completedDayMeals = expectedMeals.filter((meal) => Number(meal.consumed_at) < start.getTime());
 
   assert.equal(summary.recentMeals.length, 14);
   assert.deepEqual(
@@ -277,8 +278,8 @@ test("dashboard summary returns all seven-day meals, weights, and matching total
   assert.equal(summary.today.mealCount, 2);
   assert.equal(summary.sevenDay.calories, expectedCalories);
   assert.equal(summary.sevenDay.proteinG, expectedProtein);
-  assert.equal(summary.sevenDay.averageCalories, expectedCalories / 7);
-  assert.equal(summary.sevenDay.averageProteinG, expectedProtein / 7);
+  assert.equal(summary.sevenDay.averageCalories, completedDayMeals.reduce((total, meal) => total + Number(meal.total_calories), 0) / 6);
+  assert.equal(summary.sevenDay.averageProteinG, completedDayMeals.reduce((total, meal) => total + Number(meal.total_protein_g), 0) / 6);
   assert.equal(summary.sevenDay.daysWithMeals, 7);
   assert.ok(!summary.recentMeals.some(({ meal }) => ["outside-before", "outside-after", "other-owner"].includes(meal.id)));
   assert.equal(summary.recentWeights.length, 7);
@@ -289,6 +290,38 @@ test("dashboard summary returns all seven-day meals, weights, and matching total
     )),
   );
   assert.ok(!summary.recentWeights.some((weight) => weight.id === "outside-weight" || weight.id === "other-owner-weight"));
+});
+
+test("dashboard summary applies the 9pm cutoff in the requested timezone", async () => {
+  const meals = [
+    ...Array.from({ length: 6 }, (_, index) => {
+      const date = `2026-08-${String(24 + index).padStart(2, "0")}`;
+      return mealRow(`meal-${date}`, OWNER_KEY, Date.parse(`${date}T05:00:00.000Z`), 1_000, 100);
+    }),
+    mealRow("meal-2026-08-30", OWNER_KEY, Date.parse("2026-08-30T05:00:00.000Z"), 2_000, 200),
+  ];
+
+  async function load(now: string) {
+    const db = drizzle(
+      new SummaryD1Database(meals, settingsRow(OWNER_KEY), []) as unknown as D1Database,
+      { schema },
+    );
+    return getDashboardSummary(db, OWNER_KEY, {
+      now: new Date(now),
+      timezone: "Asia/Ho_Chi_Minh",
+    });
+  }
+
+  const beforeCutoff = await load("2026-08-30T13:59:59.000Z");
+  const atCutoff = await load("2026-08-30T14:00:00.000Z");
+
+  assert.equal(beforeCutoff.date, "2026-08-30");
+  assert.equal(beforeCutoff.sevenDay.calories, 8_000);
+  assert.equal(beforeCutoff.sevenDay.averageCalories, 1_000);
+  assert.equal(beforeCutoff.sevenDay.averageProteinG, 100);
+  assert.equal(atCutoff.sevenDay.calories, 8_000);
+  assert.equal(atCutoff.sevenDay.averageCalories, 8_000 / 7);
+  assert.equal(atCutoff.sevenDay.averageProteinG, 800 / 7);
 });
 
 test("dashboard summary uses the requested timezone for local day boundaries and grouping", async () => {

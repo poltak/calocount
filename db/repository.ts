@@ -702,6 +702,15 @@ export async function getDashboardSummary(db: AppDb, ownerKey: string, options: 
     (total, day) => ({ calories: total.calories + day.calories, proteinG: total.proteinG + day.proteinG }),
     { calories: 0, proteinG: 0 },
   );
+  const currentHour = zonedDateParts(formatter, now.getTime()).hour;
+  const averageDays = currentHour >= 21
+    ? days
+    : new Map([...days].filter(([date]) => date !== logicalDate));
+  const average = [...averageDays.values()].reduce(
+    (total, day) => ({ calories: total.calories + day.calories, proteinG: total.proteinG + day.proteinG }),
+    { calories: 0, proteinG: 0 },
+  );
+  const averageDayCount = currentHour >= 21 ? 7 : 6;
 
   return {
     date: logicalDate,
@@ -719,8 +728,8 @@ export async function getDashboardSummary(db: AppDb, ownerKey: string, options: 
     sevenDay: {
       calories: sevenDay.calories,
       proteinG: sevenDay.proteinG,
-      averageCalories: sevenDay.calories / 7,
-      averageProteinG: sevenDay.proteinG / 7,
+      averageCalories: average.calories / averageDayCount,
+      averageProteinG: average.proteinG / averageDayCount,
       daysWithMeals: days.size,
     },
     recentMeals,

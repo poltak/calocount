@@ -8,6 +8,7 @@ import {
   calculateLoggingStreak,
   calculateMacroPercentages,
   calculateMacroTrend,
+  calculateSevenDayAverage,
   calculateTargetPercent,
   calculateWeightChartScale,
   compareAverageToTarget,
@@ -555,7 +556,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
   const remainingProtein = activeProteinTarget - totalProtein;
 
   const chartValues = useMemo(
-    () => days.map((day) => ({ label: `${day.weekday.slice(0, 3)} ${day.shortDate}`, value: day.calories })),
+    () => days.map((day) => ({ date: day.date, label: `${day.weekday.slice(0, 3)} ${day.shortDate}`, value: day.calories })),
     [days],
   );
 
@@ -595,8 +596,12 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
   const hasMacroTrendData = macroTrendValues.some((day) => day.hasData);
 
   const averageCalories = useMemo(
-    () => chartValues.length === 0 ? 0 : Math.round(chartValues.reduce((total, day) => total + day.value, 0) / chartValues.length),
-    [chartValues],
+    () => calculateSevenDayAverage({
+      days: chartValues,
+      currentDate: chartValues[chartValues.length - 1]?.date ?? "",
+      timeZone: publicView ? "UTC" : browserTimeZone(),
+    }),
+    [chartValues, publicView],
   );
 
   const averageComparison = useMemo(

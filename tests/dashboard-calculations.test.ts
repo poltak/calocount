@@ -6,6 +6,7 @@ import {
   calculateLoggingStreak,
   calculateMacroPercentages,
   calculateMacroTrend,
+  calculateSevenDayAverage,
   calculateTargetPercent,
   calculateWeightChartScale,
   compareAverageToTarget,
@@ -157,6 +158,34 @@ test("average comparison reports relative distance from target", () => {
   assert.deepEqual(compareAverageToTarget(2300, 2400), { direction: "below", percentage: 4 });
   assert.deepEqual(compareAverageToTarget(2500, 2400), { direction: "above", percentage: 4 });
   assert.deepEqual(compareAverageToTarget(2400, 2400), { direction: "at", percentage: 0 });
+});
+
+test("seven-day average excludes the current local day before 9pm", () => {
+  const days = [
+    ...Array.from({ length: 6 }, (_, index) => ({ date: `2026-08-${String(24 + index).padStart(2, "0")}`, value: 1_000 })),
+    { date: "2026-08-30", value: 2_000 },
+  ];
+
+  assert.equal(calculateSevenDayAverage({
+    days,
+    currentDate: "2026-08-30",
+    now: new Date("2026-08-30T13:59:59.000Z"),
+    timeZone: "Asia/Ho_Chi_Minh",
+  }), 1_000);
+});
+
+test("seven-day average includes the current local day at 9pm", () => {
+  const days = [
+    ...Array.from({ length: 6 }, (_, index) => ({ date: `2026-08-${String(24 + index).padStart(2, "0")}`, value: 1_000 })),
+    { date: "2026-08-30", value: 2_000 },
+  ];
+
+  assert.equal(calculateSevenDayAverage({
+    days,
+    currentDate: "2026-08-30",
+    now: new Date("2026-08-30T14:00:00.000Z"),
+    timeZone: "Asia/Ho_Chi_Minh",
+  }), 1_143);
 });
 
 test("target progress is safe when the target is zero", () => {

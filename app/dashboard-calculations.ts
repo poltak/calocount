@@ -31,6 +31,18 @@ export type AverageComparison = {
   percentage: number;
 };
 
+export type SevenDayAverageInput = {
+  date: string;
+  value: number;
+};
+
+export type SevenDayAverageOptions = {
+  days: readonly SevenDayAverageInput[];
+  currentDate: string;
+  now?: Date;
+  timeZone: string;
+};
+
 export type AdjacentDirection = "previous" | "next";
 
 export type CalorieChartScale = {
@@ -59,6 +71,7 @@ const calorieChartTickStep = 100;
 const calorieChartHeadroomPercent = 10;
 const calorieChartGridLineTopPercents = [23, 46, 69] as const;
 const defaultCalorieChartTicks = [2600, 2000, 1400, 800, 0] as const;
+const sevenDayAverageCutoffHour = 21;
 
 function nonNegativeFinite(value: number) {
   return Number.isFinite(value) ? Math.max(0, value) : 0;
@@ -216,6 +229,29 @@ export function compareAverageToTarget(averageCalories: number, targetCalories: 
     direction: difference < 0 ? "below" : "above",
     percentage: Math.round((Math.abs(difference) / target) * 100),
   };
+}
+
+function hourInTimeZone(now: Date, timeZone: string) {
+  try {
+    const hour = new Intl.DateTimeFormat("en-US", {
+      hour: "2-digit",
+      hourCycle: "h23",
+      timeZone,
+    }).formatToParts(now).find((part) => part.type === "hour")?.value;
+    return Number(hour ?? Number.NaN);
+  } catch {
+    return now.getHours();
+  }
+}
+
+export function calculateSevenDayAverage({ days, currentDate, now = new Date(), timeZone }: SevenDayAverageOptions) {
+  const includeCurrentDay = hourInTimeZone(now, timeZone) >= sevenDayAverageCutoffHour;
+  const includedDays = includeCurrentDay
+    ? days
+    : days.filter((day) => day.date !== currentDate);
+  if (includedDays.length === 0) return 0;
+
+  return Math.round(includedDays.reduce((total, day) => total + nonNegativeFinite(day.value), 0) / includedDays.length);
 }
 
 export function getAdjacentDayKey<T extends { key: string }>(
