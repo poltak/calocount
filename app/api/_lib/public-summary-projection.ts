@@ -1,4 +1,6 @@
 import type { getDashboardSummary } from "../../../db/repository";
+import { resolveNutrientGoals } from "../../../domain/nutrient-goals";
+import { NUTRIENT_KEYS, nullableNutrientValue, type NutrientValues } from "../../../domain/nutrients";
 import { isPublicPhotoMimeType, isWithinPublicDateRange } from "./public-photo-policy";
 
 type DashboardSummary = Awaited<ReturnType<typeof getDashboardSummary>>;
@@ -11,6 +13,7 @@ type PublicMealItem = {
   proteinG: number;
   carbsG: number;
   fatG: number;
+  nutrients: NutrientValues;
 };
 
 type PublicMeal = {
@@ -59,15 +62,20 @@ function publicMeal(entry: DashboardSummary["recentMeals"][number]): PublicMeal 
     totalProteinG: entry.meal.totalProteinG,
     totalCarbsG: entry.meal.totalCarbsG,
     totalFatG: entry.meal.totalFatG,
-    items: entry.items.map((item) => ({
-      name: item.name,
-      quantity: item.quantity,
-      unit: item.unit,
-      calories: item.calories,
-      proteinG: item.proteinG,
-      carbsG: item.carbsG,
-      fatG: item.fatG,
-    })),
+    items: entry.items.map((item) => {
+      const nutrients = {} as NutrientValues;
+      for (const key of NUTRIENT_KEYS) nutrients[key] = nullableNutrientValue(item[key]);
+      return {
+        name: item.name,
+        quantity: item.quantity,
+        unit: item.unit,
+        calories: item.calories,
+        proteinG: item.proteinG,
+        carbsG: item.carbsG,
+        fatG: item.fatG,
+        nutrients,
+      };
+    }),
   };
 }
 
@@ -111,6 +119,14 @@ function publicTrend(summary: DashboardSummary): PublicTrendDay[] {
   ));
 }
 
+function publicNutrientGoals(summary: DashboardSummary) {
+  const goals = summary.targets.nutrients ?? resolveNutrientGoals();
+  return Object.fromEntries(NUTRIENT_KEYS.map((key) => {
+    const goal = goals[key];
+    return [key, { value: goal.value, direction: goal.direction }];
+  }));
+}
+
 /**
  * Build the deliberately small contract used by the anonymous root dashboard.
  * Keep this explicit: private database fields must not cross this boundary.
@@ -121,6 +137,7 @@ export function projectPublicDashboardSummary(summary: DashboardSummary) {
     targets: {
       calories: summary.targets.calories,
       proteinG: summary.targets.proteinG,
+      nutrients: publicNutrientGoals(summary),
     },
     today: {
       calories: summary.today.calories,
@@ -137,6 +154,7 @@ export function projectPublicDashboardSummary(summary: DashboardSummary) {
       daysWithMeals: summary.sevenDay.daysWithMeals,
       trend: publicTrend(summary),
     },
+    nutrition: summary.nutrition,
     recentMeals: summary.recentMeals.filter((entry) => (
       entry.meal.status === "complete"
       && isWithinPublicDateRange({ consumedAt: entry.meal.consumedAt, summaryDate: summary.date })

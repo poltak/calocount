@@ -27,6 +27,10 @@ const SYSTEM_PROMPT = [
   "Return only JSON that matches the supplied meal analysis schema.",
   "Use sensible portions. State uncertainty in assumptions and confidence.",
   "Do not give medical advice. Use null for a macro that cannot be estimated.",
+  "Return all 24 nutrient fields inside each item's nutrients object.",
+  "Use null when the image or description does not support a nutrient estimate.",
+  "Use zero only when the value is known to be zero. Do not invent precision.",
+  "Treat omega-3 as part of polyunsaturated fat and estimate each item before meal totals.",
   "Include every visible or described food as a separate item.",
 ].join(" ");
 

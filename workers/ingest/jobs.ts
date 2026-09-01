@@ -1,4 +1,5 @@
 import { parseTelegramMealMessage } from "./telegram";
+import { NUTRIENT_KEYS, nutrientDbColumn } from "../../domain/nutrients";
 import type {
   AiTrace,
   AiProfileConfig,
@@ -24,6 +25,9 @@ function confidenceScore(value: string): number {
   if (value === "medium") return 0.5;
   return 0.25;
 }
+
+const NUTRIENT_COLUMNS = NUTRIENT_KEYS.map(nutrientDbColumn).join(", ");
+const NUTRIENT_PLACEHOLDERS = NUTRIENT_KEYS.map(() => "?").join(", ");
 
 export interface EnsureJobResult {
   readonly job: StoredAnalysisJob;
@@ -399,8 +403,8 @@ export async function saveMealAndTrace(
       .prepare(
         `INSERT INTO meal_items
          (id, meal_id, owner_key, name, quantity, unit, calories,
-          protein_g, carbs_g, fat_g, confidence, source, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ai', ?, ?)`,
+          protein_g, carbs_g, fat_g, ${NUTRIENT_COLUMNS}, confidence, source, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ${NUTRIENT_PLACEHOLDERS}, ?, 'ai', ?, ?)`,
       )
       .bind(
         crypto.randomUUID(),
@@ -413,6 +417,7 @@ export async function saveMealAndTrace(
         item.proteinGrams,
         item.carbsGrams ?? 0,
         item.fatGrams ?? 0,
+        ...NUTRIENT_KEYS.map((key) => item.nutrients[key]),
         confidenceScore(item.confidence),
         timestamp,
         timestamp,

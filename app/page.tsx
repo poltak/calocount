@@ -3,6 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, FormEvent, PointerEvent as ReactPointerEvent } from "react";
 
+import { resolveNutrientGoals } from "../domain/nutrient-goals";
+import type { NutrientKey } from "../domain/nutrients";
+
 import {
   calculateCalorieChartScale,
   calculateLoggingStreak,
@@ -16,6 +19,26 @@ import {
 } from "./dashboard-calculations";
 import { getMealSwipeAction } from "./meal-swipe";
 import { photoUrlForKey, publicPhotoUrlForMealId } from "./photo-url";
+import {
+  aggregateNutrientValues,
+  nutrientKeys,
+  parseNutrientGoalMap,
+  parseNutrientAggregateMap,
+  parseNutrientValue,
+  type NutrientAggregateMap,
+  type NutrientGoalMap,
+  type NutrientValueMap,
+} from "./nutrition/nutrient-meta";
+import {
+  NutrientGoalSettings,
+  nutrientGoalDraftFromMap,
+  nutrientGoalOverridesFromDraft,
+  type NutrientGoalDraft,
+} from "./nutrition/nutrient-goal-settings";
+import { MealNutritionDetails, type NutritionItem } from "./nutrition/meal-nutrition-details";
+import { MealNutritionEditor, nutrientValuesFromForm } from "./nutrition/meal-nutrition-editor";
+import { NutrientTrendPanel } from "./nutrition/nutrient-trend-panel";
+import { NutritionOverview } from "./nutrition/nutrition-overview";
 
 type DayKey = "sun" | "mon" | "tue" | "wed" | "thu" | "fri" | "sat";
 
@@ -31,6 +54,7 @@ type Meal = {
   photoKey?: string | null;
   photoMimeType?: string | null;
   photoUrl?: string | null;
+  items: NutritionItem[];
   pending?: "creating" | "copying";
   kind: "breakfast" | "lunch" | "snack" | "dinner";
 };
@@ -44,16 +68,23 @@ type Day = {
   protein: number;
   carbs?: number;
   fat?: number;
+  nutrients?: NutrientAggregateMap;
   meals: Meal[];
   weight?: DailyWeight | null;
 };
 
-type SerializedMealItem = {
+type SerializedMealItem = NutritionItem & {
+  id?: string;
   name: string;
+  quantity?: number | null;
+  unit?: string | null;
   calories: number;
   proteinG: number;
   carbsG: number;
   fatG: number;
+  nutrients?: NutrientValueMap;
+  confidence?: string | number | null;
+  source?: string | null;
 };
 
 type SerializedMeal = {
@@ -80,7 +111,7 @@ type DailyWeight = {
 
 type DashboardSummary = {
   date: string;
-  targets: { calories: number | null; proteinG: number | null };
+  targets: { calories: number | null; proteinG: number | null; nutrients: NutrientGoalMap };
   today: {
     calories: number;
     proteinG: number;
@@ -97,10 +128,15 @@ type DashboardSummary = {
   };
   recentMeals: SerializedMeal[];
   recentWeights: DailyWeight[];
+  nutrition?: {
+    today: NutrientAggregateMap;
+    sevenDay: NutrientAggregateMap;
+    byDate: Array<{ date: string; nutrients: NutrientAggregateMap }>;
+  };
 };
 
 type DataMode = "loading" | "live" | "error";
-type DashboardSection = "today" | "meals" | "trend" | "macros";
+type DashboardSection = "today" | "meals" | "trend" | "macros" | "nutrition";
 type DateKeyMode = "local" | "utc";
 type PendingActionKind =
   | "meal-create"
@@ -124,6 +160,27 @@ type MealSwipeStart = {
 
 const calorieTarget = 2400;
 const proteinTarget = 160;
+const defaultNutrientTargets = resolveNutrientGoals();
+
+type TargetState = {
+  calories: number;
+  proteinG: number;
+  nutrients: NutrientGoalMap;
+};
+
+type SettingsDraft = {
+  calories: string;
+  proteinG: string;
+  nutrients: NutrientGoalDraft;
+};
+
+function settingsDraftForTargets(targets: TargetState): SettingsDraft {
+  return {
+    calories: String(targets.calories),
+    proteinG: String(targets.proteinG),
+    nutrients: nutrientGoalDraftFromMap(targets.nutrients),
+  };
+}
 
 type DashboardProps = {
   readOnly?: boolean;
@@ -180,6 +237,32 @@ function stringOr(value: unknown, fallback = "") {
   return typeof value === "string" ? value : fallback;
 }
 
+function parseMealItem(value: unknown): SerializedMealItem | null {
+  const record = asRecord(value);
+  if (!record || typeof record.name !== "string") return null;
+  const nestedNutrients = asRecord(record.nutrients);
+  const nutrients: NutrientValueMap = {};
+  for (const key of nutrientKeys) {
+    const source = nestedNutrients && Object.prototype.hasOwnProperty.call(nestedNutrients, key)
+      ? nestedNutrients[key]
+      : record[key];
+    nutrients[key] = parseNutrientValue(source);
+  }
+  return {
+    id: typeof record.id === "string" ? record.id : undefined,
+    name: record.name,
+    quantity: typeof record.quantity === "number" && Number.isFinite(record.quantity) ? record.quantity : 1,
+    unit: typeof record.unit === "string" ? record.unit : "serving",
+    calories: numberOr(record.calories),
+    proteinG: numberOr(record.proteinG),
+    carbsG: numberOr(record.carbsG),
+    fatG: numberOr(record.fatG),
+    confidence: typeof record.confidence === "number" || typeof record.confidence === "string" ? record.confidence : null,
+    source: typeof record.source === "string" ? record.source : null,
+    nutrients,
+  };
+}
+
 function parseSerializedMeal(value: unknown): SerializedMeal | null {
   const record = asRecord(value);
   if (!record || typeof record.id !== "string") return null;
@@ -187,15 +270,8 @@ function parseSerializedMeal(value: unknown): SerializedMeal | null {
   if (!Number.isFinite(consumedAt)) return null;
   const items = Array.isArray(record.items)
     ? record.items.flatMap((item) => {
-        const itemRecord = asRecord(item);
-        if (!itemRecord || typeof itemRecord.name !== "string") return [];
-        return [{
-          name: itemRecord.name,
-          calories: numberOr(itemRecord.calories),
-          proteinG: numberOr(itemRecord.proteinG),
-          carbsG: numberOr(itemRecord.carbsG),
-          fatG: numberOr(itemRecord.fatG),
-        }];
+        const parsed = parseMealItem(item);
+        return parsed ? [parsed] : [];
       })
     : [];
   return {
@@ -234,6 +310,14 @@ function parseDashboardSummary(value: unknown): DashboardSummary | null {
   const today = asRecord(record?.today);
   const sevenDay = asRecord(record?.sevenDay);
   if (!record || typeof record.date !== "string" || !today || !sevenDay) return null;
+  const nutritionRecord = asRecord(record.nutrition);
+  const nutritionByDate = Array.isArray(nutritionRecord?.byDate)
+    ? nutritionRecord.byDate.flatMap((entry) => {
+        const dateEntry = asRecord(entry);
+        if (!dateEntry || typeof dateEntry.date !== "string") return [];
+        return [{ date: dateEntry.date, nutrients: parseNutrientAggregateMap(dateEntry.nutrients) }];
+      })
+    : [];
   const recentMeals = Array.isArray(record.recentMeals)
     ? record.recentMeals.flatMap((meal) => {
         const parsed = parseSerializedMeal(meal);
@@ -251,6 +335,7 @@ function parseDashboardSummary(value: unknown): DashboardSummary | null {
     targets: {
       calories: targets && typeof targets.calories === "number" ? targets.calories : null,
       proteinG: targets && typeof targets.proteinG === "number" ? targets.proteinG : null,
+      nutrients: parseNutrientGoalMap(targets?.nutrients),
     },
     today: {
       calories: numberOr(today.calories),
@@ -268,6 +353,11 @@ function parseDashboardSummary(value: unknown): DashboardSummary | null {
     },
     recentMeals,
     recentWeights,
+    nutrition: nutritionRecord ? {
+      today: parseNutrientAggregateMap(nutritionRecord.today),
+      sevenDay: parseNutrientAggregateMap(nutritionRecord.sevenDay),
+      byDate: nutritionByDate,
+    } : undefined,
   };
 }
 
@@ -336,6 +426,7 @@ function dayWithMeals(day: Day, meals: Meal[]): Day {
     protein: meals.reduce((total, meal) => total + meal.protein, 0),
     carbs: meals.reduce((total, meal) => total + (meal.carbs ?? 0), 0),
     fat: meals.reduce((total, meal) => total + (meal.fat ?? 0), 0),
+    nutrients: aggregateNutrientValues(meals.flatMap((meal) => meal.items.map((item) => item.nutrients ?? {}))),
   };
 }
 
@@ -374,6 +465,7 @@ function mapRemoteMeal(meal: SerializedMeal, { publicView = false }: { publicVie
     photoUrl: publicView
       ? meal.hasPhoto ? publicPhotoUrlForMealId(meal.id) : null
       : photoUrlForKey(meal.photoKey),
+    items: meal.items,
     kind,
   };
 }
@@ -383,6 +475,9 @@ function buildLiveDays(summary: DashboardSummary, { mode, publicView }: { mode: 
   const mealsByDate = new Map<string, Meal[]>();
   const weightsByDate = new Map(
     summary.recentWeights.map((weight) => [weight.logicalDate, weight]),
+  );
+  const nutritionByDate = new Map(
+    (summary.nutrition?.byDate ?? []).map((entry) => [entry.date, entry.nutrients]),
   );
   for (const serializedMeal of summary.recentMeals) {
     const key = dateKeyFromTimestamp(serializedMeal.consumedAt, { mode });
@@ -396,6 +491,7 @@ function buildLiveDays(summary: DashboardSummary, { mode, publicView }: { mode: 
     const labels = dayLabelForDate(date);
     const meals = mealsByDate.get(date) ?? [];
     const isToday = date === summary.date;
+    const fallbackNutrients = aggregateNutrientValues(meals.flatMap((meal) => meal.items.map((item) => item.nutrients ?? {})));
     return {
       key: dayKeyForDate(date),
       date,
@@ -404,6 +500,9 @@ function buildLiveDays(summary: DashboardSummary, { mode, publicView }: { mode: 
       protein: isToday ? summary.today.proteinG : meals.reduce((total, meal) => total + meal.protein, 0),
       carbs: isToday ? summary.today.carbsG : meals.reduce((total, meal) => total + (meal.carbs ?? 0), 0),
       fat: isToday ? summary.today.fatG : meals.reduce((total, meal) => total + (meal.fat ?? 0), 0),
+      nutrients: isToday
+        ? summary.nutrition?.today ?? nutritionByDate.get(date) ?? fallbackNutrients
+        : nutritionByDate.get(date) ?? fallbackNutrients,
       meals,
       weight: weightsByDate.get(date) ?? null,
     };
@@ -417,7 +516,19 @@ function mealPayload(meal: Meal, consumedAt?: number) {
     caption: meal.description,
     mealType: meal.kind,
     status: "complete",
-    items: [{
+    items: meal.items.length > 0 ? meal.items.map((item) => ({
+      ...(item.id ? { id: item.id } : {}),
+      name: item.name,
+      quantity: item.quantity ?? 1,
+      unit: item.unit ?? "serving",
+      calories: item.calories ?? 0,
+      proteinG: item.proteinG ?? 0,
+      carbsG: item.carbsG ?? 0,
+      fatG: item.fatG ?? 0,
+      ...item.nutrients,
+      confidence: item.confidence ?? null,
+      source: item.source ?? "dashboard",
+    })) : [{
       name: meal.name,
       quantity: 1,
       unit: "serving",
@@ -495,10 +606,12 @@ function parseSettingsTargets(value: unknown) {
   return {
     calories: numberOr(settings.dailyCalorieTarget, Number.NaN),
     proteinG: numberOr(settings.dailyProteinTargetG, Number.NaN),
+    nutrients: parseNutrientGoalMap(settings.nutrientTargets),
   };
 }
 
 export function Dashboard({ readOnly = false, publicView = false }: DashboardProps) {
+  const initialTargets: TargetState = { calories: calorieTarget, proteinG: proteinTarget, nutrients: defaultNutrientTargets };
   const [days, setDays] = useState(initialDays);
   const [selectedDayKey, setSelectedDayKey] = useState<DayKey>("thu");
   const [editingMealId, setEditingMealId] = useState<string | null>(null);
@@ -510,13 +623,13 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
   const [showAllDays, setShowAllDays] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [activeSection, setActiveSection] = useState<DashboardSection>("today");
-  const [settingsDraft, setSettingsDraft] = useState({ calories: String(calorieTarget), proteinG: String(proteinTarget) });
+  const [settingsDraft, setSettingsDraft] = useState<SettingsDraft>(() => settingsDraftForTargets(initialTargets));
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [settingsSaving, setSettingsSaving] = useState(false);
   const settingsSaveInFlight = useRef(false);
   const settingsReadVersion = useRef(0);
   const [dataMode, setDataMode] = useState<DataMode>("loading");
-  const [targets, setTargets] = useState({ calories: calorieTarget, proteinG: proteinTarget });
+  const [targets, setTargets] = useState<TargetState>(initialTargets);
   const [dataMessage, setDataMessage] = useState<string | null>(readOnly ? "Loading the public dashboard…" : "Loading your saved log…");
   const [actionStatus, setActionStatus] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -691,6 +804,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
         setTargets({
           calories: parsed.targets.calories ?? calorieTarget,
           proteinG: parsed.targets.proteinG ?? proteinTarget,
+          nutrients: parsed.targets.nutrients,
         });
         setDays(liveDays);
         setSelectedDayKey(dayKeyForDate(parsed.date));
@@ -719,7 +833,13 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
   useEffect(() => {
     function syncSectionFromHash() {
       const section = window.location.hash.slice(1);
-      if (section === "today" || section === "meals" || section === "trend" || section === "macros") {
+      if (
+        section === "today"
+        || section === "meals"
+        || section === "trend"
+        || section === "macros"
+        || section === "nutrition"
+      ) {
         setActiveSection(section);
       } else {
         setActiveSection("today");
@@ -798,10 +918,51 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     setDays((currentDays) =>
       currentDays.map((day) => {
         if (day.key !== selectedDayKey) return day;
-        const nextMeals = day.meals.map((meal) => (meal.id === mealId ? { ...meal, ...changes } : meal));
+        const nextMeals = day.meals.map((meal) => {
+          if (meal.id !== mealId) return meal;
+          const nextMeal = { ...meal, ...changes };
+          if (meal.items.length === 0) return nextMeal;
+
+          const totalFields: Array<[keyof Meal, keyof NutritionItem]> = [
+            ["calories", "calories"],
+            ["protein", "proteinG"],
+            ["carbs", "carbsG"],
+            ["fat", "fatG"],
+          ];
+          const nextItems = meal.items.map((item, index) => {
+            if (index !== 0) return item;
+            const nextItem = { ...item };
+            for (const [mealKey, itemKey] of totalFields) {
+              const changedValue = changes[mealKey];
+              if (typeof changedValue !== "number") continue;
+              const otherItemsTotal = meal.items.slice(1).reduce((total, other) => total + (typeof other[itemKey] === "number" ? other[itemKey] as number : 0), 0);
+            (nextItem as Record<string, unknown>)[itemKey] = Math.max(0, changedValue - otherItemsTotal);
+            }
+            if (typeof changes.name === "string") nextItem.name = changes.name;
+            return nextItem;
+          });
+          return { ...nextMeal, items: nextItems };
+        });
         return dayWithMeals(day, nextMeals);
       }),
     );
+  }
+
+  function updateMealItem(mealId: string, itemId: string | undefined, itemIndex: number, key: string, value: number | null) {
+    if (readOnly || pendingActionRef.current) return;
+    setDays((currentDays) => currentDays.map((day) => {
+      if (day.key !== selectedDayKey) return day;
+      const meals = day.meals.map((meal) => {
+        if (meal.id !== mealId) return meal;
+        const items = meal.items.map((item, index) => {
+          if ((itemId && item.id !== itemId) || (!itemId && index !== itemIndex)) return item;
+          const nutrients = { ...(item.nutrients ?? {}), [key]: value };
+          return { ...item, nutrients };
+        });
+        return { ...meal, items };
+      });
+      return dayWithMeals(day, meals);
+    }));
   }
 
   function replaceRemoteMeal(remoteMeal: SerializedMeal) {
@@ -989,6 +1150,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     const protein = Number(form.get("protein") || 0);
     const carbs = Number(form.get("carbs") || 0);
     const fat = Number(form.get("fat") || 0);
+    const nutrients = nutrientValuesFromForm(form);
     const time = String(form.get("time") || "");
     const consumedAt = mealDateTimestamp({ date: selectedDay.date, time });
     if (consumedAt === null) {
@@ -1008,6 +1170,17 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
       protein,
       carbs,
       fat,
+      items: [{
+        name,
+        quantity: 1,
+        unit: "serving",
+        calories,
+        proteinG: protein,
+        carbsG: carbs,
+        fatG: fat,
+        nutrients,
+        source: "dashboard",
+      }],
       pending: "creating",
       kind: "snack",
     };
@@ -1115,7 +1288,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     const readVersion = settingsReadVersion.current + 1;
     settingsReadVersion.current = readVersion;
     settingsLoadInFlight.current = true;
-    setSettingsDraft({ calories: String(activeCalorieTarget), proteinG: String(activeProteinTarget) });
+    setSettingsDraft(settingsDraftForTargets(targets));
     setShowSettings(true);
     setActionError(null);
     setActionStatus(null);
@@ -1131,9 +1304,10 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
       const nextTargets = {
         calories: Number.isFinite(parsed.calories) ? parsed.calories : activeCalorieTarget,
         proteinG: Number.isFinite(parsed.proteinG) ? parsed.proteinG : activeProteinTarget,
+        nutrients: parsed.nutrients,
       };
       setTargets(nextTargets);
-      setSettingsDraft({ calories: String(nextTargets.calories), proteinG: String(nextTargets.proteinG) });
+      setSettingsDraft(settingsDraftForTargets(nextTargets));
     } catch (error) {
       if (!isCurrentAction(action)) return;
       setActionError(error instanceof Error ? error.message : "The current targets could not be loaded.");
@@ -1153,6 +1327,17 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
       setActionError("Enter calorie and protein targets greater than zero.");
       return;
     }
+    const invalidNutrientGoal = Object.entries(settingsDraft.nutrients).find(([, value]) => {
+      if (!value.trim()) return false;
+      const parsed = Number(value);
+      return !Number.isFinite(parsed) || parsed <= 0;
+    });
+    if (invalidNutrientGoal) {
+      setActionError("Nutrition goals must be greater than zero or left blank.");
+      return;
+    }
+    const nutrientTargetOverrides = nutrientGoalOverridesFromDraft(settingsDraft.nutrients);
+    const nutrientTargets = resolveNutrientGoals(nutrientTargetOverrides);
 
     const action = beginAction("settings-save");
     if (!action) return;
@@ -1161,13 +1346,13 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     settingsReadVersion.current += 1;
     settingsSaveInFlight.current = true;
     setSettingsSaving(true);
-    setTargets({ calories, proteinG });
+    setTargets({ calories, proteinG, nutrients: nutrientTargets });
     try {
-      let nextTargets = { calories, proteinG };
+      let nextTargets = { calories, proteinG, nutrients: nutrientTargets };
       const response = await fetch("/api/settings", {
         method: "PATCH",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ dailyCalorieTarget: calories, dailyProteinTargetG: proteinG }),
+        body: JSON.stringify({ dailyCalorieTarget: calories, dailyProteinTargetG: proteinG, nutrientTargets: nutrientTargetOverrides }),
       });
       const responseBody = await response.json().catch(() => null);
       if (!response.ok) {
@@ -1176,11 +1361,11 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
       }
       const parsed = parseSettingsTargets(responseBody);
       if (parsed && Number.isFinite(parsed.calories) && Number.isFinite(parsed.proteinG)) {
-        nextTargets = { calories: parsed.calories, proteinG: parsed.proteinG };
+        nextTargets = { calories: parsed.calories, proteinG: parsed.proteinG, nutrients: parsed.nutrients };
       }
       if (!isCurrentAction(action)) return;
       setTargets(nextTargets);
-      setSettingsDraft({ calories: String(nextTargets.calories), proteinG: String(nextTargets.proteinG) });
+      setSettingsDraft(settingsDraftForTargets(nextTargets));
       setShowSettings(false);
       setActionStatus("Targets saved.");
     } catch (error) {
@@ -1227,11 +1412,25 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
       {!readOnly && dataMode === "live" && showSettings ? <section className={`settings-panel${settingsLoadPending || settingsSavePending ? " is-pending" : ""}`} id="settings-panel" role="dialog" aria-labelledby="settings-title" aria-busy={settingsLoadPending || settingsSavePending}>
         <div className="settings-heading"><div><p className="eyebrow">Personal targets</p><h2 id="settings-title">Daily targets</h2></div><button className="close-button" type="button" disabled={settingsLoading || settingsSaving} onClick={() => setShowSettings(false)} aria-label="Close settings">×</button></div>
         <form className="settings-form" onSubmit={(event) => { event.preventDefault(); void saveSettings(); }}>
-          <label>Calories<input name="daily-calorie-target" type="number" min="1" max="100000" step="10" value={settingsDraft.calories} onChange={(event) => setSettingsDraft((current) => ({ ...current, calories: event.target.value }))} disabled={settingsLoading || settingsSaving} required /></label>
-          <label>Protein (g)<input name="daily-protein-target" type="number" min="1" max="10000" step="1" value={settingsDraft.proteinG} onChange={(event) => setSettingsDraft((current) => ({ ...current, proteinG: event.target.value }))} disabled={settingsLoading || settingsSaving} required /></label>
-          <button className="save-button" type="button" onClick={() => void saveSettings()} disabled={settingsLoading || settingsSaving} aria-busy={settingsSavePending}>{settingsSavePending ? "Saving…" : settingsLoading ? "Loading…" : "Save targets"}</button>
+          <section className="settings-section primary-goal-settings" aria-labelledby="primary-goals-title">
+            <div className="settings-section-heading"><div><strong id="primary-goals-title">Primary goals</strong><span>Your main energy and protein targets</span></div></div>
+            <div className="primary-goal-grid">
+              <label>Calories<input name="daily-calorie-target" type="number" min="10" max="100000" step="10" value={settingsDraft.calories} onChange={(event) => setSettingsDraft((current) => ({ ...current, calories: event.target.value }))} disabled={settingsLoading || settingsSaving} required /></label>
+              <label>Protein (g)<input name="daily-protein-target" type="number" min="1" max="10000" step="1" value={settingsDraft.proteinG} onChange={(event) => setSettingsDraft((current) => ({ ...current, proteinG: event.target.value }))} disabled={settingsLoading || settingsSaving} required /></label>
+            </div>
+          </section>
+          <NutrientGoalSettings
+            values={settingsDraft.nutrients}
+            disabled={settingsLoading || settingsSaving}
+            onChange={(key: NutrientKey, value: string) => setSettingsDraft((current) => ({
+              ...current,
+              nutrients: { ...current.nutrients, [key]: value },
+            }))}
+            onReset={() => setSettingsDraft((current) => ({ ...current, nutrients: nutrientGoalDraftFromMap(defaultNutrientTargets) }))}
+          />
+          <button className="save-button settings-save-button" type="submit" disabled={settingsLoading || settingsSaving} aria-busy={settingsSavePending}>{settingsSavePending ? "Saving…" : settingsLoading ? "Loading…" : "Save targets"}</button>
         </form>
-        <p className="settings-help" role="status" aria-live="polite">{settingsLoading ? "Loading saved targets…" : settingsSaving ? "Saving targets…" : "Targets guide the rings, trend line, and daily nudge."}</p>
+        <p className="settings-help" role="status" aria-live="polite">{settingsLoading ? "Loading saved targets…" : settingsSaving ? "Saving targets…" : "Targets guide the rings, nutrient progress, trend lines, and daily nudge."}</p>
       </section> : null}
 
       {dataMessage ? <div className={`data-banner ${dataMode}`} role="status"><span aria-hidden="true">{dataMode === "live" ? "✓" : dataMode === "loading" ? "…" : "i"}</span>{dataMessage}</div> : null}
@@ -1279,6 +1478,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
         <a className={activeSection === "meals" ? "active" : ""} href="#meals" aria-current={activeSection === "meals" ? "page" : undefined}>Meals</a>
         <a className={activeSection === "trend" ? "active" : ""} href="#trend" aria-current={activeSection === "trend" ? "page" : undefined}>Trend</a>
         <a className={activeSection === "macros" ? "active" : ""} href="#macros" aria-current={activeSection === "macros" ? "page" : undefined}>Macros</a>
+        <a className={activeSection === "nutrition" ? "active" : ""} href="#nutrition" aria-current={activeSection === "nutrition" ? "page" : undefined}>Nutrition</a>
       </nav>
 
       <section className="summary-grid" aria-label="Daily calorie and protein summary">
@@ -1393,6 +1593,9 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
             </> : <div className="chart-empty" role="status"><strong>No macro records for the past seven days</strong><span>Add protein, carbs, or fat to a meal to see the daily split.</span></div>}
           </section>
 
+          <NutritionOverview values={selectedDay.nutrients} carbsG={selectedDay.carbs} fatG={selectedDay.fat} goals={targets.nutrients} />
+          <NutrientTrendPanel byDate={days.map((day) => ({ date: day.date, nutrients: day.nutrients ?? {} }))} goals={targets.nutrients} />
+
           <section className="panel weight-panel" aria-labelledby="weight-title">
             <div className="panel-heading weight-heading">
               <div><p className="eyebrow">Daily check-in</p><h2 id="weight-title">Weight</h2></div>
@@ -1460,6 +1663,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
               <label>Protein (g)<input name="protein" type="number" min="0" step="any" placeholder="30" disabled={actionInProgress} /></label>
               <label>Carbs (g)<input name="carbs" type="number" min="0" step="any" placeholder="45" disabled={actionInProgress} /></label>
               <label>Fat (g)<input name="fat" type="number" min="0" step="any" placeholder="15" disabled={actionInProgress} /></label>
+              <MealNutritionEditor namePrefix="nutrient-" disabled={actionInProgress} />
               <label className="meal-photo-field">Photo (optional)<input name="photo" type="file" accept={mealPhotoAccept} disabled={actionInProgress} /><small>JPEG, PNG, or WebP · up to 10 MB</small></label>
               <button className="save-button" type="submit" disabled={actionInProgress} aria-busy={pendingAction?.kind === "meal-create"}>{pendingAction?.kind === "meal-create" ? "Saving…" : "Save meal"}</button>
             </form> : null}
@@ -1526,6 +1730,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
                     <button className="delete-button" type="button" disabled={actionInProgress || deletingMealId !== null || copyingMealId !== null} onClick={() => void deleteMeal(meal.id)} aria-label={`Delete ${meal.name}`} aria-busy={deletingMealId === meal.id}>{deletingMealId === meal.id ? "Deleting…" : "Delete"}</button>
                   </div> : null}
                 </div>
+                <MealNutritionDetails meal={meal} readOnly={readOnly} />
                 {!readOnly && editingMealId === meal.id ? <div className="inline-editor">
                   <label>Name<input value={meal.name} disabled={actionInProgress} onChange={(event) => updateMeal(meal.id, { name: event.target.value })} /></label>
                   <label className="editor-description-field">Description<input value={meal.description} disabled={actionInProgress} onChange={(event) => updateMeal(meal.id, { description: event.target.value })} /></label>
@@ -1551,6 +1756,19 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
                       setMealPhotoDrafts((current) => ({ ...current, [meal.id]: photo }));
                     }}
                   /><small>{mealPhotoDrafts[meal.id]?.name ?? (meal.photoKey ? "Current photo stays unless you select a replacement." : "JPEG, PNG, or WebP · up to 10 MB")}</small></label>
+                  <div className="meal-item-editors">
+                    <div className="meal-item-editors-heading"><strong>Food item nutrition</strong><span>Values stay with each item in an AI meal.</span></div>
+                    {meal.items.map((item, index) => <div className="meal-item-editor" key={item.id ?? `${meal.id}-item-${index}`}>
+                      <div className="meal-item-editor-heading"><strong>{item.name}</strong><span>{item.quantity ?? 1}{item.unit ? ` ${item.unit}` : " serving"}</span></div>
+                      <MealNutritionEditor
+                        values={item.nutrients ?? {}}
+                        onChange={(key, value) => updateMealItem(meal.id, item.id, index, key, value)}
+                        idPrefix={`edit-${meal.id}-${item.id ?? index}-`}
+                        namePrefix={`edit-${meal.id}-${item.id ?? index}-`}
+                        disabled={actionInProgress}
+                      />
+                    </div>)}
+                  </div>
                   <div className="editor-actions">
                     <button className="done-button" type="button" disabled={actionInProgress} aria-busy={pendingAction?.kind === "meal-save" && pendingAction.id === meal.id} onClick={() => void saveMeal(meal.id)}>{pendingAction?.kind === "meal-save" && pendingAction.id === meal.id ? "Saving…" : "Save changes"}</button>
                   </div>

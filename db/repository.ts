@@ -10,6 +10,19 @@ import {
 } from "drizzle-orm";
 import { getDb } from "./index";
 import {
+  aggregateNutrients,
+  NUTRIENT_KEYS,
+  nullableNutrientValue,
+  type NutrientAggregateMap,
+  type NutrientValues,
+  type PartialNutrientValues,
+} from "../domain/nutrients";
+import {
+  parseNutrientGoalOverridesJson,
+  resolveNutrientGoals,
+  type NutrientGoalOverrides,
+} from "../domain/nutrient-goals";
+import {
   aiProfiles,
   aiRuns,
   analysisJobs,
@@ -34,7 +47,7 @@ export type MealItemInput = {
   fatG?: number;
   confidence?: number | null;
   source?: string;
-};
+} & PartialNutrientValues;
 
 export type MealInput = {
   id?: string;
@@ -67,6 +80,8 @@ export type ExternalMealResult = {
   meal: MealWithItems;
 };
 
+export type { NutrientAggregateMap } from "../domain/nutrients";
+
 export type DailyWeightInput = {
   logicalDate: string;
   weightKg: number;
@@ -78,6 +93,7 @@ export type SettingsPatch = Partial<{
   timezone: string;
   dailyCalorieTarget: number | null;
   dailyProteinTargetG: number | null;
+  nutrientTargets: NutrientGoalOverrides | null;
   activeAiProfileId: string | null;
   photoRetentionDays: number;
 }>;
@@ -219,6 +235,18 @@ function finiteNumber(value: unknown, fallback = 0): number {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
+function normaliseNutrientFields(item: PartialNutrientValues): NutrientValues {
+  const values = {} as NutrientValues;
+  for (const key of NUTRIENT_KEYS) values[key] = nullableNutrientValue(item[key]);
+  return values;
+}
+
+export function calculateNutrientAggregates(
+  items: readonly PartialNutrientValues[],
+): NutrientAggregateMap {
+  return aggregateNutrients(items.map(normaliseNutrientFields));
+}
+
 function safeJson(value: unknown, fallback: unknown): string {
   try {
     return JSON.stringify(value ?? fallback);
@@ -228,6 +256,7 @@ function safeJson(value: unknown, fallback: unknown): string {
 }
 
 function normaliseItem(item: MealItemInput, ownerKey: string, mealId: string) {
+  const nutrients = normaliseNutrientFields(item);
   return {
     id: item.id ?? createId("item"),
     mealId,
@@ -239,6 +268,7 @@ function normaliseItem(item: MealItemInput, ownerKey: string, mealId: string) {
     proteinG: Math.max(0, finiteNumber(item.proteinG)),
     carbsG: Math.max(0, finiteNumber(item.carbsG)),
     fatG: Math.max(0, finiteNumber(item.fatG)),
+    ...nutrients,
     confidence: item.confidence == null ? null : finiteNumber(item.confidence),
     source: item.source?.trim() || "manual",
   };
@@ -483,6 +513,7 @@ export async function copyMeal(
       proteinG: item.proteinG,
       carbsG: item.carbsG,
       fatG: item.fatG,
+      ...normaliseNutrientFields(item),
       confidence: item.confidence,
       source: item.source,
     })),
@@ -519,13 +550,15 @@ export async function createMeal(db: AppDb, ownerKey: string, input: MealInput):
   });
 
   if (items.length > 0) {
+    // D1 limits bound variables per statement. Keep each item separate because
+    // the 24 optional nutrient columns make a multi-row insert too large.
     await db.batch([
       mealInsert,
-      db.insert(mealItems).values(items.map((item) => ({
+      ...items.map((item) => db.insert(mealItems).values({
         ...item,
         createdAt: timestamp,
         updatedAt: timestamp,
-      }))),
+      })),
     ]);
   } else {
     await db.batch([mealInsert]);
@@ -554,6 +587,7 @@ export async function createMealForExternalRequest(
     protein: number;
     carbs: number;
     fat: number;
+    nutrients?: PartialNutrientValues;
   },
 ): Promise<ExternalMealResult> {
   const mealId = `meal_external_${externalRequestId}`;
@@ -592,6 +626,7 @@ export async function createMealForExternalRequest(
     proteinG: input.protein,
     carbsG: input.carbs,
     fatG: input.fat,
+    ...normaliseNutrientFields(input.nutrients ?? {}),
     confidence: null,
     source: input.source?.trim() || "chatgpt",
     createdAt: timestamp,
@@ -739,6 +774,9 @@ export async function upsertSettings(db: AppDb, ownerKey: string, patch: Setting
       timezone: patch.timezone ?? existing.timezone,
       dailyCalorieTarget: patch.dailyCalorieTarget === undefined ? existing.dailyCalorieTarget : patch.dailyCalorieTarget,
       dailyProteinTargetG: patch.dailyProteinTargetG === undefined ? existing.dailyProteinTargetG : patch.dailyProteinTargetG,
+      nutrientTargetsJson: patch.nutrientTargets === undefined
+        ? existing.nutrientTargetsJson
+        : patch.nutrientTargets === null ? null : safeJson(patch.nutrientTargets, {}),
       activeAiProfileId: patch.activeAiProfileId === undefined ? existing.activeAiProfileId : patch.activeAiProfileId,
       photoRetentionDays: patch.photoRetentionDays ?? existing.photoRetentionDays,
       updatedAt: timestamp,
@@ -752,6 +790,7 @@ export async function upsertSettings(db: AppDb, ownerKey: string, patch: Setting
       timezone: patch.timezone ?? "UTC",
       dailyCalorieTarget: patch.dailyCalorieTarget ?? null,
       dailyProteinTargetG: patch.dailyProteinTargetG ?? null,
+      nutrientTargetsJson: patch.nutrientTargets === null ? null : safeJson(patch.nutrientTargets, {}),
       activeAiProfileId: patch.activeAiProfileId ?? null,
       photoRetentionDays: patch.photoRetentionDays ?? 30,
       createdAt: timestamp,
@@ -765,6 +804,7 @@ export async function upsertSettings(db: AppDb, ownerKey: string, patch: Setting
 
 export async function getDashboardSummary(db: AppDb, ownerKey: string, options: DashboardSummaryOptions = {}) {
   const settingsRow = await getSettings(db, ownerKey);
+  const nutrientTargetOverrides = parseNutrientGoalOverridesJson(settingsRow?.nutrientTargetsJson);
   const timezone = resolvedDashboardTimezone(options.timezone);
   const now = options.now ?? new Date();
   const formatter = dateTimeFormatter(timezone);
@@ -814,11 +854,27 @@ export async function getDashboardSummary(db: AppDb, ownerKey: string, options: 
   );
   const averageDayCount = currentHour >= 21 ? 7 : 6;
 
+  const completeMeals = recentMeals.filter((entry) => entry.meal.status === "complete");
+  const todayMealEntries = completeMeals.filter((entry) => (
+    dateKeyFromParts(zonedDateParts(formatter, entry.meal.consumedAt)) === logicalDate
+  ));
+  const nutritionByDate = Array.from({ length: 7 }, (_, index) => {
+    const date = shiftDateKey(weekStartDate, index);
+    const entries = completeMeals.filter((entry) => (
+      dateKeyFromParts(zonedDateParts(formatter, entry.meal.consumedAt)) === date
+    ));
+    return {
+      date,
+      nutrients: calculateNutrientAggregates(entries.flatMap((entry) => entry.items)),
+    };
+  });
+
   return {
     date: logicalDate,
     targets: {
       calories: settingsRow?.dailyCalorieTarget ?? null,
       proteinG: settingsRow?.dailyProteinTargetG ?? null,
+      nutrients: resolveNutrientGoals(nutrientTargetOverrides),
     },
     today: {
       calories: Number(today?.calories ?? 0),
@@ -833,6 +889,11 @@ export async function getDashboardSummary(db: AppDb, ownerKey: string, options: 
       averageCalories: average.calories / averageDayCount,
       averageProteinG: average.proteinG / averageDayCount,
       daysWithMeals: days.size,
+    },
+    nutrition: {
+      today: calculateNutrientAggregates(todayMealEntries.flatMap((entry) => entry.items)),
+      sevenDay: calculateNutrientAggregates(completeMeals.flatMap((entry) => entry.items)),
+      byDate: nutritionByDate,
     },
     recentMeals,
     recentWeights,

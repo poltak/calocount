@@ -1,4 +1,5 @@
 import { ApiError, optionalNumber, requireString } from "./http";
+import { NUTRIENT_KEYS, NUTRIENT_META, type PartialNutrientValues, type NutrientKey } from "../../../domain/nutrients";
 import type { MealInput, MealItemInput, MealPatch } from "../../../db/repository";
 
 const MAX_ITEMS = 100;
@@ -17,6 +18,18 @@ function parseConsumedAt(value: unknown): number | undefined {
   return parsed;
 }
 
+function parseNullableNutrient(
+  item: Record<string, unknown>,
+  key: NutrientKey,
+  field: string,
+): number | null | undefined {
+  if (!(key in item)) return undefined;
+  if (item[key] === null) return null;
+  const maximum = NUTRIENT_META.find((entry) => entry.key === key)?.maximum ?? 100_000;
+  const value = optionalNumber(item[key], field, { min: 0, max: maximum });
+  return value === undefined ? undefined : value;
+}
+
 function parseItems(value: unknown): MealItemInput[] {
   if (!Array.isArray(value)) throw new ApiError(400, "invalid_field", "items must be an array.");
   if (value.length > MAX_ITEMS) throw new ApiError(400, "invalid_field", "items has too many entries.");
@@ -32,6 +45,11 @@ function parseItems(value: unknown): MealItemInput[] {
     const carbsG = optionalNumber(item.carbsG, `items[${index}].carbsG`, { min: 0, max: 10_000 });
     const fatG = optionalNumber(item.fatG, `items[${index}].fatG`, { min: 0, max: 10_000 });
     const confidence = optionalNumber(item.confidence, `items[${index}].confidence`, { min: 0, max: 1 });
+    const nutrients = {} as PartialNutrientValues;
+    for (const key of NUTRIENT_KEYS) {
+      const value = parseNullableNutrient(item, key, `items[${index}].${key}`);
+      if (value !== undefined) nutrients[key] = value;
+    }
     return {
       id: optionalString(item.id, `items[${index}].id`, 100),
       name: name ?? "",
@@ -43,6 +61,7 @@ function parseItems(value: unknown): MealItemInput[] {
       fatG,
       confidence,
       source: optionalString(item.source, `items[${index}].source`, 50),
+      ...nutrients,
     };
   });
 }

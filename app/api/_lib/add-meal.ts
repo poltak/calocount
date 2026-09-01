@@ -1,4 +1,5 @@
 import type { ExternalMealResult, MealWithItems } from "../../../db/repository";
+import { NUTRIENT_KEYS, NUTRIENT_META, type PartialNutrientValues } from "../../../domain/nutrients";
 import {
   MAX_DASHBOARD_MEAL_PHOTO_BYTES,
   MealPhotoError,
@@ -52,6 +53,7 @@ export type AddMealRequest = {
   eatenAt: string;
   consumedAt: number;
   imageRef?: OpenAIFileRef;
+  nutrients?: PartialNutrientValues;
 };
 
 export type StoredAddMealPhoto = {
@@ -106,6 +108,38 @@ function requiredNumber(body: Record<string, unknown>, field: string, max: numbe
   }
   if (value > max) invalidField(field, `must be at most ${max}`);
   return value;
+}
+
+function parseNullableNutrients(body: Record<string, unknown>): PartialNutrientValues | undefined {
+  if (!("nutrients" in body)) return undefined;
+  const value = body.nutrients;
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    invalidField("nutrients", "must be an object");
+  }
+
+  const record = value as Record<string, unknown>;
+  const allowed = new Set<string>(NUTRIENT_KEYS);
+  for (const key of Object.keys(record)) {
+    if (!allowed.has(key)) invalidField(`nutrients.${key}`, "is not a supported nutrient");
+  }
+
+  const nutrients: PartialNutrientValues = {};
+  for (const metadata of NUTRIENT_META) {
+    if (!(metadata.key in record)) continue;
+    const nutrient = record[metadata.key];
+    if (nutrient === null) {
+      nutrients[metadata.key] = null;
+      continue;
+    }
+    if (typeof nutrient !== "number" || !Number.isFinite(nutrient) || nutrient < 0) {
+      invalidField(`nutrients.${metadata.key}`, "must be null or a finite non-negative number");
+    }
+    if (nutrient > metadata.maximum) {
+      invalidField(`nutrients.${metadata.key}`, `must be at most ${metadata.maximum}`);
+    }
+    nutrients[metadata.key] = nutrient;
+  }
+  return nutrients;
 }
 
 function isLeapYear(year: number): boolean {
@@ -225,6 +259,7 @@ export function parseAddMealRequest(body: Record<string, unknown>, now = Date.no
   const eatenAt = body.eaten_at;
   const consumedAt = parseIsoDatetime(eatenAt);
   if (!Number.isFinite(now)) throw new AddMealRequestError(500, "invalid_clock", "The server clock is invalid.");
+  const nutrients = parseNullableNutrients(body);
 
   return {
     requestId,
@@ -236,6 +271,7 @@ export function parseAddMealRequest(body: Record<string, unknown>, now = Date.no
     eatenAt,
     consumedAt,
     imageRef: parseImageRef(body),
+    ...(nutrients === undefined ? {} : { nutrients }),
   };
 }
 

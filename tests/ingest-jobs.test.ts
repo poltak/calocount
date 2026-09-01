@@ -6,6 +6,7 @@ import {
   loadActiveAiProfile,
   saveMealAndTrace,
 } from "../workers/ingest/jobs";
+import { emptyNutrientValues } from "../domain/nutrients";
 import { parseTelegramMealMessage } from "../workers/ingest/telegram";
 import type { AiTrace, MealAnalysisResult, StoredAnalysisJob } from "../workers/ingest/types";
 
@@ -155,6 +156,7 @@ const analysis: MealAnalysisResult = {
       proteinGrams: 50,
       carbsGrams: 0,
       fatGrams: 8,
+      nutrients: { ...emptyNutrientValues(), fiberG: 4.2 },
       confidence: "medium",
       assumptions: [],
     },
@@ -229,6 +231,7 @@ test("saveMealAndTrace updates canonical meal tables and AI trace columns", asyn
   assert.match(sql, /UPDATE meal_logs/);
   assert.match(sql, /DELETE FROM meal_items/);
   assert.match(sql, /INSERT INTO meal_items/);
+  assert.match(sql, /fiber_g/);
   assert.match(sql, /INSERT INTO ai_runs/);
   assert.match(sql, /UPDATE analysis_jobs/);
   assert.match(sql, /input_text_tokens/);

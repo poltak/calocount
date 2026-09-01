@@ -3,7 +3,8 @@ import test from "node:test";
 
 import { drizzle } from "drizzle-orm/d1";
 import * as schema from "../db/schema";
-import { createMeal, createMealForExternalRequest, deleteMeal, updateMeal } from "../db/repository";
+import { NUTRIENT_KEYS, type PartialNutrientValues } from "../domain/nutrients";
+import { createMeal, createMealForExternalRequest, deleteMeal, findMeal, updateMeal } from "../db/repository";
 
 type Row = Record<string, unknown>;
 
@@ -72,11 +73,21 @@ function itemRow(id: string, mealId: string, ownerKey = OWNER_KEY): Row {
 class RecordingD1Database {
   readonly preparedSql: string[] = [];
   readonly batches: Array<Array<{ sql: string; values: unknown[] }>> = [];
+  private readonly maxBindings: number;
+  private readonly persistInserts: boolean;
+  private readonly persistedMeals: Row[];
+  private readonly persistedItems: Row[];
 
   constructor(
     private readonly meal: Row,
     private readonly items: Row[] = [],
-  ) {}
+    options: { maxBindings?: number; persistInserts?: boolean } = {},
+  ) {
+    this.maxBindings = options.maxBindings ?? Number.POSITIVE_INFINITY;
+    this.persistInserts = options.persistInserts ?? false;
+    this.persistedMeals = this.persistInserts ? [] : [meal];
+    this.persistedItems = this.persistInserts ? [] : items;
+  }
 
   prepare(sql: string): D1PreparedStatement {
     this.preparedSql.push(sql);
@@ -84,13 +95,29 @@ class RecordingD1Database {
   }
 
   batch<T = unknown>(statements: D1PreparedStatement[]): Promise<D1Result<T>[]> {
-    this.batches.push(
-      statements.map((statement) => {
-        const recording = statement as unknown as RecordingD1Statement;
-        return { sql: recording.sql, values: recording.values };
-      }),
-    );
+    const batch = statements.map((statement) => {
+      const recording = statement as unknown as RecordingD1Statement;
+      if (recording.values.length > this.maxBindings) {
+        throw new Error(`too_many_bindings: ${recording.values.length}`);
+      }
+      if (this.persistInserts) this.persistInsert(recording);
+      return { sql: recording.sql, values: recording.values };
+    });
+    this.batches.push(batch);
     return Promise.resolve(statements.map(() => result<T>()));
+  }
+
+  private persistInsert(statement: RecordingD1Statement): void {
+    const match = statement.sql.match(/insert\s+into\s+"([^"]+)"\s*\(([^)]+)\)\s+values/iu);
+    if (!match) return;
+    const [, table, columnList] = match;
+    if (!table || !columnList) return;
+    const columns = columnList.split(",").map((column) => column.trim().replace(/^"|"$/gu, ""));
+    for (let offset = 0; offset < statement.values.length; offset += columns.length) {
+      const row = Object.fromEntries(columns.map((column, index) => [column, statement.values[offset + index]]));
+      if (table === "meal_logs") this.persistedMeals.push(row);
+      if (table === "meal_items") this.persistedItems.push(row);
+    }
   }
 
   exec(_query: string): Promise<D1ExecResult> {
@@ -108,8 +135,8 @@ class RecordingD1Database {
   }
 
   selectResult(sql: string): D1Result<Row> {
-    if (sql.includes("meal_logs")) return result([this.meal]);
-    if (sql.includes("meal_items")) return result(this.items);
+    if (sql.includes("meal_logs")) return result(this.persistInserts ? this.persistedMeals : [this.meal]);
+    if (sql.includes("meal_items")) return result(this.persistInserts ? this.persistedItems : this.items);
     return result();
   }
 
@@ -211,7 +238,7 @@ test("createMeal batches one meal insert when there are no items", async () => {
   assertNoSqlTransaction(client);
 });
 
-test("createMeal batches the meal insert before one item insert and keeps totals", async () => {
+test("createMeal batches the meal insert before item inserts and keeps totals", async () => {
   const { client, db } = createRecordingDb("meal-create-items");
 
   await createMeal(db, OWNER_KEY, {
@@ -236,19 +263,65 @@ test("createMeal batches the meal insert before one item insert and keeps totals
     ],
   });
 
-  assertBatchTables(client, ["meal_logs insert", "meal_items insert"]);
+  assertBatchTables(client, ["meal_logs insert", "meal_items insert", "meal_items insert"]);
   const batch = client.batches[0] ?? [];
   const mealInsert = batch[0];
   const itemInsert = batch[1];
+  const secondItemInsert = batch[2];
   assert.ok(mealInsert);
   assert.ok(itemInsert);
+  assert.ok(secondItemInsert);
   assert.ok(mealInsert.values.includes(560));
   assert.ok(mealInsert.values.includes(55));
   assert.ok(mealInsert.values.includes(56));
   assert.ok(mealInsert.values.includes(9));
   assert.ok(itemInsert.values.includes(OWNER_KEY));
   assert.ok(itemInsert.values.includes("Chicken"));
-  assert.ok(itemInsert.values.includes("Rice"));
+  assert.ok(secondItemInsert.values.includes("Rice"));
+  assertNoSqlTransaction(client);
+});
+
+test("createMeal creates and retrieves four complete nutrient items within the D1 binding limit", async () => {
+  const mealId = "meal-create-complete-nutrients";
+  const client = new RecordingD1Database(mealRow(mealId), [], {
+    maxBindings: 100,
+    persistInserts: true,
+  });
+  const db = drizzle(client as unknown as D1Database, { schema });
+  const items = Array.from({ length: 4 }, (_, index) => {
+    const nutrients = Object.fromEntries(
+      NUTRIENT_KEYS.map((key, nutrientIndex) => [key, index + nutrientIndex / 10 + 1]),
+    ) as PartialNutrientValues;
+    return {
+      name: `Complete item ${index + 1}`,
+      quantity: 1,
+      unit: "serving",
+      calories: 100 + index,
+      proteinG: 10 + index,
+      carbsG: 20 + index,
+      fatG: 5 + index,
+      ...nutrients,
+      confidence: 1,
+      source: "fixture",
+    };
+  });
+
+  const created = await createMeal(db, OWNER_KEY, { id: mealId, items });
+  const retrieved = await findMeal(db, OWNER_KEY, mealId);
+
+  assert.ok(retrieved);
+  assert.equal(client.batches.length, 1);
+  assert.deepEqual(
+    client.batches[0]?.map(({ sql }) => sql.includes('"meal_logs"') ? "meal_logs insert" : "meal_items insert"),
+    ["meal_logs insert", "meal_items insert", "meal_items insert", "meal_items insert", "meal_items insert"],
+  );
+  assert.ok(client.batches[0]?.slice(1).every(({ values }) => values.length <= 100));
+  assert.equal(created.items.length, 4);
+  assert.equal(retrieved.items.length, 4);
+  assert.deepEqual(retrieved.items.map((item) => item.name), items.map((item) => item.name));
+  assert.deepEqual(retrieved.items.map((item) => item.fiberG), items.map((item) => item.fiberG));
+  assert.deepEqual(retrieved.items.map((item) => item.caffeineMg), items.map((item) => item.caffeineMg));
+  assert.equal(retrieved.items[3]?.seleniumMcg, items[3]?.seleniumMcg);
   assertNoSqlTransaction(client);
 });
 

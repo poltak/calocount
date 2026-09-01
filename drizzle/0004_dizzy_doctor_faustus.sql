@@ -1,0 +1,24 @@
+ALTER TABLE `meal_items` ADD `fiber_g` real;--> statement-breakpoint
+ALTER TABLE `meal_items` ADD `total_sugars_g` real;--> statement-breakpoint
+ALTER TABLE `meal_items` ADD `saturated_fat_g` real;--> statement-breakpoint
+ALTER TABLE `meal_items` ADD `monounsaturated_fat_g` real;--> statement-breakpoint
+ALTER TABLE `meal_items` ADD `polyunsaturated_fat_g` real;--> statement-breakpoint
+ALTER TABLE `meal_items` ADD `omega3_g` real;--> statement-breakpoint
+ALTER TABLE `meal_items` ADD `cholesterol_mg` real;--> statement-breakpoint
+ALTER TABLE `meal_items` ADD `vitamin_a_mcg_rae` real;--> statement-breakpoint
+ALTER TABLE `meal_items` ADD `vitamin_c_mg` real;--> statement-breakpoint
+ALTER TABLE `meal_items` ADD `vitamin_d_mcg` real;--> statement-breakpoint
+ALTER TABLE `meal_items` ADD `vitamin_e_mg` real;--> statement-breakpoint
+ALTER TABLE `meal_items` ADD `vitamin_k_mcg` real;--> statement-breakpoint
+ALTER TABLE `meal_items` ADD `vitamin_b6_mg` real;--> statement-breakpoint
+ALTER TABLE `meal_items` ADD `folate_mcg_dfe` real;--> statement-breakpoint
+ALTER TABLE `meal_items` ADD `vitamin_b12_mcg` real;--> statement-breakpoint
+ALTER TABLE `meal_items` ADD `sodium_mg` real;--> statement-breakpoint
+ALTER TABLE `meal_items` ADD `potassium_mg` real;--> statement-breakpoint
+ALTER TABLE `meal_items` ADD `calcium_mg` real;--> statement-breakpoint
+ALTER TABLE `meal_items` ADD `iron_mg` real;--> statement-breakpoint
+ALTER TABLE `meal_items` ADD `magnesium_mg` real;--> statement-breakpoint
+ALTER TABLE `meal_items` ADD `phosphorus_mg` real;--> statement-breakpoint
+ALTER TABLE `meal_items` ADD `zinc_mg` real;--> statement-breakpoint
+ALTER TABLE `meal_items` ADD `selenium_mcg` real;--> statement-breakpoint
+ALTER TABLE `meal_items` ADD `caffeine_mg` real;

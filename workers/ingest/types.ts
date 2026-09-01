@@ -1,3 +1,5 @@
+import type { NutrientValues } from "../../domain/nutrients";
+
 export interface TelegramWebhookEnvironment {
   readonly TELEGRAM_BOT_TOKEN?: string;
   readonly TELEGRAM_WEBHOOK_SECRET?: string;
@@ -54,6 +56,7 @@ export interface MealItem {
   readonly proteinGrams: number;
   readonly carbsGrams: number | null;
   readonly fatGrams: number | null;
+  readonly nutrients: NutrientValues;
   readonly confidence: Confidence;
   readonly assumptions: readonly string[];
 }

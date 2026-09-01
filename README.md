@@ -52,6 +52,14 @@ npm run dev
 
 Open `http://localhost:3000`.
 
+To add a complete seven-day example dataset to the running local dashboard, use:
+
+```bash
+npm run db:seed:local
+```
+
+The command creates three meals per day through today in `Asia/Ho_Chi_Minh` and skips fixture IDs that already exist. It only accepts a localhost HTTP URL. Optional overrides are `--anchor-date=YYYY-MM-DD`, `--timezone=IANA_TIMEZONE`, and `--base-url=http://localhost:PORT`.
+
 The owner dashboard waits for live API data and fails closed when local D1 or owner authentication is not ready. Set `CALOCOUNT_ALLOW_LOCAL=true` only in `.dev.vars` while running a configured local stack. Production must set `CALOCOUNT_ALLOW_LOCAL=false` and use a valid, signed Cloudflare Access JWT. Identity headers by themselves are not trusted. The public root uses only `/api/public/summary` and `/meal-photos/*`; it does not fall back to owner or demo data.
 
 The optional ChatGPT meal action uses `CALOCOUNT_CHATGPT_MEAL_TOKEN` from `.dev.vars`. Set a long random value in the local file (the example file contains a placeholder). For production, store it as a Worker secret:
@@ -60,7 +68,7 @@ The optional ChatGPT meal action uses `CALOCOUNT_CHATGPT_MEAL_TOKEN` from `.dev.
 npx wrangler secret put CALOCOUNT_CHATGPT_MEAL_TOKEN
 ```
 
-Do not put this token in `wrangler.jsonc` or in application links. The endpoint is `POST /api/add-meal`. Send the token only in an `Authorization: Bearer <token>` header and send a JSON body with `request_id`, `name`, `kcal`, `protein`, `carbs`, `fat`, and ISO-8601 `eaten_at` values. `request_id` is a UUID idempotency key: repeating it returns the original meal without creating another entry.
+Do not put this token in `wrangler.jsonc` or in application links. The endpoint is `POST /api/add-meal`. Send the token only in an `Authorization: Bearer <token>` header and send a JSON body with `request_id`, `name`, `kcal`, `protein`, `carbs`, `fat`, and ISO-8601 `eaten_at` values. An optional `nutrients` object accepts the 24 item nutrient fields used by the dashboard; each value is a non-negative number or `null` when unknown. `request_id` is a UUID idempotency key: repeating it returns the original meal without creating another entry.
 
 ChatGPT image actions may also send `openaiFileIdRefs` as an array of file reference objects. The endpoint accepts the first valid HTTPS JPEG, PNG, or WebP reference from an approved OpenAI file host, downloads it immediately, and stores it with the meal. Temporary links are never stored. A photo is limited to 10 MiB.
 

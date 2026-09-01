@@ -1,0 +1,1 @@
+ALTER TABLE `settings` ADD `nutrient_targets_json` text;

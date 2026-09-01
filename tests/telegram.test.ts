@@ -10,6 +10,7 @@ import {
 } from "../workers/ingest/telegram";
 import { classifyTelegramFailure } from "../workers/ingest/index";
 import { AnalyzerRequestError } from "../workers/ingest/analyzers";
+import { emptyNutrientValues } from "../domain/nutrients";
 import type { MealAnalysisResult } from "../workers/ingest/types";
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -202,6 +203,7 @@ const analysis: MealAnalysisResult = {
       proteinGrams: 45.6,
       carbsGrams: null,
       fatGrams: 12.2,
+      nutrients: emptyNutrientValues(),
       confidence: "low",
       assumptions: [],
     },

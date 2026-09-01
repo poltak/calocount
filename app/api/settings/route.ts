@@ -1,5 +1,12 @@
 import { getAiProfile, getSettings, upsertSettings, type SettingsPatch } from "../../../db/repository";
 import {
+  isNutrientKey,
+  parseNutrientGoalOverridesJson,
+  resolveNutrientGoals,
+  type NutrientGoalOverrides,
+} from "../../../domain/nutrient-goals";
+import { NUTRIENT_META } from "../../../domain/nutrients";
+import {
   ApiError,
   getRequestDb,
   jsonResponse,
@@ -11,7 +18,7 @@ import {
 } from "../_lib/http";
 import { withoutOwnerKey } from "../_lib/serialise";
 
-function parsePatch(body: Record<string, unknown>): SettingsPatch {
+function parseSettingsPatch(body: Record<string, unknown>): SettingsPatch {
   const patch: SettingsPatch = {};
   if (body.telegramUserId !== undefined) patch.telegramUserId = body.telegramUserId == null ? null : requireString(body.telegramUserId, "telegramUserId", { max: 100 }) ?? null;
   if (body.telegramChatId !== undefined) patch.telegramChatId = body.telegramChatId == null ? null : requireString(body.telegramChatId, "telegramChatId", { max: 100 }) ?? null;
@@ -24,6 +31,30 @@ function parsePatch(body: Record<string, unknown>): SettingsPatch {
   }
   if (body.dailyCalorieTarget !== undefined) patch.dailyCalorieTarget = body.dailyCalorieTarget == null ? null : Math.round(optionalNumber(body.dailyCalorieTarget, "dailyCalorieTarget", { min: 0, max: 100_000 }) ?? 0);
   if (body.dailyProteinTargetG !== undefined) patch.dailyProteinTargetG = body.dailyProteinTargetG == null ? null : optionalNumber(body.dailyProteinTargetG, "dailyProteinTargetG", { min: 0, max: 10_000 }) ?? 0;
+  if (body.nutrientTargets !== undefined) {
+    if (body.nutrientTargets === null) {
+      patch.nutrientTargets = null;
+    } else {
+      if (!body.nutrientTargets || typeof body.nutrientTargets !== "object" || Array.isArray(body.nutrientTargets)) {
+        throw new ApiError(400, "invalid_field", "nutrientTargets must be an object or null.");
+      }
+      const targets: NutrientGoalOverrides = {};
+      for (const [key, value] of Object.entries(body.nutrientTargets)) {
+        if (!isNutrientKey(key)) throw new ApiError(400, "invalid_field", `nutrientTargets.${key} is not supported.`);
+        if (value === null) {
+          targets[key] = null;
+          continue;
+        }
+        const maximum = NUTRIENT_META.find((entry) => entry.key === key)?.maximum ?? 10_000_000;
+        const target = optionalNumber(value, `nutrientTargets.${key}`, { min: Number.MIN_VALUE, max: maximum });
+        if (target === undefined || target <= 0) {
+          throw new ApiError(400, "invalid_field", `nutrientTargets.${key} must be greater than zero or null.`);
+        }
+        targets[key] = target;
+      }
+      patch.nutrientTargets = targets;
+    }
+  }
   if (body.activeAiProfileId !== undefined) patch.activeAiProfileId = body.activeAiProfileId == null ? null : requireString(body.activeAiProfileId, "activeAiProfileId", { max: 120 }) ?? null;
   if (body.photoRetentionDays !== undefined) patch.photoRetentionDays = Math.round(optionalNumber(body.photoRetentionDays, "photoRetentionDays", { min: 0, max: 3650 }) ?? 30);
   return patch;
@@ -31,7 +62,13 @@ function parsePatch(body: Record<string, unknown>): SettingsPatch {
 
 function publicSettings(value: Awaited<ReturnType<typeof getSettings>>) {
   if (!value) return null;
-  return withoutOwnerKey(value);
+  const { nutrientTargetsJson, ...settings } = withoutOwnerKey(value);
+  const nutrientTargetOverrides = parseNutrientGoalOverridesJson(nutrientTargetsJson);
+  return {
+    ...settings,
+    nutrientTargets: resolveNutrientGoals(nutrientTargetOverrides),
+    nutrientTargetOverrides,
+  };
 }
 
 export async function GET(request: Request): Promise<Response> {
@@ -45,7 +82,7 @@ export async function GET(request: Request): Promise<Response> {
 export async function PATCH(request: Request): Promise<Response> {
   return withApiErrors(async () => {
     const identity = await requireApiIdentity(request);
-    const patch = parsePatch(await parseJsonBody(request));
+    const patch = parseSettingsPatch(await parseJsonBody(request));
     const db = getRequestDb();
     if (patch.activeAiProfileId) {
       const profile = await getAiProfile(db, identity.ownerKey, patch.activeAiProfileId);

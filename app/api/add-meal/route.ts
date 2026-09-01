@@ -59,6 +59,7 @@ export async function POST(request: Request): Promise<Response> {
           consumedAt: input.consumedAt,
           source: "chatgpt",
           caption: input.name,
+          ...(input.nutrients === undefined ? {} : { nutrients: input.nutrients }),
           photoKey: photo?.key ?? null,
           photoMimeType: photo?.mimeType ?? null,
           photoSizeBytes: photo?.sizeBytes ?? null,

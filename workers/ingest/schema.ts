@@ -4,9 +4,22 @@ import type {
   MealItem,
   MealTotals,
 } from "./types";
+import {
+  emptyNutrientValues,
+  NUTRIENT_KEYS,
+  NUTRIENT_META,
+  type NutrientValues,
+} from "../../domain/nutrients";
 
-export const ANALYSIS_SCHEMA_VERSION = "meal-analysis.v1";
-export const PROMPT_VERSION = "meal-analysis-prompt.v1";
+export const ANALYSIS_SCHEMA_VERSION = "meal-analysis.v2";
+export const PROMPT_VERSION = "meal-analysis-prompt.v2";
+
+const nutrientSchemaProperties = Object.fromEntries(
+  NUTRIENT_META.map(({ key, maximum }) => [
+    key,
+    { type: ["number", "null"], minimum: 0, maximum },
+  ]),
+);
 
 /**
  * The schema is sent to providers that support structured output. The Worker
@@ -34,6 +47,7 @@ export const MEAL_ANALYSIS_JSON_SCHEMA = {
           "proteinGrams",
           "carbsGrams",
           "fatGrams",
+          "nutrients",
           "confidence",
           "assumptions",
         ],
@@ -45,6 +59,12 @@ export const MEAL_ANALYSIS_JSON_SCHEMA = {
           proteinGrams: { type: "number", minimum: 0, maximum: 100000 },
           carbsGrams: { type: ["number", "null"], minimum: 0, maximum: 100000 },
           fatGrams: { type: ["number", "null"], minimum: 0, maximum: 100000 },
+          nutrients: {
+            type: "object",
+            additionalProperties: false,
+            required: NUTRIENT_KEYS,
+            properties: nutrientSchemaProperties,
+          },
           confidence: { type: "string", enum: ["high", "medium", "low"] },
           assumptions: {
             type: "array",
@@ -94,18 +114,36 @@ function asRecord(value: unknown, path: string): JsonRecord {
   return value as JsonRecord;
 }
 
-function assertExactKeys(record: JsonRecord, keys: readonly string[], path: string): void {
+function assertExactKeys(
+  record: JsonRecord,
+  keys: readonly string[],
+  path: string,
+  requiredKeys: readonly string[] = keys,
+): void {
   const allowed = new Set(keys);
   for (const key of Object.keys(record)) {
     if (!allowed.has(key)) {
       throw new MealAnalysisValidationError(`${path}.${key} is not allowed`);
     }
   }
-  for (const key of keys) {
+  for (const key of requiredKeys) {
     if (!(key in record)) {
       throw new MealAnalysisValidationError(`${path}.${key} is required`);
     }
   }
+}
+
+function parseNutrients(value: unknown, path: string): NutrientValues {
+  // Older fallback responses may omit the new object. Treat that as unknown
+  // for every nutrient while keeping the canonical result shape stable.
+  if (value === undefined) return emptyNutrientValues();
+  const record = asRecord(value, path);
+  assertExactKeys(record, NUTRIENT_KEYS, path);
+  const nutrients = {} as NutrientValues;
+  for (const metadata of NUTRIENT_META) {
+    nutrients[metadata.key] = nullableNumber(record, metadata.key, path, metadata.maximum);
+  }
+  return nutrients;
 }
 
 function requiredString(record: JsonRecord, key: string, path: string, maxLength: number): string {
@@ -186,10 +224,22 @@ function parseItem(value: unknown, index: number): MealItem {
       "proteinGrams",
       "carbsGrams",
       "fatGrams",
+      "nutrients",
       "confidence",
       "assumptions",
     ],
     path,
+    [
+      "name",
+      "serving",
+      "grams",
+      "calories",
+      "proteinGrams",
+      "carbsGrams",
+      "fatGrams",
+      "confidence",
+      "assumptions",
+    ],
   );
 
   return {
@@ -200,6 +250,7 @@ function parseItem(value: unknown, index: number): MealItem {
     proteinGrams: round(finiteNumber(record, "proteinGrams", path, 100000)),
     carbsGrams: nullableNumber(record, "carbsGrams", path, 100000),
     fatGrams: nullableNumber(record, "fatGrams", path, 100000),
+    nutrients: parseNutrients(record.nutrients, `${path}.nutrients`),
     confidence: confidence(record, "confidence", path),
     assumptions: stringArray(record, "assumptions", path, 20),
   };
