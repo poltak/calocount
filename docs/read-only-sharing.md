@@ -17,6 +17,7 @@ compatibility; do not remove or alter them without a separate database decision.
 | Path | Access rule | Purpose |
 | --- | --- | --- |
 | `/` | Public because no Access destination matches it | Read-only dashboard UI |
+| `/llms.txt` | Public because no Access destination matches it | Markdown discovery document for agents; links to the canonical public JSON projection |
 | `/owner` and `/owner/*` | Existing private Cloudflare Access application, existing owner Allow policy and audience, plus server-side signed JWT check | Owner read-write dashboard |
 | `/api/public/summary` | Separate exact Cloudflare Access application with Bypass Everyone | Explicit read-only dashboard projection |
 | `/meal-photos/*` | Public because no Access destination matches it, with server-side projection checks | Images for completed meals in the current public seven-day projection |
@@ -71,8 +72,9 @@ The following layout was live-verified on 2026-08-26:
    owner JWT audience.
 2. A separate Access application protects the exact `/api/public/summary`
    destination with Bypass Everyone. It is more specific than `/api/*`.
-3. `/`, `/meal-photos/*`, and the static/PWA assets are public because no Access
-   destination matches them. The photo handler enforces the public projection.
+3. `/`, `/meal-photos/*`, `/llms.txt`, and the static/PWA assets are public
+   because no Access destination matches them. The photo handler enforces the
+   public projection. The static `/llms.txt` asset needs no Access bypass.
    Do not add root or static bypass exceptions, a broad `/*` bypass, a broad
    `/_next/*` bypass, or an `/api/*` bypass.
 4. Anonymous and authenticated live checks must confirm that the public root,

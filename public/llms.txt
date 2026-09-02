@@ -1,0 +1,31 @@
+# Calocount
+
+> Public, read-only nutrition dashboard for agents.
+
+Calocount's public human dashboard is available at `/`. For current
+machine-readable data, fetch [`/api/public/summary`](/api/public/summary). This
+JSON endpoint is the canonical source for the public dashboard projection.
+
+The summary includes:
+
+- the public date and calorie, protein, and nutrient targets;
+- today's calories, protein, carbohydrate, fat, and meal-count totals;
+- seven-day totals, averages, and daily trend points;
+- nutrition totals;
+- recent completed meals, their item nutrition, meal types, timestamps, and
+  photo availability; and
+- recent weights.
+
+Dates use the public dashboard's UTC day boundary. Treat `date` and trend dates
+as UTC calendar dates.
+
+When a meal has `hasPhoto: true`, its public image is available at
+`/meal-photos/{mealId}`, using that meal's `id` for `{mealId}`.
+
+The public projection omits private fields and systems, including owner
+identifiers and keys, captions, notes, assumptions, confidence, photo storage
+keys and MIME metadata, AI/provider data, Telegram data, private settings,
+exports, and API credentials.
+
+This file contains no live dashboard data. Fetch `/api/public/summary` for
+current values.
