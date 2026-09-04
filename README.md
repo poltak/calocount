@@ -163,6 +163,16 @@ This repository has two Worker configurations:
 - `wrangler.jsonc` for the private dashboard and API
 - `workers/ingest/wrangler.jsonc` for the public Telegram ingress and Queue consumer
 
+Production deployment runs through GitHub Actions. A push to `main` or `master` runs the checks, both deployment dry runs, remote D1 migrations, and both Worker deployments in order. You can also start the workflow manually with `workflow_dispatch`. The current default branch is `main`.
+
+Before the first automatic deployment, complete this one-time GitHub and Cloudflare setup:
+
+1. In the repository settings, create a GitHub environment named `production`.
+2. In Cloudflare, create an API token from the `Edit Cloudflare Workers` template. This template includes the supporting read permissions Wrangler expects and R2 access. Add the account permissions `D1 Edit` and `Queues Edit`, then restrict account and zone resources to the Calocount account and only the zones required by this deployment.
+3. Add `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` as secrets on the `production` environment. `CLOUDFLARE_ACCOUNT_ID` is the target Cloudflare account ID.
+4. Keep the existing Cloudflare Worker secrets and resources configured. The workflow deploys Worker code and applies D1 migrations; it does not create resources or copy Worker secrets.
+5. If every push should deploy without approval, do not add required reviewers to the `production` environment. Add reviewers only when you want an approval gate.
+
 Create or confirm one D1 database, one R2 Standard bucket, and one Queue. Both Workers must bind to the same D1 database and R2 bucket. If Wrangler adds resource IDs to one configuration, copy the same IDs to the other configuration.
 
 Apply migrations before the first production request:
@@ -213,7 +223,7 @@ Do not add a broad `/*`, `/_next/*`, or `/api/*` bypass. Do not make owner APIs 
 
 Future route rule: for the public-root/private-owner layout, treat routes as public by default unless a private Cloudflare Access destination covers them. Any new page outside `/owner`, any new public API exception, or any new server route outside `/api` requires explicit privacy and Access review before deployment. Verify the anonymous and owner behavior from deployed requests, including the Access path list.
 
-Cloudflare deployment and Telegram registration are not done automatically by this repository because they require your account, resource IDs, and secrets.
+Cloudflare resource and secret setup, and Telegram registration, are not done automatically by this repository because they require your account, resource IDs, and secrets.
 
 ## Privacy
 
