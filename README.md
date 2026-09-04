@@ -40,14 +40,14 @@ docs/read-only-sharing.md public/owner route boundary and rollout runbook
 Requirements:
 
 - Node.js 22.13 or later
-- npm
+- pnpm
 
 Setup:
 
 ```bash
-npm install
+pnpm install
 cp .dev.vars.example .dev.vars
-npm run dev
+pnpm run dev
 ```
 
 Open `http://localhost:3000`.
@@ -55,7 +55,7 @@ Open `http://localhost:3000`.
 To add a complete seven-day example dataset to the running local dashboard, use:
 
 ```bash
-npm run db:seed:local
+pnpm run db:seed:local
 ```
 
 The command creates three meals per day through today in `Asia/Ho_Chi_Minh` and skips fixture IDs that already exist. It only accepts a localhost HTTP URL. Optional overrides are `--anchor-date=YYYY-MM-DD`, `--timezone=IANA_TIMEZONE`, and `--base-url=http://localhost:PORT`.
@@ -65,7 +65,7 @@ The owner dashboard waits for live API data and fails closed when local D1 or ow
 The optional ChatGPT meal action uses `CALOCOUNT_CHATGPT_MEAL_TOKEN` from `.dev.vars`. Set a long random value in the local file (the example file contains a placeholder). For production, store it as a Worker secret:
 
 ```bash
-npx wrangler secret put CALOCOUNT_CHATGPT_MEAL_TOKEN
+pnpm exec wrangler secret put CALOCOUNT_CHATGPT_MEAL_TOKEN
 ```
 
 Do not put this token in `wrangler.jsonc` or in application links. The endpoint is `POST /api/add-meal`. Send the token only in an `Authorization: Bearer <token>` header and send a JSON body with `request_id`, `name`, `kcal`, `protein`, `carbs`, `fat`, and ISO-8601 `eaten_at` values. An optional `nutrients` object accepts the 24 item nutrient fields used by the dashboard; each value is a non-negative number or `null` when unknown. `request_id` is a UUID idempotency key: repeating it returns the original meal without creating another entry.
@@ -86,7 +86,7 @@ curl -i http://localhost:3000/api/add-meal \
 Apply the migration to the local D1 database:
 
 ```bash
-npx wrangler d1 migrations apply calocount --local
+pnpm exec wrangler d1 migrations apply calocount --local
 ```
 
 The app and ingest Worker use the same logical database name, `calocount`.
@@ -118,8 +118,8 @@ Required non-secret values:
 Run the ingest Worker:
 
 ```bash
-npm run ingest:types
-npm run ingest:dev
+pnpm run ingest:types
+pnpm run ingest:dev
 ```
 
 Do not commit `.dev.vars` files.
@@ -150,8 +150,8 @@ OpenRouter requests require structured-output support and use zero-data-retentio
 ## Validate
 
 ```bash
-npm run check
-npm run ingest:deploy:dry
+pnpm run check
+pnpm run ingest:deploy:dry
 ```
 
 The full check runs strict TypeScript, ESLint, a production build, rendered HTML tests, data tests, and AI/ingestion tests.
@@ -178,7 +178,7 @@ Create or confirm one D1 database, one R2 Standard bucket, and one Queue. Both W
 Apply migrations before the first production request:
 
 ```bash
-npx wrangler d1 migrations apply calocount --remote
+pnpm exec wrangler d1 migrations apply calocount --remote
 ```
 
 Do not put plaintext email values in either JSONC file. For a new production owner allowlist, use the `CALOCOUNT_ALLOWED_EMAIL_SHA256` variable in `wrangler.jsonc`. Its value is the SHA-256 digest of the trimmed, lower-case Access email.
@@ -186,7 +186,7 @@ Do not put plaintext email values in either JSONC file. For a new production own
 Encrypted plaintext email bindings remain for compatibility with older or local deployments:
 
 ```bash
-npx wrangler secret put CALOCOUNT_OWNER_EMAIL
+pnpm exec wrangler secret put CALOCOUNT_OWNER_EMAIL
 ```
 
 `CALOCOUNT_ALLOWED_EMAIL` is retained only as a fallback for older or local configurations. Keep `CALOCOUNT_ALLOWED_USER_ID` if you use the Access user ID allowlist instead of an email. If several allowlists are configured, all of them must match; a malformed email hash fails closed.
@@ -194,14 +194,14 @@ npx wrangler secret put CALOCOUNT_OWNER_EMAIL
 Build and deploy the private app:
 
 ```bash
-npm run build
-npx wrangler deploy
+pnpm run build
+pnpm exec wrangler deploy
 ```
 
 Deploy the public ingest Worker:
 
 ```bash
-npx wrangler deploy --config workers/ingest/wrangler.jsonc
+pnpm exec wrangler deploy --config workers/ingest/wrangler.jsonc
 ```
 
 Then:

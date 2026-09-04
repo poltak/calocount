@@ -9,7 +9,7 @@ CALOCOUNT_ACCESS_TEAM_DOMAIN=
 CALOCOUNT_ACCESS_AUDIENCE=
 
 # Preferred production owner email secret. Set it with:
-# npx wrangler secret put CALOCOUNT_OWNER_EMAIL
+# pnpm exec wrangler secret put CALOCOUNT_OWNER_EMAIL
 CALOCOUNT_OWNER_EMAIL=
 
 # Legacy fallback for older local or deployed configurations. Do not use this

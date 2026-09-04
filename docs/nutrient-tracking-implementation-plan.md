@@ -409,7 +409,7 @@ Test these flows on desktop and a narrow mobile viewport:
 ## Deployment sequence
 
 1. Run focused data, API, AI, and UI tests.
-2. Run `npm run check` and both deployment dry runs.
+2. Run `pnpm run check` and both deployment dry runs.
 3. Apply the production D1 migration while the old code is still live. The old code ignores the new nullable columns.
 4. Deploy the dashboard and ingest Workers with the new contracts.
 5. Verify an old meal, a new manual meal, and one controlled AI fixture. Do not create or edit real production meal data without explicit approval.
