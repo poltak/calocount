@@ -2,8 +2,11 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-test("dashboard includes the detailed nutrition views and navigation", async () => {
-  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+test("dashboard includes the collapsible detailed nutrition views and navigation", async () => {
+  const [page, overview] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/nutrition/nutrition-overview.tsx", import.meta.url), "utf8"),
+  ]);
   assert.match(page, /NutritionOverview/);
   assert.match(page, /NutrientTrendPanel/);
   assert.match(page, /MealNutritionDetails/);
@@ -16,6 +19,17 @@ test("dashboard includes the detailed nutrition views and navigation", async () 
   assert.match(page, /<a className=\{activeSection === "nutrition"/);
   assert.match(page, /<MealNutritionDetails/);
   assert.match(page, /goals=\{targets\.nutrients\}/);
+  assert.match(page, /requestAnimationFrame\(\(\) => \{/);
+  assert.match(page, /readNutritionCollapsed\(window\.localStorage\)/);
+  assert.match(page, /writeNutritionCollapsed\(window\.localStorage, next\)/);
+  assert.match(page, /collapsed=\{nutritionCollapsed\}/);
+  const overviewStart = page.indexOf("<NutritionOverview");
+  const trendInsideOverview = page.indexOf("<NutrientTrendPanel", overviewStart);
+  const overviewEnd = page.indexOf("</NutritionOverview>", trendInsideOverview);
+  assert.ok(overviewStart >= 0 && trendInsideOverview > overviewStart && overviewEnd > trendInsideOverview, "nutrient trend must be inside the collapsible Nutrition section");
+  assert.match(overview, /aria-expanded=\{!collapsed\}/);
+  assert.match(overview, /aria-controls="nutrition-details-content"/);
+  assert.match(overview, /id="nutrition-details-content" hidden=\{collapsed\}/);
 });
 
 test("meal saves preserve serialized item breakdowns and nullable nutrients", async () => {

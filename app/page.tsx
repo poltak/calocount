@@ -37,6 +37,7 @@ import {
 } from "./nutrition/nutrient-goal-settings";
 import { MealNutritionDetails, type NutritionItem } from "./nutrition/meal-nutrition-details";
 import { MealNutritionEditor, nutrientValuesFromForm } from "./nutrition/meal-nutrition-editor";
+import { readNutritionCollapsed, writeNutritionCollapsed } from "./nutrition/nutrition-collapse";
 import { NutrientTrendPanel } from "./nutrition/nutrient-trend-panel";
 import { NutritionOverview } from "./nutrition/nutrition-overview";
 
@@ -623,6 +624,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
   const [showAllDays, setShowAllDays] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [activeSection, setActiveSection] = useState<DashboardSection>("today");
+  const [nutritionCollapsed, setNutritionCollapsed] = useState(false);
   const [settingsDraft, setSettingsDraft] = useState<SettingsDraft>(() => settingsDraftForTargets(initialTargets));
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [settingsSaving, setSettingsSaving] = useState(false);
@@ -831,6 +833,13 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
   }, [dashboardReloadKey, publicView, readOnly]);
 
   useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      setNutritionCollapsed(readNutritionCollapsed(window.localStorage));
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
+  useEffect(() => {
     function syncSectionFromHash() {
       const section = window.location.hash.slice(1);
       if (
@@ -864,6 +873,14 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
       if (previousFocus instanceof HTMLElement && previousFocus.isConnected) previousFocus.focus();
     };
   }, [previewMeal]);
+
+  function toggleNutritionSection() {
+    setNutritionCollapsed((current) => {
+      const next = !current;
+      writeNutritionCollapsed(window.localStorage, next);
+      return next;
+    });
+  }
 
   function handleMealPointerDown(mealId: string, event: ReactPointerEvent<HTMLDivElement>) {
     if (readOnly) return;
@@ -1593,8 +1610,16 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
             </> : <div className="chart-empty" role="status"><strong>No macro records for the past seven days</strong><span>Add protein, carbs, or fat to a meal to see the daily split.</span></div>}
           </section>
 
-          <NutritionOverview values={selectedDay.nutrients} carbsG={selectedDay.carbs} fatG={selectedDay.fat} goals={targets.nutrients} />
-          <NutrientTrendPanel byDate={days.map((day) => ({ date: day.date, nutrients: day.nutrients ?? {} }))} goals={targets.nutrients} />
+          <NutritionOverview
+            values={selectedDay.nutrients}
+            carbsG={selectedDay.carbs}
+            fatG={selectedDay.fat}
+            goals={targets.nutrients}
+            collapsed={nutritionCollapsed}
+            onToggle={toggleNutritionSection}
+          >
+            <NutrientTrendPanel byDate={days.map((day) => ({ date: day.date, nutrients: day.nutrients ?? {} }))} goals={targets.nutrients} />
+          </NutritionOverview>
 
           <section className="panel weight-panel" aria-labelledby="weight-title">
             <div className="panel-heading weight-heading">
