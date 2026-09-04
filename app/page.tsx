@@ -45,6 +45,7 @@ type DayKey = "sun" | "mon" | "tue" | "wed" | "thu" | "fri" | "sat";
 
 type Meal = {
   id: string;
+  consumedAt: number;
   time: string;
   name: string;
   description: string;
@@ -56,7 +57,7 @@ type Meal = {
   photoMimeType?: string | null;
   photoUrl?: string | null;
   items: NutritionItem[];
-  pending?: "creating" | "copying";
+  pending?: "creating" | "copying" | "duplicating";
   kind: "breakfast" | "lunch" | "snack" | "dinner";
 };
 
@@ -144,6 +145,7 @@ type PendingActionKind =
   | "meal-save"
   | "meal-delete"
   | "meal-copy"
+  | "meal-duplicate"
   | "weight-save"
   | "settings-load"
   | "settings-save";
@@ -437,6 +439,7 @@ function pendingActionLabel(action: PendingAction): string {
     case "meal-save": return "Saving changes…";
     case "meal-delete": return "Deleting meal…";
     case "meal-copy": return "Copying meal to today…";
+    case "meal-duplicate": return "Duplicating meal…";
     case "weight-save": return "Saving weight…";
     case "settings-load": return "Loading saved targets…";
     case "settings-save": return "Saving targets…";
@@ -454,6 +457,7 @@ function mapRemoteMeal(meal: SerializedMeal, { publicView = false }: { publicVie
   const name = itemNames[0] ?? meal.caption.split(",")[0]?.trim() ?? `${kind[0].toUpperCase()}${kind.slice(1)} meal`;
   return {
     id: meal.id,
+    consumedAt: meal.consumedAt,
     time: new Intl.DateTimeFormat("en-US", { hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(meal.consumedAt)),
     name,
     description: meal.caption || itemNames.join(", ") || "Logged from dashboard",
@@ -644,6 +648,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
   const dashboardLoadVersion = useRef(0);
   const [deletingMealId, setDeletingMealId] = useState<string | null>(null);
   const [copyingMealId, setCopyingMealId] = useState<string | null>(null);
+  const [duplicatingMealId, setDuplicatingMealId] = useState<string | null>(null);
   const [mealPhotoDrafts, setMealPhotoDrafts] = useState<Record<string, File | null>>({});
   const [previewMeal, setPreviewMeal] = useState<Meal | null>(null);
   const [failedPhotoUrls, setFailedPhotoUrls] = useState<Set<string>>(() => new Set());
@@ -1113,6 +1118,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     const optimisticMeal: Meal = {
       ...meal,
       id: `optimistic-copy-${action.token}`,
+      consumedAt,
       time: new Intl.DateTimeFormat("en-US", { hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(consumedAt)),
       pending: "copying",
     };
@@ -1141,6 +1147,51 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     } finally {
       mealCopyInFlight.current = null;
       setCopyingMealId(null);
+      finishAction(action);
+    }
+  }
+
+  async function duplicateMeal(mealId: string) {
+    if (readOnly || dataMode !== "live" || mealCopyInFlight.current) return;
+    const meal = days.flatMap((day) => day.meals).find((entry) => entry.id === mealId);
+    if (!meal) return;
+
+    const action = beginAction("meal-duplicate", mealId);
+    if (!action) return;
+    mealCopyInFlight.current = mealId;
+    setDuplicatingMealId(mealId);
+    setOpenMealId(null);
+    setActionError(null);
+    const optimisticMeal: Meal = {
+      ...meal,
+      id: `optimistic-duplicate-${action.token}`,
+      pending: "duplicating",
+    };
+    addMealToDate(selectedDay.date, optimisticMeal);
+    try {
+      const response = await fetch(`/api/meals/${encodeURIComponent(mealId)}/copy`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ consumedAt: meal.consumedAt }),
+      });
+      const responseBody = await response.json().catch(() => null);
+      if (!response.ok) {
+        const errorRecord = asRecord(asRecord(responseBody)?.error);
+        throw new Error(stringOr(errorRecord?.message, "The meal could not be duplicated."));
+      }
+      const parsedMeal = parseMealResponse(responseBody);
+      if (!parsedMeal) throw new Error("The duplicated meal response was invalid.");
+      if (!isCurrentAction(action)) return;
+      reconcileMeal(optimisticMeal.id, parsedMeal);
+      setActionStatus(`Duplicated “${meal.name}”.`);
+    } catch (error) {
+      if (!isCurrentAction(action)) return;
+      removeMealFromDays(optimisticMeal.id);
+      setActionError(error instanceof Error ? error.message : "The meal could not be duplicated.");
+      setActionStatus(null);
+    } finally {
+      mealCopyInFlight.current = null;
+      setDuplicatingMealId(null);
       finishAction(action);
     }
   }
@@ -1180,6 +1231,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     mealCreateInFlight.current = true;
     const nextMeal: Meal = {
       id: `optimistic-meal-${action.token}`,
+      consumedAt,
       time,
       name,
       description,
@@ -1724,7 +1776,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
                         onError={() => markPhotoUnavailable(meal.photoUrl as string)}
                       />
                     </button> : <div className={`meal-avatar ${meal.kind}`} aria-hidden="true">{mealPlaceholders[meal.kind]}</div>}
-                    <div className="meal-info"><div className="meal-name-line"><strong>{meal.name}</strong><time>{meal.time}</time>{meal.pending === "creating" ? <span className="pending-indicator" role="status">Saving…</span> : null}{meal.pending === "copying" ? <span className="pending-indicator" role="status">Copying…</span> : null}{pendingAction?.kind === "meal-save" && pendingAction.id === meal.id ? <span className="pending-indicator" role="status">Saving…</span> : null}{pendingAction?.kind === "meal-delete" && pendingAction.id === meal.id ? <span className="pending-indicator" role="status">Deleting…</span> : null}{pendingAction?.kind === "meal-copy" && pendingAction.id === meal.id ? <span className="pending-indicator" role="status">Copying…</span> : null}</div><span>{meal.description}</span></div>
+                    <div className="meal-info"><div className="meal-name-line"><strong>{meal.name}</strong><time>{meal.time}</time>{meal.pending === "creating" ? <span className="pending-indicator" role="status">Saving…</span> : null}{meal.pending === "copying" ? <span className="pending-indicator" role="status">Copying…</span> : null}{meal.pending === "duplicating" ? <span className="pending-indicator" role="status">Duplicating…</span> : null}{pendingAction?.kind === "meal-save" && pendingAction.id === meal.id ? <span className="pending-indicator" role="status">Saving…</span> : null}{pendingAction?.kind === "meal-delete" && pendingAction.id === meal.id ? <span className="pending-indicator" role="status">Deleting…</span> : null}{pendingAction?.kind === "meal-copy" && pendingAction.id === meal.id ? <span className="pending-indicator" role="status">Copying…</span> : null}{pendingAction?.kind === "meal-duplicate" && pendingAction.id === meal.id ? <span className="pending-indicator" role="status">Duplicating…</span> : null}</div><span>{meal.description}</span></div>
                     <div className="meal-stat calories-stat" data-label="Energy">{formatNumber(meal.calories)} <small>kcal</small></div>
                     <div className="meal-stat protein-stat" data-label="Protein">{formatNumber(meal.protein)}<small>g</small></div>
                     <div className="meal-stat carbs-stat" data-label="Carbs">{formatNumber(meal.carbs ?? 0)}<small>g</small></div>
@@ -1743,7 +1795,8 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
                   </button> : null}
                   {!readOnly ? <div className="meal-actions" id={`meal-actions-${meal.id}`}>
                     {selectedDay.date !== days.at(-1)?.date ? <button className="copy-button" type="button" disabled={actionInProgress || deletingMealId !== null || copyingMealId !== null} onClick={() => void copyMealToToday(meal.id)} aria-label={`Copy ${meal.name} to today`} aria-busy={copyingMealId === meal.id}>{copyingMealId === meal.id ? "Copying…" : "Copy to today"}</button> : null}
-                    <button className="edit-button" type="button" disabled={actionInProgress || deletingMealId !== null || copyingMealId !== null} onClick={() => {
+                    <button className="duplicate-button" type="button" disabled={actionInProgress || deletingMealId !== null || copyingMealId !== null || duplicatingMealId !== null} onClick={() => void duplicateMeal(meal.id)} aria-label={`Duplicate ${meal.name}`} aria-busy={duplicatingMealId === meal.id}>{duplicatingMealId === meal.id ? "Duplicating…" : "Duplicate"}</button>
+                    <button className="edit-button" type="button" disabled={actionInProgress || deletingMealId !== null || copyingMealId !== null || duplicatingMealId !== null} onClick={() => {
                       const isClosing = editingMealId === meal.id;
                       setEditingMealId(isClosing ? null : meal.id);
                       if (isClosing) setMealPhotoDrafts((current) => {
@@ -1752,7 +1805,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
                         return next;
                       });
                     }} aria-expanded={editingMealId === meal.id} aria-label={`Edit ${meal.name}`}>Edit</button>
-                    <button className="delete-button" type="button" disabled={actionInProgress || deletingMealId !== null || copyingMealId !== null} onClick={() => void deleteMeal(meal.id)} aria-label={`Delete ${meal.name}`} aria-busy={deletingMealId === meal.id}>{deletingMealId === meal.id ? "Deleting…" : "Delete"}</button>
+                    <button className="delete-button" type="button" disabled={actionInProgress || deletingMealId !== null || copyingMealId !== null || duplicatingMealId !== null} onClick={() => void deleteMeal(meal.id)} aria-label={`Delete ${meal.name}`} aria-busy={deletingMealId === meal.id}>{deletingMealId === meal.id ? "Deleting…" : "Delete"}</button>
                   </div> : null}
                 </div>
                 <MealNutritionDetails meal={meal} readOnly={readOnly} />

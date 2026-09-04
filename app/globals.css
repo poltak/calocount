@@ -1632,7 +1632,8 @@ input:focus-visible {
 
 .edit-button:hover { color: var(--orange-soft); }
 
-.copy-button {
+.copy-button,
+.duplicate-button {
   padding: 6px 0;
   background: transparent;
   color: var(--blue);
@@ -1641,7 +1642,8 @@ input:focus-visible {
   white-space: nowrap;
 }
 
-.copy-button:hover { color: #acd8ee; }
+.copy-button:hover,
+.duplicate-button:hover { color: #acd8ee; }
 
 .meal-actions {
   display: flex;
@@ -1654,7 +1656,8 @@ input:focus-visible {
 
 .edit-button:disabled,
 .delete-button:disabled,
-.copy-button:disabled { cursor: wait; opacity: .55; }
+.copy-button:disabled,
+.duplicate-button:disabled { cursor: wait; opacity: .55; }
 
 .delete-button {
   padding: 6px 0;
@@ -2551,8 +2554,8 @@ input:focus-visible {
     touch-action: pan-y;
     transition: transform 160ms ease;
   }
-  .meal-row.is-actions-open .meal-row-content { transform: translateX(-120px); }
-  .meal-row.has-copy-action.is-actions-open .meal-row-content { transform: translateX(-190px); }
+  .meal-row.is-actions-open .meal-row-content { transform: translateX(-190px); }
+  .meal-row.has-copy-action.is-actions-open .meal-row-content { transform: translateX(-260px); }
   .meal-avatar { grid-column: 1; grid-row: 1; }
   .meal-info { grid-column: 2 / span 4; grid-row: 1; padding-right: 34px; }
   .meal-stat { grid-row: 2; flex-wrap: wrap; justify-content: flex-start; font-size: 10px; text-align: left; }
@@ -2575,7 +2578,7 @@ input:focus-visible {
     right: 0;
     bottom: 0;
     display: flex;
-    width: 120px;
+    width: 190px;
     align-items: center;
     justify-content: flex-start;
     gap: 7px;
@@ -2583,7 +2586,7 @@ input:focus-visible {
     background: #1d2630;
     visibility: hidden;
   }
-  .meal-row.has-copy-action .meal-actions { width: 190px; }
+  .meal-row.has-copy-action .meal-actions { width: 260px; }
   .meal-row.is-actions-open .meal-actions { visibility: visible; }
   .meal-actions-toggle {
     position: absolute;
@@ -2605,7 +2608,8 @@ input:focus-visible {
   .meal-actions-toggle:hover { color: var(--foreground); }
   .meal-actions .edit-button,
   .meal-actions .delete-button,
-  .meal-actions .copy-button { text-align: left; }
+  .meal-actions .copy-button,
+  .meal-actions .duplicate-button { text-align: left; }
   .inline-editor { grid-template-columns: 1fr 1fr; padding-left: 43px; }
   .inline-editor label:first-child,
   .inline-editor .editor-description-field,
