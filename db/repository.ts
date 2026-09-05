@@ -316,13 +316,17 @@ export async function listMeals(
   if (meals.length === 0) return [];
 
   const ids = meals.map((meal) => meal.id);
-  const items = await db
-    .select()
-    .from(mealItems)
-    .where(and(eq(mealItems.ownerKey, ownerKey), inArray(mealItems.mealId, ids)))
-    .orderBy(desc(mealItems.createdAt))
-    .prepare()
-    .all();
+  const items: Array<typeof mealItems.$inferSelect> = [];
+  // Leave one of D1's 100 bindings for the owner filter.
+  for (let offset = 0; offset < ids.length; offset += 99) {
+    items.push(...await db
+      .select()
+      .from(mealItems)
+      .where(and(eq(mealItems.ownerKey, ownerKey), inArray(mealItems.mealId, ids.slice(offset, offset + 99))))
+      .orderBy(desc(mealItems.createdAt))
+      .prepare()
+      .all());
+  }
 
   const itemMap = new Map<string, Array<typeof mealItems.$inferSelect>>();
   for (const item of items) {
@@ -712,11 +716,11 @@ export async function updateMeal(
       await db.batch([
         mealUpdate,
         itemDelete,
-        db.insert(mealItems).values(nextItems.map((item) => ({
+        ...nextItems.map((item) => db.insert(mealItems).values({
           ...item,
           createdAt: timestamp,
           updatedAt: timestamp,
-        }))),
+        })),
         revisionInsert,
       ]);
     } else {

@@ -4,7 +4,7 @@ import test from "node:test";
 import { drizzle } from "drizzle-orm/d1";
 import * as schema from "../db/schema";
 import { NUTRIENT_KEYS, type PartialNutrientValues } from "../domain/nutrients";
-import { createMeal, createMealForExternalRequest, deleteMeal, findMeal, updateMeal } from "../db/repository";
+import { createMeal, createMealForExternalRequest, deleteMeal, findMeal, listMeals, updateMeal } from "../db/repository";
 
 type Row = Record<string, unknown>;
 
@@ -79,13 +79,13 @@ class RecordingD1Database {
   private readonly persistedItems: Row[];
 
   constructor(
-    private readonly meal: Row,
+    meal: Row,
     private readonly items: Row[] = [],
-    options: { maxBindings?: number; persistInserts?: boolean } = {},
+    options: { maxBindings?: number; persistInserts?: boolean; meals?: Row[] } = {},
   ) {
     this.maxBindings = options.maxBindings ?? Number.POSITIVE_INFINITY;
     this.persistInserts = options.persistInserts ?? false;
-    this.persistedMeals = this.persistInserts ? [] : [meal];
+    this.persistedMeals = this.persistInserts ? [] : options.meals ?? [meal];
     this.persistedItems = this.persistInserts ? [] : items;
   }
 
@@ -134,14 +134,23 @@ class RecordingD1Database {
     return Promise.resolve(new ArrayBuffer(0));
   }
 
-  selectResult(sql: string): D1Result<Row> {
-    if (sql.includes("meal_logs")) return result(this.persistInserts ? this.persistedMeals : [this.meal]);
-    if (sql.includes("meal_items")) return result(this.persistInserts ? this.persistedItems : this.items);
+  validateBindings(values: unknown[]): void {
+    if (values.length > this.maxBindings) throw new Error(`too_many_bindings: ${values.length}`);
+  }
+
+  selectResult(sql: string, values: unknown[] = []): D1Result<Row> {
+    if (sql.includes("meal_logs")) return result(this.persistedMeals);
+    if (sql.includes("meal_items")) {
+      const items = this.persistInserts ? this.persistedItems : this.items;
+      return result(sql.includes(" in (")
+        ? items.filter((item) => item.owner_key === values[0] && values.slice(1).includes(item.meal_id))
+        : items);
+    }
     return result();
   }
 
-  selectRaw(sql: string): unknown[][] {
-    const rows = this.selectResult(sql).results;
+  selectRaw(sql: string, values: unknown[]): unknown[][] {
+    const rows = this.selectResult(sql, values).results;
     const selectedColumns = sql
       .replace(/^select\s+/iu, "")
       .split(/\s+from\s+/iu, 1)[0]
@@ -161,12 +170,13 @@ class RecordingD1Statement {
   ) {}
 
   bind(...values: unknown[]): D1PreparedStatement {
+    this.db.validateBindings(values);
     this.values = values;
     return this as unknown as D1PreparedStatement;
   }
 
   async all<T = Row>(): Promise<D1Result<T>> {
-    return this.db.selectResult(this.sql) as D1Result<T>;
+    return this.db.selectResult(this.sql, this.values) as D1Result<T>;
   }
 
   async first<T = Row>(): Promise<T | null> {
@@ -184,7 +194,7 @@ class RecordingD1Statement {
     options?: { readonly columnNames?: boolean },
   ): Promise<[string[], ...T[]] | T[]> {
     if (options?.columnNames) return [[]] as [string[], ...T[]];
-    return this.db.selectRaw(this.sql) as T[];
+    return this.db.selectRaw(this.sql, this.values) as T[];
   }
 }
 
@@ -347,6 +357,47 @@ test("external meal writes batch conflict-safe meal and item inserts", async () 
   assert.ok(mealInsert.values.includes(requestId));
   assert.ok(itemInsert.values.includes(`item_external_${requestId}`));
   assertNoSqlTransaction(client);
+});
+
+test("listMeals retrieves 500 meals and their owned items within the D1 binding limit", async () => {
+  const meals = Array.from({ length: 500 }, (_, index) => mealRow(`meal-list-${index}`));
+  const items = meals.map((meal, index) => itemRow(`item-list-${index}`, String(meal.id)));
+  const client = new RecordingD1Database(meals[0]!, [
+    ...items,
+    itemRow("other-owner-item", String(meals[0]!.id), "other-owner"),
+  ], { maxBindings: 100, meals });
+  const db = drizzle(client as unknown as D1Database, { schema });
+
+  const listed = await listMeals(db, OWNER_KEY, { limit: 500 });
+
+  assert.equal(listed.length, 500);
+  assert.deepEqual(listed.map(({ items: mealItems }) => mealItems.map((item) => item.id)),
+    items.map((item) => [item.id]));
+  assert.equal(client.preparedSql.filter((sql) => sql.includes('from "meal_items"')).length, 6);
+});
+
+test("updateMeal keeps 100 replacement items and the revision in one D1-safe batch", async () => {
+  const mealId = "meal-update-many-items";
+  const client = new RecordingD1Database(mealRow(mealId), [], { maxBindings: 100 });
+  const db = drizzle(client as unknown as D1Database, { schema });
+  const items = Array.from({ length: 100 }, (_, index) => ({
+    name: `Replacement ${index}`,
+    calories: 10,
+    ...Object.fromEntries(NUTRIENT_KEYS.map((key) => [key, 1])),
+  }));
+
+  await updateMeal(db, OWNER_KEY, mealId, { items });
+
+  assert.equal(client.batches.length, 1);
+  const batch = client.batches[0]!;
+  const inserts = batch.filter(({ sql }) => sql.includes('insert into "meal_items"'));
+  assert.equal(inserts.length, 100);
+  assert.ok(batch.every(({ values }) => values.length <= 100));
+  assert.ok(batch[0]!.values.includes(1_000));
+  assert.match(batch[1]!.sql, /delete from "meal_items"/);
+  assert.match(batch.at(-1)!.sql, /insert into "meal_revisions"/);
+  const revision = batch.at(-1)!.values.find((value) => typeof value === "string" && value.includes("Replacement 99"));
+  assert.equal(JSON.parse(String(revision)).items.length, 100);
 });
 
 test("updateMeal batches meal update and revision when items are not replaced", async () => {
