@@ -23,6 +23,31 @@ function multipartRequest(entries: { readonly name: string; readonly value: stri
   return new Request("https://calocount.test/api/meals", { method: "POST", body: form });
 }
 
+function streamingMultipartRequest(
+  chunks: readonly Uint8Array[],
+  extraHeaders: Record<string, string> = {},
+  onCancel?: () => void,
+): Request {
+  let index = 0;
+  const body = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      const chunk = chunks[index++];
+      if (chunk) controller.enqueue(chunk);
+      else controller.close();
+    },
+    cancel() {
+      onCancel?.();
+    },
+  });
+  const requestInit = {
+    method: "POST",
+    headers: { "content-type": "multipart/form-data; boundary=calocount-stream", ...extraHeaders },
+    body,
+    duplex: "half",
+  } as RequestInit & { readonly duplex: "half" };
+  return new Request("https://calocount.test/api/meals", requestInit);
+}
+
 test("multipart meal requests accept the existing JSON payload with a JPEG photo", async () => {
   const request = multipartRequest([
     {
@@ -97,6 +122,45 @@ test("multipart photo validation rejects unsupported, mismatched, and oversized 
   await assert.rejects(
     () => parseMultipartMealRequest(declaredLarge),
     (error: unknown) => error instanceof MealPhotoError && error.code === "payload_too_large" && error.status === 413,
+  );
+});
+
+test("multipart parsing rejects an oversized streamed body before formData parsing", async () => {
+  const chunks = [
+    new Uint8Array(MAX_DASHBOARD_MEAL_MULTIPART_BYTES),
+    new Uint8Array(1),
+  ] as const;
+
+  for (const [label, headers] of [
+    ["without Content-Length", {}],
+    ["with a misleading Content-Length", { "content-length": "1" }],
+  ] as const) {
+    let cancelled = false;
+    await assert.rejects(
+      () => parseMultipartMealRequest(streamingMultipartRequest(chunks, headers, () => { cancelled = true; })),
+      (error: unknown) => error instanceof MealPhotoError && error.code === "payload_too_large" && error.status === 413,
+      label,
+    );
+    assert.equal(cancelled, true, `${label} stream should be cancelled after the size limit is exceeded`);
+  }
+});
+
+test("multipart parsing maps a malformed streamed body to invalid_multipart", async () => {
+  const request = streamingMultipartRequest([new TextEncoder().encode("not a multipart form")]);
+
+  await assert.rejects(
+    () => parseMultipartMealRequest(request),
+    (error: unknown) => error instanceof MealPhotoError && error.code === "invalid_multipart" && error.status === 400,
+  );
+});
+
+test("multipart parsing allows the exact body-size cap to reach form validation", async () => {
+  const body = new Uint8Array(MAX_DASHBOARD_MEAL_MULTIPART_BYTES);
+  body.fill(0x20);
+
+  await assert.rejects(
+    () => parseMultipartMealRequest(streamingMultipartRequest([body])),
+    (error: unknown) => error instanceof MealPhotoError && error.code === "invalid_multipart" && error.status === 400,
   );
 });
 

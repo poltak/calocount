@@ -125,6 +125,42 @@ function contentLength(request: Request): number | null {
   return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null;
 }
 
+/** Read the request body into a bounded buffer before multipart parsing. */
+async function readRequestBodyWithinLimit(request: Request, maxBytes: number): Promise<ArrayBuffer | null> {
+  const body = request.body;
+  if (!body) return null;
+
+  const reader = body.getReader();
+  let buffer = new Uint8Array(Math.min(maxBytes, 64 * 1024));
+  let size = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value.byteLength > maxBytes - size) {
+        try {
+          await reader.cancel();
+        } catch {
+          // Preserve the size error when a source cannot be cancelled cleanly.
+        }
+        throw new MealPhotoError(413, "payload_too_large", "The request is too large.");
+      }
+
+      if (size + value.byteLength > buffer.byteLength) {
+        const nextSize = Math.min(maxBytes, Math.max(buffer.byteLength * 2, size + value.byteLength));
+        const nextBuffer = new Uint8Array(nextSize);
+        nextBuffer.set(buffer.subarray(0, size));
+        buffer = nextBuffer;
+      }
+      buffer.set(value, size);
+      size += value.byteLength;
+    }
+    return buffer.buffer.slice(0, size) as ArrayBuffer;
+  } finally {
+    reader.releaseLock();
+  }
+}
+
 function isMultipartFile(value: FormDataEntryValue | null): value is File {
   return value !== null && typeof value !== "string" && typeof value.arrayBuffer === "function";
 }
@@ -208,8 +244,16 @@ export async function parseMultipartMealRequest(request: Request): Promise<Parse
 
   let form: FormData;
   try {
-    form = await request.formData();
-  } catch {
+    const boundedBody = await readRequestBodyWithinLimit(request, MAX_DASHBOARD_MEAL_MULTIPART_BYTES);
+    if (boundedBody === null) {
+      form = await request.formData();
+    } else {
+      const headers = new Headers(request.headers);
+      headers.delete("content-length");
+      form = await new Request(request, { body: boundedBody, headers }).formData();
+    }
+  } catch (error) {
+    if (error instanceof MealPhotoError) throw error;
     throw new MealPhotoError(400, "invalid_multipart", "The multipart form is invalid.");
   }
 
