@@ -11,7 +11,7 @@ function optionalString(value: unknown, field: string, max = 2_000): string | un
 
 function parseConsumedAt(value: unknown): number | undefined {
   if (value == null) return undefined;
-  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "number" && Number.isFinite(new Date(value).getTime())) return value;
   if (typeof value !== "string") throw new ApiError(400, "invalid_field", "consumedAt must be an ISO date or timestamp.");
   const parsed = Date.parse(value);
   if (!Number.isFinite(parsed)) throw new ApiError(400, "invalid_field", "consumedAt must be a valid date.");

@@ -1,4 +1,4 @@
-import { getAiProfile, getSettings, upsertSettings, type SettingsPatch } from "../../../db/repository";
+import { getAiProfile, getSettings, isValidTimeZone, upsertSettings, type SettingsPatch } from "../../../db/repository";
 import {
   isNutrientKey,
   parseNutrientGoalOverridesJson,
@@ -24,7 +24,7 @@ function parseSettingsPatch(body: Record<string, unknown>): SettingsPatch {
   if (body.telegramChatId !== undefined) patch.telegramChatId = body.telegramChatId == null ? null : requireString(body.telegramChatId, "telegramChatId", { max: 100 }) ?? null;
   if (body.timezone !== undefined) {
     const timezone = requireString(body.timezone, "timezone", { max: 100 });
-    if (timezone && !/^[A-Za-z_]+(?:\/[A-Za-z0-9_+-]+)*$/.test(timezone) && timezone !== "UTC") {
+    if (!isValidTimeZone(timezone)) {
       throw new ApiError(400, "invalid_field", "timezone is not valid.");
     }
     patch.timezone = timezone;

@@ -20,7 +20,7 @@ async function mealId(context: RouteContext): Promise<string> {
 function parseConsumedAt(value: unknown): number {
   if (value == null) return Date.now();
   if (typeof value === "number") {
-    if (Number.isFinite(value) && value >= 0) return value;
+    if (Number.isFinite(new Date(value).getTime()) && value >= 0) return value;
     throw new ApiError(400, "invalid_field", "consumedAt must be a valid timestamp.");
   }
   if (typeof value !== "string" || value.trim() === "") {
@@ -41,8 +41,9 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
   return withApiErrors(async () => {
     const identity = await requireApiIdentity(request);
     const body = request.body ? await parseJsonBody(request) : {};
+    const consumedAt = parseConsumedAt(body.consumedAt);
     const meal = await copyMeal(getRequestDb(), identity.ownerKey, await mealId(context), {
-      consumedAt: parseConsumedAt(body.consumedAt),
+      consumedAt,
     });
     if (!meal) throw new ApiError(404, "not_found", "Meal not found.");
     return jsonResponse({ meal: serialiseMeal(meal) }, { status: 201 });
