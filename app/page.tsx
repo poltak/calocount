@@ -839,7 +839,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
-      setNutritionCollapsed(readNutritionCollapsed(window.localStorage));
+      setNutritionCollapsed(readNutritionCollapsed(() => window.localStorage));
     });
     return () => window.cancelAnimationFrame(frame);
   }, []);
@@ -882,7 +882,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
   function toggleNutritionSection() {
     setNutritionCollapsed((current) => {
       const next = !current;
-      writeNutritionCollapsed(window.localStorage, next);
+      writeNutritionCollapsed(() => window.localStorage, next);
       return next;
     });
   }

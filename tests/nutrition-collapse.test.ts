@@ -39,3 +39,25 @@ test("nutrition collapse state stays expanded when browser storage is unavailabl
   assert.equal(readNutritionCollapsed(storage), false);
   assert.doesNotThrow(() => writeNutritionCollapsed(storage, true));
 });
+
+test("nutrition collapse handles failure when obtaining browser storage", () => {
+  const blockedWindow = {
+    get localStorage(): Storage {
+      throw new Error("storage access denied");
+    },
+  };
+
+  assert.equal(readNutritionCollapsed(() => blockedWindow.localStorage), false);
+  assert.doesNotThrow(() => writeNutritionCollapsed(() => blockedWindow.localStorage, true));
+});
+
+test("nutrition collapse uses lazily obtained storage for reads and writes", () => {
+  const values = new Map<string, string>();
+  const storage = {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => { values.set(key, value); },
+  };
+
+  writeNutritionCollapsed(() => storage, true);
+  assert.equal(readNutritionCollapsed(() => storage), true);
+});

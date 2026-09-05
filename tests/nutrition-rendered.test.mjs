@@ -20,8 +20,8 @@ test("dashboard includes the collapsible detailed nutrition views and navigation
   assert.match(page, /<MealNutritionDetails/);
   assert.match(page, /goals=\{targets\.nutrients\}/);
   assert.match(page, /requestAnimationFrame\(\(\) => \{/);
-  assert.match(page, /readNutritionCollapsed\(window\.localStorage\)/);
-  assert.match(page, /writeNutritionCollapsed\(window\.localStorage, next\)/);
+  assert.match(page, /readNutritionCollapsed\(\(\) => window\.localStorage\)/);
+  assert.match(page, /writeNutritionCollapsed\(\(\) => window\.localStorage, next\)/);
   assert.match(page, /collapsed=\{nutritionCollapsed\}/);
   const overviewStart = page.indexOf("<NutritionOverview");
   const trendInsideOverview = page.indexOf("<NutrientTrendPanel", overviewStart);
