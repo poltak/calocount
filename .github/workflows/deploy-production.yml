@@ -45,7 +45,7 @@ jobs:
       - name: Dry-run dashboard deployment
         run: pnpm run deploy:dry
 
-      - name: Dry-run ingest deployment
+      - name: Dry-run photo maintenance deployment
         run: pnpm run ingest:deploy:dry
 
       - name: Apply remote D1 migrations
@@ -54,5 +54,5 @@ jobs:
       - name: Deploy dashboard Worker
         run: pnpm run deploy
 
-      - name: Deploy ingest Worker
+      - name: Deploy photo maintenance Worker
         run: pnpm run ingest:deploy

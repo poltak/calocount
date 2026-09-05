@@ -1,4 +1,4 @@
-import { getAiProfile, getSettings, isValidTimeZone, upsertSettings, type SettingsPatch } from "../../../db/repository";
+import { getSettings, isValidTimeZone, upsertSettings, type SettingsPatch } from "../../../db/repository";
 import {
   isNutrientKey,
   parseNutrientGoalOverridesJson,
@@ -20,8 +20,6 @@ import { withoutOwnerKey } from "../_lib/serialise";
 
 function parseSettingsPatch(body: Record<string, unknown>): SettingsPatch {
   const patch: SettingsPatch = {};
-  if (body.telegramUserId !== undefined) patch.telegramUserId = body.telegramUserId == null ? null : requireString(body.telegramUserId, "telegramUserId", { max: 100 }) ?? null;
-  if (body.telegramChatId !== undefined) patch.telegramChatId = body.telegramChatId == null ? null : requireString(body.telegramChatId, "telegramChatId", { max: 100 }) ?? null;
   if (body.timezone !== undefined) {
     const timezone = requireString(body.timezone, "timezone", { max: 100 });
     if (!isValidTimeZone(timezone)) {
@@ -55,14 +53,22 @@ function parseSettingsPatch(body: Record<string, unknown>): SettingsPatch {
       patch.nutrientTargets = targets;
     }
   }
-  if (body.activeAiProfileId !== undefined) patch.activeAiProfileId = body.activeAiProfileId == null ? null : requireString(body.activeAiProfileId, "activeAiProfileId", { max: 120 }) ?? null;
   if (body.photoRetentionDays !== undefined) patch.photoRetentionDays = Math.round(optionalNumber(body.photoRetentionDays, "photoRetentionDays", { min: 0, max: 3650 }) ?? 30);
   return patch;
 }
 
 function publicSettings(value: Awaited<ReturnType<typeof getSettings>>) {
   if (!value) return null;
-  const { nutrientTargetsJson, ...settings } = withoutOwnerKey(value);
+  const {
+    nutrientTargetsJson,
+    telegramUserId: _telegramUserId,
+    telegramChatId: _telegramChatId,
+    activeAiProfileId: _activeAiProfileId,
+    ...settings
+  } = withoutOwnerKey(value);
+  void _telegramUserId;
+  void _telegramChatId;
+  void _activeAiProfileId;
   const nutrientTargetOverrides = parseNutrientGoalOverridesJson(nutrientTargetsJson);
   return {
     ...settings,
@@ -83,12 +89,7 @@ export async function PATCH(request: Request): Promise<Response> {
   return withApiErrors(async () => {
     const identity = await requireApiIdentity(request);
     const patch = parseSettingsPatch(await parseJsonBody(request));
-    const db = getRequestDb();
-    if (patch.activeAiProfileId) {
-      const profile = await getAiProfile(db, identity.ownerKey, patch.activeAiProfileId);
-      if (!profile) throw new ApiError(400, "invalid_profile", "activeAiProfileId does not belong to this account.");
-    }
-    const settings = await upsertSettings(db, identity.ownerKey, patch);
+    const settings = await upsertSettings(getRequestDb(), identity.ownerKey, patch);
     return jsonResponse({ settings: publicSettings(settings) });
   });
 }

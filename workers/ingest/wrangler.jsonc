@@ -22,33 +22,7 @@
       "bucket_name": "calocount-meals"
     }
   ],
-  "queues": {
-    "producers": [
-      {
-        "binding": "MEAL_QUEUE",
-        "queue": "calocount-analysis"
-      }
-    ],
-    "consumers": [
-      {
-        "queue": "calocount-analysis",
-        "max_batch_size": 5,
-        "max_retries": 3,
-        "max_concurrency": 1
-      }
-    ]
-  },
   "triggers": {
     "crons": ["*/15 * * * *"]
-  },
-  "vars": {
-    "PUBLIC_ORIGIN": "https://calocount-ingest.hoian-embroidery.workers.dev",
-    "OWNER_KEY": "default",
-    "AI_BACKEND": "openrouter",
-    "OPENROUTER_MODEL": "google/gemini-3.7-flash",
-    "OPENROUTER_FALLBACK_MODELS": "x-ai/grok-4.6",
-    "OPENROUTER_HTTP_REFERER": "https://calocount-app.hoian-embroidery.workers.dev",
-    "OPENROUTER_APP_NAME": "Calocount",
-    "MAX_RETRY_ATTEMPTS": "3"
   }
 }

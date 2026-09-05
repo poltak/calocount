@@ -1,8 +1,8 @@
 /**
  * Dashboard meal-photo upload helpers.
  *
- * Telegram uploads are validated in the ingest worker. Dashboard uploads use
- * the same three image formats, but are received as a multipart form and must
+ * Dashboard uploads use three image formats, but are received as a multipart
+ * form and must
  * be bounded before they are written to R2.
  */
 

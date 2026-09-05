@@ -5,11 +5,11 @@ Calocount is a single-user meal tracker. The public root is read-only, and the o
 ## Runtime services
 
 - The app Worker serves the dashboard and JSON API.
-- Cloudflare D1 stores settings, meals, meal items, revisions, durable job state, and AI usage.
+- Cloudflare D1 stores settings, meals, meal items, revisions, and historical job and AI records.
 - A private R2 bucket stores meal photos.
-- The ingest Worker receives Telegram updates and consumes analysis jobs from Cloudflare Queues.
-- A Cron Trigger recovers stale jobs and deletes photos after the retention period.
-- Cloudflare Access protects the private owner route and private APIs. The Telegram webhook stays on a separate public Worker.
+- The photo-maintenance Worker in `workers/ingest` serves `GET /healthz` and runs a bounded, resumable scan that removes only unlinked R2 photos older than the 24-hour grace period.
+- Cloudflare Access protects the private owner route and private APIs. The photo-maintenance Worker runs as a separate public Worker.
+- Historical D1 schema, migrations, data, and Queue resources remain for compatibility. Current code does not produce or consume analysis jobs.
 
 ## HTTP route boundary
 
@@ -49,6 +49,10 @@ reachable anonymously; and removed share routes return `404` when reached.
 Recheck the live Access path list after every Access change; this document
 describes the intended state, not automatic enforcement.
 
+On the separate `calocount-ingest` compatibility Worker origin, legacy
+`/telegram/webhook` and `/ai-media/*` routes return `404`. No Telegram webhook
+or in-Worker AI processing remains.
+
 ### Future route and Access review rule
 
 For the intended public-root/private-owner layout, treat routes as public by
@@ -61,43 +65,36 @@ a repository rule for future changes; the current layout was verified on
 
 ## Meal flow
 
-1. Telegram sends a photo update to the ingest Worker.
-2. The Worker checks the webhook secret and the exact allowed Telegram user and chat IDs.
-3. The Worker records the Telegram update, meal, and analysis job in D1.
-4. The Worker sends only the job ID to the Queue and returns HTTP 200.
-5. The Queue consumer downloads the selected Telegram image and streams it to private R2.
-6. The consumer creates a five-minute signed image URL.
-7. The configured `MealAnalyzer` adapter sends the caption and image URL to the AI service.
-8. The consumer validates the structured result and recalculates totals from the returned items.
-9. The consumer stores the meal items and AI usage in D1.
-10. The bot sends the estimate and correction help to Telegram.
+1. The owner enters a meal in the private dashboard, or an external GPT action prepares structured data and calls `POST /api/add-meal` with the dashboard's bearer token.
+2. The dashboard API validates the request and stores the meal, nutrient values, and optional photo in D1 and private R2. For the external request path, its UUID `request_id` makes retries idempotent.
+3. The public read-only projection updates from the stored meal data. The owner dashboard continues to provide edits, corrections, exports, and private photo access.
+4. The photo-maintenance Worker runs its scheduled bounded scan and removes only unlinked R2 photos older than the 24-hour grace period.
 
-## AI boundary
+## External GPT boundary
 
-Application code depends on the `MealAnalyzer` interface. It does not depend on OpenRouter request or response types.
-
-The first adapters are:
-
-- `OpenRouterMealAnalyzer`, the default;
-- `XaiMealAnalyzer`, the direct-provider escape path; and
-- a factory that selects an adapter from configuration.
-
-Both adapters return the same canonical meal result. The result includes item nutrition, assumptions, confidence, follow-up questions, model identity, token use, latency, and normalized cost.
-
-OpenRouter requests use an explicit model list, JSON Schema output, `require_parameters`, zero-data-retention routing, and provider data-collection denial. The upstream model that handled the request is recorded in D1.
+Calocount does not call an AI provider or run an AI analysis worker. The external
+GPT action prepares the meal estimate and sends validated structured values to
+`POST /api/add-meal`. The dashboard Worker keeps the bearer token in a Worker
+secret. For the external photo flow, it accepts approved temporary OpenAI image
+references, downloads a photo immediately, and does not store the temporary
+link.
 
 ## Privacy boundary
 
 - R2 is private.
 - Dashboard photo requests require the same server-side allowlist as other private API routes.
-- AI image URLs are signed, limited to one object, and expire after five minutes.
+- External GPT photo references are downloaded immediately; temporary links are not stored.
 - Secrets are Worker secrets. They are not D1 records or configuration values.
-- Normal logs do not contain captions, photo URLs, AI payloads, or provider responses.
-- The app can delete photos after a configured number of days while it keeps structured nutrition data.
+- Normal logs do not contain captions, photo URLs, or full request payloads.
+- The scheduled cleanup removes only unlinked photos older than the 24-hour grace period; linked meal photos stay with their structured nutrition data.
 
 ## Reliability boundary
 
-D1 is the durable source of job state. Queue messages are only delivery signals. Telegram update IDs and job state transitions make retries idempotent. A scheduled recovery pass finds jobs that are stuck in `pending` or `running` states.
+D1 is the durable source of meal state. External add-meal request IDs make
+retries idempotent. The scheduled photo-maintenance pass is a bounded,
+resumable scan for unlinked photos older than the 24-hour grace period.
+Historical job tables and Queue data remain available for compatibility, but
+current code does not use them.
 
 ## Product boundary
 

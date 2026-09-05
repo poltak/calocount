@@ -85,7 +85,6 @@ test("the public root keeps every owner mutation and private photo control disab
 
 test("every write API route requires the owner identity", async () => {
   const routePaths = [
-    "../app/api/ai-profiles/route.ts",
     "../app/api/meals/route.ts",
     "../app/api/meals/[id]/route.ts",
     "../app/api/meals/[id]/corrections/route.ts",

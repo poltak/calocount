@@ -23,7 +23,6 @@ import {
   type NutrientGoalOverrides,
 } from "../domain/nutrient-goals";
 import {
-  aiProfiles,
   aiRuns,
   analysisJobs,
   dailyWeights,
@@ -88,30 +87,12 @@ export type DailyWeightInput = {
 };
 
 export type SettingsPatch = Partial<{
-  telegramUserId: string | null;
-  telegramChatId: string | null;
   timezone: string;
   dailyCalorieTarget: number | null;
   dailyProteinTargetG: number | null;
   nutrientTargets: NutrientGoalOverrides | null;
-  activeAiProfileId: string | null;
   photoRetentionDays: number;
 }>;
-
-export type AiProfileInput = {
-  id?: string;
-  adapter?: string;
-  endpoint?: string | null;
-  primaryModel: string;
-  fallbackModels?: string[];
-  requiredCapabilities?: string[];
-  privacyPolicy?: Record<string, unknown>;
-  maxInputPrice?: number | null;
-  maxOutputPrice?: number | null;
-  promptVersion?: string;
-  schemaVersion?: string;
-  enabled?: boolean;
-};
 
 export function createId(prefix: string): string {
   let random = `${Date.now()}`;
@@ -773,15 +754,12 @@ export async function upsertSettings(db: AppDb, ownerKey: string, patch: Setting
   const id = existing?.id ?? `settings_${ownerKey}`;
   if (existing) {
     await db.update(settings).set({
-      telegramUserId: patch.telegramUserId === undefined ? existing.telegramUserId : patch.telegramUserId,
-      telegramChatId: patch.telegramChatId === undefined ? existing.telegramChatId : patch.telegramChatId,
       timezone: patch.timezone ?? existing.timezone,
       dailyCalorieTarget: patch.dailyCalorieTarget === undefined ? existing.dailyCalorieTarget : patch.dailyCalorieTarget,
       dailyProteinTargetG: patch.dailyProteinTargetG === undefined ? existing.dailyProteinTargetG : patch.dailyProteinTargetG,
       nutrientTargetsJson: patch.nutrientTargets === undefined
         ? existing.nutrientTargetsJson
         : patch.nutrientTargets === null ? null : safeJson(patch.nutrientTargets, {}),
-      activeAiProfileId: patch.activeAiProfileId === undefined ? existing.activeAiProfileId : patch.activeAiProfileId,
       photoRetentionDays: patch.photoRetentionDays ?? existing.photoRetentionDays,
       updatedAt: timestamp,
     }).where(and(eq(settings.id, id), eq(settings.ownerKey, ownerKey))).prepare().run();
@@ -789,13 +767,10 @@ export async function upsertSettings(db: AppDb, ownerKey: string, patch: Setting
     await db.insert(settings).values({
       id,
       ownerKey,
-      telegramUserId: patch.telegramUserId ?? null,
-      telegramChatId: patch.telegramChatId ?? null,
       timezone: patch.timezone ?? "UTC",
       dailyCalorieTarget: patch.dailyCalorieTarget ?? null,
       dailyProteinTargetG: patch.dailyProteinTargetG ?? null,
       nutrientTargetsJson: patch.nutrientTargets === null ? null : safeJson(patch.nutrientTargets, {}),
-      activeAiProfileId: patch.activeAiProfileId ?? null,
       photoRetentionDays: patch.photoRetentionDays ?? 30,
       createdAt: timestamp,
       updatedAt: timestamp,
@@ -910,77 +885,6 @@ export async function listAiRuns(db: AppDb, ownerKey: string, options: { mealId?
   return db.select().from(aiRuns).where(and(...conditions)).orderBy(desc(aiRuns.createdAt)).limit(Math.min(options.limit ?? 100, 500)).prepare().all();
 }
 
-export async function listAiProfiles(db: AppDb, ownerKey: string) {
-  return db.select().from(aiProfiles).where(eq(aiProfiles.ownerKey, ownerKey)).orderBy(desc(aiProfiles.updatedAt)).prepare().all();
-}
-
-export async function getAiProfile(db: AppDb, ownerKey: string, profileId: string) {
-  return db.select().from(aiProfiles).where(and(
-    eq(aiProfiles.ownerKey, ownerKey),
-    eq(aiProfiles.id, profileId),
-  )).limit(1).prepare().get();
-}
-
-export async function createAiProfile(db: AppDb, ownerKey: string, input: AiProfileInput) {
-  if (!input.primaryModel?.trim()) throw new Error("ai_profile_model_required");
-  const timestamp = nowMs();
-  const id = input.id ?? createId("profile");
-  await db.insert(aiProfiles).values({
-    id,
-    ownerKey,
-    adapter: input.adapter?.trim() || "openrouter",
-    endpoint: input.endpoint ?? null,
-    primaryModel: input.primaryModel.trim(),
-    fallbackModelsJson: safeJson(input.fallbackModels ?? [], []),
-    requiredCapabilitiesJson: safeJson(input.requiredCapabilities ?? ["image", "structured_outputs"], []),
-    privacyPolicyJson: safeJson(input.privacyPolicy ?? { zdr: true, data_collection: "deny" }, {}),
-    maxInputPrice: input.maxInputPrice ?? null,
-    maxOutputPrice: input.maxOutputPrice ?? null,
-    promptVersion: input.promptVersion?.trim() || "v1",
-    schemaVersion: input.schemaVersion?.trim() || "v1",
-    enabled: input.enabled ?? true,
-    createdAt: timestamp,
-    updatedAt: timestamp,
-  }).prepare().run();
-  const created = await getAiProfile(db, ownerKey, id);
-  if (!created) throw new Error("ai_profile_create_failed");
-  return created;
-}
-
-export async function updateAiProfile(
-  db: AppDb,
-  ownerKey: string,
-  profileId: string,
-  input: Partial<AiProfileInput>,
-) {
-  const existing = await getAiProfile(db, ownerKey, profileId);
-  if (!existing) return null;
-  const timestamp = nowMs();
-  await db.update(aiProfiles).set({
-    adapter: input.adapter === undefined ? existing.adapter : input.adapter.trim(),
-    endpoint: input.endpoint === undefined ? existing.endpoint : input.endpoint,
-    primaryModel: input.primaryModel === undefined ? existing.primaryModel : input.primaryModel.trim(),
-    fallbackModelsJson: input.fallbackModels === undefined ? existing.fallbackModelsJson : safeJson(input.fallbackModels, []),
-    requiredCapabilitiesJson: input.requiredCapabilities === undefined ? existing.requiredCapabilitiesJson : safeJson(input.requiredCapabilities, []),
-    privacyPolicyJson: input.privacyPolicy === undefined ? existing.privacyPolicyJson : safeJson(input.privacyPolicy, {}),
-    maxInputPrice: input.maxInputPrice === undefined ? existing.maxInputPrice : input.maxInputPrice,
-    maxOutputPrice: input.maxOutputPrice === undefined ? existing.maxOutputPrice : input.maxOutputPrice,
-    promptVersion: input.promptVersion === undefined ? existing.promptVersion : input.promptVersion.trim(),
-    schemaVersion: input.schemaVersion === undefined ? existing.schemaVersion : input.schemaVersion.trim(),
-    enabled: input.enabled === undefined ? existing.enabled : input.enabled,
-    updatedAt: timestamp,
-  }).where(and(eq(aiProfiles.ownerKey, ownerKey), eq(aiProfiles.id, profileId))).prepare().run();
-  return getAiProfile(db, ownerKey, profileId);
-}
-
-export async function listPendingJobs(db: AppDb, ownerKey: string, now = nowMs(), limit = 50) {
-  return db.select().from(analysisJobs).where(and(
-    eq(analysisJobs.ownerKey, ownerKey),
-    eq(analysisJobs.state, "pending"),
-    lte(analysisJobs.availableAfter, now),
-  )).orderBy(analysisJobs.availableAfter).limit(Math.min(limit, 100)).prepare().all();
-}
-
 export async function findMealByPhotoKey(db: AppDb, ownerKey: string, photoKey: string) {
   return db.select({ id: mealLogs.id }).from(mealLogs).where(and(
     eq(mealLogs.ownerKey, ownerKey),
@@ -994,29 +898,4 @@ export async function hasMealPhotoReference(db: AppDb, ownerKey: string, photoKe
     eq(mealLogs.photoKey, photoKey),
   )).limit(1).prepare().get();
   return Boolean(reference);
-}
-
-export async function insertTelegramUpdate(
-  db: AppDb,
-  input: {
-    ownerKey: string;
-    updateId: number;
-    chatId?: string | null;
-    telegramUserId?: string | null;
-    mealId?: string | null;
-    payload: unknown;
-  },
-) {
-  const id = createId("telegram");
-  const result = await db.insert(telegramUpdates).values({
-    id,
-    ownerKey: input.ownerKey,
-    updateId: input.updateId,
-    chatId: input.chatId ?? null,
-    telegramUserId: input.telegramUserId ?? null,
-    mealId: input.mealId ?? null,
-    payloadJson: safeJson(input.payload, {}),
-    createdAt: nowMs(),
-  }).onConflictDoNothing({ target: [telegramUpdates.ownerKey, telegramUpdates.updateId] }).returning().prepare().all();
-  return result[0] ?? null;
 }

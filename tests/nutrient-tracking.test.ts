@@ -4,12 +4,10 @@ import test from "node:test";
 import {
   NUTRIENT_KEYS,
   NUTRIENT_META,
-  emptyNutrientValues,
 } from "../domain/nutrients";
 import { calculateNutrientAggregates } from "../db/repository";
 import { parseAddMealRequest } from "../app/api/_lib/add-meal";
 import { serialiseMeal } from "../app/api/_lib/serialise";
-import { validateMealAnalysis, MealAnalysisValidationError } from "../workers/ingest/schema";
 
 const REQUEST_ID = "c5a84680-d0c7-4af6-a4f5-89495c3923ec";
 
@@ -106,56 +104,4 @@ test("JSON meal serialization keeps nullable nutrient item columns", () => {
   assert.equal(serialized.items[0]?.fiberG, 4);
   assert.equal(serialized.items[0]?.vitaminB12Mcg, null);
   assert.equal("ownerKey" in (serialized.items[0] ?? {}), false);
-});
-
-test("AI validation emits all nutrient fields as number or null", () => {
-  const nutrients = emptyNutrientValues();
-  nutrients.fiberG = 4.2;
-  nutrients.vitaminB12Mcg = null;
-  const result = validateMealAnalysis({
-    summary: "Soup",
-    items: [{
-      name: "Soup",
-      serving: "one bowl",
-      grams: 300,
-      calories: 200,
-      proteinGrams: 12,
-      carbsGrams: 20,
-      fatGrams: 5,
-      nutrients,
-      confidence: "medium",
-      assumptions: [],
-    }],
-    totals: { calories: 200, proteinGrams: 12, carbsGrams: 20, fatGrams: 5 },
-    confidence: "medium",
-    assumptions: [],
-    questions: [],
-  });
-
-  assert.deepEqual(result.items[0]?.nutrients, nutrients);
-  assert.equal(Object.keys(result.items[0]?.nutrients ?? {}).length, 24);
-
-  const invalidNutrients = { ...nutrients, unsupported: 1 };
-  assert.throws(
-    () => validateMealAnalysis({
-      summary: "Soup",
-      items: [{
-        name: "Soup",
-        serving: "one bowl",
-        grams: 300,
-        calories: 200,
-        proteinGrams: 12,
-        carbsGrams: 20,
-        fatGrams: 5,
-        nutrients: invalidNutrients,
-        confidence: "medium",
-        assumptions: [],
-      }],
-      totals: { calories: 200, proteinGrams: 12, carbsGrams: 20, fatGrams: 5 },
-      confidence: "medium",
-      assumptions: [],
-      questions: [],
-    }),
-    MealAnalysisValidationError,
-  );
 });

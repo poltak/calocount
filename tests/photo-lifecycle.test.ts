@@ -6,8 +6,6 @@ import {
   photoCleanupDecision,
   type CleanupBucket,
 } from "../workers/ingest/photo-cleanup";
-import { storeMealPhoto, type PhotoBucket } from "../workers/ingest/photos";
-import type { StoredAnalysisJob } from "../workers/ingest/types";
 
 const CLEANUP_CURSOR_KEY = "__calocount/photo-cleanup-cursor.json";
 
@@ -171,91 +169,6 @@ function createCursorCleanupBucket(initialObjects: readonly CleanupTestObject[])
     },
   };
 }
-
-const baseJob: StoredAnalysisJob = {
-  id: "job-1",
-  mealId: "meal-1",
-  ownerKey: "owner",
-  state: "processing",
-  attemptCount: 1,
-  availableAfter: 0,
-  telegramUpdateId: 1,
-  telegramUserId: "user",
-  telegramFileId: "file",
-  telegramChatId: "chat",
-  caption: "Yogurt",
-  capturedAt: new Date(1_700_000_000_000).toISOString(),
-  photoKey: null,
-  photoMimeType: null,
-};
-
-test("stores the R2 photo and persists its D1 ownership before inference continues", async () => {
-  const db = new PhotoDatabase();
-  const events = db.events;
-  const bucket: PhotoBucket = {
-    async head() {
-      events.push("r2-head");
-      return null;
-    },
-    async put() {
-      events.push("r2-put");
-      return { size: 1234 };
-    },
-  };
-
-  const stored = await storeMealPhoto({
-    db: db as D1Database,
-    bucket,
-    job: baseJob,
-    download: async () => {
-      events.push("telegram-download");
-      return { body: new ReadableStream(), contentType: "image/jpeg" };
-    },
-  });
-  events.push("inference");
-
-  assert.equal(events[0], "telegram-download");
-  assert.ok(events.indexOf("r2-put") < events.indexOf("d1-persist"));
-  assert.ok(events.indexOf("d1-persist") < events.indexOf("inference"));
-  assert.deepEqual(stored, {
-    photoKey: "meals/job-1/original",
-    photoMimeType: "image/jpeg",
-    photoSizeBytes: 1234,
-    downloaded: true,
-  });
-});
-
-test("reuses a persisted R2 photo on retry and retains its metadata", async () => {
-  const db = new PhotoDatabase();
-  const events = db.events;
-  const bucket: PhotoBucket = {
-    async head() {
-      events.push("r2-head");
-      return { size: 42, httpMetadata: { contentType: "image/webp" } };
-    },
-    async put() {
-      events.push("r2-put");
-      return { size: 42 };
-    },
-  };
-
-  const stored = await storeMealPhoto({
-    db: db as D1Database,
-    bucket,
-    job: { ...baseJob, photoKey: "meals/job-1/original", photoMimeType: "image/webp" },
-    download: async () => {
-      events.push("telegram-download");
-      return { body: new ReadableStream(), contentType: "image/webp" };
-    },
-  });
-
-  assert.equal(events[0], "r2-head");
-  assert.equal(events.at(-1), "d1-persist");
-  assert.ok(!events.includes("r2-put"));
-  assert.ok(!events.includes("telegram-download"));
-  assert.equal(stored.photoSizeBytes, 42);
-  assert.equal(stored.downloaded, false);
-});
 
 test("photo cleanup decisions require an old, unlinked meal object", () => {
   const nowMs = 1_800_000_000_000;
