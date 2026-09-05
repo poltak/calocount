@@ -23,6 +23,8 @@ const update = {
 
 class RecordingDatabase {
   readonly sql: string[] = [];
+  readonly completedSql: string[] = [];
+  failNextSql: string | null = null;
   private readonly telegramId = "telegram-row";
   private readonly payloadJson: string;
 
@@ -84,6 +86,14 @@ class RecordingDatabase {
     }
     return null;
   }
+
+  recordRun(sql: string): void {
+    if (this.failNextSql && sql.includes(this.failNextSql)) {
+      this.failNextSql = null;
+      throw new Error("injected_database_failure");
+    }
+    this.completedSql.push(sql);
+  }
 }
 
 class RecordingStatement {
@@ -117,6 +127,7 @@ class RecordingStatement {
   }
 
   async run<T = Record<string, unknown>>(): Promise<D1Result<T>> {
+    this.db.recordRun(this.sql);
     return {
       success: true,
       results: [],
@@ -237,4 +248,26 @@ test("saveMealAndTrace updates canonical meal tables and AI trace columns", asyn
   assert.match(sql, /input_text_tokens/);
   assert.match(sql, /reported_cost_usd/);
   assert.doesNotMatch(sql, /INSERT INTO meals/);
+});
+
+test("save failure reaches the caller and a retry can complete the job", async () => {
+  const db = new RecordingDatabase(JSON.stringify(update));
+  const message = parseTelegramMealMessage(update);
+  assert.ok(message);
+  const { job } = await ensureAnalysisJob(db as D1Database, message, "owner");
+  db.completedSql.length = 0;
+  db.failNextSql = "INSERT INTO meal_items";
+
+  await assert.rejects(
+    () => saveMealAndTrace(db as D1Database, job, analysis, trace, "meals/job-1/original", "image/jpeg"),
+    /injected_database_failure/,
+  );
+  assert.ok(!db.completedSql.some((sql) => sql.includes("INSERT INTO ai_runs")));
+  assert.ok(!db.completedSql.some((sql) => sql.includes("UPDATE analysis_jobs")));
+
+  db.completedSql.length = 0;
+  await saveMealAndTrace(db as D1Database, job, analysis, trace, "meals/job-1/original", "image/jpeg");
+  assert.ok(db.completedSql.some((sql) => sql.includes("DELETE FROM meal_items")));
+  assert.ok(db.completedSql.some((sql) => sql.includes("INSERT INTO meal_items")));
+  assert.ok(db.completedSql.some((sql) => sql.includes("UPDATE analysis_jobs")));
 });

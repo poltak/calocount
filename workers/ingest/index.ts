@@ -233,10 +233,11 @@ async function processJob(jobId: string, env: IngestEnvironment): Promise<JobOut
   } catch (error) {
     const errorCode = safeErrorCode(error);
     const shouldRetry = isRetryable(error) && job.attemptCount <= retryLimit(env.MAX_RETRY_ATTEMPTS);
+    const delaySeconds = Math.min(300, 10 * 2 ** Math.max(0, job.attemptCount - 1));
     try {
       await recordAiFailure(env.DB, job, null, errorCode);
       if (shouldRetry) {
-        await markJobRetry(env.DB, job.id, errorCode);
+        await markJobRetry(env.DB, job.id, errorCode, delaySeconds * 1_000);
       } else {
         await markJobFailed(env.DB, job.id, errorCode);
         try {
@@ -252,7 +253,7 @@ async function processJob(jobId: string, env: IngestEnvironment): Promise<JobOut
     }
     console.error(JSON.stringify({ event: "meal_job_error", code: errorCode, jobId: job.id }));
     return shouldRetry
-      ? { retry: true, delaySeconds: Math.min(300, 10 * 2 ** Math.max(0, job.attemptCount - 1)) }
+      ? { retry: true, delaySeconds }
       : { retry: false };
   }
 }

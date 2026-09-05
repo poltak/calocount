@@ -28,6 +28,7 @@ function confidenceScore(value: string): number {
 
 const NUTRIENT_COLUMNS = NUTRIENT_KEYS.map(nutrientDbColumn).join(", ");
 const NUTRIENT_PLACEHOLDERS = NUTRIENT_KEYS.map(() => "?").join(", ");
+const STALE_JOB_MINUTES = 15;
 
 export interface EnsureJobResult {
   readonly job: StoredAnalysisJob;
@@ -510,19 +511,22 @@ export async function recordAiFailure(
     .run();
 }
 
+/** Recover old jobs whose queue delivery was lost, without bypassing backoff. */
 export async function findStaleAnalysisJobs(
   db: D1Database,
-  staleMinutes = 15,
+  staleMinutes = STALE_JOB_MINUTES,
 ): Promise<readonly string[]> {
   const safeMinutes = Math.max(1, Math.min(240, Math.floor(staleMinutes)));
+  const timestamp = nowMs();
   const result = await db
     .prepare(
       `SELECT id FROM analysis_jobs
-       WHERE state = 'processing' AND updated_at < ?
+       WHERE updated_at < ?
+         AND (state = 'processing' OR (state IN ('pending', 'retry') AND available_after <= ?))
        ORDER BY updated_at ASC
        LIMIT 25`,
     )
-    .bind(nowMs() - safeMinutes * 60_000)
+    .bind(timestamp - safeMinutes * 60_000, timestamp)
     .all<{ readonly id: string }>();
   return result.results
     .map((row) => row.id)
@@ -536,9 +540,9 @@ export async function resetStaleAnalysisJob(db: D1Database, jobId: string): Prom
       `UPDATE analysis_jobs
        SET state = 'retry', last_error_code = 'stale_job',
            last_error_message = 'stale_job', available_after = ?, updated_at = ?
-       WHERE id = ? AND state = 'processing'`,
+       WHERE id = ? AND state = 'processing' AND updated_at < ?`,
     )
-    .bind(timestamp, timestamp, jobId)
+    .bind(timestamp, timestamp, jobId, timestamp - STALE_JOB_MINUTES * 60_000)
     .run();
 }
 
