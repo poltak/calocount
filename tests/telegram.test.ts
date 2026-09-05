@@ -260,6 +260,22 @@ test("Telegram 429 errors are marked retryable", async () => {
   );
 });
 
+test("non-JSON Telegram errors preserve HTTP retry policy", async () => {
+  for (const status of [400, 429, 503]) {
+    await assert.rejects(
+      () => sendTelegramMealResult("token", "-67890", analysis, async () =>
+        new Response("upstream error", { status }),
+      ),
+      (error: unknown) => {
+        assert.ok(error instanceof TelegramApiError);
+        assert.equal(error.message, `telegram_http_${status}`);
+        assert.equal(error.retryable, status !== 400);
+        return true;
+      },
+    );
+  }
+});
+
 test("Telegram safe error delivery uses fixed text without provider details", async () => {
   let seenInit: RequestInit | undefined;
   const fetchFn: typeof fetch = async (_input, init) => {

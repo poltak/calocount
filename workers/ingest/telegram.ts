@@ -110,7 +110,11 @@ async function telegramJson(
   try {
     body = await readBoundedJson(response, MAX_TELEGRAM_RESPONSE_BYTES);
   } catch {
-    throw new TelegramApiError("telegram_invalid_response", response.status >= 500);
+    if (response.ok) {
+      throw new TelegramApiError("telegram_invalid_response", false);
+    }
+    // An HTTP error does not need a JSON body to determine whether to retry.
+    body = null;
   }
 
   if (!response.ok) {

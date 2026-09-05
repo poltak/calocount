@@ -306,6 +306,32 @@ test("ordinary provider 4xx responses are not retryable", async () => {
   );
 });
 
+test("non-JSON provider errors preserve HTTP status and retry policy", async () => {
+  for (const status of [400, 402, 408, 409, 429, 503]) {
+    const analyzer = openRouterAnalyzer(async () => new Response("upstream error", { status }));
+    await expectRequestError(() => analyzer.analyze(analysisInput), {
+      message: `provider_http_${status}_provider_error`,
+      retryable: [408, 409, 429, 503].includes(status),
+      status,
+    });
+  }
+});
+
+test("provider response body aborts and network failures remain retryable", async () => {
+  for (const error of [new DOMException("aborted", "AbortError"), new TypeError("connection reset")]) {
+    const analyzer = openRouterAnalyzer(async () => new Response(new ReadableStream({
+      start(controller) {
+        controller.error(error);
+      },
+    })));
+    await expectRequestError(() => analyzer.analyze(analysisInput), {
+      message: error.name === "AbortError" ? "provider_timeout" : "provider_network_error",
+      retryable: true,
+      status: null,
+    });
+  }
+});
+
 test("malformed provider content returns a retryable analyzer error", async () => {
   const analyzer = openRouterAnalyzer(async () =>
     jsonResponse(providerResponse({ content: "this is not json" })),

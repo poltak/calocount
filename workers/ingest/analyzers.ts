@@ -203,15 +203,23 @@ async function fetchProvider(
     try {
       payload = await readBoundedJson(response, MAX_PROVIDER_RESPONSE_BYTES);
     } catch (error) {
-      if (error instanceof AnalyzerRequestError) {
+      if (controller.signal.aborted || (error instanceof DOMException && error.name === "AbortError")) {
+        throw new AnalyzerRequestError("provider_timeout", true);
+      }
+      if (error instanceof TypeError) {
         throw error;
       }
-      throw new AnalyzerRequestError(
-        error instanceof Error && error.message === "body_too_large"
-          ? "provider_response_too_large"
-          : "provider_returned_invalid_response",
-        response.status >= 500,
-      );
+      if (response.ok) {
+        throw new AnalyzerRequestError(
+          error instanceof Error && error.message === "body_too_large"
+            ? "provider_response_too_large"
+            : "provider_returned_invalid_response",
+          false,
+        );
+      }
+      // Error pages can be plain text or HTML. Keep the HTTP retry policy
+      // and status even when their body is not valid JSON.
+      payload = null;
     }
 
     if (!response.ok) {
