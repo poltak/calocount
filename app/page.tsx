@@ -17,6 +17,7 @@ import {
   compareAverageToTarget,
   getAdjacentDayKey,
 } from "./dashboard-calculations";
+import { scheduleDashboardClock } from "./dashboard-clock";
 import { getMealSwipeAction } from "./meal-swipe";
 import { photoUrlForKey, publicPhotoUrlForMealId } from "./photo-url";
 import {
@@ -652,6 +653,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
   const [mealPhotoDrafts, setMealPhotoDrafts] = useState<Record<string, File | null>>({});
   const [previewMeal, setPreviewMeal] = useState<Meal | null>(null);
   const [failedPhotoUrls, setFailedPhotoUrls] = useState<Set<string>>(() => new Set());
+  const [clockNow, setClockNow] = useState(() => new Date());
   const mealCreateInFlight = useRef(false);
   const mealSaveInFlight = useRef<Set<string>>(new Set());
   const mealDeleteInFlight = useRef<string | null>(null);
@@ -719,9 +721,10 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     () => calculateSevenDayAverage({
       days: chartValues,
       currentDate: chartValues[chartValues.length - 1]?.date ?? "",
+      now: clockNow,
       timeZone: publicView ? "UTC" : browserTimeZone(),
     }),
-    [chartValues, publicView],
+    [chartValues, clockNow, publicView],
   );
 
   const averageComparison = useMemo(
@@ -836,6 +839,21 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
       cancelled = true;
     };
   }, [dashboardReloadKey, publicView, readOnly]);
+
+  useEffect(() => {
+    const stopClock = scheduleDashboardClock({
+      now: () => new Date(),
+      onTick: setClockNow,
+    });
+    const refreshClock = () => setClockNow(new Date());
+    window.addEventListener("focus", refreshClock);
+    document.addEventListener("visibilitychange", refreshClock);
+    return () => {
+      stopClock();
+      window.removeEventListener("focus", refreshClock);
+      document.removeEventListener("visibilitychange", refreshClock);
+    };
+  }, []);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {

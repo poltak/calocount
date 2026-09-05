@@ -244,8 +244,28 @@ function hourInTimeZone(now: Date, timeZone: string) {
   }
 }
 
+function dateInTimeZone(now: Date, timeZone: string): string | null {
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      day: "2-digit",
+      month: "2-digit",
+      timeZone,
+      year: "numeric",
+    }).formatToParts(now);
+    const year = parts.find((part) => part.type === "year")?.value;
+    const month = parts.find((part) => part.type === "month")?.value;
+    const day = parts.find((part) => part.type === "day")?.value;
+    return year && month && day ? `${year}-${month}-${day}` : null;
+  } catch {
+    return null;
+  }
+}
+
 export function calculateSevenDayAverage({ days, currentDate, now = new Date(), timeZone }: SevenDayAverageOptions) {
-  const includeCurrentDay = hourInTimeZone(now, timeZone) >= sevenDayAverageCutoffHour;
+  // A stale chart can end on yesterday after midnight. In that case every
+  // plotted day is complete and the last plotted day must stay in the average.
+  const chartContainsCurrentDay = dateInTimeZone(now, timeZone) === currentDate;
+  const includeCurrentDay = !chartContainsCurrentDay || hourInTimeZone(now, timeZone) >= sevenDayAverageCutoffHour;
   const includedDays = includeCurrentDay
     ? days
     : days.filter((day) => day.date !== currentDate);
