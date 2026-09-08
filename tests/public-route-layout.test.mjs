@@ -75,7 +75,7 @@ test("the public root has no tokenized or owner link controls", async () => {
 test("the public root keeps every owner mutation and private photo control disabled", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
 
-  assert.match(page, /if \(readOnly\) return;/);
+  assert.match(page, /\{!readOnly \? <div className="meal-actions"/);
   assert.match(page, /className="icon-button"/);
   assert.match(page, /className="primary-button"/);
   assert.match(page, /\{meal\.photoUrl && !failedPhotoUrls\.has\(meal\.photoUrl\)/);

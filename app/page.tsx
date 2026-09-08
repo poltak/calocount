@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { CSSProperties, FormEvent, PointerEvent as ReactPointerEvent } from "react";
+import type { CSSProperties, FormEvent } from "react";
 
 import { resolveNutrientGoals } from "../domain/nutrient-goals";
 import type { NutrientKey } from "../domain/nutrients";
@@ -29,7 +29,6 @@ import {
   type MealEditState,
 } from "./dashboard-edit";
 import { scheduleDashboardClock } from "./dashboard-clock";
-import { getMealSwipeAction } from "./meal-swipe";
 import { photoUrlForKey, publicPhotoUrlForMealId } from "./photo-url";
 import {
   aggregateNutrientValues,
@@ -166,13 +165,6 @@ type PendingAction = {
   kind: PendingActionKind;
   id?: string;
 };
-type MealSwipeStart = {
-  mealId: string;
-  pointerId: number;
-  startX: number;
-  startY: number;
-};
-
 const calorieTarget = 2400;
 const proteinTarget = 160;
 const defaultNutrientTargets = resolveNutrientGoals();
@@ -632,7 +624,6 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
   const [days, setDays] = useState(initialDays);
   const [selectedDayKey, setSelectedDayKey] = useState<DayKey>("thu");
   const [mealEditState, setMealEditState] = useState<MealEditState<Meal>>(() => emptyMealEditState<Meal>());
-  const [openMealId, setOpenMealId] = useState<string | null>(null);
   const [showAddMeal, setShowAddMeal] = useState(false);
   const [showWeightForm, setShowWeightForm] = useState(false);
   const [weightDraft, setWeightDraft] = useState("");
@@ -671,7 +662,6 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
   const mealCopyInFlight = useRef<string | null>(null);
   const settingsLoadInFlight = useRef(false);
   const weightSaveInFlight = useRef(false);
-  const mealSwipeRef = useRef<MealSwipeStart | null>(null);
   const previewCloseRef = useRef<HTMLButtonElement>(null);
   const actionInProgress = pendingAction !== null;
   const pendingLabel = pendingAction ? pendingActionLabel(pendingAction) : null;
@@ -919,45 +909,6 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     });
   }
 
-  function handleMealPointerDown(mealId: string, event: ReactPointerEvent<HTMLDivElement>) {
-    if (readOnly) return;
-    if (event.pointerType === "mouse" && event.button !== 0) return;
-    mealSwipeRef.current = {
-      mealId,
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-    };
-    event.currentTarget.setPointerCapture(event.pointerId);
-  }
-
-  function finishMealPointer(mealId: string, event: ReactPointerEvent<HTMLDivElement>) {
-    if (readOnly) return;
-    const swipe = mealSwipeRef.current;
-    if (!swipe || swipe.mealId !== mealId || swipe.pointerId !== event.pointerId) return;
-    mealSwipeRef.current = null;
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
-
-    const action = getMealSwipeAction({
-      deltaX: event.clientX - swipe.startX,
-      deltaY: event.clientY - swipe.startY,
-    });
-    if (action === "open") setOpenMealId(mealId);
-    if (action === "close") setOpenMealId(null);
-  }
-
-  function cancelMealPointer(mealId: string, event: ReactPointerEvent<HTMLDivElement>) {
-    if (readOnly) return;
-    const swipe = mealSwipeRef.current;
-    if (!swipe || swipe.mealId !== mealId || swipe.pointerId !== event.pointerId) return;
-    mealSwipeRef.current = null;
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
-  }
-
   function markPhotoUnavailable(photoUrl: string) {
     setFailedPhotoUrls((current) => {
       if (current.has(photoUrl)) return current;
@@ -1087,7 +1038,6 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     const action = beginAction("meal-delete", mealId);
     if (!action) return;
     mealDeleteInFlight.current = mealId;
-    setOpenMealId(null);
     setDeletingMealId(mealId);
     setActionError(null);
     try {
@@ -1126,7 +1076,6 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     if (!action) return;
     mealCopyInFlight.current = mealId;
     setCopyingMealId(mealId);
-    setOpenMealId(null);
     setActionError(null);
     const consumedAt = mealDateTimestamp({ date: today.date, time: localTimeValue() }) ?? Date.now();
     const optimisticMeal: Meal = {
@@ -1174,7 +1123,6 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     if (!action) return;
     mealCopyInFlight.current = mealId;
     setDuplicatingMealId(mealId);
-    setOpenMealId(null);
     setActionError(null);
     const optimisticMeal: Meal = {
       ...meal,
@@ -1761,17 +1709,11 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
             </form> : null}
 
             {selectedDay.meals.length > 0 ? <div className="meal-list">
-              <div className="meal-list-head" aria-hidden="true"><span /><span>Meal</span><span>Energy</span><span>Protein</span><span>Carbs</span><span>Fat</span><span /></div>
               {selectedDay.meals.map((meal) => {
                 const mealDraft = mealDraftFor(mealEditState, meal);
                 return <div className="meal-group" key={meal.id}>
-                <div className={`meal-row${openMealId === meal.id ? " is-actions-open" : ""}${selectedDay.date !== days.at(-1)?.date ? " has-copy-action" : ""}${meal.pending || pendingAction?.id === meal.id ? " is-pending" : ""}`} aria-busy={Boolean(meal.pending || pendingAction?.id === meal.id)}>
-                  <div
-                    className="meal-row-content"
-                    onPointerDown={(event) => handleMealPointerDown(meal.id, event)}
-                    onPointerUp={(event) => finishMealPointer(meal.id, event)}
-                    onPointerCancel={(event) => cancelMealPointer(meal.id, event)}
-                  >
+                <div className={`meal-row${meal.pending || pendingAction?.id === meal.id ? " is-pending" : ""}`} aria-busy={Boolean(meal.pending || pendingAction?.id === meal.id)}>
+                  <div className="meal-row-content">
                     {meal.photoUrl && !failedPhotoUrls.has(meal.photoUrl) ? <button
                       className="meal-photo-button"
                       type="button"
@@ -1794,22 +1736,13 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
                       />
                     </button> : <div className={`meal-avatar ${meal.kind}`} aria-hidden="true">{mealPlaceholders[meal.kind]}</div>}
                     <div className="meal-info"><div className="meal-name-line"><strong>{meal.name}</strong><time>{meal.time}</time>{meal.pending === "creating" ? <span className="pending-indicator" role="status">Saving…</span> : null}{meal.pending === "copying" ? <span className="pending-indicator" role="status">Copying…</span> : null}{meal.pending === "duplicating" ? <span className="pending-indicator" role="status">Duplicating…</span> : null}{pendingAction?.kind === "meal-save" && pendingAction.id === meal.id ? <span className="pending-indicator" role="status">Saving…</span> : null}{pendingAction?.kind === "meal-delete" && pendingAction.id === meal.id ? <span className="pending-indicator" role="status">Deleting…</span> : null}{pendingAction?.kind === "meal-copy" && pendingAction.id === meal.id ? <span className="pending-indicator" role="status">Copying…</span> : null}{pendingAction?.kind === "meal-duplicate" && pendingAction.id === meal.id ? <span className="pending-indicator" role="status">Duplicating…</span> : null}</div><span>{meal.description}</span></div>
-                    <div className="meal-stat calories-stat" data-label="Energy">{formatNumber(meal.calories)} <small>kcal</small></div>
-                    <div className="meal-stat protein-stat" data-label="Protein">{formatNumber(meal.protein)}<small>g</small></div>
-                    <div className="meal-stat carbs-stat" data-label="Carbs">{formatNumber(meal.carbs ?? 0)}<small>g</small></div>
-                    <div className="meal-stat fat-stat" data-label="Fat">{formatNumber(meal.fat ?? 0)}<small>g</small></div>
+                    <div className="meal-macros" aria-label="Meal macros">
+                      <div className="meal-stat calories-stat"><span className="meal-stat-label">Energy</span><span>{formatNumber(meal.calories)} <small>kcal</small></span></div>
+                      <div className="meal-stat protein-stat"><span className="meal-stat-label">Protein</span><span>{formatNumber(meal.protein)} <small>g</small></span></div>
+                      <div className="meal-stat carbs-stat"><span className="meal-stat-label">Carbs</span><span>{formatNumber(meal.carbs ?? 0)} <small>g</small></span></div>
+                      <div className="meal-stat fat-stat"><span className="meal-stat-label">Fat</span><span>{formatNumber(meal.fat ?? 0)} <small>g</small></span></div>
+                    </div>
                   </div>
-                  {!readOnly ? <button
-                    className="meal-actions-toggle"
-                    type="button"
-                    aria-expanded={openMealId === meal.id}
-                    aria-controls={`meal-actions-${meal.id}`}
-                    aria-label={`${openMealId === meal.id ? "Close" : "Open"} actions for ${meal.name}`}
-                    disabled={actionInProgress}
-                    onClick={() => setOpenMealId((current) => current === meal.id ? null : meal.id)}
-                  >
-                    {openMealId === meal.id ? "×" : "⋯"}
-                  </button> : null}
                   {!readOnly ? <div className="meal-actions" id={`meal-actions-${meal.id}`}>
                     {selectedDay.date !== days.at(-1)?.date ? <button className="copy-button" type="button" disabled={actionInProgress || deletingMealId !== null || copyingMealId !== null} onClick={() => void copyMealToToday(meal.id)} aria-label={`Copy ${meal.name} to today`} aria-busy={copyingMealId === meal.id}>{copyingMealId === meal.id ? "Copying…" : "Copy to today"}</button> : null}
                     <button className="duplicate-button" type="button" disabled={actionInProgress || deletingMealId !== null || copyingMealId !== null || duplicatingMealId !== null} onClick={() => void duplicateMeal(meal.id)} aria-label={`Duplicate ${meal.name}`} aria-busy={duplicatingMealId === meal.id}>{duplicatingMealId === meal.id ? "Duplicating…" : "Duplicate"}</button>

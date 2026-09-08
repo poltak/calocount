@@ -65,7 +65,7 @@ test("dashboard controls expose pending labels, disabled states, and busy status
   assert.match(page, /disabled=\{actionInProgress\} aria-busy=\{pendingAction\?\.kind === "meal-save" && pendingAction\.id === meal\.id\}/);
   assert.match(page, /disabled=\{weightSaving \|\| actionInProgress\} aria-busy=\{weightActionPending\}/);
   assert.match(page, /className=\{`weight-reading\$\{selectedWeight \? "" : " empty"\}\$\{weightActionPending \? " is-pending" : ""\}`\}/);
-  assert.match(page, /className=\{`meal-row\$\{openMealId === meal\.id/);
+  assert.match(page, /className=\{`meal-row\$\{meal\.pending \|\| pendingAction\?\.id === meal\.id/);
   assert.match(css, /button:disabled \{/);
   assert.match(css, /\.weight-reading\.is-pending/);
   assert.match(css, /\.meal-row\.is-pending/);

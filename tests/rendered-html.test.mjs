@@ -121,13 +121,12 @@ test("jump navigation is responsive and meal rows show every macro", async () =>
 
   assert.match(css, /\.jump-nav\s*{\s*display:\s*none;/);
   assert.match(css, /@media \(max-width: 880px\)[\s\S]*?\.jump-nav\s*{\s*display:\s*flex;/);
-  assert.match(page, /meal-list-head[\s\S]*?<span>Meal<\/span><span>Energy<\/span><span>Protein<\/span><span>Carbs<\/span><span>Fat<\/span>/);
+  assert.match(page, /className="meal-macros"/);
   assert.match(page, /className="meal-stat carbs-stat"/);
   assert.match(page, /className="meal-stat fat-stat"/);
-  assert.match(page, /data-label="Energy"/);
-  assert.match(page, /data-label="Protein"/);
-  assert.match(page, /data-label="Carbs"/);
-  assert.match(page, /data-label="Fat"/);
+  for (const label of ["Energy", "Protein", "Carbs", "Fat"]) {
+    assert.ok(page.includes(`className="meal-stat-label">${label}</span>`));
+  }
 });
 
 test("meal editor uses one PATCH save action", async () => {
