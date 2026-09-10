@@ -1,0 +1,242 @@
+openapi: 3.1.0
+
+info:
+  title: Calocount Meal API
+  description: Adds meals, detailed nutrition estimates, and optional meal photos to the user's personal tracker.
+  version: 1.1.0
+
+servers:
+  - url: https://YOUR-CALOCOUNT-HOST.example.com
+
+paths:
+  /api/add-meal:
+    post:
+      operationId: addMeal
+      summary: Add a meal to Calocount
+      description: >
+        Adds one confirmed meal to the user's personal tracker. Calories and
+        macros are required. Detailed nutrients and one user-uploaded meal
+        image are optional. Only call this operation after the user confirms
+        the complete estimate.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - request_id
+                - name
+                - kcal
+                - protein
+                - carbs
+                - fat
+                - eaten_at
+              properties:
+                request_id:
+                  type: string
+                  format: uuid
+                  description: >
+                    UUID generated for this meal logging request. Reuse the
+                    same UUID only when retrying the same request.
+                name:
+                  type: string
+                  maxLength: 200
+                  description: Concise human-readable description of the meal.
+                kcal:
+                  type: number
+                  minimum: 0
+                  maximum: 100000
+                  description: Estimated calories in kilocalories for the full meal.
+                protein:
+                  type: number
+                  minimum: 0
+                  maximum: 10000
+                  description: Estimated protein in grams for the full meal.
+                carbs:
+                  type: number
+                  minimum: 0
+                  maximum: 10000
+                  description: Estimated carbohydrates in grams for the full meal.
+                fat:
+                  type: number
+                  minimum: 0
+                  maximum: 10000
+                  description: Estimated fat in grams for the full meal.
+                eaten_at:
+                  type: string
+                  format: date-time
+                  description: >
+                    Time the meal was eaten in ISO 8601 format, including its
+                    UTC offset.
+                nutrients:
+                  $ref: "#/components/schemas/Nutrients"
+                openaiFileIdRefs:
+                  type: array
+                  maxItems: 1
+                  description: >
+                    Optional user-uploaded image of the meal being logged.
+                    Send at most one original meal photo. Supported images are
+                    JPEG, PNG, or WEBP. Omit this field when the user did not
+                    provide a meal image.
+                  items:
+                    type: string
+      responses:
+        "200":
+          description: Meal logging result.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - status
+                properties:
+                  status:
+                    type: string
+                    enum:
+                      - created
+                      - already_exists
+        "400":
+          description: Invalid meal data or image.
+        "401":
+          description: Missing or invalid authentication.
+        "500":
+          description: Unexpected server error.
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  schemas:
+    Nutrients:
+      type: object
+      additionalProperties: false
+      description: >
+        Optional detailed nutrition totals for the full meal. Include a field
+        only when there is a useful estimate. Omit unknown fields. A value of
+        zero means that the nutrient is known to be absent.
+      properties:
+        fiberG:
+          type: number
+          minimum: 0
+          maximum: 100000
+          description: Total dietary fiber in grams.
+        totalSugarsG:
+          type: number
+          minimum: 0
+          maximum: 100000
+          description: Total sugars in grams, including natural and added sugars.
+        saturatedFatG:
+          type: number
+          minimum: 0
+          maximum: 100000
+          description: Saturated fat in grams.
+        monounsaturatedFatG:
+          type: number
+          minimum: 0
+          maximum: 100000
+          description: Monounsaturated fat in grams.
+        polyunsaturatedFatG:
+          type: number
+          minimum: 0
+          maximum: 100000
+          description: Polyunsaturated fat in grams.
+        omega3G:
+          type: number
+          minimum: 0
+          maximum: 100000
+          description: Total omega-3 fatty acids in grams. Do not split this into ALA, EPA, or DHA.
+        cholesterolMg:
+          type: number
+          minimum: 0
+          maximum: 1000000
+          description: Cholesterol in milligrams.
+        vitaminAMcgRae:
+          type: number
+          minimum: 0
+          maximum: 10000000
+          description: Vitamin A in micrograms of retinol activity equivalents (mcg RAE).
+        vitaminCMg:
+          type: number
+          minimum: 0
+          maximum: 1000000
+          description: Vitamin C in milligrams.
+        vitaminDMcg:
+          type: number
+          minimum: 0
+          maximum: 100000
+          description: Vitamin D in micrograms.
+        vitaminEMg:
+          type: number
+          minimum: 0
+          maximum: 1000000
+          description: Vitamin E in milligrams.
+        vitaminKMcg:
+          type: number
+          minimum: 0
+          maximum: 1000000
+          description: Vitamin K in micrograms.
+        vitaminB6Mg:
+          type: number
+          minimum: 0
+          maximum: 100000
+          description: Vitamin B6 in milligrams.
+        folateMcgDfe:
+          type: number
+          minimum: 0
+          maximum: 1000000
+          description: Folate in micrograms of dietary folate equivalents (mcg DFE).
+        vitaminB12Mcg:
+          type: number
+          minimum: 0
+          maximum: 100000
+          description: Vitamin B12 in micrograms.
+        sodiumMg:
+          type: number
+          minimum: 0
+          maximum: 10000000
+          description: Sodium in milligrams.
+        potassiumMg:
+          type: number
+          minimum: 0
+          maximum: 10000000
+          description: Potassium in milligrams.
+        calciumMg:
+          type: number
+          minimum: 0
+          maximum: 10000000
+          description: Calcium in milligrams.
+        ironMg:
+          type: number
+          minimum: 0
+          maximum: 100000
+          description: Iron in milligrams.
+        magnesiumMg:
+          type: number
+          minimum: 0
+          maximum: 10000000
+          description: Magnesium in milligrams.
+        phosphorusMg:
+          type: number
+          minimum: 0
+          maximum: 10000000
+          description: Phosphorus in milligrams.
+        zincMg:
+          type: number
+          minimum: 0
+          maximum: 100000
+          description: Zinc in milligrams.
+        seleniumMcg:
+          type: number
+          minimum: 0
+          maximum: 100000
+          description: Selenium in micrograms.
+        caffeineMg:
+          type: number
+          minimum: 0
+          maximum: 100000
+          description: Caffeine in milligrams.
