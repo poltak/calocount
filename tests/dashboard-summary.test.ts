@@ -57,7 +57,12 @@ function mealRow(
   };
 }
 
-function settingsRow(ownerKey: string, timezone = "UTC"): Row {
+function settingsRow(
+  ownerKey: string,
+  timezone = "UTC",
+  proteinGoalMode = "grams",
+  dailyProteinTargetPerKg: number | null = null,
+): Row {
   return {
     id: `settings_${ownerKey}`,
     owner_key: ownerKey,
@@ -66,6 +71,8 @@ function settingsRow(ownerKey: string, timezone = "UTC"): Row {
     timezone,
     daily_calorie_target: 2_000,
     daily_protein_target_g: 150,
+    protein_goal_mode: proteinGoalMode,
+    daily_protein_target_per_kg: dailyProteinTargetPerKg,
     active_ai_profile_id: null,
     photo_retention_days: 30,
     created_at: 0,
@@ -132,6 +139,12 @@ class SummaryD1Database {
       const [ownerKey, from, to] = values.filter(
         (value): value is string => typeof value === "string",
       );
+      if (to === undefined) {
+        return result(this.weights
+          .filter((weight) => weight.owner_key === ownerKey && String(weight.logical_date) < String(from))
+          .sort((left, right) => String(right.logical_date).localeCompare(String(left.logical_date)))
+          .slice(0, 1));
+      }
       return result(this.weights
         .filter((weight) => (
           weight.owner_key === ownerKey
@@ -400,4 +413,49 @@ test("public summaries keep UTC when the timezone is missing or invalid", async 
   const publicSummary = await getDashboardSummary(db, OWNER_KEY, { now });
   assert.equal(summary.date, "2026-08-25");
   assert.equal(publicSummary.date, "2026-08-25");
+});
+
+test("dashboard summary resolves per-kilogram protein goals from the selected or latest earlier weight", async () => {
+  const now = new Date("2025-06-15T12:00:00Z");
+  const weights = [
+    weightRow("selected-weight", OWNER_KEY, "2025-06-15", 75, now.getTime()),
+    weightRow("earlier-weight", OWNER_KEY, "2025-06-13", 74, now.getTime() - 2 * DAY_MS),
+    weightRow("future-weight", OWNER_KEY, "2025-06-16", 100, now.getTime() + DAY_MS),
+  ];
+  const db = drizzle(
+    new SummaryD1Database([], settingsRow(OWNER_KEY, "UTC", "gramsPerKg", 1.5), weights) as unknown as D1Database,
+    { schema },
+  );
+
+  const summary = await getDashboardSummary(db, OWNER_KEY, { now, timezone: "UTC" });
+
+  assert.equal(summary.proteinGoal.mode, "gramsPerKg");
+  assert.equal(summary.proteinGoal.gramsPerKg, 1.5);
+  assert.equal(summary.targets.proteinG, 112.5);
+  assert.deepEqual(summary.proteinGoal.byDate.find((day) => day.date === "2025-06-15"), {
+    date: "2025-06-15",
+    targetG: 112.5,
+    weightKg: 75,
+    weightDate: "2025-06-15",
+  });
+  assert.deepEqual(summary.proteinGoal.byDate.find((day) => day.date === "2025-06-14"), {
+    date: "2025-06-14",
+    targetG: 111,
+    weightKg: 74,
+    weightDate: "2025-06-13",
+  });
+  assert.equal(summary.proteinGoal.byDate.find((day) => day.date === "2025-06-14")?.weightDate, "2025-06-13");
+});
+
+test("dashboard summary leaves a per-kilogram protein goal unavailable until a weight exists", async () => {
+  const now = new Date("2025-06-15T12:00:00Z");
+  const db = drizzle(
+    new SummaryD1Database([], settingsRow(OWNER_KEY, "UTC", "gramsPerKg", 1.6), []) as unknown as D1Database,
+    { schema },
+  );
+
+  const summary = await getDashboardSummary(db, OWNER_KEY, { now, timezone: "UTC" });
+
+  assert.equal(summary.targets.proteinG, null);
+  assert.ok(summary.proteinGoal.byDate.every((day) => day.targetG === null && day.weightKg === null));
 });

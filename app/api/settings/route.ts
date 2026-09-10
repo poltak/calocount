@@ -5,6 +5,11 @@ import {
   resolveNutrientGoals,
   type NutrientGoalOverrides,
 } from "../../../domain/nutrient-goals";
+import {
+  isProteinGoalMode,
+  PROTEIN_PER_KG_MAX,
+  PROTEIN_PER_KG_MIN,
+} from "../../../domain/protein-goals";
 import { NUTRIENT_META } from "../../../domain/nutrients";
 import {
   ApiError,
@@ -29,6 +34,23 @@ function parseSettingsPatch(body: Record<string, unknown>): SettingsPatch {
   }
   if (body.dailyCalorieTarget !== undefined) patch.dailyCalorieTarget = body.dailyCalorieTarget == null ? null : Math.round(optionalNumber(body.dailyCalorieTarget, "dailyCalorieTarget", { min: 0, max: 100_000 }) ?? 0);
   if (body.dailyProteinTargetG !== undefined) patch.dailyProteinTargetG = body.dailyProteinTargetG == null ? null : optionalNumber(body.dailyProteinTargetG, "dailyProteinTargetG", { min: 0, max: 10_000 }) ?? 0;
+  if (body.proteinGoalMode !== undefined) {
+    const proteinGoalMode = requireString(body.proteinGoalMode, "proteinGoalMode", { max: 20 });
+    if (!isProteinGoalMode(proteinGoalMode)) {
+      throw new ApiError(400, "invalid_field", "proteinGoalMode must be grams or gramsPerKg.");
+    }
+    patch.proteinGoalMode = proteinGoalMode;
+  }
+  if (body.dailyProteinTargetPerKg !== undefined) {
+    if (body.dailyProteinTargetPerKg === null) {
+      patch.dailyProteinTargetPerKg = null;
+    } else {
+      patch.dailyProteinTargetPerKg = optionalNumber(body.dailyProteinTargetPerKg, "dailyProteinTargetPerKg", {
+        min: PROTEIN_PER_KG_MIN,
+        max: PROTEIN_PER_KG_MAX,
+      }) ?? null;
+    }
+  }
   if (body.nutrientTargets !== undefined) {
     if (body.nutrientTargets === null) {
       patch.nutrientTargets = null;

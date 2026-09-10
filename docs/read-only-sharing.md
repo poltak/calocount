@@ -37,7 +37,8 @@ The public summary endpoint resolves the stable configured owner key. It fails
 closed when that key is absent and returns `Cache-Control: no-store`. The
 projection contains only the fields required by the dashboard:
 
-- date and calorie/protein targets;
+- date and calorie/protein targets, including the selected protein-goal mode and
+  weight-derived protein target when configured;
 - today totals;
 - seven-day totals, averages, and trend points;
 - recent completed meal totals, item nutrition, and whether a public photo is available; and

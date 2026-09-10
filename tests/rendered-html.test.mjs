@@ -87,6 +87,35 @@ test("daily weight supports add and edit with kilograms and an automatic saved t
   assert.match(repository, /recordedAt: timestamp/);
 });
 
+test("protein settings expose one fixed or per-kilogram goal choice", async () => {
+  const [page, route, schema] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/settings/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(page, /name="protein-goal-mode"/);
+  assert.match(page, /value="grams"/);
+  assert.match(page, /value="gramsPerKg"/);
+  assert.match(page, /name="daily-protein-target-per-kg"/);
+  assert.match(page, /PROTEIN_PER_KG_MIN/);
+  assert.match(route, /dailyProteinTargetPerKg/);
+  assert.match(route, /PROTEIN_PER_KG_MAX/);
+  assert.match(schema, /proteinGoalMode: text\("protein_goal_mode"\)/);
+  assert.match(schema, /dailyProteinTargetPerKg: real\("daily_protein_target_per_kg"\)/);
+});
+
+test("per-kilogram protein progress shows a weight action when no weight is available", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+
+  assert.match(page, /activeProteinTarget === null/);
+  assert.match(page, /Goal unavailable/);
+  assert.match(page, /Record a weight to calculate your daily protein goal/);
+  assert.match(page, /href="#weight"/);
+  assert.match(page, /id="weight"/);
+  assert.match(page, /calculateProteinTargetG/);
+});
+
 test("weight trend plots recorded days and keeps gaps visible", async () => {
   const [page, css] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),

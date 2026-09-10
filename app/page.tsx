@@ -4,6 +4,19 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
 
 import { resolveNutrientGoals } from "../domain/nutrient-goals";
+import {
+  calculateProteinTargetG,
+  DEFAULT_PROTEIN_PER_KG,
+  isProteinGoalMode,
+  isValidProteinPerKg,
+  PROTEIN_PER_KG_MAX,
+  PROTEIN_PER_KG_MIN,
+  PROTEIN_PER_KG_STEP,
+  updateProteinGoalSettings,
+  type ProteinGoalDay,
+  type ProteinGoalMode,
+  type ProteinGoalSummary,
+} from "../domain/protein-goals";
 import type { NutrientKey } from "../domain/nutrients";
 
 import {
@@ -136,6 +149,7 @@ type TrendDay = {
 type DashboardSummary = {
   date: string;
   targets: { calories: number | null; proteinG: number | null; nutrients: NutrientGoalMap };
+  proteinGoal: ProteinGoalSummary;
   today: {
     calories: number;
     proteinG: number;
@@ -190,13 +204,27 @@ type TargetState = {
 type SettingsDraft = {
   calories: string;
   proteinG: string;
+  proteinGoalMode: ProteinGoalMode;
+  proteinPerKg: string;
   nutrients: NutrientGoalDraft;
 };
 
-function settingsDraftForTargets(targets: TargetState): SettingsDraft {
+const defaultProteinGoal: ProteinGoalSummary = {
+  mode: "grams",
+  gramsPerKg: null,
+  fixedTargetG: proteinTarget,
+  targetG: proteinTarget,
+  weightKg: null,
+  weightDate: null,
+  byDate: [],
+};
+
+function settingsDraftForTargets(targets: TargetState, proteinGoal: ProteinGoalSummary): SettingsDraft {
   return {
     calories: String(targets.calories),
-    proteinG: String(targets.proteinG),
+    proteinG: String(proteinGoal.fixedTargetG ?? targets.proteinG),
+    proteinGoalMode: proteinGoal.mode,
+    proteinPerKg: String(proteinGoal.gramsPerKg ?? DEFAULT_PROTEIN_PER_KG),
     nutrients: nutrientGoalDraftFromMap(targets.nutrients),
   };
 }
@@ -323,6 +351,47 @@ function parseWeightResponse(value: unknown): DailyWeight | null {
   return parseDailyWeight(asRecord(value)?.weight);
 }
 
+function parseProteinGoalDay(value: unknown): ProteinGoalDay | null {
+  const record = asRecord(value);
+  if (!record || typeof record.date !== "string") return null;
+  const targetG = numberOr(record.targetG, Number.NaN);
+  const weightKg = numberOr(record.weightKg, Number.NaN);
+  return {
+    date: record.date,
+    targetG: Number.isFinite(targetG) ? targetG : null,
+    weightKg: Number.isFinite(weightKg) ? weightKg : null,
+    weightDate: typeof record.weightDate === "string" ? record.weightDate : null,
+  };
+}
+
+function parseProteinGoal(value: unknown, fallbackTargetG: number | null): ProteinGoalSummary {
+  const record = asRecord(value);
+  const mode = isProteinGoalMode(record?.mode) ? record.mode : "grams";
+  const gramsPerKg = numberOr(record?.gramsPerKg, Number.NaN);
+  const fixedTargetG = numberOr(record?.fixedTargetG, Number.NaN);
+  const targetG = numberOr(record?.targetG, Number.NaN);
+  const weightKg = numberOr(record?.weightKg, Number.NaN);
+  const byDate = Array.isArray(record?.byDate)
+    ? record.byDate.flatMap((day) => {
+        const parsed = parseProteinGoalDay(day);
+        return parsed ? [parsed] : [];
+      })
+    : [];
+  return {
+    mode,
+    gramsPerKg: mode === "gramsPerKg" && isValidProteinPerKg(gramsPerKg) ? gramsPerKg : null,
+    fixedTargetG: Number.isFinite(fixedTargetG)
+      ? fixedTargetG
+      : Number.isFinite(fallbackTargetG) ? fallbackTargetG : null,
+    targetG: Number.isFinite(targetG)
+      ? targetG
+      : Number.isFinite(fallbackTargetG) ? fallbackTargetG : null,
+    weightKg: Number.isFinite(weightKg) ? weightKg : null,
+    weightDate: typeof record?.weightDate === "string" ? record.weightDate : null,
+    byDate,
+  };
+}
+
 function parseDashboardSummary(value: unknown): DashboardSummary | null {
   const record = asRecord(value);
   const targets = asRecord(record?.targets);
@@ -371,13 +440,15 @@ function parseDashboardSummary(value: unknown): DashboardSummary | null {
         return parsed ? [parsed] : [];
       })
     : [];
+  const parsedTargets = {
+    calories: targets && typeof targets.calories === "number" ? targets.calories : null,
+    proteinG: targets && typeof targets.proteinG === "number" ? targets.proteinG : null,
+    nutrients: parseNutrientGoalMap(targets?.nutrients),
+  };
   return {
     date: record.date,
-    targets: {
-      calories: targets && typeof targets.calories === "number" ? targets.calories : null,
-      proteinG: targets && typeof targets.proteinG === "number" ? targets.proteinG : null,
-      nutrients: parseNutrientGoalMap(targets?.nutrients),
-    },
+    targets: parsedTargets,
+    proteinGoal: parseProteinGoal(record.proteinGoal, parsedTargets.proteinG),
     today: {
       calories: numberOr(today.calories),
       proteinG: numberOr(today.proteinG),
@@ -656,9 +727,14 @@ function parseSettingsTargets(value: unknown) {
   const record = asRecord(value);
   const settings = asRecord(record?.settings);
   if (!settings) return null;
+  const proteinGoalMode = isProteinGoalMode(settings.proteinGoalMode) ? settings.proteinGoalMode : "grams";
+  const proteinPerKg = numberOr(settings.dailyProteinTargetPerKg, Number.NaN);
+  const proteinG = numberOr(settings.dailyProteinTargetG, Number.NaN);
   return {
     calories: numberOr(settings.dailyCalorieTarget, Number.NaN),
-    proteinG: numberOr(settings.dailyProteinTargetG, Number.NaN),
+    proteinG,
+    proteinGoalMode,
+    proteinPerKg: isValidProteinPerKg(proteinPerKg) ? proteinPerKg : null,
     nutrients: parseNutrientGoalMap(settings.nutrientTargets),
   };
 }
@@ -678,7 +754,8 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
   const [showSettings, setShowSettings] = useState(false);
   const [activeSection, setActiveSection] = useState<DashboardSection>("today");
   const [nutritionCollapsed, setNutritionCollapsed] = useState(false);
-  const [settingsDraft, setSettingsDraft] = useState<SettingsDraft>(() => settingsDraftForTargets(initialTargets));
+  const [proteinGoal, setProteinGoal] = useState<ProteinGoalSummary>(defaultProteinGoal);
+  const [settingsDraft, setSettingsDraft] = useState<SettingsDraft>(() => settingsDraftForTargets(initialTargets, defaultProteinGoal));
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [settingsSaving, setSettingsSaving] = useState(false);
   const settingsSaveInFlight = useRef(false);
@@ -718,12 +795,26 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
 
   const selectedDay = days.find((day) => day.key === selectedDayKey) ?? days[4];
   const selectedWeight = selectedDay.weight ?? null;
+  const selectedProteinGoal = proteinGoal.byDate.find((day) => day.date === selectedDay.date) ?? {
+    date: selectedDay.date,
+    targetG: proteinGoal.targetG,
+    weightKg: proteinGoal.weightKg,
+    weightDate: proteinGoal.weightDate,
+  };
   const totalCalories = selectedDay.calories;
   const totalProtein = selectedDay.protein;
   const activeCalorieTarget = targets.calories ?? calorieTarget;
-  const activeProteinTarget = targets.proteinG ?? proteinTarget;
+  const activeProteinTarget = proteinGoal.mode === "gramsPerKg"
+    ? calculateProteinTargetG({ weightKg: selectedProteinGoal.weightKg, gramsPerKg: proteinGoal.gramsPerKg })
+    : proteinGoal.fixedTargetG ?? targets.proteinG ?? proteinTarget;
   const remainingCalories = activeCalorieTarget - totalCalories;
-  const remainingProtein = activeProteinTarget - totalProtein;
+  const remainingProtein = activeProteinTarget === null ? null : activeProteinTarget - totalProtein;
+  const remainingProteinLabel = remainingProtein === null ? null : remainingProtein >= 0
+    ? `${formatNumber(remainingProtein)}g left to reach your target`
+    : `${formatNumber(Math.abs(remainingProtein))}g above target`;
+  const proteinWeightSource = proteinGoal.mode === "gramsPerKg" && selectedProteinGoal.weightDate && selectedProteinGoal.weightDate !== selectedDay.date
+    ? `Using weight from ${fullDateLabel(selectedProteinGoal.weightDate)}`
+    : null;
 
   const sevenDayChartValues = useMemo(
     () => days.map((day) => ({ date: day.date, label: `${day.weekday.slice(0, 3)} ${day.shortDate}`, value: day.calories })),
@@ -891,6 +982,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
         if (!parsed) throw new Error("invalid_dashboard_summary");
         if (cancelled || dashboardLoadVersion.current !== requestVersion) return;
         const liveDays = buildLiveDays(parsed, { mode: publicView ? "utc" : "local", publicView });
+        setProteinGoal(parsed.proteinGoal);
         setTargets({
           calories: parsed.targets.calories ?? calorieTarget,
           proteinG: parsed.targets.proteinG ?? proteinTarget,
@@ -1342,6 +1434,28 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     setDays((currentDays) => currentDays.map((day) => (
       day.date === logicalDate ? { ...day, weight } : day
     )));
+    setProteinGoal((current) => {
+      const existing = current.byDate.find((day) => day.date === logicalDate);
+      const nextDay: ProteinGoalDay = {
+        date: logicalDate,
+        targetG: existing?.targetG ?? null,
+        weightKg: weight?.weightKg ?? null,
+        weightDate: weight?.logicalDate ?? null,
+      };
+      const byDate = existing
+        ? current.byDate.map((day) => day.date === logicalDate ? nextDay : day)
+        : [...current.byDate, nextDay].sort((left, right) => left.date.localeCompare(right.date));
+      const latest = byDate.at(-1);
+      return {
+        ...current,
+        targetG: latest?.date === logicalDate && current.mode === "gramsPerKg"
+          ? calculateProteinTargetG({ weightKg: latest.weightKg, gramsPerKg: current.gramsPerKg })
+          : current.targetG,
+        weightKg: latest?.date === logicalDate ? latest.weightKg : current.weightKg,
+        weightDate: latest?.date === logicalDate ? latest.weightDate : current.weightDate,
+        byDate,
+      };
+    });
   }
 
   function openWeightEditor() {
@@ -1363,6 +1477,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
 
     const logicalDate = selectedDay.date;
     const previousWeight = selectedWeight;
+    const previousProteinGoal = proteinGoal;
     const optimisticWeight = { logicalDate, weightKg, recordedAt: Date.now() };
     const action = beginAction("weight-save", logicalDate);
     if (!action) return;
@@ -1393,6 +1508,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     } catch (error) {
       if (!isCurrentAction(action)) return;
       setWeightForDate(logicalDate, previousWeight);
+      setProteinGoal(previousProteinGoal);
       setActionError(error instanceof Error ? error.message : "The weight could not be saved.");
       setActionStatus(null);
     } finally {
@@ -1409,7 +1525,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     const readVersion = settingsReadVersion.current + 1;
     settingsReadVersion.current = readVersion;
     settingsLoadInFlight.current = true;
-    setSettingsDraft(settingsDraftForTargets(targets));
+    setSettingsDraft(settingsDraftForTargets(targets, proteinGoal));
     setShowSettings(true);
     setActionError(null);
     setActionStatus(null);
@@ -1422,13 +1538,23 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
       }
       const parsed = parseSettingsTargets(await response.json());
       if (!parsed || settingsReadVersion.current !== readVersion || settingsSaveInFlight.current || !isCurrentAction(action)) return;
+      const fixedProteinG = Number.isFinite(parsed.proteinG)
+        ? parsed.proteinG
+        : proteinGoal.fixedTargetG ?? targets.proteinG;
+      const nextProteinGoal = updateProteinGoalSettings({
+        current: proteinGoal,
+        mode: parsed.proteinGoalMode,
+        fixedTargetG: fixedProteinG,
+        gramsPerKg: parsed.proteinPerKg ?? DEFAULT_PROTEIN_PER_KG,
+      });
       const nextTargets = {
         calories: Number.isFinite(parsed.calories) ? parsed.calories : activeCalorieTarget,
-        proteinG: Number.isFinite(parsed.proteinG) ? parsed.proteinG : activeProteinTarget,
+        proteinG: fixedProteinG,
         nutrients: parsed.nutrients,
       };
       setTargets(nextTargets);
-      setSettingsDraft(settingsDraftForTargets(nextTargets));
+      setProteinGoal(nextProteinGoal);
+      setSettingsDraft(settingsDraftForTargets(nextTargets, nextProteinGoal));
     } catch (error) {
       if (!isCurrentAction(action)) return;
       setActionError(error instanceof Error ? error.message : "The current targets could not be loaded.");
@@ -1444,8 +1570,17 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     if (settingsSaveInFlight.current) return;
     const calories = Number(settingsDraft.calories);
     const proteinG = Number(settingsDraft.proteinG);
-    if (!Number.isFinite(calories) || calories < 1 || !Number.isFinite(proteinG) || proteinG < 1) {
-      setActionError("Enter calorie and protein targets greater than zero.");
+    const proteinPerKg = Number(settingsDraft.proteinPerKg);
+    if (!Number.isFinite(calories) || calories < 1) {
+      setActionError("Enter a calorie target greater than zero.");
+      return;
+    }
+    if (settingsDraft.proteinGoalMode === "grams" && (!Number.isFinite(proteinG) || proteinG < 1)) {
+      setActionError("Enter a fixed protein target greater than zero.");
+      return;
+    }
+    if (settingsDraft.proteinGoalMode === "gramsPerKg" && !isValidProteinPerKg(proteinPerKg)) {
+      setActionError(`Enter a protein target between ${PROTEIN_PER_KG_MIN} and ${PROTEIN_PER_KG_MAX} g/kg.`);
       return;
     }
     const invalidNutrientGoal = Object.entries(settingsDraft.nutrients).find(([, value]) => {
@@ -1463,17 +1598,32 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     const action = beginAction("settings-save");
     if (!action) return;
     const previousTargets = targets;
+    const previousProteinGoal = proteinGoal;
+    const optimisticProteinGoal = updateProteinGoalSettings({
+      current: proteinGoal,
+      mode: settingsDraft.proteinGoalMode,
+      fixedTargetG: Number.isFinite(proteinG) && proteinG > 0 ? proteinG : proteinGoal.fixedTargetG,
+      gramsPerKg: proteinPerKg,
+    });
     setActionError(null);
     settingsReadVersion.current += 1;
     settingsSaveInFlight.current = true;
     setSettingsSaving(true);
-    setTargets({ calories, proteinG, nutrients: nutrientTargets });
+    setTargets({ calories, proteinG: Number.isFinite(proteinG) && proteinG > 0 ? proteinG : targets.proteinG, nutrients: nutrientTargets });
+    setProteinGoal(optimisticProteinGoal);
     try {
-      let nextTargets = { calories, proteinG, nutrients: nutrientTargets };
+      let nextTargets = { calories, proteinG: Number.isFinite(proteinG) && proteinG > 0 ? proteinG : targets.proteinG, nutrients: nutrientTargets };
+      let nextProteinGoal = optimisticProteinGoal;
       const response = await fetch("/api/settings", {
         method: "PATCH",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ dailyCalorieTarget: calories, dailyProteinTargetG: proteinG, nutrientTargets: nutrientTargetOverrides }),
+        body: JSON.stringify({
+          dailyCalorieTarget: calories,
+          dailyProteinTargetG: Number.isFinite(proteinG) && proteinG > 0 ? proteinG : null,
+          proteinGoalMode: settingsDraft.proteinGoalMode,
+          dailyProteinTargetPerKg: isValidProteinPerKg(proteinPerKg) ? proteinPerKg : null,
+          nutrientTargets: nutrientTargetOverrides,
+        }),
       });
       const responseBody = await response.json().catch(() => null);
       if (!response.ok) {
@@ -1481,17 +1631,26 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
         throw new Error(stringOr(errorRecord?.message, "The targets could not be saved."));
       }
       const parsed = parseSettingsTargets(responseBody);
-      if (parsed && Number.isFinite(parsed.calories) && Number.isFinite(parsed.proteinG)) {
-        nextTargets = { calories: parsed.calories, proteinG: parsed.proteinG, nutrients: parsed.nutrients };
+      if (parsed && Number.isFinite(parsed.calories)) {
+        const savedProteinG = Number.isFinite(parsed.proteinG) ? parsed.proteinG : nextTargets.proteinG;
+        nextTargets = { calories: parsed.calories, proteinG: savedProteinG, nutrients: parsed.nutrients };
+        nextProteinGoal = updateProteinGoalSettings({
+          current: proteinGoal,
+          mode: parsed.proteinGoalMode,
+          fixedTargetG: savedProteinG,
+          gramsPerKg: parsed.proteinPerKg ?? proteinPerKg,
+        });
       }
       if (!isCurrentAction(action)) return;
       setTargets(nextTargets);
-      setSettingsDraft(settingsDraftForTargets(nextTargets));
+      setProteinGoal(nextProteinGoal);
+      setSettingsDraft(settingsDraftForTargets(nextTargets, nextProteinGoal));
       setShowSettings(false);
       setActionStatus("Targets saved.");
     } catch (error) {
       if (!isCurrentAction(action)) return;
       setTargets(previousTargets);
+      setProteinGoal(previousProteinGoal);
       setActionError(error instanceof Error ? error.message : "The targets could not be saved.");
       setActionStatus(null);
     } finally {
@@ -1538,7 +1697,34 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
             <div className="settings-section-heading"><div><strong id="primary-goals-title">Primary goals</strong><span>Your main energy and protein targets</span></div></div>
             <div className="primary-goal-grid">
               <label>Calories<input name="daily-calorie-target" type="number" min="10" max="100000" step="10" value={settingsDraft.calories} onChange={(event) => setSettingsDraft((current) => ({ ...current, calories: event.target.value }))} disabled={settingsLoading || settingsSaving} required /></label>
-              <label>Protein (g)<input name="daily-protein-target" type="number" min="1" max="10000" step="1" value={settingsDraft.proteinG} onChange={(event) => setSettingsDraft((current) => ({ ...current, proteinG: event.target.value }))} disabled={settingsLoading || settingsSaving} required /></label>
+              <fieldset className="protein-goal-fieldset">
+                <legend>Protein goal</legend>
+                <div className="protein-goal-mode-options" role="radiogroup" aria-label="Protein goal mode">
+                  <label aria-label="Fixed grams">
+                    <input
+                      name="protein-goal-mode"
+                      type="radio"
+                      value="grams"
+                      checked={settingsDraft.proteinGoalMode === "grams"}
+                      onChange={() => setSettingsDraft((current) => ({ ...current, proteinGoalMode: "grams" }))}
+                      disabled={settingsLoading || settingsSaving}
+                    />
+                    <span><strong>Fixed grams</strong><small>Use the same target every day.</small></span>
+                  </label>
+                  <label aria-label="Grams per kilogram">
+                    <input
+                      name="protein-goal-mode"
+                      type="radio"
+                      value="gramsPerKg"
+                      checked={settingsDraft.proteinGoalMode === "gramsPerKg"}
+                      onChange={() => setSettingsDraft((current) => ({ ...current, proteinGoalMode: "gramsPerKg" }))}
+                      disabled={settingsLoading || settingsSaving}
+                    />
+                    <span><strong>Grams per kilogram</strong><small>Use the selected day&apos;s weight, or the latest earlier entry.</small></span>
+                  </label>
+                </div>
+                {settingsDraft.proteinGoalMode === "grams" ? <label>Protein (g)<input name="daily-protein-target" type="number" min="1" max="10000" step="1" value={settingsDraft.proteinG} onChange={(event) => setSettingsDraft((current) => ({ ...current, proteinG: event.target.value }))} disabled={settingsLoading || settingsSaving} required /></label> : <label>Protein (g/kg)<input name="daily-protein-target-per-kg" type="number" min={PROTEIN_PER_KG_MIN} max={PROTEIN_PER_KG_MAX} step={PROTEIN_PER_KG_STEP} value={settingsDraft.proteinPerKg} onChange={(event) => setSettingsDraft((current) => ({ ...current, proteinPerKg: event.target.value }))} disabled={settingsLoading || settingsSaving} required /></label>}
+              </fieldset>
             </div>
           </section>
           <NutrientGoalSettings
@@ -1616,12 +1802,20 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
         </article>
 
         <article className="summary-card protein-card">
-          <div className="summary-copy">
+          {activeProteinTarget === null ? <div className="summary-copy protein-goal-unavailable">
             <div className="card-label-row"><span className="metric-dot protein-dot" aria-hidden="true" /><span className="card-label">Protein</span></div>
-            <p className="metric-value">{formatNumber(totalProtein)}g <span>/ {activeProteinTarget}g</span></p>
-            <p className="metric-subtitle">{remainingProtein >= 0 ? `${formatNumber(remainingProtein)}g left to reach your target` : `${formatNumber(Math.abs(remainingProtein))}g above target`}</p>
-          </div>
-          <div className="metric-ring protein-ring" style={{ "--progress": `${calculateTargetPercent(totalProtein, activeProteinTarget)}%` } as CSSProperties} aria-label={`${calculateTargetPercent(totalProtein, activeProteinTarget)} percent of protein target`} role="img"><strong>{calculateTargetPercent(totalProtein, activeProteinTarget)}%</strong></div>
+            <p className="metric-value">Goal unavailable</p>
+            <p className="metric-subtitle">Record a weight to calculate your daily protein goal.</p>
+            {readOnly ? <span className="protein-goal-hint">Record a weight in the owner dashboard.</span> : <a className="secondary-button protein-goal-link" href="#weight" onClick={() => openWeightEditor()}>Record weight</a>}
+          </div> : <>
+            <div className="summary-copy">
+              <div className="card-label-row"><span className="metric-dot protein-dot" aria-hidden="true" /><span className="card-label">Protein</span></div>
+              <p className="metric-value">{formatNumber(totalProtein)}g <span>/ {formatNumber(activeProteinTarget)}g</span></p>
+              <p className="metric-subtitle">{remainingProteinLabel}</p>
+              {proteinWeightSource ? <span className="protein-goal-hint">{proteinWeightSource}</span> : null}
+            </div>
+            <div className="metric-ring protein-ring" style={{ "--progress": `${calculateTargetPercent(totalProtein, activeProteinTarget)}%` } as CSSProperties} aria-label={`${calculateTargetPercent(totalProtein, activeProteinTarget)} percent of protein target`} role="img"><strong>{calculateTargetPercent(totalProtein, activeProteinTarget)}%</strong></div>
+          </>}
         </article>
 
         <article className="summary-card average-card">
@@ -1728,7 +1922,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
             <NutrientTrendPanel byDate={visibleTrendDays.map((day) => ({ date: day.date, nutrients: day.nutrients }))} goals={targets.nutrients} range={trendRange} onRangeChange={setTrendRange} />
           </NutritionOverview>
 
-          <section className="panel weight-panel" aria-labelledby="weight-title">
+          <section className="panel weight-panel" id="weight" aria-labelledby="weight-title">
             <div className="panel-heading weight-heading">
               <div><p className="eyebrow">Daily check-in</p><h2 id="weight-title">Weight</h2></div>
               {!readOnly ? <button

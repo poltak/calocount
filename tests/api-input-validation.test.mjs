@@ -43,6 +43,16 @@ test("owner API rejects invalid dates and timezones before database access", asy
       assert.equal(response.status, 503);
       assert.equal(response.body.error.code, "database_unavailable");
     }
+    for (const proteinGoalMode of ["invalid", 1]) {
+      const response = await request({ path: "/api/settings", method: "PATCH", body: { proteinGoalMode } });
+      assert.equal(response.status, 400);
+      assert.equal(response.body.error.code, "invalid_field");
+    }
+    for (const dailyProteinTargetPerKg of [0.7, 3.1, "1.6"]) {
+      const response = await request({ path: "/api/settings", method: "PATCH", body: { dailyProteinTargetPerKg } });
+      assert.equal(response.status, 400);
+      assert.equal(response.body.error.code, "invalid_field");
+    }
     for (const [path, method] of [
       ["/api/meals", "POST"],
       ["/api/meals/example", "PATCH"],

@@ -16,6 +16,11 @@ The summary includes:
   photo availability; and
 - recent weights.
 
+`proteinGoal` identifies whether the protein target is fixed grams or grams per
+kilogram. In grams-per-kilogram mode it includes the effective target and the
+selected day's weight, or the most recent earlier weight; if no earlier weight
+exists, the effective target is `null`.
+
 Dates use the public dashboard's UTC day boundary. Treat `date` and trend dates
 as UTC calendar dates.
 

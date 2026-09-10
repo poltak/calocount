@@ -23,6 +23,11 @@ import {
   type NutrientGoalOverrides,
 } from "../domain/nutrient-goals";
 import {
+  buildProteinGoalSummary,
+  normaliseProteinGoalMode,
+  type ProteinGoalMode,
+} from "../domain/protein-goals";
+import {
   aiRuns,
   analysisJobs,
   dailyWeights,
@@ -90,6 +95,8 @@ export type SettingsPatch = Partial<{
   timezone: string;
   dailyCalorieTarget: number | null;
   dailyProteinTargetG: number | null;
+  proteinGoalMode: ProteinGoalMode;
+  dailyProteinTargetPerKg: number | null;
   nutrientTargets: NutrientGoalOverrides | null;
   photoRetentionDays: number;
 }>;
@@ -363,6 +370,28 @@ export async function listDailyWeights({
     .limit(366)
     .prepare()
     .all();
+}
+
+export async function getLatestDailyWeightBefore({
+  db,
+  ownerKey,
+  logicalDate,
+}: {
+  db: AppDb;
+  ownerKey: string;
+  logicalDate: string;
+}) {
+  return db
+    .select()
+    .from(dailyWeights)
+    .where(and(
+      eq(dailyWeights.ownerKey, ownerKey),
+      lt(dailyWeights.logicalDate, logicalDate),
+    ))
+    .orderBy(desc(dailyWeights.logicalDate))
+    .limit(1)
+    .prepare()
+    .get();
 }
 
 export async function upsertDailyWeight({
@@ -757,6 +786,10 @@ export async function upsertSettings(db: AppDb, ownerKey: string, patch: Setting
       timezone: patch.timezone ?? existing.timezone,
       dailyCalorieTarget: patch.dailyCalorieTarget === undefined ? existing.dailyCalorieTarget : patch.dailyCalorieTarget,
       dailyProteinTargetG: patch.dailyProteinTargetG === undefined ? existing.dailyProteinTargetG : patch.dailyProteinTargetG,
+      proteinGoalMode: patch.proteinGoalMode ?? normaliseProteinGoalMode(existing.proteinGoalMode),
+      dailyProteinTargetPerKg: patch.dailyProteinTargetPerKg === undefined
+        ? existing.dailyProteinTargetPerKg
+        : patch.dailyProteinTargetPerKg,
       nutrientTargetsJson: patch.nutrientTargets === undefined
         ? existing.nutrientTargetsJson
         : patch.nutrientTargets === null ? null : safeJson(patch.nutrientTargets, {}),
@@ -770,6 +803,8 @@ export async function upsertSettings(db: AppDb, ownerKey: string, patch: Setting
       timezone: patch.timezone ?? "UTC",
       dailyCalorieTarget: patch.dailyCalorieTarget ?? null,
       dailyProteinTargetG: patch.dailyProteinTargetG ?? null,
+      proteinGoalMode: patch.proteinGoalMode ?? "grams",
+      dailyProteinTargetPerKg: patch.dailyProteinTargetPerKg ?? null,
       nutrientTargetsJson: patch.nutrientTargets === null ? null : safeJson(patch.nutrientTargets, {}),
       photoRetentionDays: patch.photoRetentionDays ?? 30,
       createdAt: timestamp,
@@ -795,7 +830,7 @@ export async function getDashboardSummary(db: AppDb, ownerKey: string, options: 
   const endMs = firstInstantForLocalDate({ date: endDate, formatter });
   const weekStartMs = firstInstantForLocalDate({ date: weekStartDate, formatter });
   const monthStartMs = firstInstantForLocalDate({ date: monthStartDate, formatter });
-  const [today, trendMeals, trendWeights] = await Promise.all([
+  const [today, trendMeals, trendWeights, weightBeforeTrend] = await Promise.all([
     db.select({
       calories: sql<number>`coalesce(sum(${mealLogs.totalCalories}), 0)`,
       proteinG: sql<number>`coalesce(sum(${mealLogs.totalProteinG}), 0)`,
@@ -810,9 +845,20 @@ export async function getDashboardSummary(db: AppDb, ownerKey: string, options: 
     )).prepare().get(),
     listMeals(db, ownerKey, { from: monthStartMs, to: endMs, limit: 500 }),
     listDailyWeights({ db, ownerKey, from: monthStartDate, to: logicalDate }),
+    getLatestDailyWeightBefore({ db, ownerKey, logicalDate: monthStartDate }),
   ]);
   const recentMeals = trendMeals.filter((entry) => entry.meal.consumedAt >= weekStartMs);
   const recentWeights = trendWeights.filter((entry) => entry.logicalDate >= weekStartDate);
+  const proteinGoal = buildProteinGoalSummary({
+    dates: Array.from({ length: 7 }, (_, index) => shiftDateKey(weekStartDate, index)),
+    mode: normaliseProteinGoalMode(settingsRow?.proteinGoalMode),
+    fixedTargetG: settingsRow?.dailyProteinTargetG,
+    gramsPerKg: settingsRow?.dailyProteinTargetPerKg,
+    weights: [
+      ...trendWeights,
+      ...(weightBeforeTrend ? [weightBeforeTrend] : []),
+    ],
+  });
 
   const days = new Map<string, { calories: number; proteinG: number }>();
   for (const entry of recentMeals) {
@@ -872,9 +918,10 @@ export async function getDashboardSummary(db: AppDb, ownerKey: string, options: 
     date: logicalDate,
     targets: {
       calories: settingsRow?.dailyCalorieTarget ?? null,
-      proteinG: settingsRow?.dailyProteinTargetG ?? null,
+      proteinG: proteinGoal.targetG,
       nutrients: resolveNutrientGoals(nutrientTargetOverrides),
     },
+    proteinGoal,
     today: {
       calories: Number(today?.calories ?? 0),
       proteinG: Number(today?.proteinG ?? 0),

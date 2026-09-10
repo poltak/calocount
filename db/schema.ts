@@ -30,6 +30,8 @@ export const settings = sqliteTable(
     timezone: text("timezone").notNull().default("UTC"),
     dailyCalorieTarget: integer("daily_calorie_target"),
     dailyProteinTargetG: real("daily_protein_target_g"),
+    proteinGoalMode: text("protein_goal_mode").notNull().default("grams"),
+    dailyProteinTargetPerKg: real("daily_protein_target_per_kg"),
     nutrientTargetsJson: text("nutrient_targets_json"),
     activeAiProfileId: text("active_ai_profile_id"),
     photoRetentionDays: integer("photo_retention_days").notNull().default(30),

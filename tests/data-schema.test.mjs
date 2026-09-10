@@ -35,6 +35,8 @@ test("D1 migration indexes recent meals and pending jobs", () => {
 
 test("D1 migration stores optional nutrient goals and item nutrients", () => {
   assert.match(migration, /ALTER TABLE `settings` ADD `nutrient_targets_json` text/);
+  assert.match(migration, /ALTER TABLE `settings` ADD `protein_goal_mode` text DEFAULT 'grams' NOT NULL/);
+  assert.match(migration, /ALTER TABLE `settings` ADD `daily_protein_target_per_kg` real/);
   for (const column of ["fiber_g", "total_sugars_g", "saturated_fat_g", "vitamin_c_mg", "selenium_mcg", "caffeine_mg"]) {
     assert.match(migration, new RegExp("ADD `" + column + "` real"));
   }

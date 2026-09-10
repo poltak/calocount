@@ -243,6 +243,59 @@ input:focus-visible {
   margin-top: 12px;
 }
 
+.protein-goal-fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 9px;
+  border: 1px solid var(--line-soft);
+  border-radius: 7px;
+}
+
+.protein-goal-fieldset legend {
+  padding: 0 4px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.protein-goal-mode-options {
+  display: grid;
+  gap: 7px;
+}
+
+.protein-goal-mode-options label {
+  display: flex;
+  grid-template-columns: auto 1fr;
+  align-items: flex-start;
+  gap: 7px;
+  cursor: pointer;
+}
+
+.settings-form .protein-goal-mode-options input[type="radio"] {
+  width: auto;
+  min-height: auto;
+  margin-top: 1px;
+  accent-color: var(--orange);
+}
+
+.protein-goal-mode-options span {
+  display: grid;
+  gap: 1px;
+}
+
+.protein-goal-mode-options strong {
+  color: var(--muted-strong);
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.protein-goal-mode-options small {
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.35;
+}
+
+.protein-goal-fieldset > label { margin-top: 9px; }
+
 .settings-form label {
   display: grid;
   gap: 5px;
@@ -684,6 +737,24 @@ input:focus-visible {
 
 .metric-subtitle.over { color: #e7a18e; }
 .metric-subtitle.positive { color: var(--green); }
+
+.protein-goal-unavailable { min-width: 0; }
+
+.protein-goal-unavailable .metric-value {
+  font-size: 20px;
+}
+
+.protein-goal-hint {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.protein-goal-link {
+  display: inline-flex;
+  margin-top: 9px;
+}
 
 .metric-ring {
   display: grid;

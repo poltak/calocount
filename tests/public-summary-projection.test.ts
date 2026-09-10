@@ -177,3 +177,34 @@ test("public summary does not advertise photos with an unsafe MIME type", () => 
 
   assert.equal(projection.recentMeals[0]?.hasPhoto, false);
 });
+
+test("public summary keeps the selected protein-goal resolution", () => {
+  const projection = projectPublicDashboardSummary({
+    date: "2026-08-25",
+    targets: { calories: 2_100, proteinG: 120, nutrients: resolveNutrientGoals() },
+    proteinGoal: {
+      mode: "gramsPerKg",
+      gramsPerKg: 1.6,
+      fixedTargetG: 150,
+      targetG: 120,
+      weightKg: 75,
+      weightDate: "2026-08-24",
+      byDate: [{ date: "2026-08-25", targetG: 120, weightKg: 75, weightDate: "2026-08-24" }],
+    },
+    today: { calories: 0, proteinG: 0, carbsG: 0, fatG: 0, mealCount: 0 },
+    sevenDay: { calories: 0, proteinG: 0, averageCalories: 0, averageProteinG: 0, daysWithMeals: 0 },
+    recentMeals: [],
+    recentWeights: [],
+    nutrition: { today: {}, byDate: [] },
+  } as never);
+
+  assert.deepEqual(projection.proteinGoal, {
+    mode: "gramsPerKg",
+    gramsPerKg: 1.6,
+    fixedTargetG: 150,
+    targetG: 120,
+    weightKg: 75,
+    weightDate: "2026-08-24",
+    byDate: [{ date: "2026-08-25", targetG: 120, weightKg: 75, weightDate: "2026-08-24" }],
+  });
+});

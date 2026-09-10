@@ -127,6 +127,35 @@ function publicNutrientGoals(summary: DashboardSummary) {
   }));
 }
 
+function publicProteinGoal(summary: DashboardSummary) {
+  const goal = summary.proteinGoal;
+  if (!goal) {
+    return {
+      mode: "grams" as const,
+      gramsPerKg: null,
+      fixedTargetG: summary.targets.proteinG,
+      targetG: summary.targets.proteinG,
+      weightKg: null,
+      weightDate: null,
+      byDate: [],
+    };
+  }
+  return {
+    mode: goal.mode,
+    gramsPerKg: goal.gramsPerKg,
+    fixedTargetG: goal.fixedTargetG,
+    targetG: goal.targetG,
+    weightKg: goal.weightKg,
+    weightDate: goal.weightDate,
+    byDate: goal.byDate.map((day) => ({
+      date: day.date,
+      targetG: day.targetG,
+      weightKg: day.weightKg,
+      weightDate: day.weightDate,
+    })),
+  };
+}
+
 /**
  * Build the deliberately small contract used by the anonymous root dashboard.
  * Keep this explicit: private database fields must not cross this boundary.
@@ -139,6 +168,7 @@ export function projectPublicDashboardSummary(summary: DashboardSummary) {
       proteinG: summary.targets.proteinG,
       nutrients: publicNutrientGoals(summary),
     },
+    proteinGoal: publicProteinGoal(summary),
     today: {
       calories: summary.today.calories,
       proteinG: summary.today.proteinG,
