@@ -1494,18 +1494,24 @@ input:focus-visible {
 .primary-button:hover,
 .save-button:hover { background: var(--orange-soft); }
 
-.meal-list { display: grid; gap: 12px; margin-top: 17px; }
+.meal-list {
+  margin-top: 17px;
+  border-top: 1px solid var(--line-soft);
+}
 
 .meal-group {
   min-width: 0;
-  border: 1px solid var(--line-soft);
-  border-radius: 12px;
-  background: rgb(255 255 255 / 2%);
+  border-bottom: 1px solid var(--line-soft);
 }
 
+.meal-group:last-child { border-bottom: 0; }
+
 .meal-row {
-  padding: 16px;
-  border-radius: 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0 5px;
 }
 
 .meal-row.is-pending {
@@ -1519,19 +1525,20 @@ input:focus-visible {
 
 .meal-row-content {
   display: grid;
-  grid-template-columns: 56px minmax(0, 1fr);
-  align-items: start;
-  gap: 14px;
+  grid-template-columns: 42px minmax(170px, 1fr) repeat(4, minmax(58px, 72px));
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
 }
 
 .meal-avatar {
   display: grid;
   place-items: center;
-  width: 56px;
-  height: 56px;
-  border-radius: 8px;
+  width: 42px;
+  height: 42px;
+  border-radius: 7px;
   color: #1d1e1c;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
 }
 
@@ -1543,11 +1550,11 @@ input:focus-visible {
 .meal-photo-button {
   display: grid;
   place-items: center;
-  width: 56px;
-  height: 56px;
+  width: 42px;
+  height: 42px;
   overflow: hidden;
   padding: 0;
-  border-radius: 8px;
+  border-radius: 7px;
   background: var(--surface-raised);
 }
 
@@ -1560,23 +1567,23 @@ input:focus-visible {
   object-fit: cover;
 }
 
-.meal-info { display: contents; }
+.meal-info { min-width: 0; }
 
 .meal-name-line {
   display: flex;
   min-width: 0;
-  flex-wrap: wrap;
   align-items: baseline;
   gap: 7px;
 }
 
 .meal-name-line strong {
-  flex-basis: 100%;
+  flex: 1 1 auto;
+  min-width: 0;
   overflow-wrap: anywhere;
   color: var(--muted-strong);
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 650;
-  line-height: 1.45;
+  line-height: 1.35;
 }
 
 .meal-name-line time {
@@ -1587,34 +1594,25 @@ input:focus-visible {
 
 .meal-info > span {
   display: block;
-  grid-column: 1 / -1;
   overflow-wrap: anywhere;
-  margin: 0;
+  margin-top: 2px;
   color: var(--muted);
-  font-size: 12px;
-  line-height: 1.6;
+  font-size: 10px;
+  line-height: 1.35;
   white-space: pre-wrap;
 }
 
 .meal-info > span:empty { display: none; }
 
-.meal-macros {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-  padding: 12px;
-  border-radius: 8px;
-  background: rgb(0 0 0 / 12%);
-}
+.meal-macros { display: contents; }
 
 .meal-stat {
   display: grid;
-  align-content: start;
+  align-content: center;
   min-width: 0;
-  gap: 5px;
+  gap: 2px;
   color: var(--muted-strong);
-  font-size: 14px;
+  font-size: 12px;
   text-align: left;
   overflow-wrap: anywhere;
   font-variant-numeric: tabular-nums;
@@ -1622,7 +1620,7 @@ input:focus-visible {
 
 .meal-stat-label {
   color: var(--muted);
-  font-size: 9px;
+  font-size: 8px;
   letter-spacing: .04em;
   text-transform: uppercase;
 }
@@ -1630,7 +1628,7 @@ input:focus-visible {
 .meal-stat small,
 .meal-total small {
   color: var(--muted);
-  font-size: 9px;
+  font-size: 8px;
 }
 
 .protein-stat { color: var(--green); }
@@ -1662,21 +1660,28 @@ input:focus-visible {
 
 .meal-actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   justify-content: flex-start;
-  gap: 6px;
-  margin-top: 12px;
-  padding-top: 10px;
-  border-top: 1px solid var(--line-soft);
+  gap: 3px;
 }
 
+.meal-row-footer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  margin-left: 52px;
+}
+
+.meal-row-footer .meal-nutrition-details { padding: 0; }
+
 .meal-actions button {
-  min-height: 36px;
-  padding: 7px 10px;
-  border-radius: 6px;
+  min-height: 30px;
+  padding: 5px 7px;
+  border-radius: 5px;
   background: rgb(255 255 255 / 3%);
-  font-size: 11px;
+  font-size: 10px;
   text-align: center;
 }
 
@@ -2503,6 +2508,7 @@ input:focus-visible {
   .ai-note { grid-column: span 2; }
   .quick-tip { grid-column: span 2; }
   .nutrition-highlight-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .meal-row { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 620px) {
@@ -2545,7 +2551,7 @@ input:focus-visible {
   .nutrition-highlight-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .nutrient-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .advanced-nutrition-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .meal-nutrition-details { padding-left: 43px; }
+  .meal-nutrition-details { padding: 0; }
   .meal-nutrition-total-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .meal-item-nutrients { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .nutrient-trend-summary { align-items: flex-start; flex-direction: column; gap: 4px; }
@@ -2561,13 +2567,25 @@ input:focus-visible {
   .weight-form label { grid-column: span 2; }
   .weight-form .save-button { grid-column: auto; }
   .weight-reading { align-items: flex-start; flex-direction: column; gap: 5px; }
-  .meal-row { padding: 12px; }
-  .meal-row-content { grid-template-columns: 48px minmax(0, 1fr); gap: 12px; }
+  .meal-row { gap: 6px; padding: 9px 0 4px; }
+  .meal-row-content { grid-template-columns: 40px minmax(0, 1fr); gap: 8px; }
   .meal-avatar,
-  .meal-photo-button { width: 48px; height: 48px; }
-  .meal-macros { gap: 8px; padding: 10px; }
+  .meal-photo-button { width: 40px; height: 40px; }
+  .meal-macros {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    padding-top: 4px;
+  }
   .meal-stat { font-size: 12px; }
-  .meal-actions button { min-height: 44px; }
+  .meal-row-footer {
+    grid-template-columns: 1fr;
+    gap: 2px;
+    margin-left: 48px;
+  }
+  .meal-actions { flex-wrap: wrap; }
+  .meal-actions button { min-height: 40px; padding: 5px 7px; }
   .inline-editor { grid-template-columns: 1fr 1fr; padding-right: 12px; padding-left: 12px; }
   .inline-editor label:first-child,
   .inline-editor .editor-description-field,

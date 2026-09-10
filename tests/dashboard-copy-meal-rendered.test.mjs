@@ -15,7 +15,7 @@ test("previous-day meals expose a duplicate-safe copy-to-today action", async ()
   assert.match(page, /\/api\/meals\/\$\{encodeURIComponent\(mealId\)\}\/copy/);
   assert.match(page, /Copy to today/);
   assert.match(page, /aria-label=\{`Copy \$\{meal\.name\} to today`\}/);
-  assert.match(css, /\.meal-actions \{[^}]*flex-wrap: wrap;/);
+  assert.match(css, /@media \(max-width: 620px\)[\s\S]*?\.meal-actions \{ flex-wrap: wrap;/);
   assert.match(route, /export async function POST/);
   assert.match(route, /copyMeal/);
 });
