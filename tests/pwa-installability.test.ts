@@ -70,14 +70,23 @@ test("manifest has the fields required for mobile installation", async () => {
   assert.equal(appManifest.background_color, "#0f131b");
 
   const icons = appManifest.icons ?? [];
-  assert.ok(icons.some((icon) => icon.sizes === "192x192" && icon.type === "image/png"));
-  assert.ok(icons.some((icon) => icon.sizes === "512x512" && icon.type === "image/png"));
-  assert.equal(
-    icons.find((icon) => icon.purpose === "maskable")?.src,
-    "/icon-512-maskable.png",
-  );
+  assert.ok(icons.some((icon) => icon.src === "/icon-192.png" && icon.sizes === "192x192" && icon.type === "image/png" && icon.purpose === "any"));
+  assert.ok(icons.some((icon) => icon.src === "/icon-512.png" && icon.sizes === "512x512" && icon.type === "image/png" && icon.purpose === "any"));
+  assert.deepEqual(icons.find((icon) => icon.purpose === "maskable"), {
+    src: "/icon-512-maskable.png",
+    sizes: "512x512",
+    type: "image/png",
+    purpose: "maskable",
+  });
+  for (const icon of icons) {
+    const src = icon.src;
+    assert.ok(src?.startsWith("/"));
+    await access(`${projectRoot}/public${src}`);
+  }
 
   for (const [file, size, colorType] of [
+    ["favicon-16.png", 16, 6],
+    ["favicon-32.png", 32, 6],
     ["icon-192.png", 192, 6],
     ["icon-512.png", 512, 6],
     ["icon-512-maskable.png", 512, 2],
@@ -92,6 +101,10 @@ test("manifest has the fields required for mobile installation", async () => {
   }
 
   assert.deepEqual(await readPngCornerRgb(`${projectRoot}/public/icon-512-maskable.png`), [15, 19, 27]);
+  await Promise.all([
+    access(`${projectRoot}/public/favicon.svg`),
+    access(`${projectRoot}/public/favicon.ico`),
+  ]);
 });
 
 test("the app registers and serves a network-only service worker", async () => {
@@ -108,6 +121,11 @@ test("the app registers and serves a network-only service worker", async () => {
 test("layout emits one credentialed manifest link for Access-protected installs", async () => {
   const layout = await readFile(`${projectRoot}/app/layout.tsx`, "utf8");
 
+  assert.match(layout, /url: "\/favicon\.svg", type: "image\/svg\+xml"/);
+  assert.match(layout, /url: "\/favicon-16\.png", sizes: "16x16", type: "image\/png"/);
+  assert.match(layout, /url: "\/favicon-32\.png", sizes: "32x32", type: "image\/png"/);
+  assert.match(layout, /url: "\/favicon\.ico", type: "image\/x-icon"/);
+  assert.match(layout, /url: "\/apple-touch-icon\.png", sizes: "180x180", type: "image\/png"/);
   assert.equal((layout.match(/rel="manifest"/g) ?? []).length, 1);
   assert.match(
     layout,
