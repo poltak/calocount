@@ -1646,11 +1646,11 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
               <TrendRangeSelect value={trendRange} onChange={setTrendRange} label="Calorie trend" />
             </div>
             <div className="chart-legend"><span><i className="legend-swatch calorie-swatch" /> Calories</span><span><i className="legend-line" /> Target {formatNumber(activeCalorieTarget)}</span></div>
-            <div className={`bar-chart${trendRange === 30 ? " is-month" : ""}`} role="img" aria-label={`Calorie intake for the past ${trendRange} days compared with a ${activeCalorieTarget} calorie target`}>
+            <div className={`bar-chart${trendRange === 30 ? " is-month" : ""}`} role="group" aria-label={`Calorie intake for the past ${trendRange} days compared with a ${activeCalorieTarget} calorie target`}>
               <div className="chart-y-axis" aria-hidden="true">{chartScale.tickValues.map((value) => <span key={value}>{formatChartTick(value)}</span>)}</div>
               <div className="chart-plot">
                 <div className="target-line" style={{ top: `${chartScale.targetLineTopPercent}%` }}><span>{formatNumber(activeCalorieTarget)}</span></div><div className="grid-line line-one" /><div className="grid-line line-two" /><div className="grid-line line-three" />
-                <div className="bars">{chartValues.map((day, index) => <div className="bar-column" key={day.date} title={`${day.label}: ${day.value.toLocaleString()} kcal`}><div className="bar-value">{day.value.toLocaleString()}</div><div className={`bar${day.value > 0 ? "" : " bar-empty"}`} style={{ height: day.value > 0 ? `${Math.max(12, chartScale.valueHeightPercents[index] ?? 0)}%` : "0" }} /><span>{showTrendDateLabel(index, chartValues.length) ? day.label : ""}</span></div>)}</div>
+                <div className="bars">{chartValues.map((day, index) => <button className="bar-column" key={day.date} type="button" aria-label={`${day.label}: ${day.value.toLocaleString()} kilocalories`}><span className="bar-value">{day.value.toLocaleString()}</span><span className={`bar${day.value > 0 ? "" : " bar-empty"}`} style={{ height: day.value > 0 ? `${Math.max(12, chartScale.valueHeightPercents[index] ?? 0)}%` : "0" }} /><span>{showTrendDateLabel(index, chartValues.length) ? day.label : ""}</span></button>)}</div>
               </div>
             </div>
           </section>
@@ -1662,17 +1662,18 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
             </div>
             {hasWeightData ? <>
               <div className="chart-legend"><span><i className="legend-swatch weight-swatch" /> Weight (kg)</span></div>
-              <div className={`bar-chart weight-chart${trendRange === 30 ? " is-month" : ""}`} role="img" aria-label={`Recorded weight for the past ${trendRange} days in kilograms; missing days are shown as gaps`}>
+              <div className={`bar-chart weight-chart${trendRange === 30 ? " is-month" : ""}`} role="group" aria-label={`Recorded weight for the past ${trendRange} days in kilograms; missing days are shown as gaps`}>
                 <div className="chart-y-axis" aria-hidden="true">{weightChartScale.tickValues.map((value) => <span key={value}>{formatWeight(value)}</span>)}</div>
                 <div className="chart-plot">
                   <div className="grid-line line-one" /><div className="grid-line line-two" /><div className="grid-line line-three" />
                   <svg className="weight-line" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
                     {weightLineSegments.map((points, index) => points.length > 1 ? <polyline key={index} points={points.join(" ")} /> : null)}
                   </svg>
-                  <div className="weight-points">{weightChartValues.map((day, index) => <div className={`weight-point-column${day.value === null ? " missing" : ""}`} key={day.date} title={day.value === null ? `${day.label}: no weight recorded` : `${day.label}: ${formatWeight(day.value)} kg`}>
+                  <div className="weight-points">{weightChartValues.map((day, index) => <button className={`weight-point-column${day.value === null ? " missing" : ""}`} key={day.date} type="button" aria-label={day.value === null ? `${day.label}: no weight recorded` : `${day.label}: ${formatWeight(day.value)} kilograms`}>
+                    <span className="weight-tooltip">{day.value === null ? "No record" : `${formatWeight(day.value)} kg`}</span>
                     {day.value === null ? null : <span className="weight-point" style={{ bottom: `calc(21px + ${(weightChartScale.valueHeightPercents[index] ?? 0) * 0.902}%)` }} aria-hidden="true" />}
                     <span>{showTrendDateLabel(index, weightChartValues.length) ? day.label : ""}</span>
-                  </div>)}</div>
+                  </button>)}</div>
                 </div>
               </div>
             </> : <div className="chart-empty" role="status"><strong>No weight records for the past {trendRange} days</strong><span>Record a daily weight to see your trend.</span></div>}
@@ -1693,14 +1694,15 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
                 <div className="macro-trend-y-axis" aria-hidden="true"><span>100%</span><span>50%</span><span>0%</span></div>
                 <div className="macro-trend-plot">
                   <div className="macro-mid-line" aria-hidden="true" />
-                  <div className="macro-trend-bars">{macroTrendValues.map((day, index) => <div
+                  <div className="macro-trend-bars">{macroTrendValues.map((day, index) => <button
                     className={`macro-trend-column${day.hasData ? "" : " missing"}`}
                     key={day.date}
-                    role="img"
+                    type="button"
                     aria-label={day.hasData
                       ? `${day.label}: ${day.percentages.carbs}% carbohydrates, ${day.percentages.protein}% protein, ${day.percentages.fat}% fat`
                       : `${day.label}: no macro data`}
                   >
+                    <span className="macro-tooltip">{day.hasData ? `${day.percentages.carbs}% C · ${day.percentages.protein}% P · ${day.percentages.fat}% F` : "No data"}</span>
                     <div className="macro-stack" title={day.hasData ? `${day.percentages.carbs}% carbs · ${day.percentages.protein}% protein · ${day.percentages.fat}% fat` : "No macro data"}>
                       {day.hasData ? <>
                         <span className="macro-segment fat" style={{ height: `${day.percentages.fat}%` }} />
@@ -1709,7 +1711,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
                       </> : <span className="macro-gap" aria-hidden="true">—</span>}
                     </div>
                     <span>{showTrendDateLabel(index, macroTrendValues.length) ? day.label : ""}</span>
-                  </div>)}</div>
+                  </button>)}</div>
                 </div>
               </div>
             </> : <div className="chart-empty" role="status"><strong>No macro records for the past {trendRange} days</strong><span>Add protein, carbs, or fat to a meal to see the daily split.</span></div>}

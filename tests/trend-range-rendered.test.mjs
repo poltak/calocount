@@ -26,8 +26,14 @@ test("all trend panels share the seven or thirty day range", async () => {
   assert.match(css, /\.nutrient-trend-chart\.is-month \.nutrient-trend-column > span:last-child/);
   assert.match(css, /width: max-content/);
   assert.match(css, /\.nutrient-trend-chart\.is-month \.nutrient-trend-gap \{ visibility: hidden; \}/);
-  assert.match(css, /\.nutrient-trend-column[\s\S]*padding-bottom: 21px/);
+  assert.match(css, /\.nutrient-trend-column[\s\S]*padding: 0 0 21px/);
   assert.match(css, /\.nutrient-trend-column > span:last-child[\s\S]*position: absolute/);
   assert.match(css, /\.nutrient-trend-chart\.is-month \.nutrient-trend-bar[\s\S]*width: min\(8px, 72%\)/);
   assert.match(repository, /Array\.from\(\{ length: 30 \}/);
+  assert.match(page, /<button className="bar-column" key=\{day\.date\} type="button"/);
+  assert.match(page, /className="macro-tooltip"/);
+  assert.match(nutrientPanel, /<button className=\{`nutrient-trend-column/);
+  assert.match(css, /\.bar-column:focus \.bar-value/);
+  assert.match(css, /\.nutrient-trend-column:focus \.bar-value/);
+  assert.match(css, /\.macro-trend-column:focus \.macro-tooltip/);
 });

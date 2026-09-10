@@ -917,8 +917,22 @@ input:focus-visible {
   justify-content: end;
   max-width: 54px;
   height: 100%;
-  padding-top: 20px;
+  padding: 20px 0 0;
 }
+
+.bar-column,
+.macro-trend-column,
+.nutrient-trend-column,
+.weight-point-column {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.macro-trend-column,
+.weight-point-column { padding: 0; }
 
 .bar-column > span {
   height: 21px;
@@ -1040,7 +1054,18 @@ input:focus-visible {
   transition: opacity 150ms ease;
 }
 
-.bar-column:hover .bar-value { opacity: 1; }
+.bar-column:hover .bar-value,
+.bar-column:focus .bar-value,
+.nutrient-trend-column:hover .bar-value,
+.nutrient-trend-column:focus .bar-value { opacity: 1; }
+
+.bar-column:focus-visible,
+.macro-trend-column:focus-visible,
+.nutrient-trend-column:focus-visible,
+.weight-point-column:focus-visible {
+  outline: 2px solid var(--orange);
+  outline-offset: 2px;
+}
 
 .bar-chart.is-month .bars,
 .macro-trend-chart.is-month .macro-trend-bars,
@@ -1067,8 +1092,34 @@ input:focus-visible {
 
 .bar-chart.is-month .bar-value,
 .nutrient-trend-chart.is-month .bar-value {
-  display: none;
+  pointer-events: none;
 }
+
+.macro-tooltip,
+.weight-tooltip {
+  position: absolute;
+  z-index: 3;
+  top: 1px;
+  left: 50%;
+  width: max-content;
+  max-width: 150px;
+  padding: 3px 5px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--surface-soft);
+  color: var(--muted-strong);
+  font-size: 8px;
+  line-height: 1.2;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%);
+  transition: opacity 150ms ease;
+}
+
+.macro-trend-column:hover .macro-tooltip,
+.macro-trend-column:focus .macro-tooltip,
+.weight-point-column:hover .weight-tooltip,
+.weight-point-column:focus .weight-tooltip { opacity: 1; }
 
 .macro-trend-chart.is-month .macro-stack {
   width: min(9px, 78%);
@@ -2215,7 +2266,7 @@ input:focus-visible {
   gap: 5px;
   height: 100%;
   min-width: 0;
-  padding-bottom: 21px;
+  padding: 0 0 21px;
   color: var(--muted);
   font-size: 9px;
   text-align: center;
