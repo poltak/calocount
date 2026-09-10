@@ -784,6 +784,35 @@ input:focus-visible {
   font-weight: 650;
 }
 
+.chart-range-select {
+  min-height: 30px;
+  padding: 5px 25px 5px 9px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface-soft);
+  color: var(--muted-strong);
+  font: inherit;
+  font-size: 10px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.chart-range-select:focus-visible {
+  outline: 2px solid var(--orange);
+  outline-offset: 2px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .chart-legend {
   display: flex;
   gap: 17px;
@@ -908,6 +937,7 @@ input:focus-visible {
 }
 
 .bar-column:nth-child(5) .bar { background: linear-gradient(180deg, #ffd18f 0%, #e88b4c 100%); }
+.bar.bar-empty { min-height: 0; background: transparent; box-shadow: none; }
 
 .macro-trend-legend { flex-wrap: wrap; }
 
@@ -1012,6 +1042,39 @@ input:focus-visible {
 
 .bar-column:hover .bar-value { opacity: 1; }
 
+.bar-chart.is-month .bars,
+.macro-trend-chart.is-month .macro-trend-bars,
+.nutrient-trend-chart.is-month .nutrient-trend-bars {
+  gap: 2px;
+  padding-inline: 2px;
+}
+
+.bar-chart.is-month .bar-column,
+.macro-trend-chart.is-month .macro-trend-column,
+.nutrient-trend-chart.is-month .nutrient-trend-column {
+  min-width: 0;
+}
+
+.bar-chart.is-month .bar {
+  width: min(8px, 72%);
+  border-radius: 2px 2px 1px 1px;
+}
+
+.nutrient-trend-chart.is-month .nutrient-trend-bar {
+  width: min(8px, 72%);
+  border-radius: 2px 2px 1px 1px;
+}
+
+.bar-chart.is-month .bar-value,
+.nutrient-trend-chart.is-month .bar-value {
+  display: none;
+}
+
+.macro-trend-chart.is-month .macro-stack {
+  width: min(9px, 78%);
+  border-radius: 2px 2px 1px 1px;
+}
+
 .weight-bar {
   min-height: 8px;
   background: linear-gradient(180deg, #a4d9b7 0%, #5da982 100%);
@@ -1026,6 +1089,63 @@ input:focus-visible {
   color: #65717e;
   font-size: 10px;
 }
+
+.weight-line {
+  position: absolute;
+  inset: 0 5px 21px;
+  width: calc(100% - 10px);
+  height: calc(100% - 21px);
+  overflow: visible;
+}
+
+.weight-line polyline {
+  fill: none;
+  stroke: var(--green);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.weight-points {
+  position: absolute;
+  inset: 0 5px;
+  display: flex;
+}
+
+.weight-point-column {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+}
+
+.weight-point {
+  position: absolute;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 0 1px var(--green);
+  transform: translate(-50%, 50%);
+}
+
+.weight-point-column > span:last-child {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 21px;
+  padding-top: 8px;
+  color: #788492;
+  font-size: 9px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.weight-chart.is-month .weight-point { width: 6px; height: 6px; }
 
 .chart-empty {
   display: grid;
@@ -2085,24 +2205,40 @@ input:focus-visible {
 }
 
 .nutrient-trend-column {
+  position: relative;
   display: flex;
   flex: 1;
+  box-sizing: border-box;
   flex-direction: column;
   align-items: center;
   justify-content: flex-end;
   gap: 5px;
   height: 100%;
   min-width: 0;
+  padding-bottom: 21px;
   color: var(--muted);
   font-size: 9px;
   text-align: center;
 }
 
 .nutrient-trend-column > span:last-child {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
   overflow: hidden;
+  height: 21px;
   width: 100%;
+  padding-top: 8px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.nutrient-trend-chart.is-month .nutrient-trend-column > span:last-child {
+  overflow: visible;
+  width: max-content;
+  max-width: none;
+  text-overflow: clip;
 }
 
 .nutrient-trend-column .bar-value {
@@ -2125,6 +2261,8 @@ input:focus-visible {
   color: #677481;
   font-size: 12px;
 }
+
+.nutrient-trend-chart.is-month .nutrient-trend-gap { visibility: hidden; }
 
 .nutrient-trend-column.missing { opacity: .75; }
 

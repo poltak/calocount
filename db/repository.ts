@@ -789,11 +789,13 @@ export async function getDashboardSummary(db: AppDb, ownerKey: string, options: 
   const formatter = dateTimeFormatter(timezone);
   const logicalDate = dateKeyFromParts(zonedDateParts(formatter, now.getTime()));
   const weekStartDate = shiftDateKey(logicalDate, -6);
+  const monthStartDate = shiftDateKey(logicalDate, -29);
   const endDate = shiftDateKey(logicalDate, 1);
   const startMs = firstInstantForLocalDate({ date: logicalDate, formatter });
   const endMs = firstInstantForLocalDate({ date: endDate, formatter });
   const weekStartMs = firstInstantForLocalDate({ date: weekStartDate, formatter });
-  const [today, recentMeals, recentWeights] = await Promise.all([
+  const monthStartMs = firstInstantForLocalDate({ date: monthStartDate, formatter });
+  const [today, trendMeals, trendWeights] = await Promise.all([
     db.select({
       calories: sql<number>`coalesce(sum(${mealLogs.totalCalories}), 0)`,
       proteinG: sql<number>`coalesce(sum(${mealLogs.totalProteinG}), 0)`,
@@ -806,9 +808,11 @@ export async function getDashboardSummary(db: AppDb, ownerKey: string, options: 
       gte(mealLogs.consumedAt, startMs),
       lt(mealLogs.consumedAt, endMs),
     )).prepare().get(),
-    listMeals(db, ownerKey, { from: weekStartMs, to: endMs, limit: 500 }),
-    listDailyWeights({ db, ownerKey, from: weekStartDate, to: logicalDate }),
+    listMeals(db, ownerKey, { from: monthStartMs, to: endMs, limit: 500 }),
+    listDailyWeights({ db, ownerKey, from: monthStartDate, to: logicalDate }),
   ]);
+  const recentMeals = trendMeals.filter((entry) => entry.meal.consumedAt >= weekStartMs);
+  const recentWeights = trendWeights.filter((entry) => entry.logicalDate >= weekStartDate);
 
   const days = new Map<string, { calories: number; proteinG: number }>();
   for (const entry of recentMeals) {
@@ -834,6 +838,7 @@ export async function getDashboardSummary(db: AppDb, ownerKey: string, options: 
   const averageDayCount = currentHour >= 21 ? 7 : 6;
 
   const completeMeals = recentMeals.filter((entry) => entry.meal.status === "complete");
+  const completeTrendMeals = trendMeals.filter((entry) => entry.meal.status === "complete");
   const todayMealEntries = completeMeals.filter((entry) => (
     dateKeyFromParts(zonedDateParts(formatter, entry.meal.consumedAt)) === logicalDate
   ));
@@ -844,6 +849,21 @@ export async function getDashboardSummary(db: AppDb, ownerKey: string, options: 
     ));
     return {
       date,
+      nutrients: calculateNutrientAggregates(entries.flatMap((entry) => entry.items)),
+    };
+  });
+  const trendByDate = Array.from({ length: 30 }, (_, index) => {
+    const date = shiftDateKey(monthStartDate, index);
+    const entries = completeTrendMeals.filter((entry) => (
+      dateKeyFromParts(zonedDateParts(formatter, entry.meal.consumedAt)) === date
+    ));
+    return {
+      date,
+      calories: entries.reduce((total, entry) => total + entry.meal.totalCalories, 0),
+      proteinG: entries.reduce((total, entry) => total + entry.meal.totalProteinG, 0),
+      carbsG: entries.reduce((total, entry) => total + entry.meal.totalCarbsG, 0),
+      fatG: entries.reduce((total, entry) => total + entry.meal.totalFatG, 0),
+      mealCount: entries.length,
       nutrients: calculateNutrientAggregates(entries.flatMap((entry) => entry.items)),
     };
   });
@@ -873,6 +893,14 @@ export async function getDashboardSummary(db: AppDb, ownerKey: string, options: 
       today: calculateNutrientAggregates(todayMealEntries.flatMap((entry) => entry.items)),
       sevenDay: calculateNutrientAggregates(completeMeals.flatMap((entry) => entry.items)),
       byDate: nutritionByDate,
+    },
+    trend: {
+      byDate: trendByDate,
+      weights: trendWeights.map((entry) => ({
+        logicalDate: entry.logicalDate,
+        weightKg: entry.weightKg,
+        recordedAt: entry.recordedAt,
+      })),
     },
     recentMeals,
     recentWeights,

@@ -283,6 +283,9 @@ test("dashboard summary returns all seven-day meals, weights, and matching total
   assert.equal(summary.sevenDay.daysWithMeals, 7);
   assert.ok(!summary.recentMeals.some(({ meal }) => ["outside-before", "outside-after", "other-owner"].includes(meal.id)));
   assert.equal(summary.recentWeights.length, 7);
+  assert.equal(summary.trend.byDate.length, 30);
+  assert.equal(summary.trend.byDate.at(-1)?.date, summary.date);
+  assert.equal(summary.trend.weights.length, 8);
   assert.deepEqual(
     summary.recentWeights.map((weight) => weight.logicalDate),
     Array.from({ length: 7 }, (_, day) => (

@@ -94,11 +94,12 @@ test("weight trend plots recorded days and keeps gaps visible", async () => {
   ]);
 
   assert.match(page, /<h2 id="weight-trend-title">Weight trend<\/h2>/);
-  assert.match(page, /value: day\.weight\?\.weightKg \?\? null/);
-  assert.match(page, /Recorded weight for the past seven days in kilograms; missing days are shown as gaps/);
-  assert.match(page, /No weight records for the past seven days/);
+  assert.match(page, /weights\.get\(day\.date\) \?\? null/);
+  assert.match(page, /Recorded weight for the past \$\{trendRange\} days in kilograms; missing days are shown as gaps/);
+  assert.match(page, /No weight records for the past \{trendRange\} days/);
   assert.match(page, /weightChartScale\.valueHeightPercents\[index\]/);
-  assert.match(css, /\.weight-bar\s*{/);
+  assert.match(css, /\.weight-line polyline\s*{/);
+  assert.match(css, /\.weight-point\s*{/);
   assert.match(css, /\.chart-empty\s*{/);
 });
 

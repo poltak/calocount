@@ -79,7 +79,7 @@ function publicMeal(entry: DashboardSummary["recentMeals"][number]): PublicMeal 
   };
 }
 
-function publicWeight(entry: DashboardSummary["recentWeights"][number]): PublicWeight {
+function publicWeight(entry: PublicWeight): PublicWeight {
   return {
     logicalDate: entry.logicalDate,
     weightKg: entry.weightKg,
@@ -153,6 +153,18 @@ export function projectPublicDashboardSummary(summary: DashboardSummary) {
       averageProteinG: summary.sevenDay.averageProteinG,
       daysWithMeals: summary.sevenDay.daysWithMeals,
       trend: publicTrend(summary),
+    },
+    trend: {
+      byDate: (summary.trend?.byDate ?? publicTrend(summary).map((day) => ({ ...day, nutrients: {} }))).map((day) => ({
+        date: day.date,
+        calories: day.calories,
+        proteinG: day.proteinG,
+        carbsG: day.carbsG,
+        fatG: day.fatG,
+        mealCount: day.mealCount,
+        nutrients: day.nutrients,
+      })),
+      weights: (summary.trend?.weights ?? summary.recentWeights).map(publicWeight),
     },
     nutrition: summary.nutrition,
     recentMeals: summary.recentMeals.filter((entry) => (
