@@ -83,3 +83,15 @@ test("dashboard retry and settings requests ignore stale responses", async () =>
   assert.match(page, /settingsReadVersion\.current !== readVersion/);
   assert.match(page, /if \(!isCurrentAction\(action\)\) return;/);
 });
+
+test("protein goal changes refresh the authoritative weight-derived summary", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+
+  const weightSave = page.slice(page.indexOf("async function saveWeight"), page.indexOf("async function openSettings"));
+  const settingsSave = page.slice(page.indexOf("async function saveSettings"), page.indexOf("function selectDay"));
+
+  assert.match(weightSave, /setDashboardReloadKey\(\(current\) => current \+ 1\)/);
+  assert.match(settingsSave, /setDashboardReloadKey\(\(current\) => current \+ 1\)/);
+  assert.doesNotMatch(weightSave, /setProteinGoal/);
+  assert.doesNotMatch(settingsSave, /updateProteinGoalSettings|setProteinGoal/);
+});

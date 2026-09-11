@@ -1434,28 +1434,6 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     setDays((currentDays) => currentDays.map((day) => (
       day.date === logicalDate ? { ...day, weight } : day
     )));
-    setProteinGoal((current) => {
-      const existing = current.byDate.find((day) => day.date === logicalDate);
-      const nextDay: ProteinGoalDay = {
-        date: logicalDate,
-        targetG: existing?.targetG ?? null,
-        weightKg: weight?.weightKg ?? null,
-        weightDate: weight?.logicalDate ?? null,
-      };
-      const byDate = existing
-        ? current.byDate.map((day) => day.date === logicalDate ? nextDay : day)
-        : [...current.byDate, nextDay].sort((left, right) => left.date.localeCompare(right.date));
-      const latest = byDate.at(-1);
-      return {
-        ...current,
-        targetG: latest?.date === logicalDate && current.mode === "gramsPerKg"
-          ? calculateProteinTargetG({ weightKg: latest.weightKg, gramsPerKg: current.gramsPerKg })
-          : current.targetG,
-        weightKg: latest?.date === logicalDate ? latest.weightKg : current.weightKg,
-        weightDate: latest?.date === logicalDate ? latest.weightDate : current.weightDate,
-        byDate,
-      };
-    });
   }
 
   function openWeightEditor() {
@@ -1477,7 +1455,6 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
 
     const logicalDate = selectedDay.date;
     const previousWeight = selectedWeight;
-    const previousProteinGoal = proteinGoal;
     const optimisticWeight = { logicalDate, weightKg, recordedAt: Date.now() };
     const action = beginAction("weight-save", logicalDate);
     if (!action) return;
@@ -1505,10 +1482,11 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
       setWeightDraft(String(savedWeight.weightKg));
       setShowWeightForm(false);
       setActionStatus("Weight saved.");
+      setDashboardLoading(true);
+      setDashboardReloadKey((current) => current + 1);
     } catch (error) {
       if (!isCurrentAction(action)) return;
       setWeightForDate(logicalDate, previousWeight);
-      setProteinGoal(previousProteinGoal);
       setActionError(error instanceof Error ? error.message : "The weight could not be saved.");
       setActionStatus(null);
     } finally {
@@ -1598,22 +1576,13 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     const action = beginAction("settings-save");
     if (!action) return;
     const previousTargets = targets;
-    const previousProteinGoal = proteinGoal;
-    const optimisticProteinGoal = updateProteinGoalSettings({
-      current: proteinGoal,
-      mode: settingsDraft.proteinGoalMode,
-      fixedTargetG: Number.isFinite(proteinG) && proteinG > 0 ? proteinG : proteinGoal.fixedTargetG,
-      gramsPerKg: proteinPerKg,
-    });
     setActionError(null);
     settingsReadVersion.current += 1;
     settingsSaveInFlight.current = true;
     setSettingsSaving(true);
     setTargets({ calories, proteinG: Number.isFinite(proteinG) && proteinG > 0 ? proteinG : targets.proteinG, nutrients: nutrientTargets });
-    setProteinGoal(optimisticProteinGoal);
     try {
       let nextTargets = { calories, proteinG: Number.isFinite(proteinG) && proteinG > 0 ? proteinG : targets.proteinG, nutrients: nutrientTargets };
-      let nextProteinGoal = optimisticProteinGoal;
       const response = await fetch("/api/settings", {
         method: "PATCH",
         headers: { "content-type": "application/json" },
@@ -1634,23 +1603,16 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
       if (parsed && Number.isFinite(parsed.calories)) {
         const savedProteinG = Number.isFinite(parsed.proteinG) ? parsed.proteinG : nextTargets.proteinG;
         nextTargets = { calories: parsed.calories, proteinG: savedProteinG, nutrients: parsed.nutrients };
-        nextProteinGoal = updateProteinGoalSettings({
-          current: proteinGoal,
-          mode: parsed.proteinGoalMode,
-          fixedTargetG: savedProteinG,
-          gramsPerKg: parsed.proteinPerKg ?? proteinPerKg,
-        });
       }
       if (!isCurrentAction(action)) return;
       setTargets(nextTargets);
-      setProteinGoal(nextProteinGoal);
-      setSettingsDraft(settingsDraftForTargets(nextTargets, nextProteinGoal));
       setShowSettings(false);
       setActionStatus("Targets saved.");
+      setDashboardLoading(true);
+      setDashboardReloadKey((current) => current + 1);
     } catch (error) {
       if (!isCurrentAction(action)) return;
       setTargets(previousTargets);
-      setProteinGoal(previousProteinGoal);
       setActionError(error instanceof Error ? error.message : "The targets could not be saved.");
       setActionStatus(null);
     } finally {
