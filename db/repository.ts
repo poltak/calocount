@@ -960,6 +960,17 @@ export async function listAiRuns(db: AppDb, ownerKey: string, options: { mealId?
   return db.select().from(aiRuns).where(and(...conditions)).orderBy(desc(aiRuns.createdAt)).limit(Math.min(options.limit ?? 100, 500)).prepare().all();
 }
 
+export async function findMealPhoto({ db, ownerKey, mealId }: { db: AppDb; ownerKey: string; mealId: string }) {
+  return db.select({
+    id: mealLogs.id,
+    ownerKey: mealLogs.ownerKey,
+    consumedAt: mealLogs.consumedAt,
+    status: mealLogs.status,
+    photoKey: mealLogs.photoKey,
+    photoMimeType: mealLogs.photoMimeType,
+  }).from(mealLogs).where(and(eq(mealLogs.ownerKey, ownerKey), eq(mealLogs.id, mealId))).limit(1).prepare().get();
+}
+
 export async function findMealByPhotoKey(db: AppDb, ownerKey: string, photoKey: string) {
   return db.select({ id: mealLogs.id }).from(mealLogs).where(and(
     eq(mealLogs.ownerKey, ownerKey),

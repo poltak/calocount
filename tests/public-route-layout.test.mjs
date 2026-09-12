@@ -43,12 +43,10 @@ test("the public meal-photo route is read-only and uses the configured public pr
   ]);
 
   assert.match(route, /getEnvValue\("CALOCOUNT_OWNER_KEY"\)/);
-  assert.match(route, /getDashboardSummary\(getRequestDb\(\), ownerKey\)/);
   assert.match(route, /getPhotosBucket\(\)\.get\(photoKey\)/);
   assert.match(route, /export async function GET/);
   assert.doesNotMatch(route, /requireApiIdentity/);
   assert.doesNotMatch(route, /export async function (POST|PUT|PATCH|DELETE)/);
-  assert.match(helper, /meal\.status === "complete"/);
   assert.match(helper, /isPublicPhotoMimeType/);
   assert.match(helper, /isWithinPublicDateRange/);
   assert.match(helper, /"x-content-type-options": "nosniff"/);

@@ -1,5 +1,5 @@
 import { getEnvValue } from "../../../db";
-import { getDashboardSummary } from "../../../db/repository";
+import { findMealPhoto } from "../../../db/repository";
 import { ApiError, getPhotosBucket, getRequestDb, withApiErrors } from "../../api/_lib/http";
 import { buildPublicMealPhotoResponse } from "../../api/_lib/public-meal-photo";
 import { PublicSummaryConfigError } from "../../api/_lib/public-summary";
@@ -14,7 +14,7 @@ export async function GET(request: Request, context: RouteContext): Promise<Resp
         ownerKey: getEnvValue("CALOCOUNT_OWNER_KEY"),
         mealId: id,
         ifNoneMatch: request.headers.get("if-none-match"),
-        loadSummary: (ownerKey) => getDashboardSummary(getRequestDb(), ownerKey),
+        loadMeal: (input) => findMealPhoto({ db: getRequestDb(), ...input }),
         loadPhoto: async (photoKey) => {
           const object = await getPhotosBucket().get(photoKey);
           return object

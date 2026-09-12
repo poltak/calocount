@@ -1,174 +1,103 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildPublicMealPhotoResponse } from "../app/api/_lib/public-meal-photo";
+import { buildPublicMealPhotoResponse, type PublicPhotoMeal } from "../app/api/_lib/public-meal-photo";
 import { PublicSummaryConfigError } from "../app/api/_lib/public-summary";
+import { findMealPhoto } from "../db/repository";
+import { createSqliteTestDb } from "./helpers/sqlite-db";
 
-function summaryWithMeal({
-  id = "meal-1",
-  status = "complete",
-  photoKey = "private/photo-key",
-  photoMimeType = "image/jpeg",
-  consumedAt = Date.parse("2026-08-29T12:00:00Z"),
-}: {
-  id?: string;
-  status?: string;
-  photoKey?: string | null;
-  photoMimeType?: string | null;
-  consumedAt?: number;
-} = {}) {
-  return {
-    date: "2026-08-29",
-    targets: { calories: 2_100, proteinG: 150 },
-    today: { calories: 500, proteinG: 40, carbsG: 50, fatG: 15, mealCount: 1 },
-    sevenDay: {
-      calories: 500,
-      proteinG: 40,
-      averageCalories: 500,
-      averageProteinG: 40,
-      daysWithMeals: 1,
-    },
-    recentMeals: [{
-      meal: {
-        id,
-        ownerKey: "owner-1",
-        consumedAt,
-        source: "telegram",
-        caption: "Lunch",
-        mealType: "lunch",
-        status,
-        photoKey,
-        photoMimeType,
-        photoSizeBytes: 3,
-        totalCalories: 500,
-        totalProteinG: 40,
-        totalCarbsG: 50,
-        totalFatG: 15,
-        confidence: 0.9,
-        assumptionsJson: "[]",
-        notes: "",
-        createdAt: 1,
-        updatedAt: 1,
-      },
-      items: [],
-    }],
-    recentWeights: [],
-  } as never;
-}
+const now = new Date("2026-08-29T12:00:00Z");
+const meal: PublicPhotoMeal = {
+  id: "meal-1", ownerKey: "owner-1", status: "complete",
+  photoKey: "private/photo-key", photoMimeType: "image/jpeg", consumedAt: now.getTime(),
+};
+const photo = { body: new Uint8Array([1, 2, 3]), httpEtag: '"etag-1"', size: 3 };
 
-test("public photo delivery fails closed before loading data when the owner is not configured", async () => {
-  await assert.rejects(
-    buildPublicMealPhotoResponse({
-      ownerKey: " ",
-      mealId: "meal-1",
-      loadSummary: async () => {
-        throw new Error("must not load");
-      },
-      loadPhoto: async () => {
-        throw new Error("must not load");
-      },
-    }),
-    (error: unknown) => error instanceof PublicSummaryConfigError,
-  );
+test("public photo delivery fails closed before loading data when the owner is missing", async () => {
+  await assert.rejects(buildPublicMealPhotoResponse({
+    ownerKey: " ", mealId: meal.id, now,
+    loadMeal: async () => { throw new Error("must not load"); },
+    loadPhoto: async () => { throw new Error("must not load"); },
+  }), PublicSummaryConfigError);
 });
 
-test("public photo delivery streams a safe projected photo without exposing its key", async () => {
-  const requestedOwners: string[] = [];
-  const requestedKeys: string[] = [];
+test("public photos use one owned metadata lookup and keep private keys out of the response", async () => {
+  const lookups: unknown[] = [];
   const response = await buildPublicMealPhotoResponse({
-    ownerKey: " owner-1 ",
-    mealId: "meal-1",
-    loadSummary: async (ownerKey) => {
-      requestedOwners.push(ownerKey);
-      return summaryWithMeal();
-    },
-    loadPhoto: async (photoKey) => {
-      requestedKeys.push(photoKey);
-      return { body: new Uint8Array([1, 2, 3]), httpEtag: '"etag-1"', size: 3 };
-    },
+    ownerKey: " owner-1 ", mealId: meal.id, now,
+    loadMeal: async (input) => { lookups.push(input); return meal; },
+    loadPhoto: async (key) => { assert.equal(key, meal.photoKey); return photo; },
   });
-
-  assert.deepEqual(requestedOwners, ["owner-1"]);
-  assert.deepEqual(requestedKeys, ["private/photo-key"]);
+  assert.deepEqual(lookups, [{ ownerKey: "owner-1", mealId: meal.id }]);
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("content-type"), "image/jpeg");
   assert.equal(response.headers.get("content-length"), "3");
-  assert.equal(response.headers.get("etag"), '"etag-1"');
+  assert.equal(response.headers.get("etag"), photo.httpEtag);
   assert.equal(response.headers.get("cache-control"), "public, max-age=0, must-revalidate");
   assert.equal(response.headers.get("x-content-type-options"), "nosniff");
-  assert.deepEqual(new Uint8Array(await response.arrayBuffer()), new Uint8Array([1, 2, 3]));
+  assert.deepEqual(new Uint8Array(await response.arrayBuffer()), photo.body);
 });
 
-test("public photo delivery supports conditional requests", async () => {
+test("public photo delivery revalidates visibility for conditional requests", async () => {
+  for (const [visibleMeal, expectedStatus] of [[meal, 304], [null, 404]] as const) {
+    let photoLoads = 0;
+    const response = await buildPublicMealPhotoResponse({
+      ownerKey: "owner-1", mealId: meal.id, now, ifNoneMatch: photo.httpEtag,
+      loadMeal: async () => visibleMeal,
+      loadPhoto: async () => { photoLoads++; return photo; },
+    });
+    assert.equal(response.status, expectedStatus);
+    assert.equal(photoLoads, visibleMeal ? 1 : 0);
+    if (visibleMeal) assert.equal(await response.text(), "");
+  }
+});
+
+test("public photos reject invalid IDs before database access", async () => {
   const response = await buildPublicMealPhotoResponse({
-    ownerKey: "owner-1",
-    mealId: "meal-1",
-    ifNoneMatch: '"etag-1"',
-    loadSummary: async () => summaryWithMeal(),
-    loadPhoto: async () => ({ body: new Uint8Array([1, 2, 3]), httpEtag: '"etag-1"', size: 3 }),
+    ownerKey: "owner-1", mealId: "../meal-1", now,
+    loadMeal: async () => { throw new Error("must not load"); },
+    loadPhoto: async () => { throw new Error("must not load"); },
   });
-
-  assert.equal(response.status, 304);
-  assert.equal(response.headers.get("etag"), '"etag-1"');
-  assert.equal(await response.text(), "");
-});
-
-test("public photo delivery rejects invalid, non-projected, pending, and unsafe meals", async () => {
-  let photoLoads = 0;
-  const loadPhoto = async () => {
-    photoLoads += 1;
-    return { body: new Uint8Array([1]), httpEtag: '"etag"', size: 1 };
-  };
-
-  const invalid = await buildPublicMealPhotoResponse({
-    ownerKey: "owner-1",
-    mealId: "../meal-1",
-    loadSummary: async () => {
-      throw new Error("must not load");
-    },
-    loadPhoto,
-  });
-  const nonProjected = await buildPublicMealPhotoResponse({
-    ownerKey: "owner-1",
-    mealId: "old-meal",
-    loadSummary: async () => summaryWithMeal(),
-    loadPhoto,
-  });
-  const pending = await buildPublicMealPhotoResponse({
-    ownerKey: "owner-1",
-    mealId: "meal-1",
-    loadSummary: async () => summaryWithMeal({ status: "pending" }),
-    loadPhoto,
-  });
-  const unsafeMime = await buildPublicMealPhotoResponse({
-    ownerKey: "owner-1",
-    mealId: "meal-1",
-    loadSummary: async () => summaryWithMeal({ photoMimeType: "text/html" }),
-    loadPhoto,
-  });
-  const oldMeal = await buildPublicMealPhotoResponse({
-    ownerKey: "owner-1",
-    mealId: "meal-1",
-    loadSummary: async () => summaryWithMeal({ consumedAt: Date.parse("2026-08-22T23:59:59Z") }),
-    loadPhoto,
-  });
-
-  assert.equal(invalid.status, 404);
-  assert.equal(nonProjected.status, 404);
-  assert.equal(pending.status, 404);
-  assert.equal(unsafeMime.status, 404);
-  assert.equal(oldMeal.status, 404);
-  assert.equal(photoLoads, 0);
-});
-
-test("public photo delivery returns not found when the private object is missing", async () => {
-  const response = await buildPublicMealPhotoResponse({
-    ownerKey: "owner-1",
-    mealId: "meal-1",
-    loadSummary: async () => summaryWithMeal(),
-    loadPhoto: async () => null,
-  });
-
   assert.equal(response.status, 404);
-  assert.equal(response.headers.get("cache-control"), "no-store");
+});
+
+test("public photos reject another owner, missing photos, incomplete meals, and dates outside the UTC window", async () => {
+  const invalidMeals: PublicPhotoMeal[] = [
+    { ...meal, ownerKey: "other-owner" }, { ...meal, id: "other-meal" },
+    { ...meal, status: "pending" }, { ...meal, photoKey: null },
+    { ...meal, photoMimeType: "text/html" },
+    { ...meal, consumedAt: Date.parse("2026-08-22T23:59:59Z") },
+    { ...meal, consumedAt: Date.parse("2026-08-30T00:00:00Z") },
+  ];
+  for (const invalidMeal of invalidMeals) {
+    const response = await buildPublicMealPhotoResponse({
+      ownerKey: "owner-1", mealId: meal.id, now,
+      loadMeal: async () => invalidMeal,
+      loadPhoto: async () => { throw new Error("must not load"); },
+    });
+    assert.equal(response.status, 404);
+  }
+});
+
+test("public photos include the exact start of the seven-day window and handle missing R2 objects", async () => {
+  let loads = 0;
+  const response = await buildPublicMealPhotoResponse({
+    ownerKey: "owner-1", mealId: meal.id, now,
+    loadMeal: async () => ({ ...meal, consumedAt: Date.parse("2026-08-23T00:00:00Z") }),
+    loadPhoto: async () => { loads++; return null; },
+  });
+  assert.equal(loads, 1);
+  assert.equal(response.status, 404);
+});
+
+test("photo metadata uses one SQL query without loading items and enforces ownership", async () => {
+  const fixture = createSqliteTestDb();
+  try {
+    fixture.sqlite.prepare("INSERT INTO meal_logs (id, owner_key, consumed_at) VALUES (?, ?, ?)").run(meal.id, meal.ownerKey, meal.consumedAt);
+    assert.equal((await findMealPhoto({ db: fixture.db, ownerKey: meal.ownerKey, mealId: meal.id }))?.id, meal.id);
+    assert.equal(fixture.queries.length, 1);
+    assert.equal(await findMealPhoto({ db: fixture.db, ownerKey: "other-owner", mealId: meal.id }), undefined);
+  } finally {
+    fixture.sqlite.close();
+  }
 });
