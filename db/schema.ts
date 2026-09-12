@@ -84,6 +84,7 @@ export const mealLogs = sqliteTable(
   (table) => [
     index("meal_logs_owner_consumed_at_idx").on(table.ownerKey, table.consumedAt),
     index("meal_logs_owner_status_updated_idx").on(table.ownerKey, table.status, table.updatedAt),
+    index("meal_logs_photo_key_owner_idx").on(table.photoKey, table.ownerKey),
     uniqueIndex("meal_logs_external_request_id_idx").on(table.externalRequestId),
   ],
 );
