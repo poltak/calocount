@@ -419,3 +419,59 @@ test("Access JWT diagnostics contain only the stable event, code, and reason", a
   const verifierSource = await readFile(new URL("../app/api/_lib/access-jwt.ts", import.meta.url), "utf8");
   assert.doesNotMatch(verifierSource, /fail\(\s*["'][^"']+["']\s*\)/u);
 });
+
+test("Access keys are shared by concurrent requests and warm requests still verify signatures", async () => {
+  const keys = await signingKeys();
+  const token = await accessToken(keys.privateKey);
+  const serve = await verifier(keys.publicKey);
+  let fetches = 0;
+  const fetcher: typeof fetch = async (input) => { fetches++; return serve(input); };
+  await Promise.all(Array.from({ length: 3 }, () => verifyAccessJwt(request(token), verifyOptions(fetcher))));
+  await verifyAccessJwt(request(token), verifyOptions(fetcher));
+  assert.equal(fetches, 1);
+  const otherKeys = await signingKeys();
+  const forged = await accessToken(otherKeys.privateKey);
+  await assert.rejects(verifyAccessJwt(request(forged), verifyOptions(fetcher)), AccessJwtError);
+  assert.equal(fetches, 1);
+});
+
+test("Access key rotation refreshes unknown IDs once and removes expired keys", async () => {
+  const oldKeys = await signingKeys();
+  const newKeys = await signingKeys();
+  const oldToken = await accessToken(oldKeys.privateKey, { exp: nowSeconds + 3600 });
+  const newToken = await accessToken(newKeys.privateKey, { exp: nowSeconds + 3600 }, "next-key");
+  let serve = await verifier(oldKeys.publicKey);
+  let fetches = 0;
+  const fetcher: typeof fetch = async (input) => { fetches++; return serve(input); };
+  await verifyAccessJwt(request(oldToken), verifyOptions(fetcher));
+  serve = await verifier(newKeys.publicKey, "next-key");
+  await verifyAccessJwt(request(newToken), verifyOptions(fetcher, { nowSeconds: nowSeconds + 31 }));
+  assert.equal(fetches, 2);
+  for (let index = 0; index < 4; index++) {
+    const unknown = await accessToken(newKeys.privateKey, {}, "unknown-" + index);
+    await assert.rejects(verifyAccessJwt(request(unknown), verifyOptions(fetcher, { nowSeconds: nowSeconds + 32 })), AccessJwtError);
+  }
+  assert.equal(fetches, 2);
+  await assert.rejects(verifyAccessJwt(request(oldToken), verifyOptions(fetcher, { nowSeconds: nowSeconds + 332 })), AccessJwtError);
+  assert.equal(fetches, 3);
+});
+
+test("expired Access key caches fail closed on a fetch error and recover on the next request", async () => {
+  const keys = await signingKeys();
+  const token = await accessToken(keys.privateKey, { exp: nowSeconds + 3600 });
+  const serve = await verifier(keys.publicKey);
+  let failFetch = false;
+  let fetches = 0;
+  const fetcher: typeof fetch = async (input) => {
+    fetches++;
+    if (failFetch) throw new Error("offline");
+    return serve(input);
+  };
+  await verifyAccessJwt(request(token), verifyOptions(fetcher));
+  failFetch = true;
+  const later = verifyOptions(fetcher, { nowSeconds: nowSeconds + 301 });
+  await assert.rejects(verifyAccessJwt(request(token), later), (error: unknown) => error instanceof AccessJwtError && error.code === "jwks");
+  failFetch = false;
+  await verifyAccessJwt(request(token), later);
+  assert.equal(fetches, 3);
+});

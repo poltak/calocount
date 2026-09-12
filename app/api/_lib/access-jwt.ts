@@ -242,14 +242,23 @@ async function readBoundedResponse(response: Response): Promise<string> {
   return textDecoder.decode(bytes);
 }
 
-async function loadVerificationKey(
-  certsUrl: string,
-  keyId: string,
-  fetcher: typeof fetch,
-): Promise<CryptoKey> {
+type VerificationKeySet = {
+  jwks: unknown[];
+  imported: Map<string, Promise<CryptoKey>>;
+};
+type CachedKeySet = {
+  expiresAt: number;
+  refreshAfter: number;
+  value: Promise<VerificationKeySet>;
+};
+const KEY_CACHE_TTL_MS = 5 * 60_000;
+const KEY_REFRESH_COOLDOWN_MS = 30_000;
+const keyCaches = new WeakMap<typeof fetch, Map<string, CachedKeySet>>();
+
+async function fetchVerificationKeys({ certsUrl, fetcher }: { certsUrl: string; fetcher: typeof fetch }): Promise<VerificationKeySet> {
   let response: Response;
   try {
-    response = await fetcher(certsUrl, { headers: { accept: "application/json" } });
+    response = await fetcher(certsUrl, { headers: { accept: "application/json" }, signal: AbortSignal.timeout(5_000) });
   } catch {
     fail("jwks", "jwks_fetch_failed", "The Cloudflare Access keys could not be loaded.");
   }
@@ -266,9 +275,10 @@ async function loadVerificationKey(
     fail("jwks", "jwks_invalid_json_or_shape", "The Cloudflare Access key response is invalid.");
   }
 
-  const jwk = body.keys.find((candidate) => isRecord(candidate) && candidate.kid === keyId);
-  if (!isRecord(jwk)) fail("token", "token_invalid");
+  return { jwks: body.keys, imported: new Map() };
+}
 
+async function importVerificationKey(jwk: Record<string, unknown>, keyId: string): Promise<CryptoKey> {
   const jwkId = claimString(jwk.kid, MAX_JWK_ID_BYTES);
   const modulus = claimString(jwk.n, MAX_JWK_MODULUS_BYTES);
   const exponent = claimString(jwk.e, MAX_JWK_EXPONENT_BYTES);
@@ -294,6 +304,48 @@ async function loadVerificationKey(
   } catch {
     fail("jwks", "jwks_invalid_json_or_shape", "The Cloudflare Access key response is invalid.");
   }
+}
+
+async function loadVerificationKey({ certsUrl, keyId, fetcher, nowMs }: {
+  certsUrl: string; keyId: string; fetcher: typeof fetch; nowMs: number;
+}): Promise<CryptoKey> {
+  const cache = keyCaches.get(fetcher) ?? new Map<string, CachedKeySet>();
+  keyCaches.set(fetcher, cache);
+  function refresh(): CachedKeySet {
+    const entries = cache;
+    if (entries.size >= 8 && !entries.has(certsUrl)) {
+      const oldest = entries.keys().next().value;
+      if (oldest) entries.delete(oldest);
+    }
+    const next: CachedKeySet = {
+      expiresAt: nowMs + KEY_CACHE_TTL_MS,
+      refreshAfter: nowMs + KEY_REFRESH_COOLDOWN_MS,
+      value: fetchVerificationKeys({ certsUrl, fetcher }).catch((error: unknown) => {
+        if (entries.get(certsUrl) === next) entries.delete(certsUrl);
+        throw error;
+      }),
+    };
+    entries.set(certsUrl, next);
+    return next;
+  }
+  let cached = cache.get(certsUrl);
+  if (!cached || nowMs >= cached.expiresAt) cached = refresh();
+  let keySet = await cached.value;
+  let jwk = keySet.jwks.find((candidate) => isRecord(candidate) && candidate.kid === keyId);
+  // Refresh for key rotation, but bound requests caused by arbitrary unknown key IDs.
+  if (!jwk && nowMs >= cached.refreshAfter) {
+    const current = cache.get(certsUrl);
+    cached = current && current !== cached ? current : refresh();
+    keySet = await cached.value;
+    jwk = keySet.jwks.find((candidate) => isRecord(candidate) && candidate.kid === keyId);
+  }
+  if (!isRecord(jwk)) fail("token", "token_invalid");
+  let imported = keySet.imported.get(keyId);
+  if (!imported) {
+    imported = importVerificationKey(jwk, keyId);
+    keySet.imported.set(keyId, imported);
+  }
+  return imported;
 }
 
 export async function verifyAccessJwt(
@@ -345,11 +397,12 @@ export async function verifyAccessJwt(
   if (!email && !userId) fail("token", "token_invalid");
 
   const signature = decodeBase64Url(encodedSignature, 4_096);
-  const key = await loadVerificationKey(
-    `${issuer}/cdn-cgi/access/certs`,
+  const key = await loadVerificationKey({
+    certsUrl: `${issuer}/cdn-cgi/access/certs`,
     keyId,
-    options.fetcher ?? globalThis.fetch.bind(globalThis),
-  );
+    fetcher: options.fetcher ?? globalThis.fetch,
+    nowMs: nowSeconds * 1_000,
+  });
   let valid = false;
   try {
     valid = await crypto.subtle.verify(
