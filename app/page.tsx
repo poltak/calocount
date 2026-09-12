@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
 import { asRecord, stringOr, parseDashboardPayload, dashboardFailureMessage, parseWeightResponse, parseMealResponse, parseSettingsTargets, type DailyWeight, type TrendDay, type DashboardSummary, type SerializedMeal } from "./dashboard-api";
 import { mergeTrendDays, mergeTrendWeights } from "./dashboard-trend";
+import { settingsDraftForTargets, type SettingsDraft, type TargetState } from "./dashboard-settings";
 
 import { resolveNutrientGoals } from "../domain/nutrient-goals";
 import {
@@ -12,12 +13,9 @@ import {
   isValidProteinPerKg,
   PROTEIN_PER_KG_MAX,
   PROTEIN_PER_KG_MIN,
-  PROTEIN_PER_KG_STEP,
   updateProteinGoalSettings,
-  type ProteinGoalMode,
   type ProteinGoalSummary,
 } from "../domain/protein-goals";
-import type { NutrientKey } from "../domain/nutrients";
 
 import {
   calculateCalorieChartScale,
@@ -46,14 +44,8 @@ import { photoUrlForKey, publicPhotoUrlForMealId } from "./photo-url";
 import {
   aggregateNutrientValues,
   type NutrientAggregateMap,
-  type NutrientGoalMap,
 } from "./nutrition/nutrient-meta";
-import {
-  NutrientGoalSettings,
-  nutrientGoalDraftFromMap,
-  nutrientGoalOverridesFromDraft,
-  type NutrientGoalDraft,
-} from "./nutrition/nutrient-goal-settings";
+import { nutrientGoalOverridesFromDraft } from "./nutrition/nutrient-goal-draft";
 import { MealNutritionDetails, type NutritionItem } from "./nutrition/meal-nutrition-details";
 import { MealNutritionEditor, nutrientValuesFromForm } from "./nutrition/meal-nutrition-editor";
 import { readNutritionCollapsed, writeNutritionCollapsed } from "./nutrition/nutrition-collapse";
@@ -113,23 +105,11 @@ type PendingAction = {
   kind: PendingActionKind;
   id?: string;
 };
+const SettingsPanel = lazy(() => import("./settings-panel"));
+
 const calorieTarget = 2400;
 const proteinTarget = 160;
 const defaultNutrientTargets = resolveNutrientGoals();
-
-type TargetState = {
-  calories: number;
-  proteinG: number;
-  nutrients: NutrientGoalMap;
-};
-
-type SettingsDraft = {
-  calories: string;
-  proteinG: string;
-  proteinGoalMode: ProteinGoalMode;
-  proteinPerKg: string;
-  nutrients: NutrientGoalDraft;
-};
 
 const defaultProteinGoal: ProteinGoalSummary = {
   mode: "grams",
@@ -140,16 +120,6 @@ const defaultProteinGoal: ProteinGoalSummary = {
   weightDate: null,
   byDate: [],
 };
-
-function settingsDraftForTargets(targets: TargetState, proteinGoal: ProteinGoalSummary): SettingsDraft {
-  return {
-    calories: String(targets.calories),
-    proteinG: String(proteinGoal.fixedTargetG ?? targets.proteinG),
-    proteinGoalMode: proteinGoal.mode,
-    proteinPerKg: String(proteinGoal.gramsPerKg ?? DEFAULT_PROTEIN_PER_KG),
-    nutrients: nutrientGoalDraftFromMap(targets.nutrients),
-  };
-}
 
 type DashboardProps = {
   readOnly?: boolean;
@@ -1306,56 +1276,9 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
         </div>
       </header>
 
-      {!readOnly && dataMode === "live" && showSettings ? <section className={`settings-panel${settingsLoadPending || settingsSavePending ? " is-pending" : ""}`} id="settings-panel" role="dialog" aria-labelledby="settings-title" aria-busy={settingsLoadPending || settingsSavePending}>
-        <div className="settings-heading"><div><p className="eyebrow">Personal targets</p><h2 id="settings-title">Daily targets</h2></div><button className="close-button" type="button" disabled={settingsLoading || settingsSaving} onClick={() => setShowSettings(false)} aria-label="Close settings">×</button></div>
-        <form className="settings-form" onSubmit={(event) => { event.preventDefault(); void saveSettings(); }}>
-          <section className="settings-section primary-goal-settings" aria-labelledby="primary-goals-title">
-            <div className="settings-section-heading"><div><strong id="primary-goals-title">Primary goals</strong><span>Your main energy and protein targets</span></div></div>
-            <div className="primary-goal-grid">
-              <label>Calories<input name="daily-calorie-target" type="number" min="10" max="100000" step="10" value={settingsDraft.calories} onChange={(event) => setSettingsDraft((current) => ({ ...current, calories: event.target.value }))} disabled={settingsLoading || settingsSaving} required /></label>
-              <fieldset className="protein-goal-fieldset">
-                <legend>Protein goal</legend>
-                <div className="protein-goal-mode-options" role="radiogroup" aria-label="Protein goal mode">
-                  <label aria-label="Fixed grams">
-                    <input
-                      name="protein-goal-mode"
-                      type="radio"
-                      value="grams"
-                      checked={settingsDraft.proteinGoalMode === "grams"}
-                      onChange={() => setSettingsDraft((current) => ({ ...current, proteinGoalMode: "grams" }))}
-                      disabled={settingsLoading || settingsSaving}
-                    />
-                    <span><strong>Fixed grams</strong><small>Use the same target every day.</small></span>
-                  </label>
-                  <label aria-label="Grams per kilogram">
-                    <input
-                      name="protein-goal-mode"
-                      type="radio"
-                      value="gramsPerKg"
-                      checked={settingsDraft.proteinGoalMode === "gramsPerKg"}
-                      onChange={() => setSettingsDraft((current) => ({ ...current, proteinGoalMode: "gramsPerKg" }))}
-                      disabled={settingsLoading || settingsSaving}
-                    />
-                    <span><strong>Grams per kilogram</strong><small>Use the selected day&apos;s weight, or the latest earlier entry.</small></span>
-                  </label>
-                </div>
-                {settingsDraft.proteinGoalMode === "grams" ? <label>Protein (g)<input name="daily-protein-target" type="number" min="1" max="10000" step="1" value={settingsDraft.proteinG} onChange={(event) => setSettingsDraft((current) => ({ ...current, proteinG: event.target.value }))} disabled={settingsLoading || settingsSaving} required /></label> : <label>Protein (g/kg)<input name="daily-protein-target-per-kg" type="number" min={PROTEIN_PER_KG_MIN} max={PROTEIN_PER_KG_MAX} step={PROTEIN_PER_KG_STEP} value={settingsDraft.proteinPerKg} onChange={(event) => setSettingsDraft((current) => ({ ...current, proteinPerKg: event.target.value }))} disabled={settingsLoading || settingsSaving} required /></label>}
-              </fieldset>
-            </div>
-          </section>
-          <NutrientGoalSettings
-            values={settingsDraft.nutrients}
-            disabled={settingsLoading || settingsSaving}
-            onChange={(key: NutrientKey, value: string) => setSettingsDraft((current) => ({
-              ...current,
-              nutrients: { ...current.nutrients, [key]: value },
-            }))}
-            onReset={() => setSettingsDraft((current) => ({ ...current, nutrients: nutrientGoalDraftFromMap(defaultNutrientTargets) }))}
-          />
-          <button className="save-button settings-save-button" type="submit" disabled={settingsLoading || settingsSaving} aria-busy={settingsSavePending}>{settingsSavePending ? "Saving…" : settingsLoading ? "Loading…" : "Save targets"}</button>
-        </form>
-        <p className="settings-help" role="status" aria-live="polite">{settingsLoading ? "Loading saved targets…" : settingsSaving ? "Saving targets…" : "Targets guide the rings, nutrient progress, trend lines, and daily nudge."}</p>
-      </section> : null}
+      {!readOnly && dataMode === "live" && showSettings ? <Suspense fallback={<p role="status">Loading settings…</p>}>
+        <SettingsPanel draft={settingsDraft} setDraft={setSettingsDraft} onSave={saveSettings} onClose={() => setShowSettings(false)} loading={settingsLoading} saving={settingsSaving} />
+      </Suspense> : null}
 
       {dataMessage ? <div className={`data-banner ${dataMode}`} role="status"><span aria-hidden="true">{dataMode === "live" ? "✓" : dataMode === "loading" ? "…" : "i"}</span>{dataMessage}</div> : null}
       {readOnly && dataMode === "live" ? <div className="data-banner public" role="status"><span aria-hidden="true">✓</span>Public read-only view — changes are disabled.</div> : null}

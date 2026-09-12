@@ -66,14 +66,15 @@ test("nutrition trend and mobile layout keep unknown values visible", async () =
 });
 
 test("settings separate primary goals from optional nutrition goals", async () => {
-  const [page, settings, route] = await Promise.all([
+  const [page, panel, settings, route] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/settings-panel.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/nutrition/nutrient-goal-settings.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/settings/route.ts", import.meta.url), "utf8"),
   ]);
-  assert.match(page, /Primary goals/);
-  assert.match(page, /daily-calorie-target" type="number" min="10"[^>]+step="10"/);
-  assert.match(page, /<NutrientGoalSettings/);
+  assert.match(panel, /Primary goals/);
+  assert.match(panel, /daily-calorie-target" type="number" min="10"[^>]+step="10"/);
+  assert.match(panel, /<NutrientGoalSettings/);
   assert.match(page, /nutrientTargets: nutrientTargetOverrides/);
   assert.match(settings, /<details className="nutrient-goal-settings">/);
   assert.match(settings, /Restore recommended defaults/);

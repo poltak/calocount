@@ -89,7 +89,7 @@ test("daily weight supports add and edit with kilograms and an automatic saved t
 
 test("protein settings expose one fixed or per-kilogram goal choice", async () => {
   const [page, route, schema] = await Promise.all([
-    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/settings-panel.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/settings/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
   ]);

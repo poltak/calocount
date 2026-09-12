@@ -222,3 +222,20 @@ test("copying a previous meal changes today's totals and keeps the source", asyn
   await expect(page.locator('.bar-column[aria-label*="500 kilocalories"]')).toHaveCount(2);
   expect(state.meals).toHaveLength(2);
 });
+
+test("settings code loads when the owner opens the form", async ({ page }) => {
+  await mockDashboardApi(page);
+  const settingsRequests: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().includes("/app/settings-panel.tsx")) settingsRequests.push(request.url());
+  });
+  await page.goto("/?public");
+  await expect(page.locator(".calories-card .metric-value")).toContainText("500");
+  expect(settingsRequests).toHaveLength(0);
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: "Open settings" })).toBeVisible();
+  expect(settingsRequests).toHaveLength(0);
+  await page.getByRole("button", { name: "Open settings" }).click();
+  await expect(page.getByRole("dialog", { name: "Daily targets" })).toBeVisible();
+  expect(settingsRequests).toHaveLength(1);
+});
