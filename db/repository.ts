@@ -3,6 +3,7 @@ import {
   desc,
   eq,
   gte,
+  getTableColumns,
   inArray,
   lte,
   lt,
@@ -324,6 +325,30 @@ export async function listMeals(
   }
 
   return meals.map((meal) => ({ meal, items: itemMap.get(meal.id) ?? [] }));
+}
+
+/** Read a complete date range in two queries, without the meal-list page limit. */
+export async function listMealsInRange({ db, ownerKey, from, to }: {
+  db: AppDb; ownerKey: string; from?: number; to?: number;
+}): Promise<MealWithItems[]> {
+  const conditions = [eq(mealLogs.ownerKey, ownerKey)];
+  if (from !== undefined) conditions.push(gte(mealLogs.consumedAt, from));
+  if (to !== undefined) conditions.push(lt(mealLogs.consumedAt, to));
+  const [meals, items] = await Promise.all([
+    db.select().from(mealLogs).where(and(...conditions))
+      .orderBy(desc(mealLogs.consumedAt), desc(mealLogs.id)).prepare().all(),
+    db.select(getTableColumns(mealItems)).from(mealItems)
+      .innerJoin(mealLogs, eq(mealLogs.id, mealItems.mealId))
+      .where(and(...conditions, eq(mealItems.ownerKey, ownerKey)))
+      .orderBy(desc(mealItems.createdAt)).prepare().all(),
+  ]);
+  const itemsByMeal = new Map<string, typeof items>();
+  for (const item of items) {
+    const group = itemsByMeal.get(item.mealId) ?? [];
+    group.push(item);
+    itemsByMeal.set(item.mealId, group);
+  }
+  return meals.map((meal) => ({ meal, items: itemsByMeal.get(meal.id) ?? [] }));
 }
 
 export async function getDailyWeight({
@@ -817,36 +842,22 @@ export async function upsertSettings(db: AppDb, ownerKey: string, patch: Setting
 }
 
 export async function getDashboardSummary(db: AppDb, ownerKey: string, options: DashboardSummaryOptions = {}) {
-  const settingsRow = await getSettings(db, ownerKey);
-  const nutrientTargetOverrides = parseNutrientGoalOverridesJson(settingsRow?.nutrientTargetsJson);
   const timezone = resolvedDashboardTimezone(options.timezone);
   const now = options.now ?? new Date();
   const formatter = dateTimeFormatter(timezone);
   const logicalDate = dateKeyFromParts(zonedDateParts(formatter, now.getTime()));
   const weekStartDate = shiftDateKey(logicalDate, -6);
   const monthStartDate = shiftDateKey(logicalDate, -29);
-  const endDate = shiftDateKey(logicalDate, 1);
-  const startMs = firstInstantForLocalDate({ date: logicalDate, formatter });
-  const endMs = firstInstantForLocalDate({ date: endDate, formatter });
+  const endMs = firstInstantForLocalDate({ date: shiftDateKey(logicalDate, 1), formatter });
   const weekStartMs = firstInstantForLocalDate({ date: weekStartDate, formatter });
   const monthStartMs = firstInstantForLocalDate({ date: monthStartDate, formatter });
-  const [today, trendMeals, trendWeights, weightBeforeTrend] = await Promise.all([
-    db.select({
-      calories: sql<number>`coalesce(sum(${mealLogs.totalCalories}), 0)`,
-      proteinG: sql<number>`coalesce(sum(${mealLogs.totalProteinG}), 0)`,
-      carbsG: sql<number>`coalesce(sum(${mealLogs.totalCarbsG}), 0)`,
-      fatG: sql<number>`coalesce(sum(${mealLogs.totalFatG}), 0)`,
-      mealCount: sql<number>`count(*)`,
-    }).from(mealLogs).where(and(
-      eq(mealLogs.ownerKey, ownerKey),
-      eq(mealLogs.status, "complete"),
-      gte(mealLogs.consumedAt, startMs),
-      lt(mealLogs.consumedAt, endMs),
-    )).prepare().get(),
-    listMeals(db, ownerKey, { from: monthStartMs, to: endMs, limit: 500 }),
+  const [settingsRow, trendMeals, trendWeights, weightBeforeTrend] = await Promise.all([
+    getSettings(db, ownerKey),
+    listMealsInRange({ db, ownerKey, from: monthStartMs, to: endMs }),
     listDailyWeights({ db, ownerKey, from: monthStartDate, to: logicalDate }),
     getLatestDailyWeightBefore({ db, ownerKey, logicalDate: monthStartDate }),
   ]);
+  const nutrientTargetOverrides = parseNutrientGoalOverridesJson(settingsRow?.nutrientTargetsJson);
   const recentMeals = trendMeals.filter((entry) => entry.meal.consumedAt >= weekStartMs);
   const recentWeights = trendWeights.filter((entry) => entry.logicalDate >= weekStartDate);
   const proteinGoal = buildProteinGoalSummary({
@@ -854,66 +865,44 @@ export async function getDashboardSummary(db: AppDb, ownerKey: string, options: 
     mode: normaliseProteinGoalMode(settingsRow?.proteinGoalMode),
     fixedTargetG: settingsRow?.dailyProteinTargetG,
     gramsPerKg: settingsRow?.dailyProteinTargetPerKg,
-    weights: [
-      ...trendWeights,
-      ...(weightBeforeTrend ? [weightBeforeTrend] : []),
-    ],
+    weights: [...trendWeights, ...(weightBeforeTrend ? [weightBeforeTrend] : [])],
   });
 
-  const days = new Map<string, { calories: number; proteinG: number }>();
-  for (const entry of recentMeals) {
+  const mealsByDate = new Map<string, MealWithItems[]>();
+  for (const entry of trendMeals) {
     if (entry.meal.status !== "complete") continue;
-    const key = dateKeyFromParts(zonedDateParts(formatter, entry.meal.consumedAt));
-    const current = days.get(key) ?? { calories: 0, proteinG: 0 };
-    current.calories += entry.meal.totalCalories;
-    current.proteinG += entry.meal.totalProteinG;
-    days.set(key, current);
+    const date = dateKeyFromParts(zonedDateParts(formatter, entry.meal.consumedAt));
+    const entries = mealsByDate.get(date) ?? [];
+    entries.push(entry);
+    mealsByDate.set(date, entries);
   }
-  const sevenDay = [...days.values()].reduce(
-    (total, day) => ({ calories: total.calories + day.calories, proteinG: total.proteinG + day.proteinG }),
-    { calories: 0, proteinG: 0 },
-  );
-  const currentHour = zonedDateParts(formatter, now.getTime()).hour;
-  const averageDays = currentHour >= 21
-    ? days
-    : new Map([...days].filter(([date]) => date !== logicalDate));
-  const average = [...averageDays.values()].reduce(
-    (total, day) => ({ calories: total.calories + day.calories, proteinG: total.proteinG + day.proteinG }),
-    { calories: 0, proteinG: 0 },
-  );
-  const averageDayCount = currentHour >= 21 ? 7 : 6;
-
-  const completeMeals = recentMeals.filter((entry) => entry.meal.status === "complete");
-  const completeTrendMeals = trendMeals.filter((entry) => entry.meal.status === "complete");
-  const todayMealEntries = completeMeals.filter((entry) => (
-    dateKeyFromParts(zonedDateParts(formatter, entry.meal.consumedAt)) === logicalDate
-  ));
-  const nutritionByDate = Array.from({ length: 7 }, (_, index) => {
-    const date = shiftDateKey(weekStartDate, index);
-    const entries = completeMeals.filter((entry) => (
-      dateKeyFromParts(zonedDateParts(formatter, entry.meal.consumedAt)) === date
-    ));
-    return {
-      date,
-      nutrients: calculateNutrientAggregates(entries.flatMap((entry) => entry.items)),
-    };
-  });
   const trendByDate = Array.from({ length: 30 }, (_, index) => {
     const date = shiftDateKey(monthStartDate, index);
-    const entries = completeTrendMeals.filter((entry) => (
-      dateKeyFromParts(zonedDateParts(formatter, entry.meal.consumedAt)) === date
-    ));
+    const entries = mealsByDate.get(date) ?? [];
+    const totals = entries.reduce((total, { meal }) => ({
+      calories: total.calories + meal.totalCalories,
+      proteinG: total.proteinG + meal.totalProteinG,
+      carbsG: total.carbsG + meal.totalCarbsG,
+      fatG: total.fatG + meal.totalFatG,
+    }), { calories: 0, proteinG: 0, carbsG: 0, fatG: 0 });
     return {
-      date,
-      calories: entries.reduce((total, entry) => total + entry.meal.totalCalories, 0),
-      proteinG: entries.reduce((total, entry) => total + entry.meal.totalProteinG, 0),
-      carbsG: entries.reduce((total, entry) => total + entry.meal.totalCarbsG, 0),
-      fatG: entries.reduce((total, entry) => total + entry.meal.totalFatG, 0),
-      mealCount: entries.length,
+      date, ...totals, mealCount: entries.length,
       nutrients: calculateNutrientAggregates(entries.flatMap((entry) => entry.items)),
     };
   });
-
+  const weekDays = trendByDate.slice(-7);
+  const today = weekDays[6];
+  const sevenDay = weekDays.reduce(
+    (total, day) => ({ calories: total.calories + day.calories, proteinG: total.proteinG + day.proteinG }),
+    { calories: 0, proteinG: 0 },
+  );
+  const includeToday = zonedDateParts(formatter, now.getTime()).hour >= 21;
+  const averageDayCount = includeToday ? 7 : 6;
+  const averageDays = includeToday ? weekDays : weekDays.slice(0, -1);
+  const average = averageDays.reduce(
+    (total, day) => ({ calories: total.calories + day.calories, proteinG: total.proteinG + day.proteinG }),
+    { calories: 0, proteinG: 0 },
+  );
   return {
     date: logicalDate,
     targets: {
@@ -923,31 +912,24 @@ export async function getDashboardSummary(db: AppDb, ownerKey: string, options: 
     },
     proteinGoal,
     today: {
-      calories: Number(today?.calories ?? 0),
-      proteinG: Number(today?.proteinG ?? 0),
-      carbsG: Number(today?.carbsG ?? 0),
-      fatG: Number(today?.fatG ?? 0),
-      mealCount: Number(today?.mealCount ?? 0),
+      calories: today.calories, proteinG: today.proteinG, carbsG: today.carbsG,
+      fatG: today.fatG, mealCount: today.mealCount,
     },
     sevenDay: {
       calories: sevenDay.calories,
       proteinG: sevenDay.proteinG,
       averageCalories: average.calories / averageDayCount,
       averageProteinG: average.proteinG / averageDayCount,
-      daysWithMeals: days.size,
+      daysWithMeals: weekDays.filter((day) => day.mealCount > 0).length,
     },
     nutrition: {
-      today: calculateNutrientAggregates(todayMealEntries.flatMap((entry) => entry.items)),
-      sevenDay: calculateNutrientAggregates(completeMeals.flatMap((entry) => entry.items)),
-      byDate: nutritionByDate,
+      today: today.nutrients,
+      sevenDay: calculateNutrientAggregates(recentMeals.filter(({ meal }) => meal.status === "complete").flatMap(({ items }) => items)),
+      byDate: weekDays.map(({ date, nutrients }) => ({ date, nutrients })),
     },
     trend: {
       byDate: trendByDate,
-      weights: trendWeights.map((entry) => ({
-        logicalDate: entry.logicalDate,
-        weightKg: entry.weightKg,
-        recordedAt: entry.recordedAt,
-      })),
+      weights: trendWeights.map(({ logicalDate, weightKg, recordedAt }) => ({ logicalDate, weightKg, recordedAt })),
     },
     recentMeals,
     recentWeights,
