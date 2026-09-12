@@ -941,6 +941,18 @@ export async function listAiRuns(db: AppDb, ownerKey: string, options: { mealId?
   return db.select().from(aiRuns).where(and(...conditions)).orderBy(desc(aiRuns.createdAt)).limit(Math.min(options.limit ?? 100, 500)).prepare().all();
 }
 
+export async function getExportData({ db, ownerKey }: { db: AppDb; ownerKey: string }) {
+  const [meals, settingsRow, weights, runs] = await Promise.all([
+    listMealsInRange({ db, ownerKey }),
+    getSettings(db, ownerKey),
+    db.select().from(dailyWeights).where(eq(dailyWeights.ownerKey, ownerKey))
+      .orderBy(desc(dailyWeights.logicalDate)).prepare().all(),
+    db.select().from(aiRuns).where(eq(aiRuns.ownerKey, ownerKey))
+      .orderBy(desc(aiRuns.createdAt), desc(aiRuns.id)).prepare().all(),
+  ]);
+  return { meals, settings: settingsRow ?? null, weights, aiRuns: runs };
+}
+
 export async function findMealPhoto({ db, ownerKey, mealId }: { db: AppDb; ownerKey: string; mealId: string }) {
   return db.select({
     id: mealLogs.id,
