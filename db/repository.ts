@@ -7,7 +7,6 @@ import {
   inArray,
   lte,
   lt,
-  sql,
 } from "drizzle-orm";
 import { getDb } from "./index";
 import {
