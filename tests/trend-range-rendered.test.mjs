@@ -16,7 +16,6 @@ test("all trend panels share the seven or thirty day range", async () => {
   assert.equal((page.match(/value=\{trendRange\} onChange=\{setTrendRange\}/g) ?? []).length, 3);
   assert.match(page, /range=\{trendRange\} onRangeChange=\{setTrendRange\}/);
   assert.match(nutrientPanel, /<TrendRangeSelect value=\{range\}/);
-  assert.match(page, /source\.slice\(-trendRange\)/);
   assert.match(page, /sevenDayChartValues/);
   assert.match(page, /className="weight-line"/);
   assert.match(css, /\.weight-line polyline/);

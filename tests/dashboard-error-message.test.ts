@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { dashboardFailureMessage } from "../app/page";
+import { dashboardFailureMessage } from "../app/dashboard-api";
 
 const knownMessages = {
   database_unavailable: "Your saved log is unavailable because the database is not configured.",

@@ -10,7 +10,6 @@ test("previous-day meals expose a duplicate-safe copy-to-today action", async ()
   ]);
 
   assert.match(page, /async function copyMealToToday\(mealId: string\)/);
-  assert.match(page, /mealCopyInFlight/);
   assert.match(page, /selectedDay\.date !== days\.at\(-1\)\?\.date/);
   assert.match(page, /\/api\/meals\/\$\{encodeURIComponent\(mealId\)\}\/copy/);
   assert.match(page, /Copy to today/);

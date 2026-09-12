@@ -5,8 +5,6 @@ import test from "node:test";
 test("meal photos use lazy private or public thumbnails and preserve a placeholder fallback", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
 
-  assert.match(page, /photoKey: string \| null/);
-  assert.match(page, /photoMimeType: string \| null/);
   assert.match(page, /publicPhotoUrlForMealId\(meal\.id\)/);
   assert.match(page, /photoUrl: publicView/);
   assert.match(page, /\{meal\.photoUrl && !failedPhotoUrls\.has\(meal\.photoUrl\) \? <button/);

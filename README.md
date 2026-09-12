@@ -36,7 +36,7 @@ docs/read-only-sharing.md public/owner route boundary and rollout runbook
 
 Requirements:
 
-- Node.js 22.13 or later
+- Node.js 22.16 or later
 - pnpm
 
 Setup:
@@ -113,7 +113,9 @@ pnpm run check
 pnpm run ingest:deploy:dry
 ```
 
-The full check runs strict TypeScript, ESLint, a production build, rendered HTML tests, data tests, and AI/ingestion tests.
+Install the browser once with `pnpm exec playwright install chromium` before running checks. On Linux, use `pnpm exec playwright install --with-deps chromium` to install system libraries too.
+
+The full check runs strict TypeScript, ESLint, a production build, rendered HTML tests, data tests, AI/ingestion tests, and browser tests. The browser tests use the real dashboard with a local API fixture. They do not access production data. Run only these tests with `pnpm run test:browser`.
 
 ## Cloudflare deployment
 

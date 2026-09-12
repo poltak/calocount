@@ -2,18 +2,18 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
+import { asRecord, stringOr, parseDashboardPayload, dashboardFailureMessage, parseWeightResponse, parseMealResponse, parseSettingsTargets, type DailyWeight, type TrendDay, type DashboardSummary, type SerializedMeal } from "./dashboard-api";
+import { mergeTrendDays, mergeTrendWeights } from "./dashboard-trend";
 
 import { resolveNutrientGoals } from "../domain/nutrient-goals";
 import {
   calculateProteinTargetG,
   DEFAULT_PROTEIN_PER_KG,
-  isProteinGoalMode,
   isValidProteinPerKg,
   PROTEIN_PER_KG_MAX,
   PROTEIN_PER_KG_MIN,
   PROTEIN_PER_KG_STEP,
   updateProteinGoalSettings,
-  type ProteinGoalDay,
   type ProteinGoalMode,
   type ProteinGoalSummary,
 } from "../domain/protein-goals";
@@ -45,13 +45,8 @@ import { scheduleDashboardClock } from "./dashboard-clock";
 import { photoUrlForKey, publicPhotoUrlForMealId } from "./photo-url";
 import {
   aggregateNutrientValues,
-  nutrientKeys,
-  parseNutrientGoalMap,
-  parseNutrientAggregateMap,
-  parseNutrientValue,
   type NutrientAggregateMap,
   type NutrientGoalMap,
-  type NutrientValueMap,
 } from "./nutrition/nutrient-meta";
 import {
   NutrientGoalSettings,
@@ -100,79 +95,6 @@ type Day = {
   weight?: DailyWeight | null;
 };
 
-type SerializedMealItem = NutritionItem & {
-  id?: string;
-  name: string;
-  quantity?: number | null;
-  unit?: string | null;
-  calories: number;
-  proteinG: number;
-  carbsG: number;
-  fatG: number;
-  nutrients?: NutrientValueMap;
-  confidence?: string | number | null;
-  source?: string | null;
-};
-
-type SerializedMeal = {
-  id: string;
-  consumedAt: number;
-  caption: string;
-  mealType: string | null;
-  status: string;
-  totalCalories: number;
-  totalProteinG: number;
-  totalCarbsG: number;
-  totalFatG: number;
-  photoKey: string | null;
-  photoMimeType: string | null;
-  hasPhoto: boolean;
-  items: SerializedMealItem[];
-};
-
-type DailyWeight = {
-  logicalDate: string;
-  weightKg: number;
-  recordedAt: number;
-};
-
-type TrendDay = {
-  date: string;
-  calories: number;
-  proteinG: number;
-  carbsG: number;
-  fatG: number;
-  mealCount: number;
-  nutrients: NutrientAggregateMap;
-};
-
-type DashboardSummary = {
-  date: string;
-  targets: { calories: number | null; proteinG: number | null; nutrients: NutrientGoalMap };
-  proteinGoal: ProteinGoalSummary;
-  today: {
-    calories: number;
-    proteinG: number;
-    carbsG: number;
-    fatG: number;
-    mealCount: number;
-  };
-  sevenDay: {
-    calories: number;
-    proteinG: number;
-    averageCalories: number;
-    averageProteinG: number;
-    daysWithMeals: number;
-  };
-  recentMeals: SerializedMeal[];
-  recentWeights: DailyWeight[];
-  trend?: { byDate: TrendDay[]; weights: DailyWeight[] };
-  nutrition?: {
-    today: NutrientAggregateMap;
-    sevenDay: NutrientAggregateMap;
-    byDate: Array<{ date: string; nutrients: NutrientAggregateMap }>;
-  };
-};
 
 type DataMode = "loading" | "live" | "error";
 type DashboardSection = "today" | "meals" | "trend" | "macros" | "nutrition";
@@ -271,231 +193,6 @@ function formatChartTick(value: number) {
 }
 
 const orderedDayKeys: DayKey[] = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
-}
-
-function numberOr(value: unknown, fallback = 0) {
-  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
-}
-
-function stringOr(value: unknown, fallback = "") {
-  return typeof value === "string" ? value : fallback;
-}
-
-function parseMealItem(value: unknown): SerializedMealItem | null {
-  const record = asRecord(value);
-  if (!record || typeof record.name !== "string") return null;
-  const nestedNutrients = asRecord(record.nutrients);
-  const nutrients: NutrientValueMap = {};
-  for (const key of nutrientKeys) {
-    const source = nestedNutrients && Object.prototype.hasOwnProperty.call(nestedNutrients, key)
-      ? nestedNutrients[key]
-      : record[key];
-    nutrients[key] = parseNutrientValue(source);
-  }
-  return {
-    id: typeof record.id === "string" ? record.id : undefined,
-    name: record.name,
-    quantity: typeof record.quantity === "number" && Number.isFinite(record.quantity) ? record.quantity : 1,
-    unit: typeof record.unit === "string" ? record.unit : "serving",
-    calories: numberOr(record.calories),
-    proteinG: numberOr(record.proteinG),
-    carbsG: numberOr(record.carbsG),
-    fatG: numberOr(record.fatG),
-    confidence: typeof record.confidence === "number" || typeof record.confidence === "string" ? record.confidence : null,
-    source: typeof record.source === "string" ? record.source : null,
-    nutrients,
-  };
-}
-
-function parseSerializedMeal(value: unknown): SerializedMeal | null {
-  const record = asRecord(value);
-  if (!record || typeof record.id !== "string") return null;
-  const consumedAt = numberOr(record.consumedAt, Number.NaN);
-  if (!Number.isFinite(consumedAt)) return null;
-  const items = Array.isArray(record.items)
-    ? record.items.flatMap((item) => {
-        const parsed = parseMealItem(item);
-        return parsed ? [parsed] : [];
-      })
-    : [];
-  return {
-    id: record.id,
-    consumedAt,
-    caption: stringOr(record.caption),
-    mealType: typeof record.mealType === "string" ? record.mealType : null,
-    status: stringOr(record.status, "complete"),
-    totalCalories: numberOr(record.totalCalories),
-    totalProteinG: numberOr(record.totalProteinG),
-    totalCarbsG: numberOr(record.totalCarbsG),
-    totalFatG: numberOr(record.totalFatG),
-    photoKey: typeof record.photoKey === "string" && record.photoKey.length > 0 ? record.photoKey : null,
-    photoMimeType: typeof record.photoMimeType === "string" && record.photoMimeType.length > 0 ? record.photoMimeType : null,
-    hasPhoto: record.hasPhoto === true,
-    items,
-  };
-}
-
-function parseDailyWeight(value: unknown): DailyWeight | null {
-  const record = asRecord(value);
-  if (!record || typeof record.logicalDate !== "string") return null;
-  const weightKg = numberOr(record.weightKg, Number.NaN);
-  const recordedAt = numberOr(record.recordedAt, Number.NaN);
-  if (!Number.isFinite(weightKg) || !Number.isFinite(recordedAt)) return null;
-  return { logicalDate: record.logicalDate, weightKg, recordedAt };
-}
-
-function parseWeightResponse(value: unknown): DailyWeight | null {
-  return parseDailyWeight(asRecord(value)?.weight);
-}
-
-function parseProteinGoalDay(value: unknown): ProteinGoalDay | null {
-  const record = asRecord(value);
-  if (!record || typeof record.date !== "string") return null;
-  const targetG = numberOr(record.targetG, Number.NaN);
-  const weightKg = numberOr(record.weightKg, Number.NaN);
-  return {
-    date: record.date,
-    targetG: Number.isFinite(targetG) ? targetG : null,
-    weightKg: Number.isFinite(weightKg) ? weightKg : null,
-    weightDate: typeof record.weightDate === "string" ? record.weightDate : null,
-  };
-}
-
-function parseProteinGoal(value: unknown, fallbackTargetG: number | null): ProteinGoalSummary {
-  const record = asRecord(value);
-  const mode = isProteinGoalMode(record?.mode) ? record.mode : "grams";
-  const gramsPerKg = numberOr(record?.gramsPerKg, Number.NaN);
-  const fixedTargetG = numberOr(record?.fixedTargetG, Number.NaN);
-  const targetG = numberOr(record?.targetG, Number.NaN);
-  const weightKg = numberOr(record?.weightKg, Number.NaN);
-  const byDate = Array.isArray(record?.byDate)
-    ? record.byDate.flatMap((day) => {
-        const parsed = parseProteinGoalDay(day);
-        return parsed ? [parsed] : [];
-      })
-    : [];
-  return {
-    mode,
-    gramsPerKg: mode === "gramsPerKg" && isValidProteinPerKg(gramsPerKg) ? gramsPerKg : null,
-    fixedTargetG: Number.isFinite(fixedTargetG)
-      ? fixedTargetG
-      : Number.isFinite(fallbackTargetG) ? fallbackTargetG : null,
-    targetG: Number.isFinite(targetG)
-      ? targetG
-      : Number.isFinite(fallbackTargetG) ? fallbackTargetG : null,
-    weightKg: Number.isFinite(weightKg) ? weightKg : null,
-    weightDate: typeof record?.weightDate === "string" ? record.weightDate : null,
-    byDate,
-  };
-}
-
-function parseDashboardSummary(value: unknown): DashboardSummary | null {
-  const record = asRecord(value);
-  const targets = asRecord(record?.targets);
-  const today = asRecord(record?.today);
-  const sevenDay = asRecord(record?.sevenDay);
-  if (!record || typeof record.date !== "string" || !today || !sevenDay) return null;
-  const nutritionRecord = asRecord(record.nutrition);
-  const nutritionByDate = Array.isArray(nutritionRecord?.byDate)
-    ? nutritionRecord.byDate.flatMap((entry) => {
-        const dateEntry = asRecord(entry);
-        if (!dateEntry || typeof dateEntry.date !== "string") return [];
-        return [{ date: dateEntry.date, nutrients: parseNutrientAggregateMap(dateEntry.nutrients) }];
-      })
-    : [];
-  const recentMeals = Array.isArray(record.recentMeals)
-    ? record.recentMeals.flatMap((meal) => {
-        const parsed = parseSerializedMeal(meal);
-        return parsed ? [parsed] : [];
-      })
-    : [];
-  const recentWeights = Array.isArray(record.recentWeights)
-    ? record.recentWeights.flatMap((weight) => {
-        const parsed = parseDailyWeight(weight);
-        return parsed ? [parsed] : [];
-      })
-    : [];
-  const trendRecord = asRecord(record.trend);
-  const trendByDate = Array.isArray(trendRecord?.byDate)
-    ? trendRecord.byDate.flatMap((entry) => {
-        const day = asRecord(entry);
-        if (!day || typeof day.date !== "string") return [];
-        return [{
-          date: day.date,
-          calories: numberOr(day.calories),
-          proteinG: numberOr(day.proteinG),
-          carbsG: numberOr(day.carbsG),
-          fatG: numberOr(day.fatG),
-          mealCount: numberOr(day.mealCount),
-          nutrients: parseNutrientAggregateMap(day.nutrients),
-        }];
-      })
-    : [];
-  const trendWeights = Array.isArray(trendRecord?.weights)
-    ? trendRecord.weights.flatMap((weight) => {
-        const parsed = parseDailyWeight(weight);
-        return parsed ? [parsed] : [];
-      })
-    : [];
-  const parsedTargets = {
-    calories: targets && typeof targets.calories === "number" ? targets.calories : null,
-    proteinG: targets && typeof targets.proteinG === "number" ? targets.proteinG : null,
-    nutrients: parseNutrientGoalMap(targets?.nutrients),
-  };
-  return {
-    date: record.date,
-    targets: parsedTargets,
-    proteinGoal: parseProteinGoal(record.proteinGoal, parsedTargets.proteinG),
-    today: {
-      calories: numberOr(today.calories),
-      proteinG: numberOr(today.proteinG),
-      carbsG: numberOr(today.carbsG),
-      fatG: numberOr(today.fatG),
-      mealCount: numberOr(today.mealCount),
-    },
-    sevenDay: {
-      calories: numberOr(sevenDay.calories),
-      proteinG: numberOr(sevenDay.proteinG),
-      averageCalories: numberOr(sevenDay.averageCalories),
-      averageProteinG: numberOr(sevenDay.averageProteinG),
-      daysWithMeals: numberOr(sevenDay.daysWithMeals),
-    },
-    recentMeals,
-    recentWeights,
-    trend: trendByDate.length ? { byDate: trendByDate, weights: trendWeights } : undefined,
-    nutrition: nutritionRecord ? {
-      today: parseNutrientAggregateMap(nutritionRecord.today),
-      sevenDay: parseNutrientAggregateMap(nutritionRecord.sevenDay),
-      byDate: nutritionByDate,
-    } : undefined,
-  };
-}
-
-function parseDashboardPayload(value: unknown) {
-  const record = asRecord(value);
-  return parseDashboardSummary(record?.summary ?? record?.dashboard ?? value);
-}
-
-export function dashboardFailureMessage(status: number, responseBody: unknown): string {
-  const errorCode = asRecord(asRecord(responseBody)?.error)?.code;
-  if (status === 401) return "Your saved log could not be loaded. Sign in again and try again.";
-  if (errorCode === "database_unavailable") {
-    return "Your saved log is unavailable because the database is not configured.";
-  }
-  if (errorCode === "auth_access_settings_missing") {
-    return "Your saved log is unavailable because owner sign-in is not configured.";
-  }
-  if (errorCode === "auth_owner_allowlist_missing") {
-    return "Your saved log is unavailable because owner access is not configured.";
-  }
-  if (errorCode === "auth_unavailable") {
-    return "Your saved log is unavailable because owner authentication is temporarily unavailable.";
-  }
-  return "Your saved log is unavailable. Try again later.";
-}
 
 export function dateKeyFromTimestamp(timestamp: number, { mode }: { mode: DateKeyMode }) {
   const date = new Date(timestamp);
@@ -718,27 +415,6 @@ export function mealDateTimestamp({ date, time }: { date: string; time: string }
   return parsed.getTime();
 }
 
-function parseMealResponse(value: unknown) {
-  const record = asRecord(value);
-  return parseSerializedMeal(record?.meal);
-}
-
-function parseSettingsTargets(value: unknown) {
-  const record = asRecord(value);
-  const settings = asRecord(record?.settings);
-  if (!settings) return null;
-  const proteinGoalMode = isProteinGoalMode(settings.proteinGoalMode) ? settings.proteinGoalMode : "grams";
-  const proteinPerKg = numberOr(settings.dailyProteinTargetPerKg, Number.NaN);
-  const proteinG = numberOr(settings.dailyProteinTargetG, Number.NaN);
-  return {
-    calories: numberOr(settings.dailyCalorieTarget, Number.NaN),
-    proteinG,
-    proteinGoalMode,
-    proteinPerKg: isValidProteinPerKg(proteinPerKg) ? proteinPerKg : null,
-    nutrients: parseNutrientGoalMap(settings.nutrientTargets),
-  };
-}
-
 export function Dashboard({ readOnly = false, publicView = false }: DashboardProps) {
   const initialTargets: TargetState = { calories: calorieTarget, proteinG: proteinTarget, nutrients: defaultNutrientTargets };
   const [days, setDays] = useState(initialDays);
@@ -749,17 +425,12 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
   const [showAddMeal, setShowAddMeal] = useState(false);
   const [showWeightForm, setShowWeightForm] = useState(false);
   const [weightDraft, setWeightDraft] = useState("");
-  const [weightSaving, setWeightSaving] = useState(false);
   const [showAllDays, setShowAllDays] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [activeSection, setActiveSection] = useState<DashboardSection>("today");
   const [nutritionCollapsed, setNutritionCollapsed] = useState(false);
   const [proteinGoal, setProteinGoal] = useState<ProteinGoalSummary>(defaultProteinGoal);
   const [settingsDraft, setSettingsDraft] = useState<SettingsDraft>(() => settingsDraftForTargets(initialTargets, defaultProteinGoal));
-  const [settingsLoading, setSettingsLoading] = useState(false);
-  const [settingsSaving, setSettingsSaving] = useState(false);
-  const settingsSaveInFlight = useRef(false);
-  const settingsReadVersion = useRef(0);
   const [dataMode, setDataMode] = useState<DataMode>("loading");
   const [targets, setTargets] = useState<TargetState>(initialTargets);
   const [dataMessage, setDataMessage] = useState<string | null>(readOnly ? "Loading the public dashboard…" : "Loading your saved log…");
@@ -772,25 +443,26 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
   const [dashboardLoading, setDashboardLoading] = useState(true);
   const dashboardLoadInFlight = useRef(false);
   const dashboardLoadVersion = useRef(0);
-  const [deletingMealId, setDeletingMealId] = useState<string | null>(null);
-  const [copyingMealId, setCopyingMealId] = useState<string | null>(null);
-  const [duplicatingMealId, setDuplicatingMealId] = useState<string | null>(null);
+  const dashboardAbort = useRef<AbortController | null>(null);
+  const dashboardRefreshDeferred = useRef(false);
+  const loadedSummaryDate = useRef<string | null>(null);
   const [mealPhotoDrafts, setMealPhotoDrafts] = useState<Record<string, File | null>>({});
   const [previewMeal, setPreviewMeal] = useState<Meal | null>(null);
   const [failedPhotoUrls, setFailedPhotoUrls] = useState<Set<string>>(() => new Set());
   const [clockNow, setClockNow] = useState(() => new Date());
-  const mealCreateInFlight = useRef(false);
-  const mealSaveInFlight = useRef<Set<string>>(new Set());
-  const mealDeleteInFlight = useRef<string | null>(null);
-  const mealCopyInFlight = useRef<string | null>(null);
-  const settingsLoadInFlight = useRef(false);
-  const weightSaveInFlight = useRef(false);
+  const dashboardDate = dateKeyFromTimestamp(clockNow.getTime(), { mode: publicView ? "utc" : "local" });
   const previewCloseRef = useRef<HTMLButtonElement>(null);
   const actionInProgress = pendingAction !== null;
   const pendingLabel = pendingAction ? pendingActionLabel(pendingAction) : null;
   const weightActionPending = pendingAction?.kind === "weight-save";
   const settingsLoadPending = pendingAction?.kind === "settings-load";
   const settingsSavePending = pendingAction?.kind === "settings-save";
+  const weightSaving = weightActionPending;
+  const settingsLoading = settingsLoadPending;
+  const settingsSaving = settingsSavePending;
+  const deletingMealId = pendingAction?.kind === "meal-delete" ? pendingAction.id : null;
+  const copyingMealId = pendingAction?.kind === "meal-copy" ? pendingAction.id : null;
+  const duplicatingMealId = pendingAction?.kind === "meal-duplicate" ? pendingAction.id : null;
   const editingMealId = mealEditState.editingMealId;
 
   const selectedDay = days.find((day) => day.key === selectedDayKey) ?? days[4];
@@ -821,18 +493,10 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     [days],
   );
 
-  const visibleTrendDays = useMemo(() => {
-    const source = trendHistory.byDate.length ? trendHistory.byDate : days.map((day) => ({
-      date: day.date,
-      calories: day.calories,
-      proteinG: day.protein,
-      carbsG: day.carbs ?? 0,
-      fatG: day.fat ?? 0,
-      mealCount: day.meals.length,
-      nutrients: day.nutrients ?? {},
-    }));
-    return source.slice(-trendRange);
-  }, [days, trendHistory.byDate, trendRange]);
+  const visibleTrendDays = useMemo(
+    () => mergeTrendDays({ history: trendHistory.byDate, days, range: trendRange }),
+    [days, trendHistory.byDate, trendRange],
+  );
 
   const chartValues = useMemo(
     () => visibleTrendDays.map((day) => ({ date: day.date, label: dateLabelForTrend(day.date), value: day.calories })),
@@ -845,8 +509,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
   );
 
   const weightChartValues = useMemo(() => {
-    const fallbackWeights = days.flatMap((day) => day.weight ? [day.weight] : []);
-    const weights = new Map((trendHistory.weights.length ? trendHistory.weights : fallbackWeights).map((weight) => [weight.logicalDate, weight.weightKg]));
+    const weights = mergeTrendWeights({ history: trendHistory.weights, days });
     return visibleTrendDays.map((day) => ({
       date: day.date,
       label: dateLabelForTrend(day.date),
@@ -925,6 +588,11 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
 
   function beginAction(kind: PendingActionKind, id?: string): PendingAction | null {
     if (pendingActionRef.current) return null;
+    dashboardRefreshDeferred.current ||= dashboardLoadInFlight.current;
+    dashboardAbort.current?.abort();
+    dashboardLoadVersion.current += 1;
+    dashboardLoadInFlight.current = false;
+    setDashboardLoading(false);
     const action = { token: actionToken.current + 1, kind, id };
     actionToken.current = action.token;
     pendingActionRef.current = action;
@@ -940,6 +608,10 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     if (!isCurrentAction(action)) return;
     pendingActionRef.current = null;
     setPendingAction(null);
+    if (action.kind !== "settings-load" || dashboardRefreshDeferred.current) {
+      dashboardRefreshDeferred.current = false;
+      setDashboardReloadKey((current) => current + 1);
+    }
   }
 
   function retryDashboard() {
@@ -954,14 +626,20 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
   }
 
   useEffect(() => {
+    if (pendingActionRef.current) {
+      dashboardRefreshDeferred.current = true;
+      return;
+    }
     let cancelled = false;
+    const controller = new AbortController();
+    dashboardAbort.current = controller;
     const requestVersion = dashboardLoadVersion.current + 1;
     dashboardLoadVersion.current = requestVersion;
     dashboardLoadInFlight.current = true;
     async function loadDashboard() {
       try {
         const endpoint = publicView ? "/api/public/summary" : `/api/dashboard/summary?timezone=${encodeURIComponent(browserTimeZone())}`;
-        const response = await fetch(endpoint, { cache: "no-store" });
+        const response = await fetch(endpoint, { cache: "no-store", signal: controller.signal });
         if (!response.ok) {
           if (!cancelled && dashboardLoadVersion.current === requestVersion) {
             if (readOnly) {
@@ -1001,9 +679,10 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
           })),
           weights: parsed.recentWeights,
         });
-        setMealEditState(emptyMealEditState<Meal>());
-        setMealPhotoDrafts({});
-        setSelectedDayKey(dayKeyForDate(parsed.date));
+        const previousDate = loadedSummaryDate.current;
+        loadedSummaryDate.current = parsed.date;
+        setSelectedDayKey((current) => !previousDate || current === dayKeyForDate(previousDate)
+          ? dayKeyForDate(parsed.date) : current);
         setDataMode("live");
         setDataMessage(null);
       } catch {
@@ -1023,19 +702,29 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     void loadDashboard();
     return () => {
       cancelled = true;
+      controller.abort();
     };
-  }, [dashboardReloadKey, publicView, readOnly]);
+  }, [dashboardReloadKey, dashboardDate, publicView, readOnly]);
 
   useEffect(() => {
     const stopClock = scheduleDashboardClock({
       now: () => new Date(),
       onTick: setClockNow,
     });
-    const refreshClock = () => setClockNow(new Date());
+    let refreshFrame: number | null = null;
+    const refreshClock = () => {
+      if (document.hidden || refreshFrame !== null) return;
+      refreshFrame = window.requestAnimationFrame(() => {
+        refreshFrame = null;
+        setClockNow(new Date());
+        setDashboardReloadKey((current) => current + 1);
+      });
+    };
     window.addEventListener("focus", refreshClock);
     document.addEventListener("visibilitychange", refreshClock);
     return () => {
       stopClock();
+      if (refreshFrame !== null) window.cancelAnimationFrame(refreshFrame);
       window.removeEventListener("focus", refreshClock);
       document.removeEventListener("visibilitychange", refreshClock);
     };
@@ -1149,13 +838,12 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
   }
 
   async function saveMeal(mealId: string) {
-    if (readOnly || dataMode !== "live" || mealSaveInFlight.current.has(mealId)) return;
+    if (readOnly || dataMode !== "live" || pendingActionRef.current) return;
     const canonicalMeal = days.flatMap((day) => day.meals).find((entry) => entry.id === mealId);
     const meal = mealEditState.drafts[mealId];
     if (!canonicalMeal || !meal) return;
     const action = beginAction("meal-save", mealId);
     if (!action) return;
-    mealSaveInFlight.current.add(mealId);
     setActionError(null);
     try {
       const response = await fetch(`/api/meals/${encodeURIComponent(meal.id)}`, {
@@ -1183,7 +871,6 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
       setActionError(error instanceof Error ? error.message : "The meal could not be saved.");
       setActionStatus(null);
     } finally {
-      mealSaveInFlight.current.delete(mealId);
       finishAction(action);
     }
   }
@@ -1212,15 +899,13 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
 
   async function deleteMeal(mealId: string) {
     if (readOnly || dataMode !== "live") return;
-    if (mealDeleteInFlight.current) return;
+    if (pendingActionRef.current) return;
     const meal = days.flatMap((day) => day.meals).find((entry) => entry.id === mealId);
     if (!meal) return;
     if (!window.confirm(`Delete "${meal.name}"? This removes the meal and its analysis data. This cannot be undone.`)) return;
 
     const action = beginAction("meal-delete", mealId);
     if (!action) return;
-    mealDeleteInFlight.current = mealId;
-    setDeletingMealId(mealId);
     setActionError(null);
     try {
       const response = await fetch(`/api/meals/${encodeURIComponent(mealId)}`, { method: "DELETE" });
@@ -1242,22 +927,18 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
       setActionError(error instanceof Error ? error.message : "The meal could not be deleted.");
       setActionStatus(null);
     } finally {
-      mealDeleteInFlight.current = null;
-      setDeletingMealId(null);
       finishAction(action);
     }
   }
 
   async function copyMealToToday(mealId: string) {
-    if (readOnly || dataMode !== "live" || mealCopyInFlight.current) return;
+    if (readOnly || dataMode !== "live" || pendingActionRef.current) return;
     const meal = days.flatMap((day) => day.meals).find((entry) => entry.id === mealId);
     const today = days.at(-1);
     if (!meal || !today || selectedDay.date === today.date) return;
 
     const action = beginAction("meal-copy", mealId);
     if (!action) return;
-    mealCopyInFlight.current = mealId;
-    setCopyingMealId(mealId);
     setActionError(null);
     const consumedAt = mealDateTimestamp({ date: today.date, time: localTimeValue() }) ?? Date.now();
     const optimisticMeal: Meal = {
@@ -1290,21 +971,17 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
       setActionError(error instanceof Error ? error.message : "The meal could not be copied.");
       setActionStatus(null);
     } finally {
-      mealCopyInFlight.current = null;
-      setCopyingMealId(null);
       finishAction(action);
     }
   }
 
   async function duplicateMeal(mealId: string) {
-    if (readOnly || dataMode !== "live" || mealCopyInFlight.current) return;
+    if (readOnly || dataMode !== "live" || pendingActionRef.current) return;
     const meal = days.flatMap((day) => day.meals).find((entry) => entry.id === mealId);
     if (!meal) return;
 
     const action = beginAction("meal-duplicate", mealId);
     if (!action) return;
-    mealCopyInFlight.current = mealId;
-    setDuplicatingMealId(mealId);
     setActionError(null);
     const optimisticMeal: Meal = {
       ...meal,
@@ -1334,16 +1011,14 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
       setActionError(error instanceof Error ? error.message : "The meal could not be duplicated.");
       setActionStatus(null);
     } finally {
-      mealCopyInFlight.current = null;
-      setDuplicatingMealId(null);
       finishAction(action);
     }
   }
 
   async function addMeal(event: FormEvent<HTMLFormElement>) {
-    if (readOnly || dataMode !== "live") return;
     event.preventDefault();
-    if (mealCreateInFlight.current) return;
+    if (readOnly || dataMode !== "live") return;
+    if (pendingActionRef.current) return;
     setActionError(null);
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
@@ -1372,7 +1047,6 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     }
     const action = beginAction("meal-create");
     if (!action) return;
-    mealCreateInFlight.current = true;
     const nextMeal: Meal = {
       id: `optimistic-meal-${action.token}`,
       consumedAt,
@@ -1422,7 +1096,6 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
       setActionStatus(null);
       return;
     } finally {
-      mealCreateInFlight.current = false;
       finishAction(action);
     }
 
@@ -1444,9 +1117,9 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
   }
 
   async function saveWeight(event: FormEvent<HTMLFormElement>) {
-    if (readOnly || dataMode !== "live") return;
     event.preventDefault();
-    if (weightSaveInFlight.current) return;
+    if (readOnly || dataMode !== "live") return;
+    if (pendingActionRef.current) return;
     const weightKg = Number(weightDraft);
     if (!Number.isFinite(weightKg) || weightKg < 1 || weightKg > 1_000) {
       setActionError("Enter a weight between 1 and 1,000 kg.");
@@ -1458,8 +1131,6 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     const optimisticWeight = { logicalDate, weightKg, recordedAt: Date.now() };
     const action = beginAction("weight-save", logicalDate);
     if (!action) return;
-    weightSaveInFlight.current = true;
-    setWeightSaving(true);
     setActionError(null);
     setWeightForDate(logicalDate, optimisticWeight);
 
@@ -1482,32 +1153,24 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
       setWeightDraft(String(savedWeight.weightKg));
       setShowWeightForm(false);
       setActionStatus("Weight saved.");
-      setDashboardLoading(true);
-      setDashboardReloadKey((current) => current + 1);
     } catch (error) {
       if (!isCurrentAction(action)) return;
       setWeightForDate(logicalDate, previousWeight);
       setActionError(error instanceof Error ? error.message : "The weight could not be saved.");
       setActionStatus(null);
     } finally {
-      weightSaveInFlight.current = false;
-      setWeightSaving(false);
       finishAction(action);
     }
   }
 
   async function openSettings() {
-    if (readOnly || dataMode !== "live" || settingsLoadInFlight.current) return;
+    if (readOnly || dataMode !== "live" || pendingActionRef.current) return;
     const action = beginAction("settings-load");
     if (!action) return;
-    const readVersion = settingsReadVersion.current + 1;
-    settingsReadVersion.current = readVersion;
-    settingsLoadInFlight.current = true;
     setSettingsDraft(settingsDraftForTargets(targets, proteinGoal));
     setShowSettings(true);
     setActionError(null);
     setActionStatus(null);
-    setSettingsLoading(true);
     try {
       const response = await fetch("/api/settings", { cache: "no-store" });
       if (!response.ok) {
@@ -1515,7 +1178,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
         throw new Error("The current targets could not be loaded.");
       }
       const parsed = parseSettingsTargets(await response.json());
-      if (!parsed || settingsReadVersion.current !== readVersion || settingsSaveInFlight.current || !isCurrentAction(action)) return;
+      if (!parsed || !isCurrentAction(action)) return;
       const fixedProteinG = Number.isFinite(parsed.proteinG)
         ? parsed.proteinG
         : proteinGoal.fixedTargetG ?? targets.proteinG;
@@ -1537,15 +1200,13 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
       if (!isCurrentAction(action)) return;
       setActionError(error instanceof Error ? error.message : "The current targets could not be loaded.");
     } finally {
-      settingsLoadInFlight.current = false;
-      setSettingsLoading(false);
       finishAction(action);
     }
   }
 
   async function saveSettings() {
     if (readOnly || dataMode !== "live") return;
-    if (settingsSaveInFlight.current) return;
+    if (pendingActionRef.current) return;
     const calories = Number(settingsDraft.calories);
     const proteinG = Number(settingsDraft.proteinG);
     const proteinPerKg = Number(settingsDraft.proteinPerKg);
@@ -1577,9 +1238,6 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     if (!action) return;
     const previousTargets = targets;
     setActionError(null);
-    settingsReadVersion.current += 1;
-    settingsSaveInFlight.current = true;
-    setSettingsSaving(true);
     setTargets({ calories, proteinG: Number.isFinite(proteinG) && proteinG > 0 ? proteinG : targets.proteinG, nutrients: nutrientTargets });
     try {
       let nextTargets = { calories, proteinG: Number.isFinite(proteinG) && proteinG > 0 ? proteinG : targets.proteinG, nutrients: nutrientTargets };
@@ -1608,16 +1266,12 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
       setTargets(nextTargets);
       setShowSettings(false);
       setActionStatus("Targets saved.");
-      setDashboardLoading(true);
-      setDashboardReloadKey((current) => current + 1);
     } catch (error) {
       if (!isCurrentAction(action)) return;
       setTargets(previousTargets);
       setActionError(error instanceof Error ? error.message : "The targets could not be saved.");
       setActionStatus(null);
     } finally {
-      settingsSaveInFlight.current = false;
-      setSettingsSaving(false);
       finishAction(action);
     }
   }

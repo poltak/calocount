@@ -185,7 +185,6 @@ test("meal rows expose a confirmed delete action and API removes dependent data"
   assert.match(page, /window\.confirm\(/);
   assert.match(page, /method: "DELETE"/);
   assert.match(page, /aria-label=\{`Delete \$\{meal\.name\}`\}/);
-  assert.match(page, /mealDeleteInFlight/);
   assert.match(route, /export async function DELETE/);
   assert.match(route, /await getPhotosBucket\(\)\.delete\(meal\.meal\.photoKey\)/);
   assert.match(route, /photoDeleted/);
