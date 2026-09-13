@@ -85,6 +85,55 @@ test("theme choices persist and System follows live operating system changes", a
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
 });
 
+test("light mode gives dashboard secondary surfaces readable colors", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "light" });
+  await mockDashboardApi(page);
+  await page.goto("/");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await page.getByRole("button", { name: "Previous day", exact: true }).click();
+  await expect(page.locator(".weight-reading time")).toBeVisible();
+
+  const styles = await page.evaluate(() => {
+    const read = (selector: string) => {
+      const element = document.querySelector<HTMLElement>(selector);
+      if (!element) throw new Error(`Missing ${selector}`);
+      const style = getComputedStyle(element);
+      return { background: style.backgroundColor, border: style.borderTopColor, color: style.color };
+    };
+    return {
+      weight: {
+        surface: read(".weight-reading"),
+        value: read(".weight-reading strong"),
+        time: read(".weight-reading time"),
+      },
+      history: {
+        row: read(".history-row.selected"),
+        date: read(".history-row.selected .history-date strong"),
+        calories: read(".history-row.selected .history-calories"),
+        arrow: read(".history-row.selected .history-chevron"),
+      },
+      tip: {
+        surface: read(".quick-tip"),
+        text: read(".quick-tip p"),
+        icon: read(".tip-icon"),
+      },
+    };
+  });
+
+  expect(styles.weight.surface.background).toBe("rgb(238, 243, 240)");
+  expect(styles.weight.surface.border).toBe("rgb(189, 203, 195)");
+  expect(styles.weight.value.color).toBe("rgb(31, 42, 42)");
+  expect(styles.weight.time.color).toBe("rgb(83, 99, 93)");
+  expect(styles.history.row.background).toBe("rgb(225, 240, 231)");
+  expect(styles.history.date.color).toBe("rgb(70, 86, 82)");
+  expect(styles.history.calories.color).toBe("rgb(70, 86, 82)");
+  expect(styles.history.arrow.color).toBe("rgb(70, 86, 82)");
+  expect(styles.tip.surface.background).toBe("rgb(238, 243, 240)");
+  expect(styles.tip.surface.border).toBe("rgb(189, 203, 195)");
+  expect(styles.tip.text.color).toBe("rgb(83, 99, 93)");
+  expect(styles.tip.icon.color).toBe("rgb(53, 107, 141)");
+});
+
 test("a double click sends one delete and disables other actions until it ends", async ({ page }) => {
   const state = await mockDashboardApi(page);
   let release = () => {};

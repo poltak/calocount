@@ -2892,6 +2892,51 @@ input:focus-visible {
   border-color: #bdcbc3;
 }
 
+:root[data-theme="light"] .history-row:hover,
+:root[data-theme="light"] .history-row.selected {
+  background: #e1f0e7;
+}
+
+:root[data-theme="light"] .history-bar {
+  background: #d5e2da;
+}
+
+:root[data-theme="light"] .history-date strong,
+:root[data-theme="light"] .history-calories,
+:root[data-theme="light"] .history-chevron {
+  color: var(--muted-strong);
+}
+
+:root[data-theme="light"] .history-date small,
+:root[data-theme="light"] .history-calories small {
+  color: #53635d;
+}
+
+:root[data-theme="light"] .weight-reading {
+  border-color: #bdcbc3;
+  background: var(--surface-soft);
+}
+
+:root[data-theme="light"] .weight-reading strong small,
+:root[data-theme="light"] .weight-reading time,
+:root[data-theme="light"] .weight-reading span {
+  color: #53635d;
+}
+
+:root[data-theme="light"] .quick-tip {
+  border-color: #bdcbc3;
+  background: var(--surface-soft);
+}
+
+:root[data-theme="light"] .quick-tip p {
+  color: #53635d;
+}
+
+:root[data-theme="light"] .tip-icon {
+  border-color: var(--blue);
+  color: var(--blue);
+}
+
 :root[data-theme="light"] .ai-note {
   border-color: #dbcda9;
   background: linear-gradient(145deg, #fffaf0 0%, #f3f5ed 100%);
