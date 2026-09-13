@@ -1269,6 +1269,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
         </a>
         <div className="topbar-actions">
           <span className="sync-status"><span className="status-dot" aria-hidden="true" /> {readOnly ? "Public read-only" : dataMode === "live" ? "Live data" : dataMode === "loading" ? "Loading" : "Unavailable"}</span>
+          {readOnly ? <a className="secondary-button owner-link" href="/owner">Open owner view</a> : null}
           {!readOnly && dataMode === "live" ? <>
             <button className="icon-button" type="button" onClick={() => void openSettings()} disabled={actionInProgress || settingsLoading || settingsSaving} aria-label="Open settings" aria-expanded={showSettings} aria-controls="settings-panel" aria-busy={settingsLoadPending}><span aria-hidden="true">{settingsLoadPending ? "…" : "⚙"}</span></button>
           </> : null}

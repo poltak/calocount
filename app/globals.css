@@ -372,6 +372,12 @@ input:focus-visible {
 
 .secondary-button:hover:not(:disabled) { border-color: var(--blue); color: var(--foreground); }
 
+.owner-link {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
 .nutrient-goal-fieldset {
   min-width: 0;
   margin: 0;

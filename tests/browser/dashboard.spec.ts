@@ -61,6 +61,7 @@ test("the public dashboard has no write controls", async ({ page }) => {
   const state = await mockDashboardApi(page);
   await page.goto("/?public");
   await expect(page.locator(".calories-card .metric-value")).toContainText("500");
+  await expect(page.getByRole("link", { name: "Open owner view", exact: true })).toHaveAttribute("href", "/owner");
   await expect(page.getByRole("button", { name: "Open settings" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Delete Audit lunch" })).toHaveCount(0);
   expect(state.writes).toBe(0);

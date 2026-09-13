@@ -62,10 +62,11 @@ test("owner failures never enable the old editable demo fallback", async () => {
   assert.match(page, /if \(readOnly \|\| dataMode !== "live"\) return;/);
 });
 
-test("the public root has no tokenized or owner link controls", async () => {
+test("the public root exposes the protected owner route without token controls", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
 
   assert.match(page, /publicView \? "\/api\/public\/summary"/);
+  assert.match(page, /\{readOnly \? <a className="secondary-button owner-link" href="\/owner">Open owner view<\/a> : null\}/);
   assert.doesNotMatch(page, /share/i);
   assert.match(page, /\{!readOnly && dataMode === "live" && showSettings \?/);
 });
