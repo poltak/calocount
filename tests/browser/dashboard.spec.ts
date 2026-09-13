@@ -67,6 +67,24 @@ test("the public dashboard has no write controls", async ({ page }) => {
   expect(state.writes).toBe(0);
 });
 
+test("theme choices persist and System follows live operating system changes", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "light" });
+  await mockDashboardApi(page);
+  await page.goto("/");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await page.getByRole("button", { name: "Open settings" }).click();
+  await expect(page.getByRole("radio", { name: "System", exact: true })).toBeChecked();
+
+  await page.getByRole("radio", { name: "Dark", exact: true }).check();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expect.poll(() => page.evaluate(() => window.localStorage.getItem("calocount:theme"))).toBe("dark");
+
+  await page.getByRole("radio", { name: "System", exact: true }).check();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await page.emulateMedia({ colorScheme: "dark" });
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+});
+
 test("a double click sends one delete and disables other actions until it ends", async ({ page }) => {
   const state = await mockDashboardApi(page);
   let release = () => {};

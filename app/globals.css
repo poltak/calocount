@@ -18,6 +18,46 @@
   color-scheme: dark;
 }
 
+:root[data-theme="light"] {
+  --background: #f5f7f6;
+  --surface: #ffffff;
+  --surface-raised: #f8faf9;
+  --surface-soft: #eef3f0;
+  --line: #d2ddd7;
+  --line-soft: #e2e9e4;
+  --foreground: #1f2a2a;
+  --muted: #667572;
+  --muted-strong: #465652;
+  --orange: #b96626;
+  --orange-soft: #a4551b;
+  --green: #347a52;
+  --green-bright: #2f8a54;
+  --blue: #356b8d;
+  --purple: #6e5aa1;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    --background: #f5f7f6;
+    --surface: #ffffff;
+    --surface-raised: #f8faf9;
+    --surface-soft: #eef3f0;
+    --line: #d2ddd7;
+    --line-soft: #e2e9e4;
+    --foreground: #1f2a2a;
+    --muted: #667572;
+    --muted-strong: #465652;
+    --orange: #b96626;
+    --orange-soft: #a4551b;
+    --green: #347a52;
+    --green-bright: #2f8a54;
+    --blue: #356b8d;
+    --purple: #6e5aa1;
+    color-scheme: light;
+  }
+}
+
 * {
   box-sizing: border-box;
 }
@@ -2762,6 +2802,137 @@ input:focus-visible {
   margin-top: 10px;
   color: #65717e;
   font-size: 10px;
+}
+
+:root[data-theme="light"] .brand { color: var(--foreground); }
+
+:root[data-theme="light"] .data-banner,
+:root[data-theme="light"] .action-feedback {
+  border-color: var(--line);
+  background: var(--surface-soft);
+  color: var(--muted-strong);
+}
+
+:root[data-theme="light"] .data-banner > span {
+  background: #dcebe2;
+  color: var(--green);
+}
+
+:root[data-theme="light"] .data-banner.demo {
+  border-color: #e6c9ad;
+  background: #fbf1e7;
+  color: #765234;
+}
+
+:root[data-theme="light"] .data-banner.demo > span {
+  background: #f1dcc5;
+  color: var(--orange-soft);
+}
+
+:root[data-theme="light"] .data-banner.public {
+  border-color: #b9d7c4;
+  background: #edf7f0;
+  color: var(--green);
+}
+
+:root[data-theme="light"] .data-banner.public > span {
+  background: #d5ebdc;
+  color: var(--green);
+}
+
+:root[data-theme="light"] .settings-form input,
+:root[data-theme="light"] .weight-form input,
+:root[data-theme="light"] .inline-editor input,
+:root[data-theme="light"] .add-meal-form input,
+:root[data-theme="light"] .advanced-nutrition-grid input,
+:root[data-theme="light"] .nutrient-trend-controls select {
+  border-color: #bdcbc3;
+  background: var(--surface-raised);
+  color: var(--foreground);
+}
+
+:root[data-theme="light"] .secondary-button,
+:root[data-theme="light"] .nutrition-section-toggle,
+:root[data-theme="light"] .chart-range-select {
+  border-color: var(--line);
+  background: var(--surface-soft);
+  color: var(--muted-strong);
+}
+
+:root[data-theme="light"] .dashboard-state-mark { border-color: #9db8aa; }
+
+:root[data-theme="light"] .action-feedback.error {
+  border-color: #e3b8ae;
+  background: #fff0ed;
+  color: #9d4f42;
+}
+
+:root[data-theme="light"] .action-feedback[aria-busy="true"] {
+  border-color: #a9c4b6;
+  background: #e7f2eb;
+}
+
+:root[data-theme="light"] .avatar {
+  background: #dcebe3;
+  color: #2e6646;
+}
+
+:root[data-theme="light"] .date-pill.active {
+  background: #e1f0e7;
+  box-shadow: inset 0 0 0 1px #b6d4c1;
+}
+
+:root[data-theme="light"] .metric-ring {
+  background: conic-gradient(var(--ring-color) var(--progress), #dce6e0 0);
+}
+
+:root[data-theme="light"] .macro-stack { background: #e1eae5; }
+
+:root[data-theme="light"] .chart-empty {
+  border-color: #bdcbc3;
+}
+
+:root[data-theme="light"] .ai-note {
+  border-color: #dbcda9;
+  background: linear-gradient(145deg, #fffaf0 0%, #f3f5ed 100%);
+}
+
+:root[data-theme="light"] .ai-note p { color: #5e6a65; }
+
+:root[data-theme="light"] .meal-actions button { background: rgb(31 42 42 / 5%); }
+:root[data-theme="light"] .meal-actions button:hover { background: rgb(31 42 42 / 9%); }
+
+:root[data-theme="light"] .inline-editor input[type="file"]::file-selector-button,
+:root[data-theme="light"] .add-meal-form input[type="file"]::file-selector-button {
+  background: #e2ebe6;
+  color: var(--muted-strong);
+}
+
+:root[data-theme="light"] .done-button {
+  background: #dceee2;
+  color: #28613f;
+}
+
+:root[data-theme="light"] .done-button:hover { background: #cce6d5; }
+
+:root[data-theme="light"] .nutrient-stat-nested,
+:root[data-theme="light"] .advanced-nutrition-editor,
+:root[data-theme="light"] .meal-item-editors {
+  border-color: var(--line);
+  background: var(--surface-raised);
+}
+
+:root[data-theme="light"] .meal-nutrition-detail-card {
+  border-color: var(--line);
+  background: var(--surface-raised);
+}
+
+:root[data-theme="light"] .correction-button {
+  border-color: #9fb5aa;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) .brand { color: var(--foreground); }
 }
 
 @media (max-width: 880px) {

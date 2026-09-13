@@ -41,6 +41,7 @@ import {
 } from "./dashboard-edit";
 import { scheduleDashboardClock } from "./dashboard-clock";
 import { photoUrlForKey, publicPhotoUrlForMealId } from "./photo-url";
+import { readThemePreference, subscribeToTheme, writeThemePreference, type ThemePreference } from "./theme";
 import {
   aggregateNutrientValues,
   type NutrientAggregateMap,
@@ -397,6 +398,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
   const [weightDraft, setWeightDraft] = useState("");
   const [showAllDays, setShowAllDays] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [themePreference, setThemePreference] = useState<ThemePreference>("system");
   const [activeSection, setActiveSection] = useState<DashboardSection>("today");
   const [nutritionCollapsed, setNutritionCollapsed] = useState(false);
   const [proteinGoal, setProteinGoal] = useState<ProteinGoalSummary>(defaultProteinGoal);
@@ -708,6 +710,18 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
   }, []);
 
   useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      setThemePreference(readThemePreference(() => window.localStorage));
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: light)");
+    return subscribeToTheme(themePreference, document.documentElement, mediaQuery);
+  }, [themePreference]);
+
+  useEffect(() => {
     function syncSectionFromHash() {
       const section = window.location.hash.slice(1);
       if (
@@ -748,6 +762,11 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
       writeNutritionCollapsed(() => window.localStorage, next);
       return next;
     });
+  }
+
+  function changeThemePreference(nextTheme: ThemePreference) {
+    writeThemePreference(() => window.localStorage, nextTheme);
+    setThemePreference(nextTheme);
   }
 
   function markPhotoUnavailable(photoUrl: string) {
@@ -1278,7 +1297,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
       </header>
 
       {!readOnly && dataMode === "live" && showSettings ? <Suspense fallback={<p role="status">Loading settings…</p>}>
-        <SettingsPanel draft={settingsDraft} setDraft={setSettingsDraft} onSave={saveSettings} onClose={() => setShowSettings(false)} loading={settingsLoading} saving={settingsSaving} />
+        <SettingsPanel draft={settingsDraft} setDraft={setSettingsDraft} onSave={saveSettings} onClose={() => setShowSettings(false)} loading={settingsLoading} saving={settingsSaving} themePreference={themePreference} onThemeChange={changeThemePreference} />
       </Suspense> : null}
 
       {dataMessage ? <div className={`data-banner ${dataMode}`} role="status"><span aria-hidden="true">{dataMode === "live" ? "✓" : dataMode === "loading" ? "…" : "i"}</span>{dataMessage}</div> : null}

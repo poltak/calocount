@@ -1,14 +1,31 @@
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import { PwaRegistration } from "./pwa-registration";
+import { THEME_STORAGE_KEY } from "./theme";
 import "./globals.css";
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#0f131b",
-  colorScheme: "dark",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f5f7f6" },
+    { media: "(prefers-color-scheme: dark)", color: "#0f131b" },
+  ],
+  colorScheme: "light dark",
 };
+
+const themeInitializer = `(() => {
+  try {
+    const stored = window.localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});
+    const preference = stored === "light" || stored === "dark" ? stored : "system";
+    const prefersLight = window.matchMedia("(prefers-color-scheme: light)").matches;
+    const theme = preference === "system" ? (prefersLight ? "light" : "dark") : preference;
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.style.colorScheme = theme;
+  } catch {
+    // Keep the default System theme when browser storage or media queries are unavailable.
+  }
+})();`;
 
 export async function generateMetadata(): Promise<Metadata> {
   const requestHeaders = await headers();
@@ -63,8 +80,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
+        <script id="theme-initializer" dangerouslySetInnerHTML={{ __html: themeInitializer }} />
         <link rel="manifest" href="/manifest.webmanifest" crossOrigin="use-credentials" />
       </head>
       <body>

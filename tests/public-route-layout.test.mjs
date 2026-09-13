@@ -71,6 +71,34 @@ test("the public root exposes the protected owner route without token controls",
   assert.match(page, /\{!readOnly && dataMode === "live" && showSettings \?/);
 });
 
+test("the private dashboard keeps the owner link scoped to public mode", async () => {
+  const [page, ownerRoute] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/owner/page.tsx", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(page, /\{readOnly \? <a className="secondary-button owner-link" href="\/owner">Open owner view<\/a> : null\}/);
+  assert.doesNotMatch(page, /\{!readOnly \? <a className="secondary-button owner-link"/);
+  assert.match(ownerRoute, /return <Dashboard \/>/);
+});
+
+test("owner settings expose the three persisted theme choices", async () => {
+  const [page, panel, theme, css] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/settings-panel.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/theme.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(page, /readThemePreference\(\(\) => window\.localStorage\)/);
+  assert.match(page, /subscribeToTheme\(themePreference, document\.documentElement, mediaQuery\)/);
+  assert.match(panel, /name="theme-preference"/);
+  for (const choice of ["system", "light", "dark"]) assert.match(panel, new RegExp(`value="${choice}"`));
+  assert.match(theme, /THEME_STORAGE_KEY/);
+  assert.match(css, /:root\[data-theme="light"\]/);
+  assert.match(css, /@media \(prefers-color-scheme: light\)/);
+});
+
 test("the public root keeps every owner mutation and private photo control disabled", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
 
