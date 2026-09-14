@@ -160,6 +160,8 @@ test("light mode uses a coherent palette for charts and button states", async ({
       macroStack: read(".macro-stack"),
       weightPoint: read(".weight-point"),
       nutrientBar: read(".nutrient-trend-bar"),
+      historyBar: read(".history-row:not(.selected) .history-bar i"),
+      selectedHistoryBar: read(".history-row.selected .history-bar i"),
       primary: read(".primary-button"),
       date: read(".date-pill.active"),
       history: read(".history-row.selected"),
@@ -167,20 +169,28 @@ test("light mode uses a coherent palette for charts and button states", async ({
     };
   });
 
-  expect(charts.calories.image).toContain("rgb(227, 160, 95)");
-  expect(charts.calories.image).toContain("rgb(187, 100, 31)");
+  expect(charts.calories.image).toContain("rgb(253, 186, 116)");
+  expect(charts.calories.image).toContain("rgb(249, 115, 22)");
   expect(charts.axis.color).toBe("rgb(104, 120, 114)");
   expect(charts.target.border).toBe("rgb(113, 139, 125)");
-  expect(charts.macroDonut.image).toContain("rgb(53, 107, 141)");
+  expect(charts.macroDonut.image).toContain("rgb(37, 99, 235)");
+  expect(charts.macroDonut.image).toContain("rgb(22, 163, 74)");
+  expect(charts.macroDonut.image).toContain("rgb(249, 115, 22)");
   expect(charts.macroStack.background).toBe("rgb(225, 234, 229)");
-  expect(charts.weightPoint.background).toBe("rgb(52, 122, 82)");
-  expect(charts.nutrientBar.background).toBe("rgb(53, 107, 141)");
-  expect(charts.primary.background).toBe("rgb(185, 102, 38)");
+  expect(charts.weightPoint.background).toBe("rgb(22, 163, 74)");
+  expect(charts.nutrientBar.background).toBe("rgb(37, 99, 235)");
+  expect(charts.historyBar.background).toBe("rgb(249, 115, 22)");
+  expect(charts.selectedHistoryBar.background).toBe("rgb(22, 163, 74)");
+  expect(charts.primary.background).toBe("rgb(194, 65, 12)");
+  expect(charts.primary.color).toBe("rgb(255, 255, 255)");
   expect(charts.date.background).toBe("rgb(225, 240, 231)");
   expect(charts.history.background).toBe("rgb(225, 240, 231)");
   expect(charts.secondary.background).toBe("rgb(238, 243, 240)");
   expect(charts.secondary.border).toBe("rgb(194, 209, 200)");
 
+  await page.locator(".primary-button").first().hover();
+  await expect(page.locator(".primary-button").first()).toHaveCSS("background-color", "rgb(154, 52, 18)");
+  await expect(page.locator(".primary-button").first()).toHaveCSS("color", "rgb(255, 255, 255)");
   await page.locator(".icon-button").hover();
   await expect(page.locator(".icon-button")).toHaveCSS("background-color", "rgb(255, 255, 255)");
   await page.getByRole("button", { name: "Open settings" }).click();
@@ -189,7 +199,7 @@ test("light mode uses a coherent palette for charts and button states", async ({
   await page.getByRole("button", { name: "Close settings" }).click();
   await page.getByRole("button", { name: "Add weight" }).click();
   await page.locator(".save-button").hover();
-  await expect(page.locator(".save-button")).toHaveCSS("background-color", "rgb(164, 85, 27)");
+  await expect(page.locator(".save-button")).toHaveCSS("background-color", "rgb(154, 52, 18)");
   await page.locator(".cancel-button").hover();
   await expect(page.locator(".cancel-button")).toHaveCSS("background-color", "rgba(31, 42, 42, 0.07)");
 });

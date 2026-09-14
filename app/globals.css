@@ -14,6 +14,9 @@
   --green-bright: #8bd3a4;
   --blue: #9bbbe1;
   --purple: #b9a9e6;
+  --button-primary-background: var(--orange);
+  --button-primary-hover-background: var(--orange-soft);
+  --button-primary-text: #231b14;
   --button-secondary-background: #17212b;
   --button-secondary-border: #3c4a58;
   --button-secondary-hover-background: #212d38;
@@ -38,6 +41,10 @@
   --chart-bar-shadow: rgb(243 164 95 / 13%);
   --chart-weight-shadow: rgb(99 187 139 / 13%);
   --chart-stack-shadow: rgb(0 0 0 / 14%);
+  --chart-orange: var(--orange);
+  --chart-green: var(--green);
+  --chart-blue: var(--blue);
+  --chart-fill-opacity: .88;
   --chart-calorie-start: #ffc27f;
   --chart-calorie-end: var(--orange);
   --chart-calorie-emphasis-start: #ffd18f;
@@ -73,6 +80,9 @@
   --green-bright: #2f8a54;
   --blue: #356b8d;
   --purple: #6e5aa1;
+  --button-primary-background: #c2410c;
+  --button-primary-hover-background: #9a3412;
+  --button-primary-text: #ffffff;
   --button-secondary-background: #eef3f0;
   --button-secondary-border: #c2d1c8;
   --button-secondary-hover-background: #e2eee7;
@@ -94,17 +104,21 @@
   --chart-value: #52655d;
   --chart-neutral: #86a8b8;
   --chart-legend-line: #71817b;
-  --chart-bar-shadow: rgb(185 100 31 / 16%);
-  --chart-weight-shadow: rgb(47 138 84 / 16%);
+  --chart-bar-shadow: rgb(249 115 22 / 22%);
+  --chart-weight-shadow: rgb(22 163 74 / 20%);
   --chart-stack-shadow: rgb(31 42 42 / 8%);
-  --chart-calorie-start: #e3a05f;
-  --chart-calorie-end: #bb641f;
-  --chart-calorie-emphasis-start: #e9b06f;
-  --chart-calorie-emphasis-end: #cc7331;
-  --chart-weight-start: #86c19c;
-  --chart-weight-end: #4e9269;
-  --chart-weight-emphasis-start: #99d0a9;
-  --chart-weight-emphasis-end: #61a97e;
+  --chart-orange: #f97316;
+  --chart-green: #16a34a;
+  --chart-blue: #2563eb;
+  --chart-fill-opacity: 1;
+  --chart-calorie-start: #fdba74;
+  --chart-calorie-end: #f97316;
+  --chart-calorie-emphasis-start: #fb923c;
+  --chart-calorie-emphasis-end: #ea580c;
+  --chart-weight-start: #4ade80;
+  --chart-weight-end: #16a34a;
+  --chart-weight-emphasis-start: #86efac;
+  --chart-weight-emphasis-end: #22c55e;
   --chart-base: #e1eae5;
   --chart-gap: #64756d;
   --chart-empty-border: #bfcec4;
@@ -132,6 +146,9 @@
     --green-bright: #2f8a54;
     --blue: #356b8d;
     --purple: #6e5aa1;
+    --button-primary-background: #c2410c;
+    --button-primary-hover-background: #9a3412;
+    --button-primary-text: #ffffff;
     --button-secondary-background: #eef3f0;
     --button-secondary-border: #c2d1c8;
     --button-secondary-hover-background: #e2eee7;
@@ -153,17 +170,21 @@
     --chart-value: #52655d;
     --chart-neutral: #86a8b8;
     --chart-legend-line: #71817b;
-    --chart-bar-shadow: rgb(185 100 31 / 16%);
-    --chart-weight-shadow: rgb(47 138 84 / 16%);
+    --chart-bar-shadow: rgb(249 115 22 / 22%);
+    --chart-weight-shadow: rgb(22 163 74 / 20%);
     --chart-stack-shadow: rgb(31 42 42 / 8%);
-    --chart-calorie-start: #e3a05f;
-    --chart-calorie-end: #bb641f;
-    --chart-calorie-emphasis-start: #e9b06f;
-    --chart-calorie-emphasis-end: #cc7331;
-    --chart-weight-start: #86c19c;
-    --chart-weight-end: #4e9269;
-    --chart-weight-emphasis-start: #99d0a9;
-    --chart-weight-emphasis-end: #61a97e;
+    --chart-orange: #f97316;
+    --chart-green: #16a34a;
+    --chart-blue: #2563eb;
+    --chart-fill-opacity: 1;
+    --chart-calorie-start: #fdba74;
+    --chart-calorie-end: #f97316;
+    --chart-calorie-emphasis-start: #fb923c;
+    --chart-calorie-emphasis-end: #ea580c;
+    --chart-weight-start: #4ade80;
+    --chart-weight-end: #16a34a;
+    --chart-weight-emphasis-start: #86efac;
+    --chart-weight-emphasis-end: #22c55e;
     --chart-base: #e1eae5;
     --chart-gap: #64756d;
     --chart-empty-border: #bfcec4;
@@ -870,9 +891,9 @@ input:focus-visible {
   border-radius: 50%;
 }
 
-.calorie-dot { background: var(--orange); }
-.protein-dot { background: var(--green); }
-.average-dot { background: var(--blue); }
+.calorie-dot { background: var(--chart-orange); }
+.protein-dot { background: var(--chart-green); }
+.average-dot { background: var(--chart-blue); }
 
 .card-label {
   color: var(--muted-strong);
@@ -950,8 +971,8 @@ input:focus-visible {
   font-size: 11px;
 }
 
-.calorie-ring { --ring-color: var(--orange); }
-.protein-ring { --ring-color: var(--green); }
+.calorie-ring { --ring-color: var(--chart-orange); }
+.protein-ring { --ring-color: var(--chart-green); }
 
 .average-card {
   padding-right: 15px;
@@ -974,7 +995,7 @@ input:focus-visible {
   opacity: .78;
 }
 
-.mini-bars span:nth-child(5) { background: var(--orange); opacity: 1; }
+.mini-bars span:nth-child(5) { background: var(--chart-orange); opacity: 1; }
 
 .content-grid {
   display: grid;
@@ -1071,11 +1092,11 @@ input:focus-visible {
   border-radius: 2px;
 }
 
-.calorie-swatch { background: var(--orange); }
-.weight-swatch { background: var(--green); }
-.macro-carbs-swatch { background: var(--blue); }
-.macro-protein-swatch { background: var(--green); }
-.macro-fat-swatch { background: var(--orange); }
+.calorie-swatch { background: var(--chart-orange); }
+.weight-swatch { background: var(--chart-green); }
+.macro-carbs-swatch { background: var(--chart-blue); }
+.macro-protein-swatch { background: var(--chart-green); }
+.macro-fat-swatch { background: var(--chart-orange); }
 
 .legend-line {
   width: 13px;
@@ -1262,9 +1283,9 @@ input:focus-visible {
 }
 
 .macro-segment { display: block; width: 100%; min-height: 1px; }
-.macro-segment.carbs { background: var(--blue); }
-.macro-segment.protein { background: var(--green); }
-.macro-segment.fat { background: var(--orange); }
+.macro-segment.carbs { background: var(--chart-blue); }
+.macro-segment.protein { background: var(--chart-green); }
+.macro-segment.fat { background: var(--chart-orange); }
 
 .macro-gap {
   display: grid;
@@ -1393,7 +1414,7 @@ input:focus-visible {
 
 .weight-line polyline {
   fill: none;
-  stroke: var(--green);
+  stroke: var(--chart-green);
   stroke-width: 2;
   vector-effect: non-scaling-stroke;
   stroke-linecap: round;
@@ -1420,8 +1441,8 @@ input:focus-visible {
   height: 8px;
   border: 2px solid var(--surface);
   border-radius: 50%;
-  background: var(--green);
-  box-shadow: 0 0 0 1px var(--green);
+  background: var(--chart-green);
+  box-shadow: 0 0 0 1px var(--chart-green);
   transform: translate(-50%, 50%);
 }
 
@@ -1600,7 +1621,7 @@ input:focus-visible {
   height: 150px;
   margin: 21px auto 19px;
   border-radius: 50%;
-  background: conic-gradient(var(--green) 0 35%, var(--blue) 35% 77%, var(--orange) 77% 100%);
+  background: conic-gradient(var(--chart-green) 0 35%, var(--chart-blue) 35% 77%, var(--chart-orange) 77% 100%);
 }
 
 .macro-donut > div {
@@ -1647,9 +1668,9 @@ input:focus-visible {
   border-radius: 2px;
 }
 
-.macro-key.carbs { background: var(--blue); }
-.macro-key.protein { background: var(--green); }
-.macro-key.fat { background: var(--orange); }
+.macro-key.carbs { background: var(--chart-blue); }
+.macro-key.protein { background: var(--chart-green); }
+.macro-key.fat { background: var(--chart-orange); }
 
 .history-panel { padding-bottom: 15px; }
 
@@ -1695,10 +1716,10 @@ input:focus-visible {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: var(--orange);
+  background: var(--chart-orange);
 }
 
-.history-row.selected .history-bar i { background: var(--green); }
+.history-row.selected .history-bar i { background: var(--chart-green); }
 
 .history-calories {
   color: var(--muted-strong);
@@ -1893,8 +1914,8 @@ input:focus-visible {
   justify-content: center;
   gap: 5px;
   border-radius: 7px;
-  background: var(--orange);
-  color: #231b14;
+  background: var(--button-primary-background);
+  color: var(--button-primary-text);
   font-size: 11px;
   font-weight: 750;
 }
@@ -1905,7 +1926,7 @@ input:focus-visible {
 }
 
 .primary-button:hover,
-.save-button:hover { background: var(--orange-soft); }
+.save-button:hover { background: var(--button-primary-hover-background); }
 
 .meal-list {
   margin-top: 17px;
@@ -2543,8 +2564,8 @@ input:focus-visible {
   width: min(27px, 72%);
   min-height: 8px;
   border-radius: 4px 4px 2px 2px;
-  background: var(--blue);
-  opacity: .88;
+  background: var(--chart-blue);
+  opacity: var(--chart-fill-opacity);
 }
 
 .nutrient-trend-gap {

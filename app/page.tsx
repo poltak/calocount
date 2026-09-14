@@ -546,7 +546,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     });
     return {
       ...percentages,
-      gradient: `conic-gradient(var(--green) 0 ${percentages.protein}%, var(--blue) ${percentages.protein}% ${percentages.protein + percentages.carbs}%, var(--orange) ${percentages.protein + percentages.carbs}% 100%)`,
+      gradient: `conic-gradient(var(--chart-green) 0 ${percentages.protein}%, var(--chart-blue) ${percentages.protein}% ${percentages.protein + percentages.carbs}%, var(--chart-orange) ${percentages.protein + percentages.carbs}% 100%)`,
     };
   }, [selectedDay.carbs, selectedDay.fat, selectedDay.protein]);
 

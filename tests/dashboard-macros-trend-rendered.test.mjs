@@ -16,7 +16,7 @@ test("dashboard renders an accessible selectable-range macros trend", async () =
   assert.match(page, /day\.percentages\.fat/);
   assert.match(page, /No macro records for the past \{trendRange\} days/);
   assert.match(css, /\.macro-trend-bars/);
-  assert.match(css, /\.macro-segment\.carbs \{ background: var\(--blue\); \}/);
-  assert.match(css, /\.macro-segment\.protein \{ background: var\(--green\); \}/);
-  assert.match(css, /\.macro-segment\.fat \{ background: var\(--orange\); \}/);
+  assert.match(css, /\.macro-segment\.carbs \{ background: var\(--chart-blue\); \}/);
+  assert.match(css, /\.macro-segment\.protein \{ background: var\(--chart-green\); \}/);
+  assert.match(css, /\.macro-segment\.fat \{ background: var\(--chart-orange\); \}/);
 });
