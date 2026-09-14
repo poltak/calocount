@@ -134,6 +134,66 @@ test("light mode gives dashboard secondary surfaces readable colors", async ({ p
   expect(styles.tip.icon.color).toBe("rgb(53, 107, 141)");
 });
 
+test("light mode uses a coherent palette for charts and button states", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "light" });
+  await mockDashboardApi(page);
+  await page.goto("/");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+
+  const charts = await page.evaluate(() => {
+    const read = (selector: string) => {
+      const element = document.querySelector<HTMLElement>(selector);
+      if (!element) throw new Error(`Missing ${selector}`);
+      const style = getComputedStyle(element);
+      return {
+        background: style.backgroundColor,
+        image: style.backgroundImage,
+        border: style.borderTopColor,
+        color: style.color,
+      };
+    };
+    return {
+      calories: read(".bar:not(.bar-empty)"),
+      axis: read(".chart-y-axis"),
+      target: read(".target-line"),
+      macroDonut: read(".macro-donut"),
+      macroStack: read(".macro-stack"),
+      weightPoint: read(".weight-point"),
+      nutrientBar: read(".nutrient-trend-bar"),
+      primary: read(".primary-button"),
+      date: read(".date-pill.active"),
+      history: read(".history-row.selected"),
+      secondary: read(".chart-range-select"),
+    };
+  });
+
+  expect(charts.calories.image).toContain("rgb(227, 160, 95)");
+  expect(charts.calories.image).toContain("rgb(187, 100, 31)");
+  expect(charts.axis.color).toBe("rgb(104, 120, 114)");
+  expect(charts.target.border).toBe("rgb(113, 139, 125)");
+  expect(charts.macroDonut.image).toContain("rgb(53, 107, 141)");
+  expect(charts.macroStack.background).toBe("rgb(225, 234, 229)");
+  expect(charts.weightPoint.background).toBe("rgb(52, 122, 82)");
+  expect(charts.nutrientBar.background).toBe("rgb(53, 107, 141)");
+  expect(charts.primary.background).toBe("rgb(185, 102, 38)");
+  expect(charts.date.background).toBe("rgb(225, 240, 231)");
+  expect(charts.history.background).toBe("rgb(225, 240, 231)");
+  expect(charts.secondary.background).toBe("rgb(238, 243, 240)");
+  expect(charts.secondary.border).toBe("rgb(194, 209, 200)");
+
+  await page.locator(".icon-button").hover();
+  await expect(page.locator(".icon-button")).toHaveCSS("background-color", "rgb(255, 255, 255)");
+  await page.getByRole("button", { name: "Open settings" }).click();
+  await page.getByRole("button", { name: "Close settings" }).hover();
+  await expect(page.getByRole("button", { name: "Close settings" })).toHaveCSS("background-color", "rgba(31, 42, 42, 0.07)");
+  await page.getByRole("button", { name: "Close settings" }).click();
+  await page.getByRole("button", { name: "Add weight" }).click();
+  await page.locator(".save-button").hover();
+  await expect(page.locator(".save-button")).toHaveCSS("background-color", "rgb(164, 85, 27)");
+  await page.locator(".cancel-button").hover();
+  await expect(page.locator(".cancel-button")).toHaveCSS("background-color", "rgba(31, 42, 42, 0.07)");
+});
+
 test("a double click sends one delete and disables other actions until it ends", async ({ page }) => {
   const state = await mockDashboardApi(page);
   let release = () => {};

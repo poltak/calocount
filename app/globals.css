@@ -14,6 +14,45 @@
   --green-bright: #8bd3a4;
   --blue: #9bbbe1;
   --purple: #b9a9e6;
+  --button-secondary-background: #17212b;
+  --button-secondary-border: #3c4a58;
+  --button-secondary-hover-background: #212d38;
+  --button-quiet-hover-background: rgb(255 255 255 / 7%);
+  --button-action-background: rgb(255 255 255 / 3%);
+  --button-action-hover-background: rgb(255 255 255 / 7%);
+  --form-control-background: #111720;
+  --form-control-border: #354150;
+  --file-button-background: #2a3643;
+  --reading-background: #111820;
+  --form-container-background: #111820;
+  --editor-background: #131b24;
+  --detail-card-background: #111820;
+  --chart-axis: #778391;
+  --chart-axis-strong: #788492;
+  --chart-grid: rgb(70 81 94 / 25%);
+  --chart-target: #758793;
+  --chart-target-label: #8997a1;
+  --chart-value: #8f9aa8;
+  --chart-neutral: #839db9;
+  --chart-legend-line: #798894;
+  --chart-bar-shadow: rgb(243 164 95 / 13%);
+  --chart-weight-shadow: rgb(99 187 139 / 13%);
+  --chart-stack-shadow: rgb(0 0 0 / 14%);
+  --chart-calorie-start: #ffc27f;
+  --chart-calorie-end: var(--orange);
+  --chart-calorie-emphasis-start: #ffd18f;
+  --chart-calorie-emphasis-end: #e88b4c;
+  --chart-weight-start: #a4d9b7;
+  --chart-weight-end: #5da982;
+  --chart-weight-emphasis-start: #b8e7c6;
+  --chart-weight-emphasis-end: #72ba91;
+  --chart-base: #202b36;
+  --chart-gap: #65717e;
+  --chart-empty-border: #354150;
+  --text-button-hover: #ffd29f;
+  --text-blue-hover: #acd8ee;
+  --text-danger-hover: #efb09c;
+  --tip-background: rgb(21 27 36 / 56%);
   --radius: 12px;
   color-scheme: dark;
 }
@@ -34,6 +73,45 @@
   --green-bright: #2f8a54;
   --blue: #356b8d;
   --purple: #6e5aa1;
+  --button-secondary-background: #eef3f0;
+  --button-secondary-border: #c2d1c8;
+  --button-secondary-hover-background: #e2eee7;
+  --button-quiet-hover-background: rgb(31 42 42 / 7%);
+  --button-action-background: rgb(31 42 42 / 5%);
+  --button-action-hover-background: rgb(31 42 42 / 9%);
+  --form-control-background: var(--surface-raised);
+  --form-control-border: #bdcbc3;
+  --file-button-background: #e2ebe6;
+  --reading-background: var(--surface-soft);
+  --form-container-background: var(--surface-raised);
+  --editor-background: var(--surface-raised);
+  --detail-card-background: var(--surface-raised);
+  --chart-axis: #687872;
+  --chart-axis-strong: #64736e;
+  --chart-grid: rgb(56 77 67 / 20%);
+  --chart-target: #718b7d;
+  --chart-target-label: #61726b;
+  --chart-value: #52655d;
+  --chart-neutral: #86a8b8;
+  --chart-legend-line: #71817b;
+  --chart-bar-shadow: rgb(185 100 31 / 16%);
+  --chart-weight-shadow: rgb(47 138 84 / 16%);
+  --chart-stack-shadow: rgb(31 42 42 / 8%);
+  --chart-calorie-start: #e3a05f;
+  --chart-calorie-end: #bb641f;
+  --chart-calorie-emphasis-start: #e9b06f;
+  --chart-calorie-emphasis-end: #cc7331;
+  --chart-weight-start: #86c19c;
+  --chart-weight-end: #4e9269;
+  --chart-weight-emphasis-start: #99d0a9;
+  --chart-weight-emphasis-end: #61a97e;
+  --chart-base: #e1eae5;
+  --chart-gap: #64756d;
+  --chart-empty-border: #bfcec4;
+  --text-button-hover: #864b16;
+  --text-blue-hover: #2b617e;
+  --text-danger-hover: #a34a40;
+  --tip-background: rgb(238 243 240 / 72%);
   color-scheme: light;
 }
 
@@ -54,6 +132,45 @@
     --green-bright: #2f8a54;
     --blue: #356b8d;
     --purple: #6e5aa1;
+    --button-secondary-background: #eef3f0;
+    --button-secondary-border: #c2d1c8;
+    --button-secondary-hover-background: #e2eee7;
+    --button-quiet-hover-background: rgb(31 42 42 / 7%);
+    --button-action-background: rgb(31 42 42 / 5%);
+    --button-action-hover-background: rgb(31 42 42 / 9%);
+    --form-control-background: var(--surface-raised);
+    --form-control-border: #bdcbc3;
+    --file-button-background: #e2ebe6;
+    --reading-background: var(--surface-soft);
+    --form-container-background: var(--surface-raised);
+    --editor-background: var(--surface-raised);
+    --detail-card-background: var(--surface-raised);
+    --chart-axis: #687872;
+    --chart-axis-strong: #64736e;
+    --chart-grid: rgb(56 77 67 / 20%);
+    --chart-target: #718b7d;
+    --chart-target-label: #61726b;
+    --chart-value: #52655d;
+    --chart-neutral: #86a8b8;
+    --chart-legend-line: #71817b;
+    --chart-bar-shadow: rgb(185 100 31 / 16%);
+    --chart-weight-shadow: rgb(47 138 84 / 16%);
+    --chart-stack-shadow: rgb(31 42 42 / 8%);
+    --chart-calorie-start: #e3a05f;
+    --chart-calorie-end: #bb641f;
+    --chart-calorie-emphasis-start: #e9b06f;
+    --chart-calorie-emphasis-end: #cc7331;
+    --chart-weight-start: #86c19c;
+    --chart-weight-end: #4e9269;
+    --chart-weight-emphasis-start: #99d0a9;
+    --chart-weight-emphasis-end: #61a97e;
+    --chart-base: #e1eae5;
+    --chart-gap: #64756d;
+    --chart-empty-border: #bfcec4;
+    --text-button-hover: #864b16;
+    --text-blue-hover: #2b617e;
+    --text-danger-hover: #a34a40;
+    --tip-background: rgb(238 243 240 / 72%);
     color-scheme: light;
   }
 }
@@ -347,10 +464,10 @@ input:focus-visible {
   width: 100%;
   min-height: 31px;
   padding: 5px 8px;
-  border: 1px solid #354150;
+  border: 1px solid var(--form-control-border);
   border-radius: 6px;
   outline: 0;
-  background: #111720;
+  background: var(--form-control-background);
   color: var(--foreground);
   font-size: 11px;
 }
@@ -402,15 +519,19 @@ input:focus-visible {
   flex: 0 0 auto;
   min-height: 29px;
   padding: 5px 9px;
-  border: 1px solid #3c4a58;
+  border: 1px solid var(--button-secondary-border);
   border-radius: 6px;
-  background: #17212b;
+  background: var(--button-secondary-background);
   color: var(--muted-strong);
   font-size: 9px;
   font-weight: 650;
 }
 
-.secondary-button:hover:not(:disabled) { border-color: var(--blue); color: var(--foreground); }
+.secondary-button:hover:not(:disabled) {
+  border-color: var(--blue);
+  background: var(--button-secondary-hover-background);
+  color: var(--foreground);
+}
 
 .owner-link {
   display: inline-flex;
@@ -849,7 +970,7 @@ input:focus-visible {
   flex: 1;
   min-height: 12px;
   border-radius: 3px 3px 1px 1px;
-  background: #839db9;
+  background: var(--chart-neutral);
   opacity: .78;
 }
 
@@ -906,7 +1027,7 @@ input:focus-visible {
   padding: 5px 25px 5px 9px;
   border: 1px solid var(--line);
   border-radius: 7px;
-  background: var(--surface-soft);
+  background: var(--button-secondary-background);
   color: var(--muted-strong);
   font: inherit;
   font-size: 10px;
@@ -959,7 +1080,7 @@ input:focus-visible {
 .legend-line {
   width: 13px;
   height: 0;
-  border-top: 1px dashed #798894;
+  border-top: 1px dashed var(--chart-legend-line);
 }
 
 .bar-chart {
@@ -974,7 +1095,7 @@ input:focus-visible {
   flex-direction: column;
   justify-content: space-between;
   padding: 4px 5px 21px 0;
-  color: #778391;
+  color: var(--chart-axis);
   font-size: 9px;
   text-align: right;
 }
@@ -991,7 +1112,7 @@ input:focus-visible {
   top: 7.7%;
   right: 0;
   left: 0;
-  border-top: 1px dashed #758793;
+  border-top: 1px dashed var(--chart-target);
 }
 
 .target-line span {
@@ -1000,7 +1121,7 @@ input:focus-visible {
   right: 0;
   padding-left: 5px;
   background: var(--surface);
-  color: #8997a1;
+  color: var(--chart-target-label);
   font-size: 9px;
 }
 
@@ -1008,7 +1129,7 @@ input:focus-visible {
   position: absolute;
   right: 0;
   left: 0;
-  border-top: 1px solid rgb(70 81 94 / 25%);
+  border-top: 1px solid var(--chart-grid);
 }
 
 .line-one { top: 23%; }
@@ -1054,7 +1175,7 @@ input:focus-visible {
 .bar-column > span {
   height: 21px;
   padding-top: 8px;
-  color: #788492;
+  color: var(--chart-axis-strong);
   font-size: 9px;
   white-space: nowrap;
 }
@@ -1063,11 +1184,13 @@ input:focus-visible {
   width: min(26px, 65%);
   min-height: 12px;
   border-radius: 4px 4px 2px 2px;
-  background: linear-gradient(180deg, #ffc27f 0%, var(--orange) 100%);
-  box-shadow: 0 4px 12px rgb(243 164 95 / 13%);
+  background: linear-gradient(180deg, var(--chart-calorie-start) 0%, var(--chart-calorie-end) 100%);
+  box-shadow: 0 4px 12px var(--chart-bar-shadow);
 }
 
-.bar-column:nth-child(5) .bar { background: linear-gradient(180deg, #ffd18f 0%, #e88b4c 100%); }
+.bar-column:nth-child(5) .bar {
+  background: linear-gradient(180deg, var(--chart-calorie-emphasis-start) 0%, var(--chart-calorie-emphasis-end) 100%);
+}
 .bar.bar-empty { min-height: 0; background: transparent; box-shadow: none; }
 
 .macro-trend-legend { flex-wrap: wrap; }
@@ -1084,7 +1207,7 @@ input:focus-visible {
   flex-direction: column;
   justify-content: space-between;
   padding: 3px 5px 21px 0;
-  color: #778391;
+  color: var(--chart-axis);
   font-size: 9px;
   text-align: right;
 }
@@ -1092,7 +1215,7 @@ input:focus-visible {
 .macro-trend-plot {
   position: relative;
   min-width: 0;
-  border-top: 1px solid rgb(70 81 94 / 25%);
+  border-top: 1px solid var(--chart-grid);
   border-bottom: 1px solid var(--line);
 }
 
@@ -1101,7 +1224,7 @@ input:focus-visible {
   top: 50%;
   right: 0;
   left: 0;
-  border-top: 1px solid rgb(70 81 94 / 25%);
+  border-top: 1px solid var(--chart-grid);
 }
 
 .macro-trend-bars {
@@ -1134,8 +1257,8 @@ input:focus-visible {
   flex-direction: column;
   justify-content: flex-end;
   border-radius: 5px 5px 2px 2px;
-  background: #202b36;
-  box-shadow: 0 4px 12px rgb(0 0 0 / 14%);
+  background: var(--chart-base);
+  box-shadow: 0 4px 12px var(--chart-stack-shadow);
 }
 
 .macro-segment { display: block; width: 100%; min-height: 1px; }
@@ -1154,7 +1277,7 @@ input:focus-visible {
 .macro-trend-column > span {
   height: 21px;
   padding-top: 8px;
-  color: #788492;
+  color: var(--chart-axis-strong);
   font-size: 9px;
   text-align: center;
   white-space: nowrap;
@@ -1165,7 +1288,7 @@ input:focus-visible {
 .bar-value {
   position: absolute;
   top: 1px;
-  color: #8f9aa8;
+  color: var(--chart-value);
   font-size: 9px;
   opacity: 0;
   transition: opacity 150ms ease;
@@ -1245,16 +1368,18 @@ input:focus-visible {
 
 .weight-bar {
   min-height: 8px;
-  background: linear-gradient(180deg, #a4d9b7 0%, #5da982 100%);
-  box-shadow: 0 4px 12px rgb(99 187 139 / 13%);
+  background: linear-gradient(180deg, var(--chart-weight-start) 0%, var(--chart-weight-end) 100%);
+  box-shadow: 0 4px 12px var(--chart-weight-shadow);
 }
 
-.weight-column:nth-child(5) .weight-bar { background: linear-gradient(180deg, #b8e7c6 0%, #72ba91 100%); }
+.weight-column:nth-child(5) .weight-bar {
+  background: linear-gradient(180deg, var(--chart-weight-emphasis-start) 0%, var(--chart-weight-emphasis-end) 100%);
+}
 
 .weight-gap {
   height: 21px;
   padding-top: 8px;
-  color: #65717e;
+  color: var(--chart-gap);
   font-size: 10px;
 }
 
@@ -1307,7 +1432,7 @@ input:focus-visible {
   left: 0;
   height: 21px;
   padding-top: 8px;
-  color: #788492;
+  color: var(--chart-axis-strong);
   font-size: 9px;
   text-align: center;
   white-space: nowrap;
@@ -1322,7 +1447,7 @@ input:focus-visible {
   min-height: 215px;
   margin-top: 9px;
   padding: 24px;
-  border: 1px dashed #354150;
+  border: 1px dashed var(--chart-empty-border);
   border-radius: 9px;
   color: var(--muted);
   text-align: center;
@@ -1444,14 +1569,14 @@ input:focus-visible {
   margin-top: 15px;
 }
 
-.text-button:hover { color: #ffd29f; }
+.text-button:hover { color: var(--text-button-hover); }
 
 .show-note-button {
   width: 100%;
   min-height: 47px;
-  border: 1px dashed #5a4e39;
+  border: 1px dashed var(--button-secondary-border);
   border-radius: 9px;
-  background: #1c1d1b;
+  background: var(--button-secondary-background);
 }
 
 .macro-panel,
@@ -1605,7 +1730,7 @@ input:focus-visible {
   padding: 12px 13px;
   border: 1px solid var(--line-soft);
   border-radius: 9px;
-  background: rgb(21 27 36 / 56%);
+  background: var(--tip-background);
 }
 
 .tip-icon {
@@ -1639,9 +1764,9 @@ input:focus-visible {
   gap: 14px;
   margin-top: 17px;
   padding: 14px 15px;
-  border: 1px solid #354150;
+  border: 1px solid var(--form-control-border);
   border-radius: 9px;
-  background: #111820;
+  background: var(--reading-background);
 }
 
 .weight-reading strong {
@@ -1706,10 +1831,10 @@ input:focus-visible {
   width: 100%;
   min-height: 31px;
   padding: 5px 8px;
-  border: 1px solid #354150;
+  border: 1px solid var(--form-control-border);
   border-radius: 6px;
   outline: 0;
-  background: #111720;
+  background: var(--form-control-background);
   color: var(--foreground);
   font-size: 11px;
 }
@@ -1725,7 +1850,7 @@ input:focus-visible {
 }
 
 .cancel-button:hover {
-  background: rgb(255 255 255 / 5%);
+  background: var(--button-quiet-hover-background);
   color: var(--foreground);
 }
 
@@ -1944,7 +2069,7 @@ input:focus-visible {
 }
 
 .copy-button:hover,
-.duplicate-button:hover { color: #acd8ee; }
+.duplicate-button:hover { color: var(--text-blue-hover); }
 
 .meal-actions {
   display: flex;
@@ -1968,12 +2093,12 @@ input:focus-visible {
   min-height: 30px;
   padding: 5px 7px;
   border-radius: 5px;
-  background: rgb(255 255 255 / 3%);
+  background: var(--button-action-background);
   font-size: 10px;
   text-align: center;
 }
 
-.meal-actions button:hover { background: rgb(255 255 255 / 7%); }
+.meal-actions button:hover { background: var(--button-action-hover-background); }
 
 .edit-button:disabled,
 .delete-button:disabled,
@@ -1988,7 +2113,7 @@ input:focus-visible {
   text-align: right;
 }
 
-.delete-button:hover { color: #efb09c; }
+.delete-button:hover { color: var(--text-danger-hover); }
 
 .inline-editor {
   display: grid;
@@ -2011,10 +2136,10 @@ input:focus-visible {
   width: 100%;
   min-height: 31px;
   padding: 5px 8px;
-  border: 1px solid #354150;
+  border: 1px solid var(--form-control-border);
   border-radius: 6px;
   outline: 0;
-  background: #111720;
+  background: var(--form-control-background);
   color: var(--foreground);
   font-size: 11px;
 }
@@ -2032,7 +2157,7 @@ input:focus-visible {
   padding: 4px 7px;
   border: 0;
   border-radius: 4px;
-  background: #2a3643;
+  background: var(--file-button-background);
   color: var(--muted-strong);
   font: inherit;
 }
@@ -2103,9 +2228,9 @@ input:focus-visible {
   gap: 6px;
   min-height: 30px;
   padding: 5px 9px;
-  border: 1px solid #3c4a58;
+  border: 1px solid var(--button-secondary-border);
   border-radius: 7px;
-  background: #17212b;
+  background: var(--button-secondary-background);
   color: var(--muted-strong);
   font-size: 10px;
   font-weight: 700;
@@ -2292,10 +2417,10 @@ input:focus-visible {
   min-height: 32px;
   max-width: min(100%, 270px);
   padding: 5px 28px 5px 9px;
-  border: 1px solid #354150;
+  border: 1px solid var(--form-control-border);
   border-radius: 6px;
   outline: 0;
-  background: #111720;
+  background: var(--form-control-background);
   color: var(--foreground);
   font: inherit;
   font-size: 11px;
@@ -2330,7 +2455,7 @@ input:focus-visible {
   flex-direction: column;
   justify-content: space-between;
   padding: 3px 0 25px;
-  color: var(--muted);
+  color: var(--chart-axis);
   font-size: 9px;
   text-align: right;
 }
@@ -2426,7 +2551,7 @@ input:focus-visible {
   display: grid;
   place-items: center;
   height: 8px;
-  color: #677481;
+  color: var(--chart-gap);
   font-size: 12px;
 }
 
@@ -2437,9 +2562,9 @@ input:focus-visible {
 .advanced-nutrition-editor {
   grid-column: 1 / -1;
   width: 100%;
-  border: 1px solid #354150;
+  border: 1px solid var(--form-control-border);
   border-radius: 7px;
-  background: #131b24;
+  background: var(--editor-background);
 }
 
 .advanced-nutrition-editor > summary {
@@ -2499,10 +2624,10 @@ input:focus-visible {
   width: 100%;
   min-height: 30px;
   padding: 5px 7px;
-  border: 1px solid #354150;
+  border: 1px solid var(--form-control-border);
   border-radius: 5px;
   outline: 0;
-  background: #111720;
+  background: var(--form-control-background);
   color: var(--foreground);
   font-size: 10px;
 }
@@ -2520,16 +2645,16 @@ input:focus-visible {
   font-weight: 650;
 }
 
-.nutrition-details-button:hover { color: #acd8ee; }
+.nutrition-details-button:hover { color: var(--text-blue-hover); }
 
 .meal-nutrition-detail-card {
   display: grid;
   gap: 11px;
   margin-top: 3px;
   padding: 13px;
-  border: 1px solid #354150;
+  border: 1px solid var(--form-control-border);
   border-radius: 8px;
-  background: #111820;
+  background: var(--detail-card-background);
 }
 
 .meal-nutrition-detail-heading,
@@ -2624,7 +2749,7 @@ input:focus-visible {
 
 .correction-button:hover {
   border-color: var(--blue);
-  background: #25323e;
+  background: var(--button-secondary-hover-background);
 }
 
 .done-button:disabled,
@@ -2696,9 +2821,9 @@ input:focus-visible {
   gap: 9px;
   margin: 16px 21px 0;
   padding: 14px;
-  border: 1px solid #394657;
+  border: 1px solid var(--form-control-border);
   border-radius: 9px;
-  background: #111820;
+  background: var(--form-container-background);
 }
 
 .form-heading {
@@ -2730,7 +2855,7 @@ input:focus-visible {
   line-height: 1;
 }
 
-.close-button:hover { background: rgb(255 255 255 / 7%); color: var(--foreground); }
+.close-button:hover { background: var(--button-quiet-hover-background); color: var(--foreground); }
 
 .photo-preview-backdrop {
   position: fixed;
@@ -2854,8 +2979,8 @@ input:focus-visible {
 :root[data-theme="light"] .secondary-button,
 :root[data-theme="light"] .nutrition-section-toggle,
 :root[data-theme="light"] .chart-range-select {
-  border-color: var(--line);
-  background: var(--surface-soft);
+  border-color: var(--button-secondary-border);
+  background: var(--button-secondary-background);
   color: var(--muted-strong);
 }
 
@@ -2889,7 +3014,7 @@ input:focus-visible {
 :root[data-theme="light"] .macro-stack { background: #e1eae5; }
 
 :root[data-theme="light"] .chart-empty {
-  border-color: #bdcbc3;
+  border-color: var(--chart-empty-border);
 }
 
 :root[data-theme="light"] .history-row:hover,
@@ -2913,8 +3038,8 @@ input:focus-visible {
 }
 
 :root[data-theme="light"] .weight-reading {
-  border-color: #bdcbc3;
-  background: var(--surface-soft);
+  border-color: var(--form-control-border);
+  background: var(--reading-background);
 }
 
 :root[data-theme="light"] .weight-reading strong small,
@@ -2944,12 +3069,12 @@ input:focus-visible {
 
 :root[data-theme="light"] .ai-note p { color: #5e6a65; }
 
-:root[data-theme="light"] .meal-actions button { background: rgb(31 42 42 / 5%); }
-:root[data-theme="light"] .meal-actions button:hover { background: rgb(31 42 42 / 9%); }
+:root[data-theme="light"] .meal-actions button { background: var(--button-action-background); }
+:root[data-theme="light"] .meal-actions button:hover { background: var(--button-action-hover-background); }
 
 :root[data-theme="light"] .inline-editor input[type="file"]::file-selector-button,
 :root[data-theme="light"] .add-meal-form input[type="file"]::file-selector-button {
-  background: #e2ebe6;
+  background: var(--file-button-background);
   color: var(--muted-strong);
 }
 
