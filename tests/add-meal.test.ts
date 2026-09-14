@@ -582,3 +582,111 @@ test("identical meal data with different UUIDs creates two meals", async () => {
   assert.equal(second.status, 201);
   assert.deepEqual(ids, [REQUEST_ID, OTHER_REQUEST_ID]);
 });
+
+test("returns current daily calorie and protein totals after a meal is added", async () => {
+  const response = await handler(
+    async (ownerKey, input, photo) => ({ created: true, meal: entry(ownerKey, input, undefined, photo) }),
+    mealBody(),
+    {
+      getDailyTotals: async () => ({
+        date: "2026-08-30",
+        calories: 1_420,
+        proteinG: 112,
+        mealCount: 3,
+      }),
+    },
+  );
+
+  assert.equal(response.status, 201);
+  assert.deepEqual((await response.json() as Record<string, unknown>).daily_totals, {
+    date: "2026-08-30",
+    kcal: 1_420,
+    protein: 112,
+    meal_count: 3,
+  });
+});
+
+test("creates a batch and returns one daily total for the whole batch", async () => {
+  const secondId = OTHER_REQUEST_ID;
+  const body = {
+    meals: [
+      mealBody(),
+      mealBody({ request_id: secondId, name: "Greek yogurt", kcal: 220, protein: 20 }),
+    ],
+  };
+  const created: string[] = [];
+  const response = await handler(
+    async () => {
+      throw new Error("single-meal creator must not be used for a batch");
+    },
+    body,
+    {
+      createMeals: async (ownerKey, requests) => {
+        created.push(...requests.map(({ request }) => request.requestId));
+        return requests.map(({ request, photo }) => ({
+          created: true,
+          meal: entry(ownerKey, request, undefined, photo),
+        }));
+      },
+      getDailyTotals: async () => ({ date: "2026-08-30", calories: 830, proteinG: 78, mealCount: 4 }),
+    },
+  );
+
+  assert.equal(response.status, 201);
+  const payload = await response.json() as Record<string, unknown>;
+  assert.equal(payload.status, "batch_processed");
+  assert.equal(payload.created_count, 2);
+  assert.equal(payload.already_exists_count, 0);
+  assert.deepEqual(created, [REQUEST_ID, secondId]);
+  assert.deepEqual(payload.daily_totals, {
+    date: "2026-08-30",
+    kcal: 830,
+    protein: 78,
+    meal_count: 4,
+  });
+  assert.deepEqual((payload.meals as Array<Record<string, unknown>>).map((meal) => meal.status), ["created", "created"]);
+});
+
+test("batch retries return already_exists without creating duplicates", async () => {
+  const body = { meals: [mealBody(), mealBody({ request_id: OTHER_REQUEST_ID, name: "Greek yogurt" })] };
+  const stored = new Map<string, MealWithItems>();
+  let createCalls = 0;
+  const options = {
+    findExistingMeal: async (_ownerKey: string, requestId: string) => stored.get(requestId) ?? null,
+    createMeals: async (ownerKey: string, requests: Array<{ request: AddMealRequest; photo: StoredAddMealPhoto | null }>) => {
+      createCalls += 1;
+      const results = requests.map(({ request, photo }) => {
+        const meal = entry(ownerKey, request, undefined, photo);
+        stored.set(request.requestId, meal);
+        return { created: true, meal };
+      });
+      return results;
+    },
+    getDailyTotals: async () => ({ date: "2026-08-30", calories: 830, proteinG: 78, mealCount: 2 }),
+  } satisfies Partial<Omit<AddMealHandlerOptions, "createMeal" | "expectedToken" | "ownerKey" | "body">>;
+
+  const first = await handler(async () => {
+    throw new Error("single-meal creator must not be used for a batch");
+  }, body, options);
+  const retry = await handler(async () => {
+    throw new Error("the idempotency pre-check should return both meals");
+  }, body, options);
+
+  assert.equal(first.status, 201);
+  assert.equal(retry.status, 200);
+  const payload = await retry.json() as Record<string, unknown>;
+  assert.equal(payload.created_count, 0);
+  assert.equal(payload.already_exists_count, 2);
+  assert.deepEqual((payload.meals as Array<Record<string, unknown>>).map((meal) => meal.status), ["already_exists", "already_exists"]);
+  assert.equal(createCalls, 1);
+});
+
+test("rejects duplicate request IDs inside a batch before creation", async () => {
+  await assert.rejects(
+    () => handler(async () => {
+      throw new Error("must not create");
+    }, { meals: [mealBody(), mealBody({ name: "Duplicate UUID" })] }),
+    (error: unknown) => error instanceof AddMealRequestError
+      && error.status === 400 && error.code === "invalid_field",
+  );
+});

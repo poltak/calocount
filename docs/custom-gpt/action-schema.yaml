@@ -3,7 +3,7 @@ openapi: 3.1.0
 info:
   title: Calocount Meal API
   description: Adds meals, detailed nutrition estimates, and optional meal photos to the user's personal tracker.
-  version: 1.1.0
+  version: 1.2.0
 
 servers:
   - url: https://YOUR-CALOCOUNT-HOST.example.com
@@ -14,10 +14,11 @@ paths:
       operationId: addMeal
       summary: Add a meal to Calocount
       description: >
-        Adds one confirmed meal to the user's personal tracker. Calories and
+        Adds one or more meals to the user's personal tracker. Calories and
         macros are required. Detailed nutrients and one user-uploaded meal
-        image are optional. Only call this operation after the user confirms
-        the complete estimate.
+        image per meal are optional. Call this operation when the user's
+        logging intent is explicit. The response includes the current logical
+        day's calorie and protein totals.
       security:
         - bearerAuth: []
       requestBody:
@@ -25,86 +26,58 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              additionalProperties: false
-              required:
-                - request_id
-                - name
-                - kcal
-                - protein
-                - carbs
-                - fat
-                - eaten_at
-              properties:
-                request_id:
-                  type: string
-                  format: uuid
-                  description: >
-                    UUID generated for this meal logging request. Reuse the
-                    same UUID only when retrying the same request.
-                name:
-                  type: string
-                  maxLength: 200
-                  description: Concise human-readable description of the meal.
-                kcal:
-                  type: number
-                  minimum: 0
-                  maximum: 100000
-                  description: Estimated calories in kilocalories for the full meal.
-                protein:
-                  type: number
-                  minimum: 0
-                  maximum: 10000
-                  description: Estimated protein in grams for the full meal.
-                carbs:
-                  type: number
-                  minimum: 0
-                  maximum: 10000
-                  description: Estimated carbohydrates in grams for the full meal.
-                fat:
-                  type: number
-                  minimum: 0
-                  maximum: 10000
-                  description: Estimated fat in grams for the full meal.
-                eaten_at:
-                  type: string
-                  format: date-time
-                  description: >
-                    Time the meal was eaten in ISO 8601 format, including its
-                    UTC offset.
-                nutrients:
-                  $ref: "#/components/schemas/Nutrients"
-                openaiFileIdRefs:
-                  type: array
-                  maxItems: 1
-                  description: >
-                    Optional user-uploaded image of the meal being logged.
-                    Send at most one original meal photo. Supported images are
-                    JPEG, PNG, or WEBP. Omit this field when the user did not
-                    provide a meal image.
-                  items:
-                    type: string
+              oneOf:
+                - $ref: "#/components/schemas/MealRequest"
+                - $ref: "#/components/schemas/BatchMealRequest"
       responses:
         "200":
-          description: Meal logging result.
+          description: >
+            Meal logging result. This status is returned for an idempotent
+            retry, or for a batch in which every request UUID already exists.
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - status
-                properties:
-                  status:
-                    type: string
-                    enum:
-                      - created
-                      - already_exists
+                oneOf:
+                  - $ref: "#/components/schemas/SingleMealResponse"
+                  - $ref: "#/components/schemas/BatchMealResponse"
+        "201":
+          description: At least one new meal was created.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/SingleMealResponse"
+                  - $ref: "#/components/schemas/BatchMealResponse"
         "400":
-          description: Invalid meal data or image.
+          description: Invalid meal data, batch, or image.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "401":
           description: Missing or invalid authentication.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "413":
+          description: Image payload is too large.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Required endpoint configuration is unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "500":
           description: Unexpected server error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
 components:
   securitySchemes:
@@ -112,6 +85,227 @@ components:
       type: http
       scheme: bearer
   schemas:
+    MealRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - request_id
+        - name
+        - kcal
+        - protein
+        - carbs
+        - fat
+        - eaten_at
+      properties:
+        request_id:
+          type: string
+          format: uuid
+          description: >
+            UUID generated for this meal logging request. Reuse the same UUID
+            only when retrying the same request.
+        name:
+          type: string
+          maxLength: 200
+          description: Concise human-readable description of the meal.
+        kcal:
+          type: number
+          minimum: 0
+          maximum: 100000
+          description: Estimated calories in kilocalories for the full meal.
+        protein:
+          type: number
+          minimum: 0
+          maximum: 10000
+          description: Estimated protein in grams for the full meal.
+        carbs:
+          type: number
+          minimum: 0
+          maximum: 10000
+          description: Estimated carbohydrates in grams for the full meal.
+        fat:
+          type: number
+          minimum: 0
+          maximum: 10000
+          description: Estimated fat in grams for the full meal.
+        eaten_at:
+          type: string
+          format: date-time
+          description: Time the meal was eaten in ISO 8601 format, including its UTC offset.
+        nutrients:
+          $ref: "#/components/schemas/Nutrients"
+        openaiFileIdRefs:
+          type: array
+          maxItems: 1
+          description: >
+            Optional user-uploaded image reference for this meal. The Custom
+            GPT file upload flow supplies the reference metadata. Send at most
+            one original meal photo. Supported images are JPEG, PNG, or WEBP.
+          items:
+            $ref: "#/components/schemas/OpenAIFileRef"
+
+    BatchMealRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - meals
+      properties:
+        meals:
+          type: array
+          minItems: 1
+          maxItems: 20
+          description: >
+            Meals to add atomically. Each request_id must be unique in this
+            array. A retry with the same request IDs returns already_exists for
+            the entries already stored and does not create duplicates.
+          items:
+            $ref: "#/components/schemas/MealRequest"
+
+    OpenAIFileRef:
+      type: object
+      additionalProperties: false
+      required:
+        - mime_type
+        - download_link
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        mime_type:
+          type: string
+          enum:
+            - image/jpeg
+            - image/png
+            - image/webp
+        download_link:
+          type: string
+          format: uri
+
+    DailyTotals:
+      type: object
+      additionalProperties: false
+      required:
+        - date
+        - kcal
+        - protein
+        - meal_count
+      properties:
+        date:
+          type: string
+          format: date
+          description: Current logical date in the user's saved timezone.
+        kcal:
+          type: number
+          minimum: 0
+          description: Total calories logged for the logical day.
+        protein:
+          type: number
+          minimum: 0
+          description: Total protein in grams logged for the logical day.
+        meal_count:
+          type: integer
+          minimum: 0
+          description: Number of complete meals logged for the logical day.
+
+    MealResult:
+      type: object
+      required:
+        - status
+        - meal_id
+        - request_id
+        - name
+        - kcal
+        - protein
+        - carbs
+        - fat
+        - eaten_at
+        - has_image
+      properties:
+        status:
+          type: string
+          enum:
+            - created
+            - already_exists
+        meal_id:
+          type: string
+        request_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        kcal:
+          type: number
+        protein:
+          type: number
+        carbs:
+          type: number
+        fat:
+          type: number
+        eaten_at:
+          type: string
+          format: date-time
+        has_image:
+          type: boolean
+        photo_status:
+          type: string
+          enum:
+            - download_failed
+
+    SingleMealResponse:
+      allOf:
+        - $ref: "#/components/schemas/MealResult"
+        - type: object
+          required:
+            - daily_totals
+          properties:
+            daily_totals:
+              $ref: "#/components/schemas/DailyTotals"
+
+    BatchMealResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - status
+        - created_count
+        - already_exists_count
+        - meals
+        - daily_totals
+      properties:
+        status:
+          type: string
+          enum:
+            - batch_processed
+        created_count:
+          type: integer
+          minimum: 0
+        already_exists_count:
+          type: integer
+          minimum: 0
+        meals:
+          type: array
+          items:
+            $ref: "#/components/schemas/MealResult"
+        daily_totals:
+          $ref: "#/components/schemas/DailyTotals"
+
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+
     Nutrients:
       type: object
       additionalProperties: false

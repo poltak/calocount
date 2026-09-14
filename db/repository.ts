@@ -84,6 +84,23 @@ export type ExternalMealResult = {
   meal: MealWithItems;
 };
 
+export type ExternalMealInput = Omit<MealInput, "externalRequestId" | "id" | "items"> & {
+  requestId: string;
+  name: string;
+  kcal: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  nutrients?: PartialNutrientValues;
+};
+
+export type CurrentDayMealTotals = {
+  date: string;
+  calories: number;
+  proteinG: number;
+  mealCount: number;
+};
+
 export type { NutrientAggregateMap } from "../domain/nutrients";
 
 export type DailyWeightInput = {
@@ -608,73 +625,90 @@ export async function createMeal(db: AppDb, ownerKey: string, input: MealInput):
 }
 
 /**
- * Create the single-item meal used by the ChatGPT Action integration.
+ * Create one or more meals for the ChatGPT Action integration.
  *
- * Both rows use deterministic IDs derived from the UUID. D1 batches are
- * atomic, and both inserts ignore conflicts, so concurrent retries cannot
- * create duplicate meals or items. A retry can also repair an item that was
- * absent from an older partially-created row.
+ * Each meal and its serving item use deterministic IDs derived from the
+ * request UUID. D1 batches are atomic, and both inserts ignore conflicts, so
+ * concurrent retries cannot create duplicate meals or items. A retry can
+ * also repair an item that was absent from an older partially-created row.
  */
+export async function createMealsForExternalRequests(
+  db: AppDb,
+  ownerKey: string,
+  inputs: readonly ExternalMealInput[],
+): Promise<ExternalMealResult[]> {
+  if (inputs.length === 0) return [];
+
+  const timestamp = nowMs();
+  const statements = inputs.flatMap((input) => {
+    const mealId = `meal_external_${input.requestId}`;
+    const itemId = `item_external_${input.requestId}`;
+    const mealInsert = db.insert(mealLogs).values({
+      id: mealId,
+      ownerKey,
+      consumedAt: input.consumedAt ?? timestamp,
+      source: input.source?.trim() || "chatgpt",
+      caption: input.caption?.trim() || input.name.trim(),
+      mealType: input.mealType ?? null,
+      status: input.status?.trim() || "complete",
+      photoKey: input.photoKey ?? null,
+      photoMimeType: input.photoMimeType ?? null,
+      photoSizeBytes: input.photoSizeBytes ?? null,
+      totalCalories: input.kcal,
+      totalProteinG: input.protein,
+      totalCarbsG: input.carbs,
+      totalFatG: input.fat,
+      confidence: input.confidence ?? null,
+      assumptionsJson: safeJson(input.assumptions, []),
+      notes: input.notes ?? null,
+      externalRequestId: input.requestId,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    }).onConflictDoNothing({ target: mealLogs.externalRequestId }).returning();
+    const itemInsert = db.insert(mealItems).values({
+      id: itemId,
+      mealId,
+      ownerKey,
+      name: input.name.trim(),
+      quantity: 1,
+      unit: "serving",
+      calories: input.kcal,
+      proteinG: input.protein,
+      carbsG: input.carbs,
+      fatG: input.fat,
+      ...normaliseNutrientFields(input.nutrients ?? {}),
+      confidence: null,
+      source: input.source?.trim() || "chatgpt",
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    }).onConflictDoNothing({ target: mealItems.id });
+    return [mealInsert, itemInsert];
+  });
+
+  const results = await db.batch(statements as [
+    (typeof statements)[number],
+    ...(typeof statements)[number][],
+  ]);
+  return Promise.all(inputs.map(async (input, index) => {
+    const meal = await findMealByExternalRequestId(db, ownerKey, input.requestId);
+    if (!meal) throw new Error("external_meal_create_failed");
+    const insertedMeals = results[index * 2];
+    return { created: Array.isArray(insertedMeals) && insertedMeals.length > 0, meal };
+  }));
+}
+
 export async function createMealForExternalRequest(
   db: AppDb,
   ownerKey: string,
   externalRequestId: string,
-  input: Omit<MealInput, "externalRequestId" | "id" | "items"> & {
-    name: string;
-    kcal: number;
-    protein: number;
-    carbs: number;
-    fat: number;
-    nutrients?: PartialNutrientValues;
-  },
+  input: Omit<ExternalMealInput, "requestId">,
 ): Promise<ExternalMealResult> {
-  const mealId = `meal_external_${externalRequestId}`;
-  const itemId = `item_external_${externalRequestId}`;
-  const timestamp = nowMs();
-  const mealInsert = db.insert(mealLogs).values({
-    id: mealId,
-    ownerKey,
-    consumedAt: input.consumedAt ?? timestamp,
-    source: input.source?.trim() || "chatgpt",
-    caption: input.caption?.trim() || input.name.trim(),
-    mealType: input.mealType ?? null,
-    status: input.status?.trim() || "complete",
-    photoKey: input.photoKey ?? null,
-    photoMimeType: input.photoMimeType ?? null,
-    photoSizeBytes: input.photoSizeBytes ?? null,
-    totalCalories: input.kcal,
-    totalProteinG: input.protein,
-    totalCarbsG: input.carbs,
-    totalFatG: input.fat,
-    confidence: input.confidence ?? null,
-    assumptionsJson: safeJson(input.assumptions, []),
-    notes: input.notes ?? null,
-    externalRequestId,
-    createdAt: timestamp,
-    updatedAt: timestamp,
-  }).onConflictDoNothing({ target: mealLogs.externalRequestId }).returning();
-  const itemInsert = db.insert(mealItems).values({
-    id: itemId,
-    mealId,
-    ownerKey,
-    name: input.name.trim(),
-    quantity: 1,
-    unit: "serving",
-    calories: input.kcal,
-    proteinG: input.protein,
-    carbsG: input.carbs,
-    fatG: input.fat,
-    ...normaliseNutrientFields(input.nutrients ?? {}),
-    confidence: null,
-    source: input.source?.trim() || "chatgpt",
-    createdAt: timestamp,
-    updatedAt: timestamp,
-  }).onConflictDoNothing({ target: mealItems.id });
-
-  const [insertedMeals] = await db.batch([mealInsert, itemInsert]);
-  const meal = await findMealByExternalRequestId(db, ownerKey, externalRequestId);
-  if (!meal) throw new Error("external_meal_create_failed");
-  return { created: insertedMeals.length > 0, meal };
+  const [result] = await createMealsForExternalRequests(db, ownerKey, [{
+    requestId: externalRequestId,
+    ...input,
+  }]);
+  if (!result) throw new Error("external_meal_create_failed");
+  return result;
 }
 
 export async function updateMeal(
@@ -799,6 +833,30 @@ export async function getSettings(db: AppDb, ownerKey: string) {
     .limit(1)
     .prepare()
     .get();
+}
+
+export async function getCurrentDayMealTotals(
+  db: AppDb,
+  ownerKey: string,
+  options: { now?: Date } = {},
+): Promise<CurrentDayMealTotals> {
+  const settingsRow = await getSettings(db, ownerKey);
+  const timezone = resolvedDashboardTimezone(settingsRow?.timezone);
+  const now = options.now ?? new Date();
+  const formatter = dateTimeFormatter(timezone);
+  const logicalDate = dateKeyFromParts(zonedDateParts(formatter, now.getTime()));
+  const startMs = firstInstantForLocalDate({ date: logicalDate, formatter });
+  const endMs = firstInstantForLocalDate({ date: shiftDateKey(logicalDate, 1), formatter });
+  const meals = await listMealsInRange({ db, ownerKey, from: startMs, to: endMs });
+  return meals.reduce((totals, entry) => {
+    if (entry.meal.status !== "complete") return totals;
+    return {
+      date: logicalDate,
+      calories: totals.calories + entry.meal.totalCalories,
+      proteinG: totals.proteinG + entry.meal.totalProteinG,
+      mealCount: totals.mealCount + 1,
+    };
+  }, { date: logicalDate, calories: 0, proteinG: 0, mealCount: 0 });
 }
 
 export async function upsertSettings(db: AppDb, ownerKey: string, patch: SettingsPatch) {

@@ -1,6 +1,6 @@
 # Calocount custom GPT setup
 
-This directory contains reusable files for a custom GPT that estimates meal nutrition and logs confirmed meals to a Calocount deployment.
+This directory contains reusable files for a custom GPT that estimates meal nutrition and logs explicitly requested meals to a Calocount deployment.
 
 - [`instructions.md`](./instructions.md) contains the GPT instructions.
 - [`action-schema.yaml`](./action-schema.yaml) defines the `addMeal` action.
@@ -62,10 +62,12 @@ Use the GPT preview and give it a simple meal, for example:
 Check these behaviors:
 
 1. The GPT estimates calories, protein, carbohydrates, fat, and useful detailed nutrients.
-2. It asks for confirmation before it calls `addMeal`.
-3. After confirmation, the action returns `created` and the meal appears in Calocount.
-4. Repeating the same action request with the same `request_id` returns `already_exists` and does not create a duplicate.
-5. A meal photo is optional and is sent only when the user supplied one for that meal.
+2. A request that includes clear logging intent, such as "log this meal", calls `addMeal` without a second confirmation.
+3. A request that asks only for an estimate does not call `addMeal`.
+4. After logging, the action returns `created` and `daily_totals` with the current logical day's calories and protein.
+5. Repeating the same action request with the same `request_id` returns `already_exists` and does not create a duplicate.
+6. A request that clearly logs multiple meals sends one `meals` batch, and the response reports each result plus one `daily_totals` value.
+7. A meal photo is optional and is sent only when the user supplied one for that meal.
 
 If the action returns `401`, confirm that the GPT bearer token and the deployed `CALOCOUNT_CHATGPT_MEAL_TOKEN` are identical. If the action cannot connect, confirm that the schema origin is public HTTPS and that `/api/add-meal` is not behind an interactive access screen.
 

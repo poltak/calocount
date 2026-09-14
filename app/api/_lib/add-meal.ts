@@ -13,6 +13,7 @@ const MAX_NAME_LENGTH = 200;
 const MAX_KCAL = 100_000;
 const MAX_MACRO = 10_000;
 const MAX_OPENAI_FILE_REFS = 20;
+const MAX_BATCH_MEALS = 20;
 const ISO_DATETIME = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,9}))?(Z|[+-](\d{2}):(\d{2}))$/u;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
 const OPENAI_FILE_BASE_DOMAIN = "oaiusercontent.com";
@@ -56,6 +57,13 @@ export type AddMealRequest = {
   nutrients?: PartialNutrientValues;
 };
 
+export type DailyMealTotals = {
+  date: string;
+  calories: number;
+  proteinG: number;
+  mealCount: number;
+};
+
 export type StoredAddMealPhoto = {
   readonly key: string;
   readonly mimeType: SupportedMealPhotoType;
@@ -70,6 +78,7 @@ export type AddMealHandlerOptions = {
   readBody?: () => Promise<Record<string, unknown>>;
   /** This pre-check avoids a second download on a normal sequential retry. */
   findExistingMeal?: (ownerKey: string, requestId: string) => Promise<MealWithItems | null>;
+  getDailyTotals?: (ownerKey: string, now: number) => Promise<DailyMealTotals>;
   fetchImage?: typeof fetch;
   uploadPhoto?: (
     ownerKey: string,
@@ -82,6 +91,10 @@ export type AddMealHandlerOptions = {
     request: AddMealRequest,
     photo: StoredAddMealPhoto | null,
   ) => Promise<ExternalMealResult>;
+  createMeals?: (
+    ownerKey: string,
+    requests: Array<{ request: AddMealRequest; photo: StoredAddMealPhoto | null }>,
+  ) => Promise<ExternalMealResult[]>;
 };
 
 function invalidField(field: string, detail: string): never {
@@ -275,6 +288,34 @@ export function parseAddMealRequest(body: Record<string, unknown>, now = Date.no
   };
 }
 
+export function parseAddMealRequests(
+  body: Record<string, unknown>,
+  now = Date.now(),
+): { batch: boolean; requests: AddMealRequest[] } {
+  if (!("meals" in body)) {
+    return { batch: false, requests: [parseAddMealRequest(body, now)] };
+  }
+
+  const value = body.meals;
+  if (!Array.isArray(value)) invalidField("meals", "must be an array");
+  if (value.length < 1) invalidField("meals", "must contain at least one meal");
+  if (value.length > MAX_BATCH_MEALS) invalidField("meals", `must contain at most ${MAX_BATCH_MEALS} meals`);
+
+  const requestIds = new Set<string>();
+  const requests = value.map((meal, index) => {
+    if (!meal || typeof meal !== "object" || Array.isArray(meal)) {
+      invalidField(`meals[${index}]`, "must be an object");
+    }
+    const request = parseAddMealRequest(meal as Record<string, unknown>, now);
+    if (requestIds.has(request.requestId)) {
+      invalidField(`meals[${index}].request_id`, "must be unique within the batch");
+    }
+    requestIds.add(request.requestId);
+    return request;
+  });
+  return { batch: true, requests };
+}
+
 async function tokensMatch(expectedToken: string, actualToken: string): Promise<boolean> {
   const encoder = new TextEncoder();
   const [expectedHash, actualHash] = await Promise.all([
@@ -303,14 +344,23 @@ async function authenticate(request: Request, expectedToken: string | undefined)
   }
 }
 
-function responseForMeal(
+function dailyTotalsPayload(totals: DailyMealTotals) {
+  return {
+    date: totals.date,
+    kcal: totals.calories,
+    protein: totals.proteinG,
+    meal_count: totals.mealCount,
+  };
+}
+
+function mealResponsePayload(
   status: "created" | "already_exists",
   entry: MealWithItems,
   requestId: string,
   photoStatus?: "download_failed",
-): Response {
+): Record<string, unknown> {
   const meal = entry.meal;
-  return Response.json({
+  return {
     status,
     meal_id: meal.id,
     request_id: meal.externalRequestId ?? requestId,
@@ -322,10 +372,31 @@ function responseForMeal(
     eaten_at: new Date(meal.consumedAt).toISOString(),
     has_image: Boolean(meal.photoKey),
     ...(photoStatus ? { photo_status: photoStatus } : {}),
+  };
+}
+
+function responseForMeal(
+  status: "created" | "already_exists",
+  entry: MealWithItems,
+  requestId: string,
+  photoStatus?: "download_failed",
+  dailyTotals?: DailyMealTotals,
+): Response {
+  return Response.json({
+    ...mealResponsePayload(status, entry, requestId, photoStatus),
+    ...(dailyTotals ? { daily_totals: dailyTotalsPayload(dailyTotals) } : {}),
   }, {
     status: status === "created" ? 201 : 200,
     headers: ENDPOINT_HEADERS,
   });
+}
+
+async function getDailyTotals(
+  options: AddMealHandlerOptions,
+  ownerKey: string,
+  now: number,
+): Promise<DailyMealTotals | undefined> {
+  return options.getDailyTotals?.(ownerKey, now);
 }
 
 function contentLength(response: Response): number | null {
@@ -439,17 +510,83 @@ export async function handleAddMealRequest(
 
   const body = options.body ?? (options.readBody ? await options.readBody() : undefined);
   if (!body) throw new AddMealRequestError(400, "invalid_json", "The request body must be valid JSON.");
-  const input = parseAddMealRequest(body, now);
-
+  const parsed = parseAddMealRequests(body, now);
+  const inputs = parsed.requests;
+  const existing = new Map<string, MealWithItems>();
   if (options.findExistingMeal) {
-    const existing = await options.findExistingMeal(ownerKey, input.requestId);
-    if (existing) return responseForMeal("already_exists", existing, input.requestId);
+    const found = await Promise.all(inputs.map(async (input) => ({
+      requestId: input.requestId,
+      meal: await options.findExistingMeal?.(ownerKey, input.requestId),
+    })));
+    for (const item of found) {
+      if (item.meal) existing.set(item.requestId, item.meal);
+    }
   }
 
-  let uploaded: StoredAddMealPhoto | null = null;
-  let photoDownloadFailed = false;
+  if (!parsed.batch) {
+    const input = inputs[0];
+    if (!input) throw new AddMealRequestError(400, "invalid_field", "A meal is required.");
+    const alreadyStored = existing.get(input.requestId);
+    if (alreadyStored) {
+      return responseForMeal(
+        "already_exists",
+        alreadyStored,
+        input.requestId,
+        undefined,
+        await getDailyTotals(options, ownerKey, now),
+      );
+    }
+
+    let uploaded: StoredAddMealPhoto | null = null;
+    let photoDownloadFailed = false;
+    try {
+      if (input.imageRef) {
+        if (!options.fetchImage || !options.uploadPhoto) {
+          throw new AddMealRequestError(503, "photos_unavailable", "Photo storage is not configured.");
+        }
+        let photo: MealPhotoUpload | null = null;
+        try {
+          photo = await downloadOpenAIPhoto(input.imageRef, options.fetchImage);
+        } catch (error) {
+          if (!(error instanceof AddMealRequestError) || error.code !== "image_download_failed") throw error;
+          photoDownloadFailed = true;
+        }
+        if (photo) uploaded = await options.uploadPhoto(ownerKey, input.requestId, photo);
+      }
+
+      const result = await options.createMeal(ownerKey, input, uploaded);
+      if (!result.created) {
+        await cleanupPhoto(uploaded, options.deletePhoto);
+        uploaded = null;
+      } else {
+        uploaded = null;
+      }
+      const responsePhotoStatus = photoDownloadFailed && !result.meal.meal.photoKey
+        ? "download_failed"
+        : undefined;
+      return responseForMeal(
+        result.created ? "created" : "already_exists",
+        result.meal,
+        input.requestId,
+        responsePhotoStatus,
+        await getDailyTotals(options, ownerKey, now),
+      );
+    } catch (error) {
+      await cleanupPhoto(uploaded, options.deletePhoto);
+      throw error;
+    }
+  }
+
+  const pending = inputs.filter((input) => !existing.has(input.requestId));
+  if (pending.length > 0 && !options.createMeals) {
+    throw new AddMealRequestError(503, "batch_unavailable", "Batch meal creation is not configured.");
+  }
+
+  const uploaded = new Map<string, StoredAddMealPhoto>();
+  const photoDownloadFailed = new Set<string>();
   try {
-    if (input.imageRef) {
+    for (const input of pending) {
+      if (!input.imageRef) continue;
       if (!options.fetchImage || !options.uploadPhoto) {
         throw new AddMealRequestError(503, "photos_unavailable", "Photo storage is not configured.");
       }
@@ -458,27 +595,61 @@ export async function handleAddMealRequest(
         photo = await downloadOpenAIPhoto(input.imageRef, options.fetchImage);
       } catch (error) {
         if (!(error instanceof AddMealRequestError) || error.code !== "image_download_failed") throw error;
-        photoDownloadFailed = true;
+        photoDownloadFailed.add(input.requestId);
       }
-      if (photo) uploaded = await options.uploadPhoto(ownerKey, input.requestId, photo);
+      if (photo) uploaded.set(input.requestId, await options.uploadPhoto(ownerKey, input.requestId, photo));
     }
 
-    const result = await options.createMeal(ownerKey, input, uploaded);
-    if (!result.created) {
-      await cleanupPhoto(uploaded, options.deletePhoto);
-      uploaded = null;
+    const createdResults = pending.length > 0
+      ? await options.createMeals?.(ownerKey, pending.map((input) => ({
+        request: input,
+        photo: uploaded.get(input.requestId) ?? null,
+      })))
+      : [];
+    if (createdResults === undefined || createdResults.length !== pending.length) {
+      throw new Error("external_meal_batch_create_failed");
     }
-    const responsePhotoStatus = photoDownloadFailed && !result.meal.meal.photoKey
-      ? "download_failed"
-      : undefined;
-    return responseForMeal(
-      result.created ? "created" : "already_exists",
-      result.meal,
-      input.requestId,
-      responsePhotoStatus,
-    );
+
+    const results = new Map<string, ExternalMealResult>();
+    for (const [requestId, meal] of existing) results.set(requestId, { created: false, meal });
+    for (const [index, result] of createdResults.entries()) {
+      const input = pending[index];
+      if (!input || !result) throw new Error("external_meal_batch_create_failed");
+      results.set(input.requestId, result);
+      const storedPhoto = uploaded.get(input.requestId);
+      if (!result.created) {
+        await cleanupPhoto(storedPhoto ?? null, options.deletePhoto);
+      }
+      uploaded.delete(input.requestId);
+    }
+
+    const dailyTotals = await getDailyTotals(options, ownerKey, now);
+    const meals = inputs.map((input) => {
+      const result = results.get(input.requestId);
+      if (!result) throw new Error("external_meal_batch_create_failed");
+      const responsePhotoStatus = photoDownloadFailed.has(input.requestId) && !result.meal.meal.photoKey
+        ? "download_failed"
+        : undefined;
+      return mealResponsePayload(
+        result.created ? "created" : "already_exists",
+        result.meal,
+        input.requestId,
+        responsePhotoStatus,
+      );
+    });
+    const createdCount = createdResults.filter((result) => result.created).length;
+    return Response.json({
+      status: "batch_processed",
+      created_count: createdCount,
+      already_exists_count: inputs.length - createdCount,
+      meals,
+      ...(dailyTotals ? { daily_totals: dailyTotalsPayload(dailyTotals) } : {}),
+    }, {
+      status: createdCount > 0 ? 201 : 200,
+      headers: ENDPOINT_HEADERS,
+    });
   } catch (error) {
-    await cleanupPhoto(uploaded, options.deletePhoto);
+    for (const photo of uploaded.values()) await cleanupPhoto(photo, options.deletePhoto);
     throw error;
   }
 }

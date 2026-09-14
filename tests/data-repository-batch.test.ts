@@ -4,7 +4,18 @@ import test from "node:test";
 import { drizzle } from "drizzle-orm/d1";
 import * as schema from "../db/schema";
 import { NUTRIENT_KEYS, type PartialNutrientValues } from "../domain/nutrients";
-import { createMeal, createMealForExternalRequest, deleteMeal, findMeal, listMeals, updateMeal } from "../db/repository";
+import {
+  createMeal,
+  createMealForExternalRequest,
+  createMealsForExternalRequests,
+  deleteMeal,
+  findMeal,
+  getCurrentDayMealTotals,
+  listMeals,
+  updateMeal,
+  upsertSettings,
+} from "../db/repository";
+import { createSqliteTestDb } from "./helpers/sqlite-db";
 
 type Row = Record<string, unknown>;
 
@@ -357,6 +368,75 @@ test("external meal writes batch conflict-safe meal and item inserts", async () 
   assert.ok(mealInsert.values.includes(requestId));
   assert.ok(itemInsert.values.includes(`item_external_${requestId}`));
   assertNoSqlTransaction(client);
+});
+
+test("external meal batches use one atomic D1 batch", async () => {
+  const { client, db } = createRecordingDb("meal-external-request");
+  const secondRequestId = "d7e4b7f1-8f16-4d6e-9f9c-b9f4d5d4b0b6";
+
+  await createMealsForExternalRequests(db, OWNER_KEY, [
+    {
+      requestId: "c5a84680-d0c7-4af6-a4f5-89495c3923ec",
+      name: "Chicken rice",
+      kcal: 610,
+      protein: 58,
+      carbs: 41,
+      fat: 20,
+      consumedAt: 1_700_000_000_000,
+    },
+    {
+      requestId: secondRequestId,
+      name: "Greek yogurt",
+      kcal: 220,
+      protein: 20,
+      carbs: 18,
+      fat: 4,
+      consumedAt: 1_700_000_000_000,
+    },
+  ]);
+
+  assertBatchTables(client, [
+    "meal_logs insert",
+    "meal_items insert",
+    "meal_logs insert",
+    "meal_items insert",
+  ]);
+  assertNoSqlTransaction(client);
+});
+
+test("current external meal totals use the saved timezone logical day", async () => {
+  const fixture = createSqliteTestDb();
+  try {
+    await upsertSettings(fixture.db, OWNER_KEY, { timezone: "Asia/Ho_Chi_Minh" });
+    const insideDay = new Date("2026-08-30T17:00:00Z").getTime();
+    const outsideDay = new Date("2026-08-30T16:59:59Z").getTime();
+    const insertMeal = fixture.sqlite.prepare("INSERT INTO meal_logs (id, owner_key, consumed_at, status, total_calories, total_protein_g) VALUES (?, ?, ?, ?, ?, ?)");
+    insertMeal.run("inside", OWNER_KEY, insideDay, "complete", 610, 58);
+    insertMeal.run("outside", OWNER_KEY, outsideDay, "complete", 400, 30);
+    insertMeal.run("pending", OWNER_KEY, insideDay, "pending", 999, 99);
+
+    const totals = await getCurrentDayMealTotals(fixture.db, OWNER_KEY, {
+      now: new Date("2026-08-30T17:30:00Z"),
+    });
+    assert.deepEqual(totals, {
+      date: "2026-08-31",
+      calories: 610,
+      proteinG: 58,
+      mealCount: 1,
+    });
+
+    const nextDayTotals = await getCurrentDayMealTotals(fixture.db, OWNER_KEY, {
+      now: new Date("2026-08-30T16:30:00Z"),
+    });
+    assert.deepEqual(nextDayTotals, {
+      date: "2026-08-30",
+      calories: 400,
+      proteinG: 30,
+      mealCount: 1,
+    });
+  } finally {
+    fixture.sqlite.close();
+  }
 });
 
 test("listMeals retrieves 500 meals and their owned items within the D1 binding limit", async () => {
