@@ -3190,7 +3190,7 @@ input:focus-visible {
   .add-meal-form label:first-of-type,
   .add-meal-form .wide-field,
   .add-meal-form .meal-photo-field { grid-column: span 2; }
-  .save-button { grid-column: span 2; }
+  .add-meal-form .save-button { grid-column: span 2; }
   .weight-form { grid-template-columns: 1fr 1fr; }
   .weight-form label { grid-column: span 2; }
   .weight-form .save-button { grid-column: auto; }
