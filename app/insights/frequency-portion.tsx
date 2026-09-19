@@ -13,7 +13,7 @@ import type { InsightDay, InsightEntry } from "./types";
 
 const WIDTH = 720;
 const HEIGHT = 340;
-const PLOT = { left: 66, right: 22, top: 22, bottom: 54 };
+const PLOT = { left: 104, right: 22, top: 22, bottom: 54 };
 
 function format(value: number, maximumFractionDigits = 1) {
   return value.toLocaleString("en-US", { maximumFractionDigits });
@@ -105,7 +105,7 @@ export function FrequencyPortion({
           <desc id="frequency-portion-chart-desc">Horizontal axis shows occurrences per week across the full {range}-day window. Vertical axis shows average known {metricMeta.label.toLowerCase()} per log entry. Use the food list below to select overlapping points.</desc>
           {yTicks.map((tick) => {
             const y = PLOT.top + plotHeight - (tick / maxY) * plotHeight;
-            return <g className="frequency-portion__tick" key={`y-${tick}`}>
+            return <g className="frequency-portion__tick frequency-portion__tick--y" key={`y-${tick}`}>
               <line x1={PLOT.left} x2={WIDTH - PLOT.right} y1={y} y2={y} />
               <text x={PLOT.left - 10} y={y + 4} textAnchor="end">{format(tick)}</text>
             </g>;

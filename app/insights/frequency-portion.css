@@ -1,5 +1,7 @@
 .frequency-portion {
   padding: 22px;
+  container-name: frequency-portion;
+  container-type: inline-size;
 }
 
 .frequency-portion__heading,
@@ -259,6 +261,37 @@
   text-align: center;
 }
 
+@container frequency-portion (max-width: 900px) {
+  .frequency-portion__layout {
+    display: block;
+  }
+
+  .frequency-portion__details {
+    margin-top: 16px;
+  }
+}
+
+@container frequency-portion (max-width: 760px) {
+  .frequency-portion__tick text,
+  .frequency-portion__axis-label {
+    font-size: 12px;
+  }
+}
+
+@container frequency-portion (max-width: 520px) {
+  .frequency-portion__tick text,
+  .frequency-portion__axis-label {
+    font-size: 20px;
+  }
+}
+
+@container frequency-portion (max-width: 380px) {
+  .frequency-portion__tick text,
+  .frequency-portion__axis-label {
+    font-size: 21px;
+  }
+}
+
 @media (max-width: 760px) {
   .frequency-portion {
     padding: 17px;
@@ -275,20 +308,17 @@
   }
 
   .frequency-portion svg {
-    min-width: 620px;
+    min-width: 0;
   }
 
   .frequency-portion__visual {
-    overflow-x: auto;
+    overflow: visible;
   }
 
   .frequency-portion__food-list {
     min-width: 0;
   }
 
-  .frequency-portion__details {
-    margin-top: 16px;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

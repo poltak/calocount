@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { mockDashboardApi } from "./mock-api";
 
 async function seedInsights(page: Page) {
@@ -24,7 +24,58 @@ async function seedInsights(page: Page) {
   return state;
 }
 
-test("insights inspect historical food and drink logs, scale outliers, and explain nutrient changes", async ({ page }, testInfo) => {
+async function expectFrequencyLayout(frequency: Locator, viewportWidth: number) {
+  const metrics = await frequency.evaluate((section) => {
+    const visual = section.querySelector<HTMLElement>(".frequency-portion__visual");
+    const svg = section.querySelector<SVGSVGElement>("svg");
+    const tick = svg?.querySelector<SVGTextElement>(".frequency-portion__tick text");
+    const verticalAxisLabel = svg?.querySelector<SVGTextElement>(".frequency-portion__axis-label[transform]");
+    if (!visual || !svg || !tick || !verticalAxisLabel) {
+      throw new Error("Frequency chart is missing its visual, SVG, or axis labels");
+    }
+
+    const visualBounds = visual.getBoundingClientRect();
+    const visibleLeft = visualBounds.left + visual.clientLeft;
+    const visibleRight = visibleLeft + visual.clientWidth;
+    const points = Array.from(svg.querySelectorAll<SVGGElement>(".frequency-portion__point"));
+    const visiblePoints = points.filter((point) => {
+      const bounds = point.getBoundingClientRect();
+      return bounds.left >= visibleLeft - 1 && bounds.right <= visibleRight + 1;
+    }).length;
+    const axisBounds = verticalAxisLabel.getBoundingClientRect();
+    const overlappingYAxisLabels = Array.from(svg.querySelectorAll<SVGTextElement>(".frequency-portion__tick--y text"))
+      .filter((label) => {
+        const bounds = label.getBoundingClientRect();
+        return bounds.left < axisBounds.right && bounds.right > axisBounds.left;
+      }).length;
+    const scale = svg.getScreenCTM()?.a ?? svg.getBoundingClientRect().width / 720;
+
+    return {
+      viewportWidth: window.innerWidth,
+      documentWidth: document.documentElement.scrollWidth,
+      renderedTickFontSize: Number.parseFloat(getComputedStyle(tick).fontSize) * scale,
+      overlappingYAxisLabels,
+      visiblePoints,
+      pointCount: points.length,
+      visualWidth: visual.clientWidth,
+      visualScrollWidth: visual.scrollWidth,
+    };
+  });
+
+  expect(metrics.viewportWidth).toBe(viewportWidth);
+  expect(metrics.renderedTickFontSize, `Axis labels are too small at ${viewportWidth}px: ${JSON.stringify(metrics)}`)
+    .toBeGreaterThanOrEqual(9);
+  expect(metrics.overlappingYAxisLabels, `Y-axis values overlap the axis title at ${viewportWidth}px: ${JSON.stringify(metrics)}`)
+    .toBe(0);
+  expect(metrics.visualScrollWidth, `Frequency chart needs horizontal scrolling at ${viewportWidth}px: ${JSON.stringify(metrics)}`)
+    .toBeLessThanOrEqual(metrics.visualWidth + 1);
+  expect(metrics.visiblePoints, `Some frequency points are outside the initial view at ${viewportWidth}px: ${JSON.stringify(metrics)}`)
+    .toBe(metrics.pointCount);
+  expect(metrics.documentWidth, `The page overflows at ${viewportWidth}px: ${JSON.stringify(metrics)}`)
+    .toBeLessThanOrEqual(viewportWidth + 1);
+}
+
+test("insights inspect historical food and drink logs, scale outliers, and explain nutrient changes", async ({ page }) => {
   const state = await seedInsights(page);
   await page.emulateMedia({ colorScheme: "light" });
   await page.goto("/?public");
@@ -40,7 +91,7 @@ test("insights inspect historical food and drink logs, scale outliers, and expla
   expect(xPosition).toBeLessThan(100);
   await repeat.getByLabel("Vertical axis").selectOption("fiber");
   await expect(repeat.locator(".days-repeat-summary")).toContainText("partial fiber coverage");
-  await repeat.screenshot({ path: testInfo.outputPath("days-light.png") });
+  await expect(repeat).toHaveScreenshot("days-light.png", { animations: "disabled" });
 
   const weekly = page.getByRole("region", { name: "What changed this week?" });
   await expect(weekly).toContainText("7/7 recorded days");
@@ -49,7 +100,7 @@ test("insights inspect historical food and drink logs, scale outliers, and expla
   await weekly.locator(".weekly-contribution-list").getByRole("button", { name: /Coffee with milk/ }).click();
   await expect(weekly.locator(".weekly-source-detail")).toContainText("Coffee with milk");
   await expect(weekly.locator(".weekly-source-detail")).not.toContainText("entry coffee-");
-  await weekly.screenshot({ path: testInfo.outputPath("weekly-light.png") });
+  await expect(weekly).toHaveScreenshot("weekly-light.png", { animations: "disabled" });
 
   const frequency = page.getByRole("region", { name: "Frequency & amount" });
   await frequency.getByRole("button", { name: "7 days", exact: true }).click();
@@ -57,11 +108,16 @@ test("insights inspect historical food and drink logs, scale outliers, and expla
   await frequency.locator(".frequency-portion__food-list").getByRole("button", { name: /Coffee with milk/ }).click();
   await expect(frequency.locator(".frequency-portion__details")).toContainText("840 mg");
   await expect(frequency.locator(".frequency-portion__details")).toContainText("120 mg");
-  await frequency.screenshot({ path: testInfo.outputPath("frequency-light.png") });
+  for (const width of [1280, 900]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expectFrequencyLayout(frequency, width);
+  }
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await expect(frequency).toHaveScreenshot("frequency-light.png", { animations: "disabled" });
   expect(state.writes).toBe(0);
 });
 
-test("new charts work on mobile in dark mode and refresh after a food log is deleted", async ({ page }, testInfo) => {
+test("new charts work on mobile in dark mode and refresh after a food log is deleted", async ({ page }) => {
   const state = await seedInsights(page);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.emulateMedia({ colorScheme: "dark" });
@@ -69,11 +125,12 @@ test("new charts work on mobile in dark mode and refresh after a food log is del
   const repeat = page.getByRole("region", { name: "Days worth repeating" });
   await repeat.getByLabel("Inspect a day").selectOption("2026-09-11");
   await expect(repeat.locator(".repeat-details li")).toHaveCount(2);
-  await repeat.screenshot({ path: testInfo.outputPath("days-mobile-dark.png") });
+  await expect(repeat).toHaveScreenshot("days-mobile-dark.png", { animations: "disabled" });
   const weekly = page.getByRole("region", { name: "What changed this week?" });
-  await weekly.screenshot({ path: testInfo.outputPath("weekly-mobile-dark.png") });
+  await expect(weekly).toHaveScreenshot("weekly-mobile-dark.png", { animations: "disabled" });
   const frequency = page.getByRole("region", { name: "Frequency & amount" });
-  await frequency.screenshot({ path: testInfo.outputPath("frequency-mobile-dark.png") });
+  await expectFrequencyLayout(frequency, 390);
+  await expect(frequency).toHaveScreenshot("frequency-mobile-dark.png", { animations: "disabled" });
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(391);
 
   await page.getByRole("button", { name: "Previous day", exact: true }).click();

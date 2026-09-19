@@ -56,19 +56,21 @@ export function DaysWorthRepeating(props: Props) {
       <div className="repeat-chart-wrap">
         <div className="repeat-y-title">{metric === "protein" ? "Protein" : "Fiber"} (% of current target)</div>
         <div className="repeat-chart" role="group" aria-label={`Scatter plot of calories and ${metric} as percentages of current targets`}>
-          <span className="repeat-success-zone" aria-hidden="true" style={{ left: `${axisPosition(BANDS[bandName][0], xScale)}%`, width: `${axisPosition(BANDS[bandName][1] - BANDS[bandName][0], xScale)}%`, bottom: `${axisPosition(100, yScale)}%` }} />
-          <span className="repeat-guide y" aria-hidden="true" style={{ bottom: `${axisPosition(100, yScale)}%` }} /><span className="repeat-guide x" aria-hidden="true" style={{ left: `${axisPosition(100, xScale)}%` }} />
-          {xScale.ticks.map((tick) => <span key={`x-${tick}`} className="repeat-tick x" style={{ left: `${axisPosition(tick, xScale)}%` }}>{tick}%</span>)}
-          {yScale.ticks.map((tick) => <span key={`y-${tick}`} className="repeat-tick y" style={{ bottom: `${axisPosition(tick, yScale)}%` }}>{tick}%</span>)}
-          {plotted.map((point) => <button
-            key={point.date}
-            type="button"
-            className={`repeat-point ${point.meetsBothTargets ? "joint" : point.inCalorieBand ? "in-band" : ""} ${point.coverage === "partial" ? "partial" : ""} ${selected?.date === point.date ? "selected" : ""}`}
-            style={{ left: `${axisPosition(point.caloriePercent!, xScale)}%`, bottom: `${axisPosition(point.percent!, yScale)}%` }}
-            aria-label={`${formatDate(point.date)}: ${Math.round(point.caloriePercent!)}% of calorie target, ${Math.round(point.percent!)}% of ${metric} target${point.coverage === "partial" ? ", partial fiber data" : ""}`}
-            onClick={() => setSelectedDate(point.date)}
-          />)}
-          {plotted.length === 0 && <p className="days-repeat-chart-empty">No days have both targets available.</p>}
+          <div className="repeat-chart-plot">
+            <span className="repeat-success-zone" aria-hidden="true" style={{ left: `${axisPosition(BANDS[bandName][0], xScale)}%`, width: `${axisPosition(BANDS[bandName][1] - BANDS[bandName][0], xScale)}%`, bottom: `${axisPosition(100, yScale)}%` }} />
+            <span className="repeat-guide y" aria-hidden="true" style={{ bottom: `${axisPosition(100, yScale)}%` }} /><span className="repeat-guide x" aria-hidden="true" style={{ left: `${axisPosition(100, xScale)}%` }} />
+            {xScale.ticks.map((tick) => <span key={`x-${tick}`} className="repeat-tick x" style={{ left: `${axisPosition(tick, xScale)}%` }}>{tick}%</span>)}
+            {yScale.ticks.map((tick) => <span key={`y-${tick}`} className="repeat-tick y" style={{ bottom: `${axisPosition(tick, yScale)}%` }}>{tick}%</span>)}
+            {plotted.map((point) => <button
+              key={point.date}
+              type="button"
+              className={`repeat-point ${point.meetsBothTargets ? "joint" : point.inCalorieBand ? "in-band" : ""} ${point.coverage === "partial" ? "partial" : ""} ${selected?.date === point.date ? "selected" : ""}`}
+              style={{ left: `${axisPosition(point.caloriePercent!, xScale)}%`, bottom: `${axisPosition(point.percent!, yScale)}%` }}
+              aria-label={`${formatDate(point.date)}: ${Math.round(point.caloriePercent!)}% of calorie target, ${Math.round(point.percent!)}% of ${metric} target${point.coverage === "partial" ? ", partial fiber data" : ""}`}
+              onClick={() => setSelectedDate(point.date)}
+            />)}
+            {plotted.length === 0 && <p className="days-repeat-chart-empty">No days have both targets available.</p>}
+          </div>
         </div>
         <div className="repeat-x-title">Calories (% of current target)</div>
       </div>

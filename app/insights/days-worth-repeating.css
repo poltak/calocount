@@ -16,6 +16,7 @@
 .repeat-dot.partial, .repeat-point.partial { background: repeating-linear-gradient(135deg, var(--chart-blue) 0 3px, var(--surface) 3px 6px); }
 .repeat-chart-wrap { display: grid; grid-template: minmax(220px, 32vw) auto / 28px 1fr; margin-top: 8px; }
 .repeat-chart { position: relative; overflow: hidden; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-soft); }
+.repeat-chart-plot { position: absolute; inset: 14px; }
 .repeat-guide { position: absolute; pointer-events: none; }
 .repeat-guide.x { top: 0; bottom: 0; border-left: 1px dashed var(--chart-target); }
 .repeat-guide.y { right: 0; left: 0; border-top: 1px dashed var(--chart-target); }
