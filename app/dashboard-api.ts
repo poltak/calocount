@@ -1,5 +1,6 @@
 import { isProteinGoalMode, isValidProteinPerKg, type ProteinGoalDay, type ProteinGoalSummary } from "../domain/protein-goals";
 import type { NutritionItem } from "./nutrition/meal-nutrition-details";
+import type { InsightEntry, InsightHistory, InsightItem } from "./insights/types";
 import { nutrientKeys, parseNutrientGoalMap, parseNutrientAggregateMap, parseNutrientValue, type NutrientAggregateMap, type NutrientGoalMap, type NutrientValueMap } from "./nutrition/nutrient-meta";
 
 export type SerializedMealItem = NutritionItem & {
@@ -68,6 +69,7 @@ export type DashboardSummary = {
   };
   recentMeals: SerializedMeal[];
   recentWeights: DailyWeight[];
+  insights?: InsightHistory;
   trend?: { byDate: TrendDay[]; weights: DailyWeight[] };
   nutrition?: {
     today: NutrientAggregateMap;
@@ -214,6 +216,41 @@ function parseProteinGoal(value: unknown, fallbackTargetG: number | null): Prote
   };
 }
 
+function parseInsightHistory(value: unknown): InsightHistory | null {
+  const record = asRecord(value);
+  if (!record || !isDateKey(record.fromDate) || !isDateKey(record.toDate)
+    || record.fromDate > record.toDate) return null;
+  const fromDate = record.fromDate;
+  const toDate = record.toDate;
+  if ((Date.parse(toDate) - Date.parse(fromDate)) / 86_400_000 > 30) return null;
+  const entries = parseArray(record.entries, (value): InsightEntry | null => {
+    const entry = asRecord(value);
+    if (!entry || typeof entry.id !== "string" || !entry.id || !isDateKey(entry.date)
+      || entry.date < fromDate || entry.date > toDate
+      || !finiteFields(entry, ["consumedAt", "calories", "proteinG"])
+      || !Number.isFinite(new Date(entry.consumedAt as number).getTime())) return null;
+    const items = parseArray(entry.items, (value): InsightItem | null => {
+      const item = asRecord(value);
+      if (!item || typeof item.name !== "string" || !finiteFields(item, ["calories", "proteinG"])) return null;
+      const rawNutrients = asRecord(item.nutrients);
+      const nutrients: NutrientValueMap = {};
+      for (const key of nutrientKeys) nutrients[key] = parseNutrientValue(rawNutrients?.[key]);
+      return {
+        name: item.name,
+        quantity: typeof item.quantity === "number" && Number.isFinite(item.quantity) ? item.quantity : null,
+        unit: typeof item.unit === "string" ? item.unit : null,
+        calories: numberOr(item.calories),
+        proteinG: numberOr(item.proteinG),
+        nutrients,
+      };
+    });
+    if (!items) return null;
+    return { id: entry.id, date: entry.date, consumedAt: numberOr(entry.consumedAt), calories: numberOr(entry.calories), proteinG: numberOr(entry.proteinG), items };
+  });
+  if (!entries || new Set(entries.map((entry) => entry.id)).size !== entries.length) return null;
+  return { fromDate, toDate, entries };
+}
+
 export function parseDashboardPayload(value: unknown): DashboardSummary | null {
   const record = asRecord(value);
   const targets = asRecord(record?.targets);
@@ -235,6 +272,8 @@ export function parseDashboardPayload(value: unknown): DashboardSummary | null {
   const recentMeals = parseArray(record.recentMeals, parseSerializedMeal);
   const recentWeights = parseArray(record.recentWeights, parseDailyWeight);
   if (!recentMeals || !recentWeights) return null;
+  const insights = record.insights === undefined ? undefined : parseInsightHistory(record.insights);
+  if (insights === null || (insights && insights.toDate !== record.date)) return null;
   const trendRecord = asRecord(record.trend);
   if (record.trend !== undefined && !trendRecord) return null;
   const trendByDate = trendRecord
@@ -280,6 +319,7 @@ export function parseDashboardPayload(value: unknown): DashboardSummary | null {
     },
     recentMeals,
     recentWeights,
+    insights,
     trend: trendByDate.length ? { byDate: trendByDate, weights: trendWeights } : undefined,
     nutrition: nutritionRecord ? {
       today: parseNutrientAggregateMap(nutritionRecord.today),

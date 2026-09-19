@@ -14,7 +14,13 @@ The summary includes:
 - nutrition totals;
 - recent completed meals, their item nutrition, meal types, timestamps, and
   photo availability; and
-- recent weights.
+- recent weights; and
+- `insights`, with date-bounded food and drink entries for today and the prior
+  30 days, including item amounts and nutrition for historical comparisons.
+
+An insight entry is a logging occasion, not necessarily a complete meal.
+Its `date` uses the same UTC day boundary as the public summary. Unknown nutrient
+amounts remain `null`; a day with entries is not proof of complete food logging.
 
 `proteinGoal` identifies whether the protein target is fixed grams or grams per
 kilogram. In grams-per-kilogram mode it includes the effective target and the
