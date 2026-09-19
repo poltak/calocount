@@ -1002,6 +1002,7 @@ input:focus-visible {
   grid-template-columns: minmax(0, 1.58fr) minmax(280px, .82fr);
   align-items: start;
   gap: 12px;
+  min-width: 0;
   margin-top: 12px;
 }
 
@@ -1010,6 +1011,12 @@ input:focus-visible {
   display: grid;
   gap: 12px;
   min-width: 0;
+}
+
+.primary-column > *,
+.side-column > * {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .panel {
@@ -1094,6 +1101,7 @@ input:focus-visible {
 
 .calorie-swatch { background: var(--chart-orange); }
 .weight-swatch { background: var(--chart-green); }
+.weight-average-line { border-color: var(--chart-green); border-top-style: solid; border-top-width: 2px; }
 .macro-carbs-swatch { background: var(--chart-blue); }
 .macro-protein-swatch { background: var(--chart-green); }
 .macro-fat-swatch { background: var(--chart-orange); }
@@ -1420,6 +1428,160 @@ input:focus-visible {
   stroke-linecap: round;
   stroke-linejoin: round;
 }
+
+.weight-line .weight-raw-line { opacity: .28; stroke-width: 1.5; }
+.weight-line .weight-average-path { stroke-width: 3; }
+.weight-chart-legend { align-items: center; flex-wrap: wrap; }
+.weight-change { margin-left: auto; color: var(--muted-strong); font-weight: 650; }
+
+.insight-summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 15px 0 10px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.insight-summary strong { color: var(--foreground); font-size: 12px; }
+
+.protein-target-chart {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-around;
+  gap: 8px;
+  height: 190px;
+  padding: 5px 5px 0 42px;
+  border-bottom: 1px solid var(--line);
+  background: repeating-linear-gradient(to bottom, transparent 0, transparent calc(33.333% - 1px), var(--chart-grid) 33.333%);
+}
+
+.protein-target-day {
+  position: relative;
+  display: flex;
+  flex: 1;
+  max-width: 54px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  flex-direction: column;
+  justify-content: end;
+  cursor: pointer;
+}
+
+.protein-target-track {
+  position: relative;
+  display: block;
+  width: min(29px, 72%);
+  height: calc(100% - 21px);
+  margin: 0 auto;
+  border-radius: 4px 4px 2px 2px;
+  background: var(--chart-base);
+}
+
+.protein-target-fill {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  min-height: 2px;
+  border-radius: inherit;
+  background: linear-gradient(180deg, var(--chart-weight-start), var(--chart-weight-end));
+}
+
+.protein-target-marker {
+  position: absolute;
+  z-index: 2;
+  right: -5px;
+  left: -5px;
+  border-top: 1px dashed var(--chart-target);
+}
+
+.protein-target-day > span:last-child {
+  height: 21px;
+  padding-top: 8px;
+  color: var(--chart-axis-strong);
+  font-size: 9px;
+  white-space: nowrap;
+}
+
+.protein-target-tooltip {
+  position: absolute;
+  z-index: 4;
+  top: 3px;
+  left: 50%;
+  width: max-content;
+  padding: 3px 5px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--surface-soft);
+  color: var(--muted-strong);
+  font-size: 8px;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+.protein-target-day:hover .protein-target-tooltip,
+.protein-target-day:focus .protein-target-tooltip { opacity: 1; }
+.protein-target-day:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+.protein-target-day.missing .protein-target-fill { display: none; }
+.protein-target-chart.is-month { gap: 2px; padding-left: 38px; }
+.protein-target-chart.is-month .protein-target-track { width: min(9px, 75%); border-radius: 2px 2px 1px 1px; }
+
+.compact-select {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.compact-select select {
+  min-height: 30px;
+  padding: 5px 25px 5px 9px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--button-secondary-background);
+  color: var(--muted-strong);
+  font: inherit;
+}
+
+.contribution-list { display: grid; gap: 12px; margin-top: 18px; }
+.contribution-row { display: grid; grid-template-columns: minmax(110px, 1.1fr) minmax(100px, 2fr) 72px; align-items: center; gap: 10px; }
+.contribution-label { display: grid; min-width: 0; }
+.contribution-label strong { overflow: hidden; color: var(--foreground); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.contribution-label span { color: var(--muted); font-size: 9px; }
+.contribution-bar { height: 11px; overflow: hidden; border-radius: 3px; background: var(--chart-base); }
+.contribution-bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--chart-calorie-start), var(--chart-calorie-end)); }
+.contribution-value { color: var(--muted-strong); font-size: 10px; font-weight: 650; text-align: right; }
+.compact-empty { min-height: 150px; }
+
+.matrix-legend { display: flex; flex-wrap: wrap; gap: 14px; margin: 15px 0 10px; color: var(--muted); font-size: 9px; }
+.matrix-legend span { display: flex; align-items: center; gap: 5px; }
+.matrix-key { width: 11px; height: 11px; border-radius: 3px; background: var(--chart-base); }
+.matrix-key.low { background: color-mix(in srgb, var(--chart-orange) 38%, var(--chart-base)); }
+.matrix-key.met { background: var(--chart-green); }
+.matrix-key.partial { background: repeating-linear-gradient(135deg, var(--chart-green) 0 3px, var(--chart-base) 3px 6px); }
+.consistency-panel { overflow: hidden; }
+.consistency-scroll { width: 100%; min-width: 0; max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; }
+.consistency-matrix { display: grid; grid-template-columns: minmax(105px, 1.2fr) repeat(var(--matrix-columns), minmax(42px, 1fr)); gap: 5px; min-width: 480px; }
+.matrix-row { display: contents; }
+.matrix-date { color: var(--chart-axis-strong); font-size: 9px; font-weight: 650; text-align: center; white-space: pre-line; }
+.matrix-label { display: grid; align-content: center; min-height: 39px; }
+.matrix-label strong { color: var(--foreground); font-size: 10px; }
+.matrix-label span { color: var(--muted); font-size: 8px; }
+.matrix-cell { position: relative; min-height: 39px; padding: 0; overflow: hidden; border: 0; border-radius: 5px; background: var(--chart-base); color: var(--muted-strong); font: inherit; cursor: pointer; }
+.matrix-cell::before { position: absolute; inset: auto 0 0; height: var(--cell-intensity); background: var(--chart-blue); content: ""; opacity: .72; }
+.matrix-cell.met::before { background: var(--chart-green); }
+.matrix-cell.over::before { background: var(--chart-orange); }
+.matrix-cell.partial::after { position: absolute; inset: 0; background: repeating-linear-gradient(135deg, transparent 0 5px, var(--surface) 5px 8px); content: ""; opacity: calc(1 - var(--cell-coverage)); }
+.matrix-cell span { position: relative; z-index: 1; font-size: 9px; font-weight: 650; }
+.matrix-cell:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
 
 .weight-points {
   position: absolute;
@@ -3153,6 +3315,10 @@ input:focus-visible {
   .average-card { grid-column: auto; }
   .summary-card { min-height: 126px; }
   .content-grid { margin-top: 10px; }
+  .panel-heading { min-width: 0; }
+  .chart-panel { width: 100%; max-width: 100%; overflow-x: hidden; }
+  .consistency-panel { overflow: hidden; }
+  .consistency-scroll { overflow-x: auto; }
   .chart-panel,
   .weight-panel,
   .macro-panel,

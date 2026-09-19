@@ -22,6 +22,7 @@ import {
   calculateLoggingStreak,
   calculateMacroPercentages,
   calculateMacroTrend,
+  calculateRollingAverage,
   calculateSevenDayAverage,
   calculateTargetPercent,
   calculateWeightChartScale,
@@ -53,6 +54,7 @@ import { readNutritionCollapsed, writeNutritionCollapsed } from "./nutrition/nut
 import { NutrientTrendPanel } from "./nutrition/nutrient-trend-panel";
 import { NutritionOverview } from "./nutrition/nutrition-overview";
 import { TrendRangeSelect, type TrendRangeDays } from "./trend-range-select";
+import { FoodContributionChart, NutrientConsistencyMatrix, ProteinTargetChart } from "./dashboard-insights";
 
 type DayKey = "sun" | "mon" | "tue" | "wed" | "thu" | "fri" | "sat";
 
@@ -490,7 +492,15 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
   }, [days, trendHistory.weights, visibleTrendDays]);
 
   const weightChartScale = useMemo(
-    () => calculateWeightChartScale(weightChartValues.map((day) => day.value)),
+    () => {
+      const smoothed = calculateRollingAverage(weightChartValues.map((day) => day.value));
+      return calculateWeightChartScale(smoothed.flatMap((day) => [day.value, day.average]));
+    },
+    [weightChartValues],
+  );
+
+  const smoothedWeightValues = useMemo(
+    () => calculateRollingAverage(weightChartValues.map((day) => day.value)),
     [weightChartValues],
   );
 
@@ -499,12 +509,27 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     weightChartValues.forEach((day, index) => {
       if (day.value === null) return;
       const x = weightChartValues.length === 1 ? 50 : (index / (weightChartValues.length - 1)) * 100;
-      const y = 100 - (weightChartScale.valueHeightPercents[index] ?? 0);
+      const scaleIndex = index * 2;
+      const y = 100 - (weightChartScale.valueHeightPercents[scaleIndex] ?? 0);
       if (index === 0 || weightChartValues[index - 1]?.value === null) segments.push([]);
       segments.at(-1)?.push(`${x},${y}`);
     });
     return segments;
   }, [weightChartScale.valueHeightPercents, weightChartValues]);
+
+  const weightAverageLine = useMemo(() => smoothedWeightValues.flatMap((day, index) => {
+    if (day.average === null) return [];
+    const x = smoothedWeightValues.length === 1 ? 50 : (index / (smoothedWeightValues.length - 1)) * 100;
+    const y = 100 - (weightChartScale.valueHeightPercents[index * 2 + 1] ?? 0);
+    return [`${x},${y}`];
+  }), [smoothedWeightValues, weightChartScale.valueHeightPercents]);
+
+  const weightWeeklyChange = useMemo(() => {
+    const known = smoothedWeightValues.map((point) => point.average).filter((value): value is number => value !== null);
+    if (known.length < 2) return null;
+    const comparisonIndex = Math.max(0, known.length - 8);
+    return known.at(-1)! - known[comparisonIndex]!;
+  }, [smoothedWeightValues]);
 
   const hasWeightData = weightChartValues.some((day) => day.value !== null);
 
@@ -1408,23 +1433,32 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
             </div>
           </section>
 
+          <ProteinTargetChart
+            days={visibleTrendDays.map((day) => ({ ...day, label: dateLabelForTrend(day.date) }))}
+            goalByDate={proteinGoal.byDate}
+            fallbackTarget={proteinGoal.mode === "grams" ? activeProteinTarget : null}
+            range={trendRange}
+            onRangeChange={setTrendRange}
+          />
+
           <section className="panel chart-panel weight-trend-panel" aria-labelledby="weight-trend-title">
             <div className="panel-heading">
               <div><p className="eyebrow">A quick view</p><h2 id="weight-trend-title">Weight trend</h2></div>
               <TrendRangeSelect value={trendRange} onChange={setTrendRange} label="Weight trend" />
             </div>
             {hasWeightData ? <>
-              <div className="chart-legend"><span><i className="legend-swatch weight-swatch" /> Weight (kg)</span></div>
+              <div className="chart-legend weight-chart-legend"><span><i className="legend-swatch weight-swatch" /> Daily weight</span><span><i className="legend-line weight-average-line" /> 7-day average</span>{weightWeeklyChange === null ? null : <span className="weight-change">{weightWeeklyChange > 0 ? "+" : ""}{formatWeight(weightWeeklyChange)} kg vs 7 days earlier</span>}</div>
               <div className={`bar-chart weight-chart${trendRange === 30 ? " is-month" : ""}`} role="group" aria-label={`Recorded weight for the past ${trendRange} days in kilograms; missing days are shown as gaps`}>
                 <div className="chart-y-axis" aria-hidden="true">{weightChartScale.tickValues.map((value) => <span key={value}>{formatWeight(value)}</span>)}</div>
                 <div className="chart-plot">
                   <div className="grid-line line-one" /><div className="grid-line line-two" /><div className="grid-line line-three" />
                   <svg className="weight-line" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-                    {weightLineSegments.map((points, index) => points.length > 1 ? <polyline key={index} points={points.join(" ")} /> : null)}
+                    {weightLineSegments.map((points, index) => points.length > 1 ? <polyline className="weight-raw-line" key={index} points={points.join(" ")} /> : null)}
+                    {weightAverageLine.length > 1 ? <polyline className="weight-average-path" points={weightAverageLine.join(" ")} /> : null}
                   </svg>
                   <div className="weight-points">{weightChartValues.map((day, index) => <button className={`weight-point-column${day.value === null ? " missing" : ""}`} key={day.date} type="button" aria-label={day.value === null ? `${day.label}: no weight recorded` : `${day.label}: ${formatWeight(day.value)} kilograms`}>
                     <span className="weight-tooltip">{day.value === null ? "No record" : `${formatWeight(day.value)} kg`}</span>
-                    {day.value === null ? null : <span className="weight-point" style={{ bottom: `calc(21px + ${(weightChartScale.valueHeightPercents[index] ?? 0) * 0.902}%)` }} aria-hidden="true" />}
+                    {day.value === null ? null : <span className="weight-point" style={{ bottom: `calc(21px + ${(weightChartScale.valueHeightPercents[index * 2] ?? 0) * 0.902}%)` }} aria-hidden="true" />}
                     <span>{showTrendDateLabel(index, weightChartValues.length) ? day.label : ""}</span>
                   </button>)}</div>
                 </div>
@@ -1469,6 +1503,13 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
               </div>
             </> : <div className="chart-empty" role="status"><strong>No macro records for the past {trendRange} days</strong><span>Add protein, carbs, or fat to a meal to see the daily split.</span></div>}
           </section>
+
+          <FoodContributionChart days={days} visibleDates={visibleTrendDays.map((day) => day.date)} />
+
+          <NutrientConsistencyMatrix
+            days={visibleTrendDays.map((day) => ({ ...day, label: dateLabelForTrend(day.date) }))}
+            goals={targets.nutrients}
+          />
 
           <NutritionOverview
             values={selectedDay.nutrients}

@@ -60,6 +60,11 @@ export type WeightChartScale = {
   tickValues: readonly number[];
 };
 
+export type RollingAveragePoint = {
+  value: number | null;
+  average: number | null;
+};
+
 const caloriesPerGram = {
   carbs: 4,
   protein: 4,
@@ -194,6 +199,22 @@ export function calculateWeightChartScale(values: readonly (number | null)[]): W
     valueHeightPercents,
     tickValues,
   };
+}
+
+export function calculateRollingAverage(
+  values: readonly (number | null)[],
+  windowSize = 7,
+): RollingAveragePoint[] {
+  const safeWindow = Math.max(1, Math.floor(windowSize));
+  return values.map((value, index) => {
+    const known = values
+      .slice(Math.max(0, index - safeWindow + 1), index + 1)
+      .filter((entry): entry is number => typeof entry === "number" && Number.isFinite(entry) && entry > 0);
+    return {
+      value,
+      average: known.length ? known.reduce((sum, entry) => sum + entry, 0) / known.length : null,
+    };
+  });
 }
 
 export function calculateLoggingStreak(days: readonly LoggingDay[], endDate?: string) {

@@ -6,6 +6,7 @@ import {
   calculateLoggingStreak,
   calculateMacroPercentages,
   calculateMacroTrend,
+  calculateRollingAverage,
   calculateSevenDayAverage,
   calculateTargetPercent,
   calculateWeightChartScale,
@@ -60,6 +61,17 @@ test("empty weight chart scale has no plotted values", () => {
 
   assert.deepEqual(scale.valueHeightPercents, [null, null]);
   assert.deepEqual(scale.tickValues, []);
+});
+
+test("rolling average smooths known weights and ignores missing days", () => {
+  const points = calculateRollingAverage([70, 71, null, 72], 3);
+
+  assert.deepEqual(points, [
+    { value: 70, average: 70 },
+    { value: 71, average: 70.5 },
+    { value: null, average: 70.5 },
+    { value: 72, average: 71.5 },
+  ]);
 });
 
 test("macro percentages use calorie values and total 100", () => {
