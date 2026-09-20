@@ -114,6 +114,12 @@ test("insights inspect historical food and drink logs, scale outliers, and expla
   }
   await page.setViewportSize({ width: 1280, height: 900 });
   await expect(frequency).toHaveScreenshot("frequency-light.png", { animations: "disabled" });
+  const insightsToggle = page.getByRole("button", { name: "Hide insights" });
+  await insightsToggle.click();
+  await expect(repeat).toBeHidden();
+  await expect(page.getByRole("button", { name: "Show insights" })).toBeVisible();
+  await page.getByRole("button", { name: "Show insights" }).click();
+  await expect(repeat).toBeVisible();
   expect(state.writes).toBe(0);
 });
 

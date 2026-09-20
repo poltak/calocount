@@ -411,6 +411,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
   const [themePreference, setThemePreference] = useState<ThemePreference>("system");
   const [activeSection, setActiveSection] = useState<DashboardSection>("today");
   const [nutritionCollapsed, setNutritionCollapsed] = useState(false);
+  const [insightsCollapsed, setInsightsCollapsed] = useState(false);
   const [proteinGoal, setProteinGoal] = useState<ProteinGoalSummary>(defaultProteinGoal);
   const [settingsDraft, setSettingsDraft] = useState<SettingsDraft>(() => settingsDraftForTargets(initialTargets, defaultProteinGoal));
   const [dataMode, setDataMode] = useState<DataMode>("loading");
@@ -804,6 +805,10 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
       writeNutritionCollapsed(() => window.localStorage, next);
       return next;
     });
+  }
+
+  function toggleInsightsSection() {
+    setInsightsCollapsed((current) => !current);
   }
 
   function changeThemePreference(nextTheme: ThemePreference) {
@@ -1528,20 +1533,6 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
             goals={targets.nutrients}
           />
 
-          <DaysWorthRepeating
-            days={insightData.days}
-            entries={insightData.entries}
-            currentDate={dashboardDate}
-            calorieTarget={targets.calories}
-            proteinGoals={proteinGoal.byDate}
-            fallbackProteinTarget={proteinGoal.mode === "grams" ? proteinGoal.fixedTargetG : null}
-            nutrientGoals={targets.nutrients}
-          />
-
-          <WeeklyChanges days={insightData.days} entries={insightData.entries} currentDate={dashboardDate} />
-
-          <FrequencyPortion days={insightData.days} entries={insightData.entries} currentDate={dashboardDate} />
-
           <NutritionOverview
             values={selectedDay.nutrients}
             carbsG={selectedDay.carbs}
@@ -1740,6 +1731,38 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
           <section className="quick-tip" aria-label="Calocount tip"><span className="tip-icon" aria-hidden="true">i</span><p><strong>Estimates are a starting point.</strong> Add a description to your photo for a more useful result.</p></section>
         </aside>
       </div>
+
+      <section className="insights-overview" aria-labelledby="insights-title">
+        <div className="nutrition-overview-heading insights-overview-heading">
+          <div><p className="eyebrow">Longer-term patterns</p><h2 id="insights-title">Insights</h2></div>
+          <div className="nutrition-overview-actions">
+            <span className="panel-meta">historical patterns</span>
+            <button
+              type="button"
+              className="nutrition-section-toggle"
+              aria-expanded={!insightsCollapsed}
+              aria-controls="insights-overview-content"
+              onClick={toggleInsightsSection}
+            >
+              {insightsCollapsed ? "Show insights" : "Hide insights"}
+              <span aria-hidden="true">{insightsCollapsed ? "⌄" : "⌃"}</span>
+            </button>
+          </div>
+        </div>
+        <div className="insights-overview-content" id="insights-overview-content" hidden={insightsCollapsed}>
+          <DaysWorthRepeating
+            days={insightData.days}
+            entries={insightData.entries}
+            currentDate={dashboardDate}
+            calorieTarget={targets.calories}
+            proteinGoals={proteinGoal.byDate}
+            fallbackProteinTarget={proteinGoal.mode === "grams" ? proteinGoal.fixedTargetG : null}
+            nutrientGoals={targets.nutrients}
+          />
+          <WeeklyChanges days={insightData.days} entries={insightData.entries} currentDate={dashboardDate} />
+          <FrequencyPortion days={insightData.days} entries={insightData.entries} currentDate={dashboardDate} />
+        </div>
+      </section>
 
       {previewMeal ? <div
         className="photo-preview-backdrop"
