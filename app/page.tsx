@@ -569,9 +569,12 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
       proteinG: selectedDay.protein,
       fatG: selectedDay.fat ?? 0,
     });
+    const hasData = percentages.carbs + percentages.protein + percentages.fat > 0;
     return {
       ...percentages,
-      gradient: `conic-gradient(var(--chart-green) 0 ${percentages.protein}%, var(--chart-blue) ${percentages.protein}% ${percentages.protein + percentages.carbs}%, var(--chart-orange) ${percentages.protein + percentages.carbs}% 100%)`,
+      gradient: hasData
+        ? `conic-gradient(var(--chart-green) 0 ${percentages.protein}%, var(--chart-blue) ${percentages.protein}% ${percentages.protein + percentages.carbs}%, var(--chart-orange) ${percentages.protein + percentages.carbs}% 100%)`
+        : "var(--chart-base)",
     };
   }, [selectedDay.carbs, selectedDay.fat, selectedDay.protein]);
 

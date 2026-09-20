@@ -3396,3 +3396,451 @@ input:focus-visible {
   *::before,
   *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
 }
+
+/* 2026 dashboard refresh --------------------------------------------------
+   The mockups use the same information architecture at every size, but a
+   deliberately different composition: a wide analytics canvas on desktop
+   and a compact, single-column log on handheld screens. */
+
+:root {
+  --dashboard-gutter: clamp(18px, 2.15vw, 34px);
+  --dashboard-gap: 12px;
+  --panel-shadow: 0 8px 28px rgb(1 10 18 / 12%);
+}
+
+body {
+  background:
+    radial-gradient(circle at 52% -20%, rgb(52 91 107 / 13%), transparent 38rem),
+    var(--background);
+}
+
+.app-shell {
+  width: min(100%, 1580px);
+  padding: 0 var(--dashboard-gutter) 22px;
+}
+
+.topbar {
+  min-height: 58px;
+}
+
+.brand { font-size: 16px; }
+.topbar-actions { gap: 10px; }
+
+.summary-card,
+.panel,
+.nutrition-highlights,
+.nutrient-group-panel,
+.nutrient-trend-panel {
+  box-shadow: var(--panel-shadow);
+}
+
+.date-strip {
+  align-items: center;
+  padding: 18px 0 14px;
+}
+
+.date-heading .eyebrow { display: none; }
+.date-heading h1 { font-size: clamp(21px, 2vw, 27px); }
+
+.date-controls {
+  padding: 4px;
+  border: 1px solid var(--line-soft);
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--surface) 78%, transparent);
+}
+
+.date-pill { height: 42px; }
+
+.summary-grid {
+  gap: var(--dashboard-gap);
+  margin-top: 2px;
+}
+
+.summary-card {
+  min-height: 94px;
+  padding: 14px 16px;
+  border-radius: 10px;
+}
+
+.metric-value {
+  margin: 9px 0 4px;
+  font-size: 23px;
+}
+
+.metric-ring {
+  width: 58px;
+  height: 58px;
+}
+
+.metric-ring::before {
+  width: 45px;
+  height: 45px;
+}
+
+.content-grid {
+  grid-template-columns: minmax(0, 4fr) minmax(245px, 1.18fr);
+  gap: var(--dashboard-gap);
+  margin-top: var(--dashboard-gap);
+}
+
+.primary-column {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  gap: var(--dashboard-gap);
+}
+
+.primary-column > .nutrition-overview { grid-column: 1 / -1; }
+
+.side-column {
+  align-self: stretch;
+  grid-auto-rows: max-content;
+  gap: var(--dashboard-gap);
+}
+
+.chart-panel {
+  min-height: 298px;
+  padding: 15px 16px 13px;
+}
+
+.panel-heading h2,
+.ai-note h2 { font-size: 14px; }
+
+.panel-heading .eyebrow,
+.compact-heading .eyebrow,
+.weight-heading .eyebrow,
+.meal-heading .eyebrow { display: none; }
+
+.chart-range-select {
+  min-height: 28px;
+  border-radius: 6px;
+  font-size: 9px;
+}
+
+.chart-legend {
+  margin-top: 10px;
+  margin-bottom: 1px;
+}
+
+.bar-chart { height: 214px; }
+.macro-trend-chart { height: 215px; }
+.protein-target-chart { height: 218px; }
+
+.food-contribution-panel .contribution-list {
+  gap: 9px;
+  margin-top: 16px;
+}
+
+.consistency-matrix {
+  grid-template-columns: minmax(85px, 1fr) repeat(var(--matrix-columns), minmax(28px, 1fr));
+  min-width: 410px;
+  gap: 4px;
+}
+
+.matrix-cell,
+.matrix-label { min-height: 31px; }
+
+.nutrition-overview-heading { padding: 9px 4px 8px; }
+.nutrition-overview-heading .eyebrow { display: none; }
+.nutrition-overview-heading h2 { font-size: 15px; }
+.nutrition-overview-content { gap: var(--dashboard-gap); }
+.nutrition-overview-content {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.nutrition-overview-content > .nutrition-highlights { grid-column: span 2; }
+.nutrition-detail-grid { display: contents; }
+.nutrition-groups-grid { display: contents; }
+.nutrition-overview-content #vitamins,
+.nutrition-overview-content #minerals { grid-column: span 2; }
+.nutrition-overview-content > .nutrient-trend-panel { grid-column: 1 / -1; }
+.nutrition-highlights,
+.nutrient-group-panel,
+.nutrient-trend-panel { padding: 14px; }
+
+.macro-panel {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+}
+
+.macro-panel .panel-heading { grid-column: 1 / -1; }
+.macro-donut { margin: 2px auto; }
+.macro-legend { gap: 8px; }
+
+.history-panel { padding: 16px; }
+.history-list { margin-top: 10px; }
+.history-row { min-height: 42px; }
+.quick-tip { border-radius: 10px; }
+
+.weight-panel { padding: 15px 16px; }
+.weight-reading { min-height: 72px; }
+.meal-heading { padding-top: 15px; }
+
+.app-footer { min-height: 34px; }
+
+:root[data-theme="light"] body {
+  background:
+    radial-gradient(circle at 48% -10%, rgb(219 235 231 / 70%), transparent 34rem),
+    #f7faf9;
+}
+
+:root[data-theme="light"] .summary-card,
+:root[data-theme="light"] .panel,
+:root[data-theme="light"] .nutrition-highlights,
+:root[data-theme="light"] .nutrient-group-panel,
+:root[data-theme="light"] .nutrient-trend-panel {
+  border-color: #e2e9e5;
+  box-shadow: 0 7px 24px rgb(37 68 54 / 7%);
+}
+
+@media (min-width: 1181px) {
+  .content-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: start;
+  }
+
+  .primary-column,
+  .side-column { display: contents; }
+
+  .primary-column > .nutrition-overview { grid-column: 1 / -1; }
+  .primary-column > .meals-panel { grid-column: span 2; }
+
+  .side-column > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+}
+
+@media (min-width: 881px) and (max-width: 1180px) {
+  .content-grid { grid-template-columns: minmax(0, 1fr); }
+  .side-column { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .quick-tip { grid-column: auto; }
+}
+
+@media (max-width: 880px) {
+  .app-shell { padding-right: 16px; padding-left: 16px; }
+  .date-strip {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    justify-content: stretch;
+    gap: 10px;
+  }
+  .date-controls {
+    width: 100%;
+    margin-top: 0;
+  }
+  .date-pills {
+    flex: 1 1 auto;
+    justify-content: stretch;
+  }
+  .date-pill {
+    flex: 1 1 0;
+    width: auto;
+  }
+  .content-grid { grid-template-columns: minmax(0, 1fr); }
+  .primary-column { grid-template-columns: 1fr; }
+  .primary-column > .nutrition-overview,
+  .primary-column > .meals-panel,
+  .primary-column > .weight-panel { grid-column: auto; }
+  .side-column { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .nutrition-overview-content { display: grid; grid-template-columns: 1fr; }
+  .nutrition-overview-content > .nutrition-highlights,
+  .nutrition-overview-content > .nutrient-trend-panel { grid-column: auto; }
+  .nutrition-overview-content #vitamins,
+  .nutrition-overview-content #minerals { grid-column: auto; }
+  .nutrition-detail-grid,
+  .nutrition-groups-grid { display: grid; }
+}
+
+@media (max-width: 620px) {
+  :root { --dashboard-gap: 9px; }
+
+  body {
+    font-size: 12px;
+    background: var(--background);
+  }
+
+  .app-shell {
+    width: 100%;
+    padding: 0 10px 18px;
+  }
+
+  .topbar {
+    min-height: 50px;
+    padding: 0 2px;
+  }
+
+  .brand { font-size: 14px; }
+  .brand-mark { transform: scale(.86); transform-origin: left center; }
+  .avatar { display: none; }
+  .icon-button { width: 30px; height: 30px; }
+
+  .date-strip {
+    display: grid;
+    gap: 8px;
+    padding: 12px 0 8px;
+  }
+
+  .date-heading h1 {
+    font-size: 18px;
+    letter-spacing: -.04em;
+  }
+
+  .date-controls {
+    width: 100%;
+    margin-top: 0;
+    padding: 3px;
+  }
+
+  .date-pills { gap: 2px; }
+  .date-pill { flex: 1 1 0; width: auto; height: 43px; }
+  .date-arrow { width: 25px; height: 43px; }
+
+  .jump-nav {
+    min-height: 35px;
+    gap: 0;
+    overflow: visible;
+    border: 1px solid var(--line-soft);
+    border-radius: 8px;
+    background: var(--surface-soft);
+  }
+
+  .jump-nav a {
+    flex: 1 1 0;
+    justify-content: center;
+    height: 34px;
+    font-size: 9px;
+  }
+
+  .jump-nav a.active {
+    border-radius: 7px;
+    background: color-mix(in srgb, var(--orange) 82%, white);
+    color: #25170d;
+  }
+
+  .jump-nav a.active::after { display: none; }
+
+  .summary-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 7px;
+    margin-top: 9px;
+  }
+
+  .average-card { grid-column: auto; }
+
+  .summary-card {
+    position: relative;
+    display: block;
+    min-width: 0;
+    min-height: 95px;
+    padding: 10px 8px;
+    overflow: hidden;
+    border-radius: 9px;
+  }
+
+  .card-label-row { gap: 5px; }
+  .metric-dot { width: 6px; height: 6px; }
+  .card-label { overflow: hidden; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+  .metric-value { margin: 10px 0 3px; font-size: clamp(14px, 4.1vw, 18px); }
+  .metric-value span { font-size: 8px; }
+  .metric-subtitle { max-width: calc(100% - 29px); font-size: 8px; line-height: 1.25; }
+  .protein-goal-hint,
+  .protein-goal-link { display: none; }
+
+  .metric-ring {
+    position: absolute;
+    right: 7px;
+    bottom: 8px;
+    width: 31px;
+    height: 31px;
+    margin: 0;
+  }
+
+  .metric-ring::before { width: 24px; height: 24px; }
+  .metric-ring strong { font-size: 7px; }
+
+  .mini-bars {
+    position: absolute;
+    right: 7px;
+    bottom: 10px;
+    width: 29px;
+    height: 27px;
+    gap: 2px;
+  }
+
+  .content-grid { margin-top: var(--dashboard-gap); }
+  .primary-column,
+  .side-column { gap: var(--dashboard-gap); }
+  .side-column { grid-template-columns: 1fr; }
+
+  .chart-panel {
+    min-height: 0;
+    padding: 12px 11px 10px;
+    border-radius: 9px;
+  }
+
+  .panel-heading h2,
+  .ai-note h2 { font-size: 13px; }
+  .chart-range-select { min-height: 25px; padding-top: 3px; padding-bottom: 3px; }
+  .chart-legend { margin: 9px 0 0 36px; gap: 11px; font-size: 8px; }
+  .bar-chart { height: 190px; margin-top: 7px; }
+  .macro-trend-chart,
+  .protein-target-chart { height: 195px; }
+  .bar { width: min(27px, 64%); }
+
+  .contribution-row {
+    grid-template-columns: minmax(88px, 1.1fr) minmax(80px, 1.6fr) 55px;
+    gap: 7px;
+  }
+
+  .consistency-matrix {
+    grid-template-columns: 68px repeat(var(--matrix-columns), minmax(25px, 1fr));
+    min-width: 0;
+  }
+  .matrix-label strong { font-size: 8px; }
+  .matrix-label span,
+  .matrix-cell span { display: none; }
+
+  .nutrition-overview-heading { padding: 8px 2px; }
+  .nutrition-overview-actions { flex-direction: row; align-items: center; }
+  .nutrition-section-toggle { min-height: 27px; }
+  .nutrition-overview-content { gap: var(--dashboard-gap); }
+  .nutrition-highlights,
+  .nutrient-group-panel,
+  .nutrient-trend-panel { padding: 12px 11px; border-radius: 9px; }
+  .nutrition-detail-grid,
+  .nutrition-groups-grid { gap: var(--dashboard-gap); }
+  .nutrient-stat-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .nutrient-stat-grid-compact { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .nutrient-stat { min-height: 57px; padding: 8px; }
+
+  .macro-panel {
+    grid-template-columns: 100px minmax(0, 1fr);
+    padding: 12px;
+  }
+  .macro-donut {
+    width: 92px;
+    height: 92px;
+  }
+  .macro-donut > div {
+    width: 70px;
+    height: 70px;
+  }
+  .macro-donut strong { font-size: 17px; }
+  .macro-legend { min-width: 0; }
+  .macro-legend div {
+    grid-template-columns: 7px minmax(0, 1fr) auto;
+    gap: 6px;
+    font-size: 10px;
+  }
+  .history-panel,
+  .weight-panel { padding: 12px; }
+
+  .meal-heading,
+  .meal-list,
+  .meal-total { padding-right: 12px; padding-left: 12px; }
+
+  .app-footer { justify-content: center; }
+}
