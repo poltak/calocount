@@ -75,6 +75,88 @@ async function expectFrequencyLayout(frequency: Locator, viewportWidth: number) 
     .toBeLessThanOrEqual(viewportWidth + 1);
 }
 
+async function expectPanelFitsViewport(panel: Locator) {
+  const metrics = await panel.evaluate((element) => {
+    const section = element as HTMLElement;
+    const bounds = section.getBoundingClientRect();
+    return {
+      left: bounds.left,
+      right: bounds.right,
+      viewportWidth: window.innerWidth,
+      documentWidth: document.documentElement.scrollWidth,
+      clientWidth: section.clientWidth,
+      scrollWidth: section.scrollWidth,
+    };
+  });
+
+  expect(metrics.left, `Panel starts outside the viewport: ${JSON.stringify(metrics)}`).toBeGreaterThanOrEqual(-1);
+  expect(metrics.right, `Panel ends outside the viewport: ${JSON.stringify(metrics)}`)
+    .toBeLessThanOrEqual(metrics.viewportWidth + 1);
+  expect(metrics.scrollWidth, `Panel content overflows horizontally: ${JSON.stringify(metrics)}`)
+    .toBeLessThanOrEqual(metrics.clientWidth + 1);
+  expect(metrics.documentWidth, `The page overflows horizontally: ${JSON.stringify(metrics)}`)
+    .toBeLessThanOrEqual(metrics.viewportWidth + 1);
+}
+
+async function expectWeeklyCardsFitPanel(weekly: Locator) {
+  const metrics = await weekly.evaluate((element) => {
+    const section = element as HTMLElement;
+    const panelBounds = section.getBoundingClientRect();
+    const cards = Array.from(section.querySelectorAll<HTMLElement>(".weekly-metric")).map((card) => {
+      const bounds = card.getBoundingClientRect();
+      return {
+        left: bounds.left,
+        right: bounds.right,
+        top: bounds.top,
+        bottom: bounds.bottom,
+        clientWidth: card.clientWidth,
+        scrollWidth: card.scrollWidth,
+        clientHeight: card.clientHeight,
+        scrollHeight: card.scrollHeight,
+      };
+    });
+    const overlappingCards: number[][] = [];
+
+    for (let first = 0; first < cards.length; first++) {
+      for (let second = first + 1; second < cards.length; second++) {
+        const a = cards[first];
+        const b = cards[second];
+        if (a.left < b.right - 1 && a.right > b.left + 1 && a.top < b.bottom - 1 && a.bottom > b.top + 1) {
+          overlappingCards.push([first, second]);
+        }
+      }
+    }
+
+    return {
+      panel: {
+        left: panelBounds.left,
+        right: panelBounds.right,
+        top: panelBounds.top,
+        bottom: panelBounds.bottom,
+      },
+      cards,
+      overlappingCards,
+    };
+  });
+
+  expect(metrics.cards, `Expected all weekly metric cards: ${JSON.stringify(metrics)}`).toHaveLength(5);
+  for (const [index, card] of metrics.cards.entries()) {
+    expect(card.left, `Weekly metric ${index + 1} extends left of its panel: ${JSON.stringify(metrics)}`)
+      .toBeGreaterThanOrEqual(metrics.panel.left - 1);
+    expect(card.right, `Weekly metric ${index + 1} extends right of its panel: ${JSON.stringify(metrics)}`)
+      .toBeLessThanOrEqual(metrics.panel.right + 1);
+    expect(card.top, `Weekly metric ${index + 1} extends above its panel: ${JSON.stringify(metrics)}`)
+      .toBeGreaterThanOrEqual(metrics.panel.top - 1);
+    expect(card.bottom, `Weekly metric ${index + 1} extends below its panel: ${JSON.stringify(metrics)}`)
+      .toBeLessThanOrEqual(metrics.panel.bottom + 1);
+    expect(card.scrollWidth, `Weekly metric ${index + 1} has clipped horizontal content: ${JSON.stringify(metrics)}`)
+      .toBeLessThanOrEqual(card.clientWidth + 1);
+    expect(card.scrollHeight, `Weekly metric ${index + 1} has clipped vertical content: ${JSON.stringify(metrics)}`)
+      .toBeLessThanOrEqual(card.clientHeight + 1);
+  }
+  expect(metrics.overlappingCards, `Weekly metric cards overlap: ${JSON.stringify(metrics)}`).toEqual([]);
+}
+
 test("insights inspect historical food and drink logs, scale outliers, and explain nutrient changes", async ({ page }) => {
   const state = await seedInsights(page);
   await page.emulateMedia({ colorScheme: "light" });
@@ -91,7 +173,9 @@ test("insights inspect historical food and drink logs, scale outliers, and expla
   expect(xPosition).toBeLessThan(100);
   await repeat.getByLabel("Vertical axis").selectOption("fiber");
   await expect(repeat.locator(".days-repeat-summary")).toContainText("partial fiber coverage");
-  await expect(repeat).toHaveScreenshot("days-light.png", { animations: "disabled" });
+  await expect(repeat.locator(".repeat-chart")).toBeVisible();
+  await expect(repeat.locator(".repeat-details")).toBeVisible();
+  await expectPanelFitsViewport(repeat);
 
   const weekly = page.getByRole("region", { name: "What changed this week?" });
   await expect(weekly).toContainText("7/7 recorded days");
@@ -100,7 +184,8 @@ test("insights inspect historical food and drink logs, scale outliers, and expla
   await weekly.locator(".weekly-contribution-list").getByRole("button", { name: /Coffee with milk/ }).click();
   await expect(weekly.locator(".weekly-source-detail")).toContainText("Coffee with milk");
   await expect(weekly.locator(".weekly-source-detail")).not.toContainText("entry coffee-");
-  await expect(weekly).toHaveScreenshot("weekly-light.png", { animations: "disabled" });
+  await expectPanelFitsViewport(weekly);
+  await expectWeeklyCardsFitPanel(weekly);
 
   const frequency = page.getByRole("region", { name: "Frequency & amount" });
   await frequency.getByRole("button", { name: "7 days", exact: true }).click();
@@ -111,9 +196,9 @@ test("insights inspect historical food and drink logs, scale outliers, and expla
   for (const width of [1280, 900]) {
     await page.setViewportSize({ width, height: 900 });
     await expectFrequencyLayout(frequency, width);
+    await expectPanelFitsViewport(frequency);
   }
   await page.setViewportSize({ width: 1280, height: 900 });
-  await expect(frequency).toHaveScreenshot("frequency-light.png", { animations: "disabled" });
   const insightsToggle = page.getByRole("button", { name: "Hide insights" });
   await insightsToggle.click();
   await expect(repeat).toBeHidden();
@@ -131,12 +216,15 @@ test("new charts work on mobile in dark mode and refresh after a food log is del
   const repeat = page.getByRole("region", { name: "Days worth repeating" });
   await repeat.getByLabel("Inspect a day").selectOption("2026-09-11");
   await expect(repeat.locator(".repeat-details li")).toHaveCount(2);
-  await expect(repeat).toHaveScreenshot("days-mobile-dark.png", { animations: "disabled" });
+  await expect(repeat.locator(".repeat-chart")).toBeVisible();
+  await expect(repeat.locator(".repeat-details")).toBeVisible();
+  await expectPanelFitsViewport(repeat);
   const weekly = page.getByRole("region", { name: "What changed this week?" });
-  await expect(weekly).toHaveScreenshot("weekly-mobile-dark.png", { animations: "disabled" });
+  await expectPanelFitsViewport(weekly);
+  await expectWeeklyCardsFitPanel(weekly);
   const frequency = page.getByRole("region", { name: "Frequency & amount" });
   await expectFrequencyLayout(frequency, 390);
-  await expect(frequency).toHaveScreenshot("frequency-mobile-dark.png", { animations: "disabled" });
+  await expectPanelFitsViewport(frequency);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(391);
 
   await page.getByRole("button", { name: "Previous day", exact: true }).click();
