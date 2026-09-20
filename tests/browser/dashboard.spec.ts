@@ -139,6 +139,7 @@ test("light mode uses a coherent palette for charts and button states", async ({
   await mockDashboardApi(page);
   await page.goto("/");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await expect(page.locator(".bar:not(.bar-empty)").first()).toBeVisible();
 
   const charts = await page.evaluate(() => {
     const read = (selector: string) => {

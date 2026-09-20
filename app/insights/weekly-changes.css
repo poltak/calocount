@@ -1,4 +1,4 @@
-.weekly-changes { padding: 22px; }
+.weekly-changes { container-type: inline-size; padding: 22px; }
 .weekly-changes-heading { margin-bottom: 14px; }
 .weekly-changes-heading p { margin: 5px 0 0; }
 .weekly-period-key { display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 10px 12px; border: 1px solid var(--line-soft); border-radius: 8px; background: var(--surface-soft); color: var(--muted); font-size: 10px; }
@@ -58,6 +58,11 @@
 .weekly-source-columns li { display: flex; justify-content: space-between; gap: 10px; padding: 4px 0; border-top: 1px solid var(--line-soft); color: var(--muted); font-size: 8px; }
 .weekly-source-columns strong { color: var(--muted-strong); }
 .weekly-unavailable { margin-top: 12px; padding: 20px; border: 1px dashed var(--chart-empty-border); border-radius: 8px; color: var(--muted); font-size: 10px; text-align: center; }
+@container (max-width: 520px) {
+  .weekly-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .weekly-metric:last-child { grid-column: 1 / -1; }
+  .weekly-contribution-list, .weekly-source-columns { grid-template-columns: 1fr; }
+}
 @media (max-width: 920px) { .weekly-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 560px) {
   .weekly-changes { padding: 16px; }
