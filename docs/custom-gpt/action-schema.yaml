@@ -13,12 +13,7 @@ paths:
     post:
       operationId: addMeal
       summary: Add a meal to Calocount
-      description: >
-        Adds one or more meals to the user's personal tracker. Calories and
-        macros are required. Detailed nutrients and one user-uploaded meal
-        image per meal are optional. Call this operation when the user's
-        logging intent is explicit. The response includes the current logical
-        day's calorie and protein totals.
+      description: Adds meals with required calories and macros; optional detailed nutrients and one user-uploaded image per meal are supported. Use only for explicit logging requests. The response includes current logical-day calorie and protein totals.
       security:
         - bearerAuth: []
       requestBody:
@@ -26,9 +21,18 @@ paths:
         content:
           application/json:
             schema:
-              oneOf:
-                - $ref: "#/components/schemas/MealRequest"
-                - $ref: "#/components/schemas/BatchMealRequest"
+              type: object
+              additionalProperties: false
+              required:
+                - meals
+              properties:
+                meals:
+                  type: array
+                  minItems: 1
+                  maxItems: 20
+                  description: Meals to add atomically. Each request_id must be unique in this array.
+                  items:
+                    $ref: "#/components/schemas/MealRequest"
       responses:
         "200":
           description: >

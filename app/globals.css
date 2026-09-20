@@ -1,3 +1,7 @@
+@import "./insights/days-worth-repeating.css";
+@import "./insights/weekly-changes.css";
+@import "./insights/frequency-portion.css";
+
 :root {
   --background: #0f131b;
   --surface: #151b24;

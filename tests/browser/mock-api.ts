@@ -1,7 +1,7 @@
 import type { Page } from "@playwright/test";
 import { buildProteinGoalSummary, type ProteinGoalMode } from "../../domain/protein-goals";
 import { resolveNutrientGoals } from "../../domain/nutrient-goals";
-import { aggregateNutrients } from "../../domain/nutrients";
+import { aggregateNutrients, NUTRIENT_KEYS } from "../../domain/nutrients";
 
 const dayMs = 86_400_000;
 const date = "2026-09-12";
@@ -9,7 +9,7 @@ const initialMeal = {
   id: "meal-1", consumedAt: Date.parse(`${date}T12:00:00Z`), caption: "Audit lunch",
   mealType: "lunch", status: "complete", totalCalories: 500, totalProteinG: 30,
   totalCarbsG: 50, totalFatG: 20, photoKey: null, hasPhoto: false,
-  items: [{ name: "Audit lunch", quantity: 1, unit: "serving", calories: 500, proteinG: 30, carbsG: 50, fatG: 20, fiberG: 4 }],
+  items: [{ name: "Audit lunch", quantity: 1, unit: "serving", calories: 500, proteinG: 30, carbsG: 50, fatG: 20, fiberG: 4 as number | null, caffeineMg: null as number | null }],
 };
 
 export async function mockDashboardApi(page: Page) {
@@ -47,6 +47,18 @@ export async function mockDashboardApi(page: Page) {
       targets: { calories: state.settings.dailyCalorieTarget, proteinG: proteinGoal.targetG, nutrients: resolveNutrientGoals() },
       proteinGoal, today: byDate[29], sevenDay: { calories: 500, proteinG: 30, averageCalories: 0, averageProteinG: 0, daysWithMeals: 1 },
       recentMeals: state.meals, recentWeights: state.weights,
+      insights: {
+        fromDate: new Date(Date.parse(state.date) - 30 * dayMs).toISOString().slice(0, 10),
+        toDate: state.date,
+        entries: state.meals.map((meal) => ({
+          id: meal.id, date: new Date(meal.consumedAt).toISOString().slice(0, 10), consumedAt: meal.consumedAt,
+          calories: meal.totalCalories, proteinG: meal.totalProteinG,
+          items: meal.items.map((item) => ({
+            name: item.name, quantity: item.quantity, unit: item.unit, calories: item.calories, proteinG: item.proteinG,
+            nutrients: Object.fromEntries(NUTRIENT_KEYS.map((key) => [key, (item as Record<string, unknown>)[key] ?? null])),
+          })),
+        })),
+      },
       trend: { byDate, weights: state.weights },
       nutrition: { today: byDate[29].nutrients, sevenDay: byDate[29].nutrients, byDate: byDate.slice(-7) },
     };

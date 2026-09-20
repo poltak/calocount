@@ -1,6 +1,6 @@
 import type { getDashboardSummary } from "../../../db/repository";
 import { resolveNutrientGoals } from "../../../domain/nutrient-goals";
-import { NUTRIENT_KEYS, nullableNutrientValue, type NutrientValues } from "../../../domain/nutrients";
+import { NUTRIENT_KEYS, nullableNutrientValue, type NutrientAggregateMap, type NutrientValues } from "../../../domain/nutrients";
 import { isPublicPhotoMimeType, isWithinPublicDateRange } from "./public-photo-policy";
 
 type DashboardSummary = Awaited<ReturnType<typeof getDashboardSummary>>;
@@ -87,6 +87,18 @@ function publicWeight(entry: PublicWeight): PublicWeight {
   };
 }
 
+function publicNutrientAggregates(source: NutrientAggregateMap | undefined): NutrientAggregateMap {
+  return Object.fromEntries(NUTRIENT_KEYS.map((key) => {
+    const aggregate = source?.[key];
+    return [key, {
+      amount: nullableNutrientValue(aggregate?.amount),
+      knownItemCount: aggregate?.knownItemCount ?? 0,
+      totalItemCount: aggregate?.totalItemCount ?? 0,
+      complete: aggregate?.complete === true,
+    }];
+  })) as NutrientAggregateMap;
+}
+
 function publicTrend(summary: DashboardSummary): PublicTrendDay[] {
   const byDate = new Map<string, PublicTrendDay>();
   for (let daysBefore = 6; daysBefore >= 0; daysBefore -= 1) {
@@ -156,6 +168,33 @@ function publicProteinGoal(summary: DashboardSummary) {
   };
 }
 
+function publicInsights(summary: DashboardSummary) {
+  if (!summary.insights) return undefined;
+  const fromDate = dateKeyDaysBefore(summary.date, 30);
+  return {
+    fromDate,
+    toDate: summary.date,
+    entries: summary.insights.entries.filter((entry) => (
+      entry.date >= fromDate && entry.date <= summary.date
+      && dateKeyFromTimestamp(entry.consumedAt) === entry.date
+    )).map((entry) => ({
+      id: entry.id,
+      date: entry.date,
+      consumedAt: entry.consumedAt,
+      calories: entry.calories,
+      proteinG: entry.proteinG,
+      items: entry.items.map((item) => ({
+        name: item.name,
+        quantity: item.quantity,
+        unit: item.unit,
+        calories: item.calories,
+        proteinG: item.proteinG,
+        nutrients: Object.fromEntries(NUTRIENT_KEYS.map((key) => [key, nullableNutrientValue(item.nutrients[key])])),
+      })),
+    })),
+  };
+}
+
 /**
  * Build the deliberately small contract used by the anonymous root dashboard.
  * Keep this explicit: private database fields must not cross this boundary.
@@ -192,11 +231,19 @@ export function projectPublicDashboardSummary(summary: DashboardSummary) {
         carbsG: day.carbsG,
         fatG: day.fatG,
         mealCount: day.mealCount,
-        nutrients: day.nutrients,
+        nutrients: publicNutrientAggregates(day.nutrients),
       })),
       weights: (summary.trend?.weights ?? summary.recentWeights).map(publicWeight),
     },
-    nutrition: summary.nutrition,
+    nutrition: {
+      today: publicNutrientAggregates(summary.nutrition.today),
+      sevenDay: publicNutrientAggregates(summary.nutrition.sevenDay),
+      byDate: summary.nutrition.byDate.map((day) => ({
+        date: day.date,
+        nutrients: publicNutrientAggregates(day.nutrients),
+      })),
+    },
+    insights: publicInsights(summary),
     recentMeals: summary.recentMeals.filter((entry) => (
       entry.meal.status === "complete"
       && isWithinPublicDateRange({ consumedAt: entry.meal.consumedAt, summaryDate: summary.date })

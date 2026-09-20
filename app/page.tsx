@@ -55,6 +55,11 @@ import { NutrientTrendPanel } from "./nutrition/nutrient-trend-panel";
 import { NutritionOverview } from "./nutrition/nutrition-overview";
 import { TrendRangeSelect, type TrendRangeDays } from "./trend-range-select";
 import { FoodContributionChart, NutrientConsistencyMatrix, ProteinTargetChart } from "./dashboard-insights";
+import { DaysWorthRepeating } from "./insights/days-worth-repeating";
+import { WeeklyChanges } from "./insights/weekly-changes";
+import { FrequencyPortion } from "./insights/frequency-portion";
+import { buildInsightData } from "./insights/insight-data";
+import type { InsightHistory } from "./insights/types";
 
 type DayKey = "sun" | "mon" | "tue" | "wed" | "thu" | "fri" | "sat";
 
@@ -73,6 +78,7 @@ type Meal = {
   photoUrl?: string | null;
   items: NutritionItem[];
   pending?: "creating" | "copying" | "duplicating";
+  status?: string;
   kind: "breakfast" | "lunch" | "snack" | "dinner";
 };
 
@@ -246,6 +252,7 @@ function mapRemoteMeal(meal: SerializedMeal, { publicView = false }: { publicVie
   const name = itemNames[0] ?? meal.caption.split(",")[0]?.trim() ?? `${kind[0].toUpperCase()}${kind.slice(1)} meal`;
   return {
     id: meal.id,
+    status: meal.status,
     consumedAt: meal.consumedAt,
     time: new Intl.DateTimeFormat("en-US", { hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(meal.consumedAt)),
     name,
@@ -393,6 +400,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
   const [days, setDays] = useState(initialDays);
   const [trendRange, setTrendRange] = useState<TrendRangeDays>(7);
   const [trendHistory, setTrendHistory] = useState<{ byDate: TrendDay[]; weights: DailyWeight[] }>({ byDate: [], weights: [] });
+  const [insightHistory, setInsightHistory] = useState<InsightHistory | null>(null);
   const [selectedDayKey, setSelectedDayKey] = useState<DayKey>("thu");
   const [mealEditState, setMealEditState] = useState<MealEditState<Meal>>(() => emptyMealEditState<Meal>());
   const [showAddMeal, setShowAddMeal] = useState(false);
@@ -465,6 +473,11 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
   const sevenDayChartValues = useMemo(
     () => days.map((day) => ({ date: day.date, label: `${day.weekday.slice(0, 3)} ${day.shortDate}`, value: day.calories })),
     [days],
+  );
+
+  const insightData = useMemo(
+    () => buildInsightData(insightHistory, days, trendHistory.byDate),
+    [insightHistory, days, trendHistory.byDate],
   );
 
   const visibleTrendDays = useMemo(
@@ -667,6 +680,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
           nutrients: parsed.targets.nutrients,
         });
         setDays(liveDays);
+        setInsightHistory(parsed.insights ?? null);
         setTrendHistory(parsed.trend ?? {
           byDate: liveDays.map((day) => ({
             date: day.date,
@@ -1513,6 +1527,20 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
             days={visibleTrendDays.map((day) => ({ ...day, label: dateLabelForTrend(day.date) }))}
             goals={targets.nutrients}
           />
+
+          <DaysWorthRepeating
+            days={insightData.days}
+            entries={insightData.entries}
+            currentDate={dashboardDate}
+            calorieTarget={targets.calories}
+            proteinGoals={proteinGoal.byDate}
+            fallbackProteinTarget={proteinGoal.mode === "grams" ? proteinGoal.fixedTargetG : null}
+            nutrientGoals={targets.nutrients}
+          />
+
+          <WeeklyChanges days={insightData.days} entries={insightData.entries} currentDate={dashboardDate} />
+
+          <FrequencyPortion days={insightData.days} entries={insightData.entries} currentDate={dashboardDate} />
 
           <NutritionOverview
             values={selectedDay.nutrients}

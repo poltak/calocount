@@ -905,20 +905,22 @@ export async function getDashboardSummary(db: AppDb, ownerKey: string, options: 
   const logicalDate = dateKeyFromParts(zonedDateParts(formatter, now.getTime()));
   const weekStartDate = shiftDateKey(logicalDate, -6);
   const monthStartDate = shiftDateKey(logicalDate, -29);
+  // Keep 30 finished days for insights in addition to the in-progress day.
+  const insightStartDate = shiftDateKey(logicalDate, -30);
   const endMs = firstInstantForLocalDate({ date: shiftDateKey(logicalDate, 1), formatter });
   const weekStartMs = firstInstantForLocalDate({ date: weekStartDate, formatter });
-  const monthStartMs = firstInstantForLocalDate({ date: monthStartDate, formatter });
+  const insightStartMs = firstInstantForLocalDate({ date: insightStartDate, formatter });
   const [settingsRow, trendMeals, trendWeights, weightBeforeTrend] = await Promise.all([
     getSettings(db, ownerKey),
-    listMealsInRange({ db, ownerKey, from: monthStartMs, to: endMs }),
-    listDailyWeights({ db, ownerKey, from: monthStartDate, to: logicalDate }),
-    getLatestDailyWeightBefore({ db, ownerKey, logicalDate: monthStartDate }),
+    listMealsInRange({ db, ownerKey, from: insightStartMs, to: endMs }),
+    listDailyWeights({ db, ownerKey, from: insightStartDate, to: logicalDate }),
+    getLatestDailyWeightBefore({ db, ownerKey, logicalDate: insightStartDate }),
   ]);
   const nutrientTargetOverrides = parseNutrientGoalOverridesJson(settingsRow?.nutrientTargetsJson);
   const recentMeals = trendMeals.filter((entry) => entry.meal.consumedAt >= weekStartMs);
   const recentWeights = trendWeights.filter((entry) => entry.logicalDate >= weekStartDate);
   const proteinGoal = buildProteinGoalSummary({
-    dates: Array.from({ length: 7 }, (_, index) => shiftDateKey(weekStartDate, index)),
+    dates: Array.from({ length: 31 }, (_, index) => shiftDateKey(insightStartDate, index)),
     mode: normaliseProteinGoalMode(settingsRow?.proteinGoalMode),
     fixedTargetG: settingsRow?.dailyProteinTargetG,
     gramsPerKg: settingsRow?.dailyProteinTargetPerKg,
@@ -986,7 +988,27 @@ export async function getDashboardSummary(db: AppDb, ownerKey: string, options: 
     },
     trend: {
       byDate: trendByDate,
-      weights: trendWeights.map(({ logicalDate, weightKg, recordedAt }) => ({ logicalDate, weightKg, recordedAt })),
+      weights: trendWeights.filter((weight) => weight.logicalDate >= monthStartDate)
+        .map(({ logicalDate, weightKg, recordedAt }) => ({ logicalDate, weightKg, recordedAt })),
+    },
+    insights: {
+      fromDate: insightStartDate,
+      toDate: logicalDate,
+      entries: [...mealsByDate].flatMap(([date, entries]) => entries.map(({ meal, items }) => ({
+        id: meal.id,
+        date,
+        consumedAt: meal.consumedAt,
+        calories: meal.totalCalories,
+        proteinG: meal.totalProteinG,
+        items: items.map((item) => ({
+          name: item.name,
+          quantity: item.quantity,
+          unit: item.unit,
+          calories: item.calories,
+          proteinG: item.proteinG,
+          nutrients: Object.fromEntries(NUTRIENT_KEYS.map((key) => [key, nullableNutrientValue(item[key])])) as NutrientValues,
+        })),
+      }))),
     },
     recentMeals,
     recentWeights,

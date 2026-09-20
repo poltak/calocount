@@ -1,0 +1,46 @@
+.days-repeat { padding: 21px; }
+.days-repeat-heading { display: flex; justify-content: space-between; gap: 20px; }
+.days-repeat-heading h2 { margin: 0; font-size: 17px; letter-spacing: -.035em; }
+.days-repeat-heading p, .days-repeat-summary, .days-repeat-note, .days-repeat-empty { color: var(--muted); font-size: 11px; line-height: 1.5; }
+.days-repeat-heading p { max-width: 520px; margin: 6px 0 0; }
+.days-repeat-controls { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.days-repeat-controls label, .repeat-date-select { display: grid; gap: 4px; color: var(--muted); font-size: 9px; font-weight: 650; }
+.days-repeat-controls select, .repeat-date-select select { min-height: 30px; padding: 5px 24px 5px 8px; border: 1px solid var(--line); border-radius: 7px; background: var(--button-secondary-background); color: var(--muted-strong); font: inherit; }
+.days-repeat-summary { margin: 16px 0 8px; }
+.days-repeat-legend { display: flex; flex-wrap: wrap; gap: 14px; margin: 10px 0; color: var(--muted); font-size: 10px; }
+.days-repeat-legend span { display: flex; align-items: center; gap: 5px; }
+.repeat-dot, .repeat-point { border: 2px solid var(--chart-neutral); border-radius: 50%; background: var(--surface); }
+.repeat-dot { width: 9px; height: 9px; }
+.repeat-dot.in-band, .repeat-point.in-band { border-color: var(--chart-green); background: var(--chart-green); }
+.repeat-dot.joint, .repeat-point.joint { border-color: var(--chart-orange); background: var(--chart-orange); }
+.repeat-dot.partial, .repeat-point.partial { background: repeating-linear-gradient(135deg, var(--chart-blue) 0 3px, var(--surface) 3px 6px); }
+.repeat-chart-wrap { display: grid; grid-template: minmax(220px, 32vw) auto / 28px 1fr; margin-top: 8px; }
+.repeat-chart { position: relative; overflow: hidden; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-soft); }
+.repeat-chart-plot { position: absolute; inset: 14px; }
+.repeat-guide { position: absolute; pointer-events: none; }
+.repeat-guide.x { top: 0; bottom: 0; border-left: 1px dashed var(--chart-target); }
+.repeat-guide.y { right: 0; left: 0; border-top: 1px dashed var(--chart-target); }
+.repeat-success-zone { position: absolute; top: 0; background: color-mix(in srgb, var(--chart-green) 12%, transparent); border: 1px solid color-mix(in srgb, var(--chart-green) 45%, transparent); pointer-events: none; }
+.repeat-tick { position: absolute; z-index: 1; color: var(--chart-axis); font-size: 8px; pointer-events: none; }
+.repeat-tick.x { bottom: 2px; transform: translateX(-50%); }
+.repeat-tick.y { left: 3px; transform: translateY(50%); }
+.repeat-point { position: absolute; width: 14px; height: 14px; padding: 0; transform: translate(-50%, 50%); cursor: pointer; box-shadow: 0 1px 4px rgb(0 0 0 / 25%); }
+.repeat-point:hover, .repeat-point:focus-visible, .repeat-point.selected { outline: 2px solid var(--orange); outline-offset: 2px; z-index: 2; }
+.repeat-y-title { display: flex; align-items: center; justify-content: center; color: var(--chart-axis); font-size: 9px; writing-mode: vertical-rl; transform: rotate(180deg); }
+.repeat-x-title { grid-column: 2; padding-top: 7px; color: var(--chart-axis); font-size: 9px; text-align: center; }
+.days-repeat-chart-empty { position: absolute; inset: 45% 12px auto; margin: 0; color: var(--muted); font-size: 11px; text-align: center; }
+.repeat-date-select { max-width: 230px; margin-top: 14px; }
+.repeat-details { margin-top: 12px; padding: 14px; border: 1px solid var(--line-soft); border-radius: 9px; background: var(--detail-card-background); }
+.repeat-details h3, .repeat-details h4 { margin: 0 0 7px; font-size: 13px; }
+.repeat-details p { margin: 0 0 10px; color: var(--muted-strong); font-size: 11px; line-height: 1.5; }
+.repeat-details ul { display: grid; gap: 7px; margin: 0; padding: 0; list-style: none; }
+.repeat-details li { display: flex; justify-content: space-between; gap: 12px; font-size: 11px; }
+.repeat-details small { color: var(--muted); text-align: right; }
+.days-repeat-note { margin: 14px 0 0; }
+@media (max-width: 700px) {
+  .days-repeat-heading { display: block; }
+  .days-repeat-controls { justify-content: flex-start; margin-top: 12px; }
+  .repeat-chart-wrap { grid-template-rows: 240px auto; }
+  .repeat-details li { display: grid; gap: 2px; }
+  .repeat-details small { text-align: left; }
+}

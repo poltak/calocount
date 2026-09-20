@@ -1,0 +1,328 @@
+.frequency-portion {
+  padding: 22px;
+  container-name: frequency-portion;
+  container-type: inline-size;
+}
+
+.frequency-portion__heading,
+.frequency-portion__controls,
+.frequency-portion__range,
+.frequency-portion__coverage,
+.frequency-portion__sources li {
+  display: flex;
+  align-items: center;
+}
+
+.frequency-portion__heading {
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.frequency-portion__heading h2,
+.frequency-portion__details h3,
+.frequency-portion__details h4 {
+  margin: 0;
+}
+
+.frequency-portion__controls {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.frequency-portion__controls label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted-strong);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.frequency-portion__controls select,
+.frequency-portion__range {
+  border: 1px solid var(--form-control-border);
+  border-radius: 8px;
+  background: var(--form-control-background);
+  color: var(--foreground);
+}
+
+.frequency-portion__controls select {
+  min-height: 34px;
+  padding: 0 28px 0 10px;
+  font: inherit;
+}
+
+.frequency-portion__range {
+  overflow: hidden;
+  padding: 2px;
+}
+
+.frequency-portion__range button {
+  min-height: 28px;
+  padding: 0 9px;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted-strong);
+  font-size: 12px;
+}
+
+.frequency-portion__range button.is-active {
+  background: var(--button-secondary-hover-background);
+  color: var(--foreground);
+}
+
+.frequency-portion__explanation {
+  max-width: 760px;
+  margin: 15px 0 4px;
+  color: var(--muted-strong);
+  line-height: 1.55;
+}
+
+.frequency-portion__coverage {
+  margin: 0 0 16px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.frequency-portion__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 270px);
+  gap: 20px;
+}
+
+.frequency-portion__visual {
+  min-width: 0;
+}
+
+.frequency-portion svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  min-height: 250px;
+  overflow: visible;
+}
+
+.frequency-portion__tick line {
+  stroke: var(--chart-grid);
+  stroke-width: 1;
+}
+
+.frequency-portion__tick text,
+.frequency-portion__axis-label {
+  fill: var(--chart-axis);
+  font-size: 11px;
+}
+
+.frequency-portion__point {
+  cursor: pointer;
+  outline: none;
+}
+
+.frequency-portion__point circle {
+  fill: var(--chart-blue);
+  fill-opacity: .8;
+  stroke: var(--surface);
+  stroke-width: 2;
+  transition: r 120ms ease, fill 120ms ease;
+}
+
+.frequency-portion__point:hover circle,
+.frequency-portion__point:focus-visible circle,
+.frequency-portion__point.is-active circle {
+  fill: var(--chart-orange);
+  fill-opacity: 1;
+  stroke: var(--foreground);
+}
+
+.frequency-portion__point text {
+  fill: var(--foreground);
+  font-size: 11px;
+  font-weight: 700;
+  paint-order: stroke;
+  stroke: var(--surface);
+  stroke-width: 4px;
+}
+
+.frequency-portion__food-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 6px;
+  margin-top: 5px;
+}
+
+.frequency-portion__food-list button {
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  background: var(--button-action-background);
+  text-align: left;
+}
+
+.frequency-portion__food-list button:hover,
+.frequency-portion__food-list button.is-active {
+  border-color: var(--button-secondary-border);
+  background: var(--button-action-hover-background);
+}
+
+.frequency-portion__food-list span,
+.frequency-portion__food-list small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.frequency-portion__food-list span {
+  font-weight: 700;
+}
+
+.frequency-portion__food-list small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.frequency-portion__details {
+  align-self: start;
+  padding: 16px;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  background: var(--detail-card-background);
+}
+
+.frequency-portion__details h3 {
+  overflow-wrap: anywhere;
+  font-size: 19px;
+}
+
+.frequency-portion__details h4 {
+  padding-top: 15px;
+  border-top: 1px solid var(--line-soft);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+.frequency-portion__stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.frequency-portion__stats div {
+  min-width: 0;
+}
+
+.frequency-portion__stats dt {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.frequency-portion__stats dd {
+  margin: 3px 0 0;
+  font-weight: 700;
+}
+
+.frequency-portion__sources {
+  max-height: 220px;
+  margin: 8px 0 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+}
+
+.frequency-portion__sources li {
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--line-soft);
+  color: var(--muted-strong);
+  font-size: 12px;
+}
+
+.frequency-portion__sources strong {
+  flex: 0 0 auto;
+  color: var(--foreground);
+}
+
+.frequency-portion__empty {
+  display: flex;
+  min-height: 180px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 5px;
+  border: 1px dashed var(--chart-empty-border);
+  border-radius: 10px;
+  color: var(--muted);
+  text-align: center;
+}
+
+@container frequency-portion (max-width: 900px) {
+  .frequency-portion__layout {
+    display: block;
+  }
+
+  .frequency-portion__details {
+    margin-top: 16px;
+  }
+}
+
+@container frequency-portion (max-width: 760px) {
+  .frequency-portion__tick text,
+  .frequency-portion__axis-label {
+    font-size: 12px;
+  }
+}
+
+@container frequency-portion (max-width: 520px) {
+  .frequency-portion__tick text,
+  .frequency-portion__axis-label {
+    font-size: 20px;
+  }
+}
+
+@container frequency-portion (max-width: 380px) {
+  .frequency-portion__tick text,
+  .frequency-portion__axis-label {
+    font-size: 21px;
+  }
+}
+
+@media (max-width: 760px) {
+  .frequency-portion {
+    padding: 17px;
+  }
+
+  .frequency-portion__heading,
+  .frequency-portion__layout {
+    display: block;
+  }
+
+  .frequency-portion__controls {
+    justify-content: flex-start;
+    margin-top: 14px;
+  }
+
+  .frequency-portion svg {
+    min-width: 0;
+  }
+
+  .frequency-portion__visual {
+    overflow: visible;
+  }
+
+  .frequency-portion__food-list {
+    min-width: 0;
+  }
+
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .frequency-portion__point circle {
+    transition: none;
+  }
+}
