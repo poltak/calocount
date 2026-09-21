@@ -1946,7 +1946,7 @@ input:focus-visible {
 
 .weight-reading {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 14px;
   margin-top: 17px;
@@ -2195,21 +2195,9 @@ input:focus-visible {
   min-width: 0;
 }
 
-.meal-avatar {
-  display: grid;
-  place-items: center;
-  width: 42px;
-  height: 42px;
-  border-radius: 7px;
-  color: #1d1e1c;
-  font-size: 11px;
-  font-weight: 800;
+.meal-row-content.without-photo {
+  grid-template-columns: minmax(170px, 1fr) repeat(4, minmax(58px, 72px));
 }
-
-.meal-avatar.breakfast { background: #dbc795; }
-.meal-avatar.lunch { background: #9fc1a2; }
-.meal-avatar.snack { background: #d9a683; }
-.meal-avatar.dinner { background: #9eb8ce; }
 
 .meal-photo-button {
   display: grid;
@@ -3456,7 +3444,7 @@ input:focus-visible {
   .weight-reading { align-items: flex-start; flex-direction: column; gap: 5px; }
   .meal-row { gap: 6px; padding: 9px 0 4px; }
   .meal-row-content { grid-template-columns: 40px minmax(0, 1fr); gap: 8px; }
-  .meal-avatar,
+  .meal-row-content.without-photo { grid-template-columns: minmax(0, 1fr); }
   .meal-photo-button { width: 40px; height: 40px; }
   .meal-macros {
     grid-column: 1 / -1;
@@ -3471,6 +3459,7 @@ input:focus-visible {
     gap: 2px;
     margin-left: 48px;
   }
+  .meal-row.without-photo .meal-row-footer { margin-left: 0; }
   .meal-actions { flex-wrap: wrap; }
   .meal-actions button { min-height: 40px; padding: 5px 7px; }
   .saved-entry-row { align-items: stretch; flex-direction: column; }
@@ -3573,23 +3562,23 @@ body {
 }
 
 .content-grid {
-  grid-template-columns: minmax(0, 4fr) minmax(245px, 1.18fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start;
   gap: var(--dashboard-gap);
   margin-top: var(--dashboard-gap);
 }
 
-.primary-column {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-items: stretch;
-  gap: var(--dashboard-gap);
-}
+.primary-column { display: contents; }
 
 .primary-column > .nutrition-overview { grid-column: 1 / -1; }
 
-.side-column {
-  align-self: stretch;
-  grid-auto-rows: max-content;
-  gap: var(--dashboard-gap);
+.meals-panel { grid-column: span 2; }
+.meals-panel-read-only { grid-column: 1 / -1; }
+
+.content-grid:not(.history-expanded) .compact-dashboard-panel { align-self: stretch; }
+
+@media (min-width: 881px) {
+  .compact-dashboard-panel { min-height: 291px; }
 }
 
 .chart-panel {
@@ -3655,6 +3644,7 @@ body {
 .macro-panel {
   display: grid;
   grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto 1fr;
   align-items: center;
   gap: 12px;
   padding: 16px;
@@ -3667,7 +3657,22 @@ body {
 .history-panel { padding: 16px; }
 .history-list { margin-top: 10px; }
 .history-row { min-height: 42px; }
-.quick-tip { border-radius: 10px; }
+.entries-estimate-note {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 16px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line-soft);
+  color: var(--muted);
+}
+
+.entries-estimate-note p {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.entries-estimate-note strong { color: var(--muted-strong); }
 
 .weight-panel,
 .saved-entries-panel { padding: 15px 16px; }
@@ -3692,16 +3697,7 @@ body {
 }
 
 @media (min-width: 1181px) {
-  .content-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    align-items: start;
-  }
-
-  .primary-column,
-  .side-column { display: contents; }
-
   .primary-column > .nutrition-overview { grid-column: 1 / -1; }
-  .primary-column > .meals-panel { grid-column: span 2; }
 
   .side-column > * {
     min-width: 0;
@@ -3710,9 +3706,7 @@ body {
 }
 
 @media (min-width: 881px) and (max-width: 1180px) {
-  .content-grid { grid-template-columns: minmax(0, 1fr); }
-  .side-column { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .quick-tip { grid-column: auto; }
+  .content-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
 @media (max-width: 880px) {
@@ -3736,11 +3730,11 @@ body {
     width: auto;
   }
   .content-grid { grid-template-columns: minmax(0, 1fr); }
-  .primary-column { grid-template-columns: 1fr; }
   .primary-column > .nutrition-overview,
   .primary-column > .meals-panel,
   .primary-column > .weight-panel { grid-column: auto; }
-  .side-column { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .meals-panel,
+  .meals-panel-read-only { grid-column: auto; }
   .nutrition-overview-content { display: grid; grid-template-columns: 1fr; }
   .nutrition-overview-content > .nutrition-highlights,
   .nutrition-overview-content > .nutrient-trend-panel { grid-column: auto; }

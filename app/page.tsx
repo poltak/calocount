@@ -160,13 +160,6 @@ const dayLabels: Record<DayKey, string> = {
   sat: "S",
 };
 
-const mealPlaceholders: Record<Meal["kind"], string> = {
-  breakfast: "B",
-  lunch: "L",
-  snack: "S",
-  dinner: "D",
-};
-
 function formatNumber(value: number) {
   return new Intl.NumberFormat("en-US").format(value);
 }
@@ -1545,7 +1538,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
         </article>
       </section>
 
-      <div className="content-grid">
+      <div className={`content-grid${showAllDays ? " history-expanded" : ""}`}>
         <section className="primary-column">
           <section className="panel chart-panel" id="trend" aria-labelledby="trend-title">
             <div className="panel-heading">
@@ -1651,7 +1644,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
             <NutrientTrendPanel byDate={visibleTrendDays.map((day) => ({ date: day.date, nutrients: day.nutrients }))} goals={targets.nutrients} range={trendRange} onRangeChange={setTrendRange} />
           </NutritionOverview>
 
-          <section className="panel weight-panel" id="weight" aria-labelledby="weight-title">
+          <section className="panel weight-panel compact-dashboard-panel" id="weight" aria-labelledby="weight-title">
             <div className="panel-heading weight-heading">
               <div><p className="eyebrow">Daily check-in</p><h2 id="weight-title">Weight</h2></div>
               {!readOnly ? <button
@@ -1707,6 +1700,18 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
             </form> : null}
           </section>
 
+          <section className="panel macro-panel compact-dashboard-panel" aria-labelledby="macros">
+            <div className="panel-heading compact-heading"><div><p className="eyebrow">Daily split</p><h2 id="macros">Macros</h2></div><span className="panel-meta">per day</span></div>
+            <div className="macro-donut" style={{ background: macroValues.gradient }} role="img" aria-label={`Estimated daily macro split: ${macroValues.carbs} percent carbohydrates, ${macroValues.protein} percent protein, ${macroValues.fat} percent fat`}><div><strong>{formatNumber(totalCalories)}</strong><span>kcal</span></div></div>
+            <div className="macro-legend"><div><span className="macro-key carbs" /><span>Carbs</span><strong>{macroValues.carbs}%</strong></div><div><span className="macro-key protein" /><span>Protein</span><strong>{macroValues.protein}%</strong></div><div><span className="macro-key fat" /><span>Fat</span><strong>{macroValues.fat}%</strong></div></div>
+          </section>
+
+          <section className="panel history-panel compact-dashboard-panel" aria-labelledby="history-title">
+            <div className="panel-heading compact-heading"><div><p className="eyebrow">Keep the thread</p><h2 id="history-title">Recent days</h2></div><button className="more-button" type="button" onClick={() => setShowAllDays((current) => !current)}>{showAllDays ? "Less" : "View all"}</button></div>
+            <div className="history-list">{days.slice(showAllDays ? 0 : 3).reverse().map((day) => <button className={`history-row ${selectedDayKey === day.key ? "selected" : ""}`} type="button" key={day.key} onClick={() => selectDay(day.key)} disabled={actionInProgress}><span className="history-date"><strong>{day.shortDate}</strong><small>{day.weekday.slice(0, 3)}</small></span><span className="history-bar"><i style={{ width: `${calculateTargetPercent(day.calories, activeCalorieTarget)}%` }} /></span><span className="history-calories">{formatNumber(day.calories)}<small> kcal</small></span><span className="history-chevron" aria-hidden="true">›</span></button>)}</div>
+            <div className="streak-line"><span className="streak-flame" aria-hidden="true">✦</span><span><strong>{loggingStreak} day{loggingStreak === 1 ? "" : "s"}</strong> logging streak</span></div>
+          </section>
+
           {!readOnly ? <section className="panel saved-entries-panel" aria-labelledby="saved-entries-title">
             <div className="panel-heading saved-entry-heading"><div><p className="eyebrow">Your go-tos</p><h2 id="saved-entries-title">Saved entries <span>{savedEntries.length}</span></h2></div></div>
             {savedEntries.length === 0 ? <div className="saved-entries-empty"><strong>No saved entries yet</strong><span>Use “Add to saved entries” on any entry to keep it handy here.</span></div> : <div className="saved-entry-list">
@@ -1725,7 +1730,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
             </div>}
           </section> : null}
 
-          <section className="panel meals-panel" id="meals" aria-labelledby="meals-title">
+          <section className={`panel meals-panel${readOnly ? " meals-panel-read-only" : ""}`} id="meals" aria-labelledby="meals-title">
             <div className="panel-heading meal-heading"><div><p className="eyebrow">What you consumed</p><h2 id="meals-title">Entries <span>{selectedDay.meals.length}</span></h2></div>{!readOnly ? <button className="primary-button" type="button" disabled={actionInProgress} aria-busy={pendingAction?.kind === "meal-create"} onClick={() => setShowAddMeal((current) => !current)}><span aria-hidden="true">＋</span> {pendingAction?.kind === "meal-create" ? "Saving…" : "Add entry"}</button> : <span className="panel-meta">read only</span>}</div>
 
             {!readOnly && showAddMeal ? <form className={`add-meal-form${pendingAction?.kind === "meal-create" ? " is-pending" : ""}`} onSubmit={addMeal} aria-busy={pendingAction?.kind === "meal-create"}>
@@ -1744,9 +1749,10 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
             {selectedDay.meals.length > 0 ? <div className="meal-list">
               {selectedDay.meals.map((meal) => {
                 const mealDraft = mealDraftFor(mealEditState, meal);
+                const hasPhoto = Boolean(meal.photoUrl && !failedPhotoUrls.has(meal.photoUrl));
                 return <div className="meal-group" key={meal.id}>
-                <div className={`meal-row${meal.pending || pendingAction?.id === meal.id ? " is-pending" : ""}`} aria-busy={Boolean(meal.pending || pendingAction?.id === meal.id)}>
-                  <div className="meal-row-content">
+                <div className={`meal-row${hasPhoto ? "" : " without-photo"}${meal.pending || pendingAction?.id === meal.id ? " is-pending" : ""}`} aria-busy={Boolean(meal.pending || pendingAction?.id === meal.id)}>
+                  <div className={`meal-row-content${hasPhoto ? "" : " without-photo"}`}>
                     {meal.photoUrl && !failedPhotoUrls.has(meal.photoUrl) ? <button
                       className="meal-photo-button"
                       type="button"
@@ -1767,7 +1773,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
                         decoding="async"
                         onError={() => markPhotoUnavailable(meal.photoUrl as string)}
                       />
-                    </button> : <div className={`meal-avatar ${meal.kind}`} aria-hidden="true">{mealPlaceholders[meal.kind]}</div>}
+                    </button> : null}
                     <div className="meal-info"><div className="meal-name-line"><strong>{meal.name}</strong><time>{meal.time}</time>{meal.pending === "creating" ? <span className="pending-indicator" role="status">Saving…</span> : null}{meal.pending === "copying" ? <span className="pending-indicator" role="status">Copying…</span> : null}{meal.pending === "duplicating" ? <span className="pending-indicator" role="status">Duplicating…</span> : null}{pendingAction?.kind === "meal-save" && pendingAction.id === meal.id ? <span className="pending-indicator" role="status">Saving…</span> : null}{pendingAction?.kind === "meal-delete" && pendingAction.id === meal.id ? <span className="pending-indicator" role="status">Deleting…</span> : null}{pendingAction?.kind === "meal-copy" && pendingAction.id === meal.id ? <span className="pending-indicator" role="status">Copying…</span> : null}{pendingAction?.kind === "meal-duplicate" && pendingAction.id === meal.id ? <span className="pending-indicator" role="status">Duplicating…</span> : null}</div>{meal.description.trim().toLocaleLowerCase() !== meal.name.trim().toLocaleLowerCase() ? <span>{meal.description}</span> : null}</div>
                     <div className="meal-macros" aria-label="Entry macros">
                       <div className="meal-stat calories-stat"><span className="meal-stat-label">Energy</span><span>{formatNumber(meal.calories)} <small>kcal</small></span></div>
@@ -1837,25 +1843,10 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
               </div>;
               })}
             </div> : <div className="empty-meals"><span className="empty-icon" aria-hidden="true">{readOnly ? "·" : "＋"}</span><strong>No entries logged for {selectedDay.weekday}</strong><span>{readOnly ? "No entries were logged for this day." : "Tap “Add entry” to record what you consumed."}</span></div>}
+            <div className="entries-estimate-note" aria-label="Calocount tip"><span className="tip-icon" aria-hidden="true">i</span><p><strong>Estimates are a starting point.</strong> Add a description to your photo for a more useful result.</p></div>
             <div className="meal-total"><span>Total for {selectedDay.weekday}</span><strong>{formatNumber(totalCalories)} <small>kcal</small> <i /> {formatNumber(totalProtein)}g <small>protein</small></strong></div>
           </section>
         </section>
-
-        <aside className="side-column">
-          <section className="panel macro-panel" aria-labelledby="macros">
-            <div className="panel-heading compact-heading"><div><p className="eyebrow">Daily split</p><h2 id="macros">Macros</h2></div><span className="panel-meta">per day</span></div>
-            <div className="macro-donut" style={{ background: macroValues.gradient }} role="img" aria-label={`Estimated daily macro split: ${macroValues.carbs} percent carbohydrates, ${macroValues.protein} percent protein, ${macroValues.fat} percent fat`}><div><strong>{formatNumber(totalCalories)}</strong><span>kcal</span></div></div>
-            <div className="macro-legend"><div><span className="macro-key carbs" /><span>Carbs</span><strong>{macroValues.carbs}%</strong></div><div><span className="macro-key protein" /><span>Protein</span><strong>{macroValues.protein}%</strong></div><div><span className="macro-key fat" /><span>Fat</span><strong>{macroValues.fat}%</strong></div></div>
-          </section>
-
-          <section className="panel history-panel" aria-labelledby="history-title">
-            <div className="panel-heading compact-heading"><div><p className="eyebrow">Keep the thread</p><h2 id="history-title">Recent days</h2></div><button className="more-button" type="button" onClick={() => setShowAllDays((current) => !current)}>{showAllDays ? "Less" : "View all"}</button></div>
-            <div className="history-list">{days.slice(showAllDays ? 0 : 3).reverse().map((day) => <button className={`history-row ${selectedDayKey === day.key ? "selected" : ""}`} type="button" key={day.key} onClick={() => selectDay(day.key)} disabled={actionInProgress}><span className="history-date"><strong>{day.shortDate}</strong><small>{day.weekday.slice(0, 3)}</small></span><span className="history-bar"><i style={{ width: `${calculateTargetPercent(day.calories, activeCalorieTarget)}%` }} /></span><span className="history-calories">{formatNumber(day.calories)}<small> kcal</small></span><span className="history-chevron" aria-hidden="true">›</span></button>)}</div>
-            <div className="streak-line"><span className="streak-flame" aria-hidden="true">✦</span><span><strong>{loggingStreak} day{loggingStreak === 1 ? "" : "s"}</strong> logging streak</span></div>
-          </section>
-
-          <section className="quick-tip" aria-label="Calocount tip"><span className="tip-icon" aria-hidden="true">i</span><p><strong>Estimates are a starting point.</strong> Add a description to your photo for a more useful result.</p></section>
-        </aside>
       </div>
 
       <section className="insights-overview" aria-labelledby="insights-title">

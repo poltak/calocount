@@ -27,3 +27,21 @@ test("the dashboard uses entry terminology in user-facing controls", async () =>
   assert.match(page, /Save entry/);
   assert.match(page, /No entries logged/);
 });
+
+test("compact dashboard panels precede the side-by-side saved and daily entries", async () => {
+  const [page, css] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+  const panelOrder = ["weight-panel", "macro-panel", "history-panel", "saved-entries-panel", "meals-panel"]
+    .map((className) => page.indexOf(className));
+  assert.ok(panelOrder.every((position) => position >= 0));
+  assert.deepEqual(panelOrder, [...panelOrder].sort((left, right) => left - right));
+  assert.match(css, /\.content-grid \{[\s\S]*?grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/);
+  assert.match(css, /\.compact-dashboard-panel \{ min-height: 291px; \}/);
+  assert.match(css, /\.weight-reading \{[\s\S]*?align-items: center;/);
+  assert.match(css, /\.macro-panel \{[\s\S]*?grid-template-rows: auto 1fr;/);
+  assert.match(css, /\.meals-panel \{ grid-column: span 2; \}/);
+  assert.match(page, /className="entries-estimate-note"/);
+  assert.doesNotMatch(page, /className="quick-tip"/);
+});

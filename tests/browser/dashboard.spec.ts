@@ -113,9 +113,9 @@ test("light mode gives dashboard secondary surfaces readable colors", async ({ p
         arrow: read(".history-row.selected .history-chevron"),
       },
       tip: {
-        surface: read(".quick-tip"),
-        text: read(".quick-tip p"),
-        icon: read(".tip-icon"),
+        surface: read(".entries-estimate-note"),
+        text: read(".entries-estimate-note p"),
+        icon: read(".entries-estimate-note .tip-icon"),
       },
     };
   });
@@ -128,8 +128,8 @@ test("light mode gives dashboard secondary surfaces readable colors", async ({ p
   expect(styles.history.date.color).toBe("rgb(70, 86, 82)");
   expect(styles.history.calories.color).toBe("rgb(70, 86, 82)");
   expect(styles.history.arrow.color).toBe("rgb(70, 86, 82)");
-  expect(styles.tip.surface.background).toBe("rgb(238, 243, 240)");
-  expect(styles.tip.surface.border).toBe("rgb(189, 203, 195)");
+  expect(styles.tip.surface.background).toBe("rgba(0, 0, 0, 0)");
+  expect(styles.tip.surface.border).toBe("rgb(226, 233, 228)");
   expect(styles.tip.text.color).toBe("rgb(83, 99, 93)");
   expect(styles.tip.icon.color).toBe("rgb(53, 107, 141)");
 });

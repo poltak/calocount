@@ -33,9 +33,8 @@ function MacroDetail({ nutrientKey, label, value }: { nutrientKey: string; label
 export function NutritionOverview({ values, carbsG, fatG, goals, collapsed, onToggle, children }: NutritionOverviewProps) {
   return <section className="nutrition-overview" id="nutrition" aria-labelledby="nutrition-title">
     <div className="nutrition-overview-heading">
-      <div><p className="eyebrow">Detailed view</p><h2 id="nutrition-title">Nutrition</h2></div>
+      <div><p className="eyebrow">Detailed view</p><h2 id="nutrition-title">Nutrition details</h2></div>
       <div className="nutrition-overview-actions">
-        <span className="panel-meta">selected day</span>
         <button
           type="button"
           className="nutrition-section-toggle"

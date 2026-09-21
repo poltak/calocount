@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-test("meal photos use lazy private or public thumbnails and preserve a placeholder fallback", async () => {
+test("meal photos use lazy private or public thumbnails and photo-less entries omit the placeholder", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
 
   assert.match(page, /publicPhotoUrlForMealId\(meal\.id\)/);
@@ -12,7 +12,10 @@ test("meal photos use lazy private or public thumbnails and preserve a placehold
   assert.match(page, /loading="lazy"/);
   assert.match(page, /decoding="async"/);
   assert.match(page, /onError=\{\(\) => markPhotoUnavailable\(meal\.photoUrl as string\)\}/);
-  assert.match(page, /className=\{`meal-avatar \$\{meal\.kind\}`\} aria-hidden="true"/);
+  assert.match(page, /const hasPhoto = Boolean\(meal\.photoUrl/);
+  assert.match(page, /className=\{`meal-row-content\$\{hasPhoto \? "" : " without-photo"\}`\}/);
+  assert.match(page, /<\/button> : null}/);
+  assert.doesNotMatch(page, /mealPlaceholders/);
 });
 
 test("photo preview has an accessible dialog, close controls, and a bounded mobile layout", async () => {
