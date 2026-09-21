@@ -130,7 +130,7 @@ test("light mode gives dashboard secondary surfaces readable colors", async ({ p
   expect(styles.history.arrow.color).toBe("rgb(70, 86, 82)");
   expect(styles.tip.surface.background).toBe("rgba(0, 0, 0, 0)");
   expect(styles.tip.surface.border).toBe("rgb(226, 233, 228)");
-  expect(styles.tip.text.color).toBe("rgb(83, 99, 93)");
+  expect(styles.tip.text.color).toBe("rgb(102, 117, 114)");
   expect(styles.tip.icon.color).toBe("rgb(53, 107, 141)");
 });
 
@@ -331,16 +331,16 @@ test("new meals roll back after failure and a retry creates one saved meal", asy
   const state = await mockDashboardApi(page);
   state.failWrite = true;
   await page.goto("/");
-  await page.getByRole("button", { name: "Add meal", exact: true }).click();
+  await page.getByRole("button", { name: "Add entry", exact: true }).click();
   const form = page.locator(".add-meal-form");
-  await form.getByLabel("Meal name", { exact: true }).fill("Apple");
+  await form.getByLabel("Entry name", { exact: true }).fill("Apple");
   await form.getByLabel("Calories", { exact: true }).fill("100");
-  await form.getByRole("button", { name: "Save meal", exact: true }).click();
+  await form.getByRole("button", { name: "Save entry", exact: true }).click();
   await expect(page.getByText("Test save failed.", { exact: true })).toBeVisible();
   await expect(page.locator(".calories-card .metric-value")).toHaveText("500 / 2,400");
-  await expect(form.getByLabel("Meal name", { exact: true })).toHaveValue("Apple");
+  await expect(form.getByLabel("Entry name", { exact: true })).toHaveValue("Apple");
   state.failWrite = false;
-  await form.getByRole("button", { name: "Save meal", exact: true }).click();
+  await form.getByRole("button", { name: "Save entry", exact: true }).click();
   await expect(page.getByRole("button", { name: "Delete Apple", exact: true })).toHaveCount(1);
   await expect(page.locator(".calories-card .metric-value")).toHaveText("600 / 2,400");
   await expect(form).toHaveCount(0);
