@@ -33,7 +33,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const protocol = requestHeaders.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
   const metadataBase = new URL(`${protocol}://${host}`);
   const title = "Calocount — simple calorie tracking";
-  const description = "Photo meals. Clear calorie and protein numbers.";
+  const description = "Food and drink entries. Clear calorie and protein numbers.";
 
   return {
     metadataBase,

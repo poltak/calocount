@@ -55,14 +55,14 @@ test("local time input defaults to the browser local time", () => {
   });
 });
 
-test("add meal form submits its validated local time", async () => {
+test("add entry form submits its validated local time", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
 
   assert.match(page, /<label>Time<input name="time" type="time" defaultValue=\{localTimeValue\(\)\} required/);
   assert.match(page, /const time = String\(form\.get\("time"\) \|\| ""\)/);
   assert.match(page, /mealDateTimestamp\(\{ date: selectedDay\.date, time \}\)/);
   assert.match(page, /mealRequestOptions\(mealPayload\(nextMeal, consumedAt\), photo\)/);
-  assert.match(page, /setActionError\("Enter a valid meal time\."\)/);
+  assert.match(page, /setActionError\("Enter a valid entry time\."\)/);
 });
 
 test("owner summary requests the browser timezone and validates it server-side", async () => {

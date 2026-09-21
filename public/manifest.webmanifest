@@ -1,7 +1,7 @@
 {
   "name": "Calocount — simple calorie tracking",
   "short_name": "Calocount",
-  "description": "Photo meals. Clear calorie and protein numbers.",
+  "description": "Food and drink entries. Clear calorie and protein numbers.",
   "id": "/",
   "start_url": "/owner",
   "scope": "/",

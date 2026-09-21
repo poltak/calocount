@@ -324,6 +324,7 @@ test("copyMeal creates fresh IDs, copies meal fields and items, and preserves th
     assumptionsJson: sourceMeal.assumptions_json,
     notes: sourceMeal.notes,
     externalRequestId: null,
+    savedEntryId: null,
     createdAt: sourceMeal.created_at,
     updatedAt: sourceMeal.updated_at,
   });

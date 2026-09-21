@@ -34,6 +34,7 @@ import {
   mealItems,
   mealLogs,
   mealRevisions,
+  savedEntries,
   settings,
   telegramUpdates,
 } from "./schema";
@@ -57,6 +58,7 @@ export type MealInput = {
   id?: string;
   consumedAt?: number;
   externalRequestId?: string | null;
+  savedEntryId?: string | null;
   source?: string;
   caption?: string;
   mealType?: string | null;
@@ -75,8 +77,25 @@ export type MealPatch = Partial<MealInput> & {
 };
 
 export type MealWithItems = {
-  meal: typeof mealLogs.$inferSelect;
+  meal: Omit<typeof mealLogs.$inferSelect, "savedEntryId"> & { savedEntryId?: string | null };
   items: Array<typeof mealItems.$inferSelect>;
+};
+
+export type SavedEntrySnapshot = {
+  caption: string;
+  mealType: string | null;
+  confidence: number | null;
+  assumptions: unknown[];
+  notes: string | null;
+  items: MealItemInput[];
+};
+
+export type SavedEntryWithSnapshot = {
+  id: string;
+  sourceMealId: string;
+  createdAt: number;
+  updatedAt: number;
+  snapshot: SavedEntrySnapshot;
 };
 
 export type ExternalMealResult = {
@@ -523,6 +542,113 @@ export type CopyMealOptions = {
   consumedAt?: number;
 };
 
+function snapshotForMeal(source: MealWithItems): SavedEntrySnapshot {
+  let assumptions: unknown[] = [];
+  try {
+    const parsed = JSON.parse(source.meal.assumptionsJson);
+    if (Array.isArray(parsed)) assumptions = parsed;
+  } catch {
+    // Ignore malformed legacy assumptions when building a reusable snapshot.
+  }
+  return {
+    caption: source.meal.caption,
+    mealType: source.meal.mealType,
+    confidence: source.meal.confidence,
+    assumptions,
+    notes: source.meal.notes,
+    items: source.items.map((item) => ({
+      name: item.name,
+      quantity: item.quantity,
+      unit: item.unit,
+      calories: item.calories,
+      proteinG: item.proteinG,
+      carbsG: item.carbsG,
+      fatG: item.fatG,
+      ...normaliseNutrientFields(item),
+      confidence: item.confidence,
+      source: item.source,
+    })),
+  };
+}
+
+function parseSavedEntry(row: typeof savedEntries.$inferSelect): SavedEntryWithSnapshot | null {
+  try {
+    const value = JSON.parse(row.snapshotJson) as SavedEntrySnapshot;
+    if (!value || typeof value !== "object" || !Array.isArray(value.items)) return null;
+    return {
+      id: row.id,
+      sourceMealId: row.sourceMealId,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      snapshot: value,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function listSavedEntries(db: AppDb, ownerKey: string): Promise<SavedEntryWithSnapshot[]> {
+  const rows = await db.select().from(savedEntries)
+    .where(eq(savedEntries.ownerKey, ownerKey))
+    .orderBy(desc(savedEntries.createdAt)).prepare().all();
+  return rows.flatMap((row) => {
+    const parsed = parseSavedEntry(row);
+    return parsed ? [parsed] : [];
+  });
+}
+
+export async function saveEntry(db: AppDb, ownerKey: string, sourceMealId: string): Promise<SavedEntryWithSnapshot | null> {
+  const source = await findMeal(db, ownerKey, sourceMealId);
+  if (!source) return null;
+  const timestamp = nowMs();
+  await db.insert(savedEntries).values({
+    id: createId("saved"),
+    ownerKey,
+    sourceMealId,
+    snapshotJson: safeJson(snapshotForMeal(source), {}),
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  }).onConflictDoUpdate({
+    target: [savedEntries.ownerKey, savedEntries.sourceMealId],
+    set: { snapshotJson: safeJson(snapshotForMeal(source), {}), updatedAt: timestamp },
+  }).prepare().run();
+  const row = await db.select().from(savedEntries).where(and(
+    eq(savedEntries.ownerKey, ownerKey),
+    eq(savedEntries.sourceMealId, sourceMealId),
+  )).limit(1).prepare().get();
+  return row ? parseSavedEntry(row) : null;
+}
+
+export async function removeSavedEntry(db: AppDb, ownerKey: string, id: string): Promise<boolean> {
+  const existing = await db.select({ id: savedEntries.id }).from(savedEntries).where(and(
+    eq(savedEntries.ownerKey, ownerKey), eq(savedEntries.id, id),
+  )).limit(1).prepare().get();
+  if (!existing) return false;
+  await db.delete(savedEntries).where(and(
+    eq(savedEntries.ownerKey, ownerKey), eq(savedEntries.id, id),
+  )).prepare().run();
+  return true;
+}
+
+export async function trackSavedEntry(
+  db: AppDb,
+  ownerKey: string,
+  id: string,
+  consumedAt = nowMs(),
+): Promise<MealWithItems | null> {
+  const row = await db.select().from(savedEntries).where(and(
+    eq(savedEntries.ownerKey, ownerKey), eq(savedEntries.id, id),
+  )).limit(1).prepare().get();
+  const saved = row ? parseSavedEntry(row) : null;
+  if (!saved) return null;
+  return createMeal(db, ownerKey, {
+    ...saved.snapshot,
+    consumedAt,
+    source: "saved-entry",
+    savedEntryId: id,
+  });
+}
+
 /**
  * Copy an owned meal into a new meal row and a new set of item rows.
  *
@@ -539,39 +665,16 @@ export async function copyMeal(
   const source = await findMeal(db, ownerKey, mealId);
   if (!source) return null;
 
-  let assumptions: unknown[] = [];
-  try {
-    const parsed = JSON.parse(source.meal.assumptionsJson);
-    if (Array.isArray(parsed)) assumptions = parsed;
-  } catch {
-    // Keep a malformed legacy assumptions value from blocking a meal copy.
-  }
-
+  const snapshot = snapshotForMeal(source);
   return createMeal(db, ownerKey, {
     consumedAt: options.consumedAt ?? nowMs(),
     source: "dashboard",
-    caption: source.meal.caption,
-    mealType: source.meal.mealType,
+    ...snapshot,
+    savedEntryId: source.meal.savedEntryId,
     status: source.meal.status,
     photoKey: source.meal.photoKey,
     photoMimeType: source.meal.photoMimeType,
     photoSizeBytes: source.meal.photoSizeBytes,
-    confidence: source.meal.confidence,
-    assumptions,
-    notes: source.meal.notes,
-    // Do not pass source item IDs. createMeal generates fresh IDs for the copy.
-    items: source.items.map((item) => ({
-      name: item.name,
-      quantity: item.quantity,
-      unit: item.unit,
-      calories: item.calories,
-      proteinG: item.proteinG,
-      carbsG: item.carbsG,
-      fatG: item.fatG,
-      ...normaliseNutrientFields(item),
-      confidence: item.confidence,
-      source: item.source,
-    })),
   });
 }
 
@@ -600,6 +703,7 @@ export async function createMeal(db: AppDb, ownerKey: string, input: MealInput):
     assumptionsJson: safeJson(input.assumptions, []),
     notes: input.notes ?? null,
     externalRequestId: input.externalRequestId ?? null,
+    savedEntryId: input.savedEntryId ?? null,
     createdAt: timestamp,
     updatedAt: timestamp,
   });

@@ -23,14 +23,14 @@ type RouteContext = { params: Promise<{ id: string }> | { id: string } };
 
 async function mealId(context: RouteContext): Promise<string> {
   const id = (await context.params).id?.trim();
-  if (!id || id.length > 120) throw new ApiError(400, "invalid_id", "The meal ID is invalid.");
+  if (!id || id.length > 120) throw new ApiError(400, "invalid_id", "The entry ID is invalid.");
   return id;
 }
 export async function GET(request: Request, context: RouteContext): Promise<Response> {
   return withApiErrors(async () => {
     const identity = await requireApiIdentity(request);
     const meal = await findMeal(getRequestDb(), identity.ownerKey, await mealId(context));
-    if (!meal) throw new ApiError(404, "not_found", "Meal not found.");
+    if (!meal) throw new ApiError(404, "not_found", "Entry not found.");
     return jsonResponse({ meal: serialiseMeal(meal) });
   });
 }
@@ -60,7 +60,7 @@ export async function PATCH(request: Request, context: RouteContext): Promise<Re
       // Check ownership before uploading. This also avoids an orphan object
       // when a caller tries to edit a meal that does not exist.
       const existing = await findMeal(db, identity.ownerKey, id);
-      if (!existing) throw new ApiError(404, "not_found", "Meal not found.");
+      if (!existing) throw new ApiError(404, "not_found", "Entry not found.");
       previousPhotoKey = existing.meal.photoKey;
       bucket = getPhotosBucket() as unknown as MealPhotoBucket;
     }
@@ -79,7 +79,7 @@ export async function PATCH(request: Request, context: RouteContext): Promise<Re
           patch.photoMimeType = uploaded.mimeType;
           patch.photoSizeBytes = uploaded.sizeBytes;
           return updateMeal(db, identity.ownerKey, id, patch, "dashboard").then((updated) => {
-            if (!updated) throw new ApiError(404, "not_found", "Meal not found.");
+            if (!updated) throw new ApiError(404, "not_found", "Entry not found.");
             return updated;
           });
         },
@@ -93,7 +93,7 @@ export async function PATCH(request: Request, context: RouteContext): Promise<Re
     } else {
       meal = await updateMeal(db, identity.ownerKey, id, patch, "dashboard");
     }
-    if (!meal) throw new ApiError(404, "not_found", "Meal not found.");
+    if (!meal) throw new ApiError(404, "not_found", "Entry not found.");
 
     return jsonResponse({
       meal: serialiseMeal(meal),
@@ -107,7 +107,7 @@ export async function DELETE(request: Request, context: RouteContext): Promise<R
     const identity = await requireApiIdentity(request);
     const id = await mealId(context);
     const meal = await deleteMeal(getRequestDb(), identity.ownerKey, id);
-    if (!meal) throw new ApiError(404, "not_found", "Meal not found.");
+    if (!meal) throw new ApiError(404, "not_found", "Entry not found.");
 
     let photoDeleted = true;
     if (meal.meal.photoKey && !(await hasMealPhotoReference(getRequestDb(), identity.ownerKey, meal.meal.photoKey))) {

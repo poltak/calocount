@@ -31,8 +31,8 @@ test("public privacy route renders the required policy statements", async () => 
   const html = await response.text();
   for (const statement of [
     "Privacy Policy",
-    "personal, single-user meal logging service",
-    "optional meal photo",
+    "personal, single-user food and drink logging service",
+    "optional entry photo",
     "Cloudflare D1",
     "Cloudflare R2",
     "Temporary OpenAI file links are downloaded immediately",

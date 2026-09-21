@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Privacy Policy — Calocount",
-  description: "Privacy policy for the Calocount personal meal logging service.",
+  description: "Privacy policy for the Calocount personal entry logging service.",
 };
 
 export default function PrivacyPage() {
@@ -19,22 +19,22 @@ export default function PrivacyPage() {
 
         <section aria-labelledby="about-service">
           <h2 id="about-service">About this service</h2>
-          <p>Calocount is a personal, single-user meal logging service operated for private use.</p>
+          <p>Calocount is a personal, single-user food and drink logging service operated for private use.</p>
         </section>
 
         <section aria-labelledby="information-processed">
           <h2 id="information-processed">Information we process</h2>
           <p>We process the following information when you use the service:</p>
           <ul>
-            <li>Meal name, calories, protein, carbohydrates, fat, and eaten time.</li>
-            <li>An optional meal photo that you upload with a meal.</li>
+            <li>Entry name, calories, protein, carbohydrates, fat, and consumed time.</li>
+            <li>An optional entry photo that you upload with an entry.</li>
           </ul>
         </section>
 
         <section aria-labelledby="how-information-is-used">
           <h2 id="how-information-is-used">How we use information</h2>
           <p>
-            We use this information only to provide, maintain, and secure the meal logging service. We do not sell
+            We use this information only to provide, maintain, and secure the entry logging service. We do not sell
             data or share it for advertising.
           </p>
         </section>
@@ -42,7 +42,7 @@ export default function PrivacyPage() {
         <section aria-labelledby="storage">
           <h2 id="storage">Storage and temporary file links</h2>
           <p>
-            Meal records are stored in Cloudflare D1. Optional meal photos are stored in Cloudflare R2. Temporary
+            Entry records are stored in Cloudflare D1. Optional entry photos are stored in Cloudflare R2. Temporary
             OpenAI file links are downloaded immediately for processing and are not retained by this service.
           </p>
         </section>

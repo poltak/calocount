@@ -68,7 +68,7 @@ export function ProteinTargetChart({
         const targetPercent = day.target ? Math.min(100, (day.target / max) * 100) : null;
         return <button className={`protein-target-day${day.mealCount > 0 ? "" : " missing"}`} key={day.date} type="button" aria-label={day.mealCount > 0
           ? `${day.label}: ${format(day.proteinG)} grams protein${day.target ? `, target ${format(day.target)} grams` : ""}`
-          : `${day.label}: no meals recorded`}>
+          : `${day.label}: no entries recorded`}>
           <span className="protein-target-tooltip">{day.mealCount > 0 ? `${format(day.proteinG)}g${day.target ? ` / ${format(day.target)}g` : ""}` : "No meals"}</span>
           <span className="protein-target-track" aria-hidden="true">
             {targetPercent === null ? null : <i className="protein-target-marker" style={{ bottom: `${targetPercent}%` }} />}

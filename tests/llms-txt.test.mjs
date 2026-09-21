@@ -19,12 +19,12 @@ test("llms.txt documents the canonical public dashboard projection", async () =>
     "today's calories",
     "seven-day totals, averages, and daily trend points",
     "nutrition totals",
-    "recent completed meals",
+    "recent completed entries",
     "recent weights",
   ]) assert.match(content, phrasePattern(category));
   assert.match(content, /Dates use the public dashboard's UTC day boundary\./);
   assert.match(content, /`hasPhoto: true`[\s\S]*`\/meal-photos\/\{mealId\}`/);
-  assert.match(content, /using that meal's `id` for `\{mealId\}`/);
+  assert.match(content, /using that entry's `id` for `\{mealId\}`/);
   assert.match(content, /omits private fields and systems/);
   for (const privateField of [
     "owner identifiers and keys",

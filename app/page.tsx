@@ -2,7 +2,7 @@
 
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
-import { asRecord, stringOr, parseDashboardPayload, dashboardFailureMessage, parseWeightResponse, parseMealResponse, parseSettingsTargets, type DailyWeight, type TrendDay, type DashboardSummary, type SerializedMeal } from "./dashboard-api";
+import { asRecord, stringOr, parseDashboardPayload, dashboardFailureMessage, parseWeightResponse, parseMealResponse, parseSavedEntriesResponse, parseTrackedEntryResponse, parseSettingsTargets, type DailyWeight, type TrendDay, type DashboardSummary, type SavedEntry, type SerializedMeal } from "./dashboard-api";
 import { mergeTrendDays, mergeTrendWeights } from "./dashboard-trend";
 import { settingsDraftForTargets, type SettingsDraft, type TargetState } from "./dashboard-settings";
 
@@ -79,6 +79,7 @@ type Meal = {
   items: NutritionItem[];
   pending?: "creating" | "copying" | "duplicating";
   status?: string;
+  savedEntryId?: string | null;
   kind: "breakfast" | "lunch" | "snack" | "dinner";
 };
 
@@ -106,6 +107,9 @@ type PendingActionKind =
   | "meal-delete"
   | "meal-copy"
   | "meal-duplicate"
+  | "saved-entry-add"
+  | "saved-entry-remove"
+  | "saved-entry-track"
   | "weight-save"
   | "settings-load"
   | "settings-save";
@@ -230,11 +234,14 @@ function dayWithMeals(day: Day, meals: Meal[]): Day {
 
 function pendingActionLabel(action: PendingAction): string {
   switch (action.kind) {
-    case "meal-create": return "Saving meal…";
+    case "meal-create": return "Saving entry…";
     case "meal-save": return "Saving changes…";
-    case "meal-delete": return "Deleting meal…";
-    case "meal-copy": return "Copying meal to today…";
-    case "meal-duplicate": return "Duplicating meal…";
+    case "meal-delete": return "Deleting entry…";
+    case "meal-copy": return "Copying entry to today…";
+    case "meal-duplicate": return "Duplicating entry…";
+    case "saved-entry-add": return "Adding to saved entries…";
+    case "saved-entry-remove": return "Removing saved entry…";
+    case "saved-entry-track": return "Tracking saved entry…";
     case "weight-save": return "Saving weight…";
     case "settings-load": return "Loading saved targets…";
     case "settings-save": return "Saving targets…";
@@ -249,10 +256,11 @@ function mealKind(value: string | null): Meal["kind"] {
 function mapRemoteMeal(meal: SerializedMeal, { publicView = false }: { publicView?: boolean } = {}): Meal {
   const kind = mealKind(meal.mealType);
   const itemNames = meal.items.map((item) => item.name).filter(Boolean);
-  const name = itemNames[0] ?? meal.caption.split(",")[0]?.trim() ?? `${kind[0].toUpperCase()}${kind.slice(1)} meal`;
+  const name = itemNames[0] ?? meal.caption.split(",")[0]?.trim() ?? `${kind[0].toUpperCase()}${kind.slice(1)} entry`;
   return {
     id: meal.id,
     status: meal.status,
+    savedEntryId: meal.savedEntryId,
     consumedAt: meal.consumedAt,
     time: new Intl.DateTimeFormat("en-US", { hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(meal.consumedAt)),
     name,
@@ -398,6 +406,7 @@ export function mealDateTimestamp({ date, time }: { date: string; time: string }
 export function Dashboard({ readOnly = false, publicView = false }: DashboardProps) {
   const initialTargets: TargetState = { calories: calorieTarget, proteinG: proteinTarget, nutrients: defaultNutrientTargets };
   const [days, setDays] = useState(initialDays);
+  const [savedEntries, setSavedEntries] = useState<SavedEntry[]>([]);
   const [trendRange, setTrendRange] = useState<TrendRangeDays>(7);
   const [trendHistory, setTrendHistory] = useState<{ byDate: TrendDay[]; weights: DailyWeight[] }>({ byDate: [], weights: [] });
   const [insightHistory, setInsightHistory] = useState<InsightHistory | null>(null);
@@ -674,6 +683,13 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
         if (!parsed) throw new Error("invalid_dashboard_summary");
         if (cancelled || dashboardLoadVersion.current !== requestVersion) return;
         const liveDays = buildLiveDays(parsed, { mode: publicView ? "utc" : "local", publicView });
+        if (!readOnly) {
+          const savedResponse = await fetch("/api/saved-entries", { cache: "no-store", signal: controller.signal });
+          if (savedResponse.ok) {
+            const parsedSavedEntries = parseSavedEntriesResponse(await savedResponse.json());
+            if (parsedSavedEntries) setSavedEntries(parsedSavedEntries);
+          }
+        }
         setProteinGoal(parsed.proteinGoal);
         setTargets({
           calories: parsed.targets.calories ?? calorieTarget,
@@ -889,10 +905,10 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
       const responseBody = await response.json().catch(() => null);
       if (!response.ok) {
         const errorRecord = asRecord(asRecord(responseBody)?.error);
-        throw new Error(stringOr(errorRecord?.message, "The meal could not be saved."));
+        throw new Error(stringOr(errorRecord?.message, "The entry could not be saved."));
       }
       const parsedMeal = parseMealResponse(responseBody);
-      if (!parsedMeal) throw new Error("The saved meal response was invalid.");
+      if (!parsedMeal) throw new Error("The saved entry response was invalid.");
       if (!isCurrentAction(action)) return;
       replaceRemoteMeal(parsedMeal);
       setMealEditState((current) => commitMealEdit(current, mealId));
@@ -901,10 +917,10 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
         delete next[mealId];
         return next;
       });
-      setActionStatus("Meal saved.");
+      setActionStatus("Entry saved.");
     } catch (error) {
       if (!isCurrentAction(action)) return;
-      setActionError(error instanceof Error ? error.message : "The meal could not be saved.");
+      setActionError(error instanceof Error ? error.message : "The entry could not be saved.");
       setActionStatus(null);
     } finally {
       finishAction(action);
@@ -938,7 +954,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     if (pendingActionRef.current) return;
     const meal = days.flatMap((day) => day.meals).find((entry) => entry.id === mealId);
     if (!meal) return;
-    if (!window.confirm(`Delete "${meal.name}"? This removes the meal and its analysis data. This cannot be undone.`)) return;
+    if (!window.confirm(`Delete "${meal.name}"? This removes the entry and its analysis data. This cannot be undone.`)) return;
 
     const action = beginAction("meal-delete", mealId);
     if (!action) return;
@@ -948,7 +964,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
       const responseBody = await response.json().catch(() => null);
       if (!response.ok) {
         const errorRecord = asRecord(asRecord(responseBody)?.error);
-        throw new Error(stringOr(errorRecord?.message, "The meal could not be deleted."));
+        throw new Error(stringOr(errorRecord?.message, "The entry could not be deleted."));
       }
       if (!isCurrentAction(action)) return;
       removeMealFromDays(mealId);
@@ -956,11 +972,11 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
       setMealPhotoDrafts({});
       const result = asRecord(responseBody);
       setActionStatus(result?.photoDeleted === false
-        ? "Meal deleted. Its photo could not be removed."
-        : "Meal deleted.");
+        ? "Entry deleted. Its photo could not be removed."
+        : "Entry deleted.");
     } catch (error) {
       if (!isCurrentAction(action)) return;
-      setActionError(error instanceof Error ? error.message : "The meal could not be deleted.");
+      setActionError(error instanceof Error ? error.message : "The entry could not be deleted.");
       setActionStatus(null);
     } finally {
       finishAction(action);
@@ -976,7 +992,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     const action = beginAction("meal-copy", mealId);
     if (!action) return;
     setActionError(null);
-    const consumedAt = mealDateTimestamp({ date: today.date, time: localTimeValue() }) ?? Date.now();
+    const consumedAt = mealDateTimestamp({ date: today.date, time: localTimeValue() }) ?? clockNow.getTime();
     const optimisticMeal: Meal = {
       ...meal,
       id: `optimistic-copy-${action.token}`,
@@ -994,17 +1010,17 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
       const responseBody = await response.json().catch(() => null);
       if (!response.ok) {
         const errorRecord = asRecord(asRecord(responseBody)?.error);
-        throw new Error(stringOr(errorRecord?.message, "The meal could not be copied."));
+        throw new Error(stringOr(errorRecord?.message, "The entry could not be copied."));
       }
       const parsedMeal = parseMealResponse(responseBody);
-      if (!parsedMeal) throw new Error("The copied meal response was invalid.");
+      if (!parsedMeal) throw new Error("The copied entry response was invalid.");
       if (!isCurrentAction(action)) return;
       reconcileMeal(optimisticMeal.id, parsedMeal);
       setActionStatus(`Copied “${meal.name}” to today.`);
     } catch (error) {
       if (!isCurrentAction(action)) return;
       removeMealFromDays(optimisticMeal.id);
-      setActionError(error instanceof Error ? error.message : "The meal could not be copied.");
+      setActionError(error instanceof Error ? error.message : "The entry could not be copied.");
       setActionStatus(null);
     } finally {
       finishAction(action);
@@ -1034,18 +1050,109 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
       const responseBody = await response.json().catch(() => null);
       if (!response.ok) {
         const errorRecord = asRecord(asRecord(responseBody)?.error);
-        throw new Error(stringOr(errorRecord?.message, "The meal could not be duplicated."));
+        throw new Error(stringOr(errorRecord?.message, "The entry could not be duplicated."));
       }
       const parsedMeal = parseMealResponse(responseBody);
-      if (!parsedMeal) throw new Error("The duplicated meal response was invalid.");
+      if (!parsedMeal) throw new Error("The duplicated entry response was invalid.");
       if (!isCurrentAction(action)) return;
       reconcileMeal(optimisticMeal.id, parsedMeal);
       setActionStatus(`Duplicated “${meal.name}”.`);
     } catch (error) {
       if (!isCurrentAction(action)) return;
       removeMealFromDays(optimisticMeal.id);
-      setActionError(error instanceof Error ? error.message : "The meal could not be duplicated.");
+      setActionError(error instanceof Error ? error.message : "The entry could not be duplicated.");
       setActionStatus(null);
+    } finally {
+      finishAction(action);
+    }
+  }
+
+  async function addToSavedEntries(mealId: string) {
+    if (readOnly || dataMode !== "live" || pendingActionRef.current) return;
+    const action = beginAction("saved-entry-add", mealId);
+    if (!action) return;
+    setActionError(null);
+    try {
+      const response = await fetch("/api/saved-entries", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ sourceEntryId: mealId }),
+      });
+      const body = await response.json().catch(() => null);
+      const parsed = parseSavedEntriesResponse({ entries: [asRecord(body)?.entry] })?.[0];
+      if (!response.ok || !parsed) throw new Error(stringOr(asRecord(asRecord(body)?.error)?.message, "The entry could not be saved."));
+      if (!isCurrentAction(action)) return;
+      setSavedEntries((current) => [parsed, ...current.filter((entry) => entry.id !== parsed.id && entry.sourceEntryId !== parsed.sourceEntryId)]);
+      setActionStatus("Added to saved entries.");
+    } catch (error) {
+      if (isCurrentAction(action)) setActionError(error instanceof Error ? error.message : "The entry could not be saved.");
+    } finally {
+      finishAction(action);
+    }
+  }
+
+  async function removeFromSavedEntries(savedEntryId: string) {
+    if (readOnly || pendingActionRef.current) return;
+    const action = beginAction("saved-entry-remove", savedEntryId);
+    if (!action) return;
+    setActionError(null);
+    try {
+      const response = await fetch(`/api/saved-entries/${encodeURIComponent(savedEntryId)}`, { method: "DELETE" });
+      const body = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(stringOr(asRecord(asRecord(body)?.error)?.message, "The saved entry could not be removed."));
+      if (!isCurrentAction(action)) return;
+      setSavedEntries((current) => current.filter((entry) => entry.id !== savedEntryId));
+      setActionStatus("Removed from saved entries.");
+    } catch (error) {
+      if (isCurrentAction(action)) setActionError(error instanceof Error ? error.message : "The saved entry could not be removed.");
+    } finally {
+      finishAction(action);
+    }
+  }
+
+  async function trackSavedEntryNow(savedEntry: SavedEntry) {
+    if (readOnly || dataMode !== "live" || pendingActionRef.current) return;
+    const today = days.at(-1);
+    if (!today) return;
+    const action = beginAction("saved-entry-track", savedEntry.id);
+    if (!action) return;
+    setActionError(null);
+    const consumedAt = mealDateTimestamp({ date: today.date, time: localTimeValue() }) ?? clockNow.getTime();
+    const kind = mealKind(savedEntry.entryType);
+    const itemNames = savedEntry.items.map((item) => item.name).filter(Boolean);
+    const optimistic: Meal = {
+      id: `optimistic-saved-${action.token}`,
+      consumedAt,
+      time: localTimeValue(),
+      name: itemNames[0] ?? (savedEntry.caption || "Saved entry"),
+      description: savedEntry.caption || itemNames.join(", ") || "Tracked from saved entries",
+      calories: savedEntry.totalCalories,
+      protein: savedEntry.totalProteinG,
+      carbs: savedEntry.totalCarbsG,
+      fat: savedEntry.totalFatG,
+      items: savedEntry.items,
+      pending: "copying",
+      kind,
+    };
+    addMealToDate(today.date, optimistic);
+    try {
+      const response = await fetch(`/api/saved-entries/${encodeURIComponent(savedEntry.id)}/track`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ consumedAt }),
+      });
+      const body = await response.json().catch(() => null);
+      const parsed = parseTrackedEntryResponse(body);
+      if (!response.ok || !parsed) throw new Error(stringOr(asRecord(asRecord(body)?.error)?.message, "The saved entry could not be tracked."));
+      if (!isCurrentAction(action)) return;
+      reconcileMeal(optimistic.id, parsed);
+      setSelectedDayKey(dayKeyForDate(today.date));
+      setActionStatus(`Tracked “${optimistic.name}”.`);
+    } catch (error) {
+      if (isCurrentAction(action)) {
+        removeMealFromDays(optimistic.id);
+        setActionError(error instanceof Error ? error.message : "The saved entry could not be tracked.");
+      }
     } finally {
       finishAction(action);
     }
@@ -1067,7 +1174,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
         return;
       }
     }
-    const name = String(form.get("name") || "New meal").trim();
+    const name = String(form.get("name") || "New entry").trim();
     const description = String(form.get("description") || "Added from dashboard").trim();
     const calories = Number(form.get("calories") || 0);
     const protein = Number(form.get("protein") || 0);
@@ -1077,7 +1184,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     const time = String(form.get("time") || "");
     const consumedAt = mealDateTimestamp({ date: selectedDay.date, time });
     if (consumedAt === null) {
-      setActionError("Enter a valid meal time.");
+      setActionError("Enter a valid entry time.");
       setActionStatus(null);
       return;
     }
@@ -1118,17 +1225,17 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
       const responseBody = await response.json().catch(() => null);
       if (!response.ok) {
         const errorRecord = asRecord(asRecord(responseBody)?.error);
-        throw new Error(stringOr(errorRecord?.message, "The meal could not be added."));
+        throw new Error(stringOr(errorRecord?.message, "The entry could not be added."));
       }
       const parsedMeal = parseMealResponse(responseBody);
-      if (!parsedMeal) throw new Error("The added meal response was invalid.");
+      if (!parsedMeal) throw new Error("The added entry response was invalid.");
       if (!isCurrentAction(action)) return;
       reconcileMeal(nextMeal.id, parsedMeal);
-      setActionStatus("Meal added.");
+      setActionStatus("Entry added.");
     } catch (error) {
       if (!isCurrentAction(action)) return;
       removeMealFromDays(nextMeal.id);
-      setActionError(error instanceof Error ? error.message : "The meal could not be added.");
+      setActionError(error instanceof Error ? error.message : "The entry could not be added.");
       setActionStatus(null);
       return;
     } finally {
@@ -1164,7 +1271,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
 
     const logicalDate = selectedDay.date;
     const previousWeight = selectedWeight;
-    const optimisticWeight = { logicalDate, weightKg, recordedAt: Date.now() };
+    const optimisticWeight = { logicalDate, weightKg, recordedAt: clockNow.getTime() };
     const action = beginAction("weight-save", logicalDate);
     if (!action) return;
     setActionError(null);
@@ -1389,7 +1496,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
 
       <nav className="jump-nav" aria-label="Dashboard sections">
         <a className={activeSection === "today" ? "active" : ""} href="#today" aria-current={activeSection === "today" ? "page" : undefined}>Today</a>
-        <a className={activeSection === "meals" ? "active" : ""} href="#meals" aria-current={activeSection === "meals" ? "page" : undefined}>Meals</a>
+        <a className={activeSection === "meals" ? "active" : ""} href="#meals" aria-current={activeSection === "meals" ? "page" : undefined}>Entries</a>
         <a className={activeSection === "trend" ? "active" : ""} href="#trend" aria-current={activeSection === "trend" ? "page" : undefined}>Trend</a>
         <a className={activeSection === "macros" ? "active" : ""} href="#macros" aria-current={activeSection === "macros" ? "page" : undefined}>Macros</a>
         <a className={activeSection === "nutrition" ? "active" : ""} href="#nutrition" aria-current={activeSection === "nutrition" ? "page" : undefined}>Nutrition</a>
@@ -1523,7 +1630,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
                   </button>)}</div>
                 </div>
               </div>
-            </> : <div className="chart-empty" role="status"><strong>No macro records for the past {trendRange} days</strong><span>Add protein, carbs, or fat to a meal to see the daily split.</span></div>}
+            </> : <div className="chart-empty" role="status"><strong>No macro records for the past {trendRange} days</strong><span>Add protein, carbs, or fat to an entry to see the daily split.</span></div>}
           </section>
 
           <FoodContributionChart days={days} visibleDates={visibleTrendDays.map((day) => day.date)} />
@@ -1600,12 +1707,30 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
             </form> : null}
           </section>
 
+          {!readOnly ? <section className="panel saved-entries-panel" aria-labelledby="saved-entries-title">
+            <div className="panel-heading saved-entry-heading"><div><p className="eyebrow">Your go-tos</p><h2 id="saved-entries-title">Saved entries <span>{savedEntries.length}</span></h2></div></div>
+            {savedEntries.length === 0 ? <div className="saved-entries-empty"><strong>No saved entries yet</strong><span>Use “Add to saved entries” on any entry to keep it handy here.</span></div> : <div className="saved-entry-list">
+              {savedEntries.map((entry) => {
+                const name = entry.items[0]?.name || entry.caption || "Saved entry";
+                const isTracking = pendingAction?.kind === "saved-entry-track" && pendingAction.id === entry.id;
+                const isRemoving = pendingAction?.kind === "saved-entry-remove" && pendingAction.id === entry.id;
+                return <div className="saved-entry-row" key={entry.id} aria-busy={isTracking || isRemoving}>
+                  <div><strong>{name}</strong><span>{formatNumber(entry.totalCalories)} kcal · {formatNumber(entry.totalProteinG)}g protein</span></div>
+                  <div className="saved-entry-actions">
+                    <button className="track-button" type="button" disabled={actionInProgress} onClick={() => void trackSavedEntryNow(entry)} aria-busy={isTracking}>{isTracking ? "Tracking…" : "Track now"}</button>
+                    <button className="remove-saved-entry-button" type="button" disabled={actionInProgress} onClick={() => void removeFromSavedEntries(entry.id)} aria-busy={isRemoving}>{isRemoving ? "Removing…" : "Remove"}</button>
+                  </div>
+                </div>;
+              })}
+            </div>}
+          </section> : null}
+
           <section className="panel meals-panel" id="meals" aria-labelledby="meals-title">
-            <div className="panel-heading meal-heading"><div><p className="eyebrow">What you ate</p><h2 id="meals-title">Meals <span>{selectedDay.meals.length}</span></h2></div>{!readOnly ? <button className="primary-button" type="button" disabled={actionInProgress} aria-busy={pendingAction?.kind === "meal-create"} onClick={() => setShowAddMeal((current) => !current)}><span aria-hidden="true">＋</span> {pendingAction?.kind === "meal-create" ? "Saving…" : "Add meal"}</button> : <span className="panel-meta">read only</span>}</div>
+            <div className="panel-heading meal-heading"><div><p className="eyebrow">What you consumed</p><h2 id="meals-title">Entries <span>{selectedDay.meals.length}</span></h2></div>{!readOnly ? <button className="primary-button" type="button" disabled={actionInProgress} aria-busy={pendingAction?.kind === "meal-create"} onClick={() => setShowAddMeal((current) => !current)}><span aria-hidden="true">＋</span> {pendingAction?.kind === "meal-create" ? "Saving…" : "Add entry"}</button> : <span className="panel-meta">read only</span>}</div>
 
             {!readOnly && showAddMeal ? <form className={`add-meal-form${pendingAction?.kind === "meal-create" ? " is-pending" : ""}`} onSubmit={addMeal} aria-busy={pendingAction?.kind === "meal-create"}>
-              <div className="form-heading"><div><strong>Log a meal</strong><span>Use a quick estimate now. You can edit it later.</span></div><label>Time<input name="time" type="time" defaultValue={localTimeValue()} required aria-label="Meal time" disabled={actionInProgress} /></label><button className="close-button" type="button" disabled={actionInProgress} onClick={() => setShowAddMeal(false)} aria-label="Close add meal form">×</button></div>
-              <label>Meal name<input name="name" placeholder="e.g. Turkey sandwich" required disabled={actionInProgress} /></label>
+              <div className="form-heading"><div><strong>Log an entry</strong><span>Use a quick estimate now. You can edit it later.</span></div><label>Time<input name="time" type="time" defaultValue={localTimeValue()} required aria-label="Entry time" disabled={actionInProgress} /></label><button className="close-button" type="button" disabled={actionInProgress} onClick={() => setShowAddMeal(false)} aria-label="Close add entry form">×</button></div>
+              <label>Entry name<input name="name" placeholder="e.g. Turkey sandwich" required disabled={actionInProgress} /></label>
               <label className="wide-field">Description<input name="description" placeholder="Ingredients or a short note" disabled={actionInProgress} /></label>
               <label>Calories<input name="calories" type="number" min="0" step="any" placeholder="450" required disabled={actionInProgress} /></label>
               <label>Protein (g)<input name="protein" type="number" min="0" step="any" placeholder="30" disabled={actionInProgress} /></label>
@@ -1613,7 +1738,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
               <label>Fat (g)<input name="fat" type="number" min="0" step="any" placeholder="15" disabled={actionInProgress} /></label>
               <MealNutritionEditor namePrefix="nutrient-" disabled={actionInProgress} />
               <label className="meal-photo-field">Photo (optional)<input name="photo" type="file" accept={mealPhotoAccept} disabled={actionInProgress} /><small>JPEG, PNG, or WebP · up to 10 MB</small></label>
-              <button className="save-button" type="submit" disabled={actionInProgress} aria-busy={pendingAction?.kind === "meal-create"}>{pendingAction?.kind === "meal-create" ? "Saving…" : "Save meal"}</button>
+              <button className="save-button" type="submit" disabled={actionInProgress} aria-busy={pendingAction?.kind === "meal-create"}>{pendingAction?.kind === "meal-create" ? "Saving…" : "Save entry"}</button>
             </form> : null}
 
             {selectedDay.meals.length > 0 ? <div className="meal-list">
@@ -1644,7 +1769,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
                       />
                     </button> : <div className={`meal-avatar ${meal.kind}`} aria-hidden="true">{mealPlaceholders[meal.kind]}</div>}
                     <div className="meal-info"><div className="meal-name-line"><strong>{meal.name}</strong><time>{meal.time}</time>{meal.pending === "creating" ? <span className="pending-indicator" role="status">Saving…</span> : null}{meal.pending === "copying" ? <span className="pending-indicator" role="status">Copying…</span> : null}{meal.pending === "duplicating" ? <span className="pending-indicator" role="status">Duplicating…</span> : null}{pendingAction?.kind === "meal-save" && pendingAction.id === meal.id ? <span className="pending-indicator" role="status">Saving…</span> : null}{pendingAction?.kind === "meal-delete" && pendingAction.id === meal.id ? <span className="pending-indicator" role="status">Deleting…</span> : null}{pendingAction?.kind === "meal-copy" && pendingAction.id === meal.id ? <span className="pending-indicator" role="status">Copying…</span> : null}{pendingAction?.kind === "meal-duplicate" && pendingAction.id === meal.id ? <span className="pending-indicator" role="status">Duplicating…</span> : null}</div>{meal.description.trim().toLocaleLowerCase() !== meal.name.trim().toLocaleLowerCase() ? <span>{meal.description}</span> : null}</div>
-                    <div className="meal-macros" aria-label="Meal macros">
+                    <div className="meal-macros" aria-label="Entry macros">
                       <div className="meal-stat calories-stat"><span className="meal-stat-label">Energy</span><span>{formatNumber(meal.calories)} <small>kcal</small></span></div>
                       <div className="meal-stat protein-stat"><span className="meal-stat-label">Protein</span><span>{formatNumber(meal.protein)} <small>g</small></span></div>
                       <div className="meal-stat carbs-stat"><span className="meal-stat-label">Carbs</span><span>{formatNumber(meal.carbs ?? 0)} <small>g</small></span></div>
@@ -1654,6 +1779,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
                   <div className="meal-row-footer">
                     <MealNutritionDetails meal={meal} readOnly={readOnly} />
                     {!readOnly ? <div className="meal-actions" id={`meal-actions-${meal.id}`}>
+                      <button className="save-entry-button" type="button" disabled={actionInProgress || savedEntries.some((entry) => entry.sourceEntryId === meal.id || entry.id === meal.savedEntryId)} onClick={() => void addToSavedEntries(meal.id)} aria-label={`Add ${meal.name} to saved entries`}>{savedEntries.some((entry) => entry.sourceEntryId === meal.id || entry.id === meal.savedEntryId) ? "Saved" : "Add to saved entries"}</button>
                       {selectedDay.date !== days.at(-1)?.date ? <button className="copy-button" type="button" disabled={actionInProgress || deletingMealId !== null || copyingMealId !== null} onClick={() => void copyMealToToday(meal.id)} aria-label={`Copy ${meal.name} to today`} aria-busy={copyingMealId === meal.id}>{copyingMealId === meal.id ? "Copying…" : "Copy to today"}</button> : null}
                       <button className="duplicate-button" type="button" disabled={actionInProgress || deletingMealId !== null || copyingMealId !== null || duplicatingMealId !== null} onClick={() => void duplicateMeal(meal.id)} aria-label={`Duplicate ${meal.name}`} aria-busy={duplicatingMealId === meal.id}>{duplicatingMealId === meal.id ? "Duplicating…" : "Duplicate"}</button>
                       <button className="edit-button" type="button" disabled={actionInProgress || deletingMealId !== null || copyingMealId !== null || duplicatingMealId !== null} onClick={() => {
@@ -1691,7 +1817,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
                     }}
                   /><small>{mealPhotoDrafts[meal.id]?.name ?? (mealDraft.photoKey ? "Current photo stays unless you select a replacement." : "JPEG, PNG, or WebP · up to 10 MB")}</small></label>
                   <div className="meal-item-editors">
-                    <div className="meal-item-editors-heading"><strong>Food item nutrition</strong><span>Values stay with each item in an AI meal.</span></div>
+                    <div className="meal-item-editors-heading"><strong>Food item nutrition</strong><span>Values stay with each item in an AI entry.</span></div>
                     {mealDraft.items.map((item, index) => <div className="meal-item-editor" key={item.id ?? `${meal.id}-item-${index}`}>
                       <div className="meal-item-editor-heading"><strong>{item.name}</strong><span>{item.quantity ?? 1}{item.unit ? ` ${item.unit}` : " serving"}</span></div>
                       <MealNutritionEditor
@@ -1710,7 +1836,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
                 </div> : null}
               </div>;
               })}
-            </div> : <div className="empty-meals"><span className="empty-icon" aria-hidden="true">{readOnly ? "·" : "＋"}</span><strong>No meals logged for {selectedDay.weekday}</strong><span>{readOnly ? "No meals were logged for this day." : "Tap “Add meal” to record what you ate."}</span></div>}
+            </div> : <div className="empty-meals"><span className="empty-icon" aria-hidden="true">{readOnly ? "·" : "＋"}</span><strong>No entries logged for {selectedDay.weekday}</strong><span>{readOnly ? "No entries were logged for this day." : "Tap “Add entry” to record what you consumed."}</span></div>}
             <div className="meal-total"><span>Total for {selectedDay.weekday}</span><strong>{formatNumber(totalCalories)} <small>kcal</small> <i /> {formatNumber(totalProtein)}g <small>protein</small></strong></div>
           </section>
         </section>

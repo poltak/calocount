@@ -18,6 +18,7 @@ test("D1 migration contains the app data tables", () => {
     "meal_items",
     "analysis_jobs",
     "meal_revisions",
+    "saved_entries",
     "ai_profiles",
     "ai_runs",
     "telegram_updates",
@@ -31,6 +32,7 @@ test("D1 migration indexes recent meals and pending jobs", () => {
   assert.match(migration, /analysis_jobs_owner_state_available_idx/);
   assert.match(migration, /telegram_updates_owner_update_idx/);
   assert.match(migration, /daily_weights_owner_date_idx/);
+  assert.match(migration, /saved_entries_owner_source_idx/);
 });
 
 test("D1 migration stores optional nutrient goals and item nutrients", () => {

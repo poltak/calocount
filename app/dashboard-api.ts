@@ -23,6 +23,7 @@ export type SerializedMeal = {
   caption: string;
   mealType: string | null;
   status: string;
+  savedEntryId?: string | null;
   totalCalories: number;
   totalProteinG: number;
   totalCarbsG: number;
@@ -30,6 +31,18 @@ export type SerializedMeal = {
   photoKey: string | null;
   photoMimeType: string | null;
   hasPhoto: boolean;
+  items: SerializedMealItem[];
+};
+
+export type SavedEntry = {
+  id: string;
+  sourceEntryId: string;
+  caption: string;
+  entryType: string | null;
+  totalCalories: number;
+  totalProteinG: number;
+  totalCarbsG: number;
+  totalFatG: number;
   items: SerializedMealItem[];
 };
 
@@ -151,6 +164,7 @@ function parseSerializedMeal(value: unknown): SerializedMeal | null {
     caption: stringOr(record.caption),
     mealType: typeof record.mealType === "string" ? record.mealType : null,
     status: stringOr(record.status, "complete"),
+    savedEntryId: typeof record.savedEntryId === "string" && record.savedEntryId ? record.savedEntryId : null,
     totalCalories: numberOr(record.totalCalories),
     totalProteinG: numberOr(record.totalProteinG),
     totalCarbsG: numberOr(record.totalCarbsG),
@@ -350,6 +364,36 @@ export function dashboardFailureMessage(status: number, responseBody: unknown): 
 export function parseMealResponse(value: unknown) {
   const record = asRecord(value);
   return parseSerializedMeal(record?.meal);
+}
+
+function parseSavedEntry(value: unknown): SavedEntry | null {
+  const record = asRecord(value);
+  if (!record || typeof record.id !== "string" || !record.id
+    || typeof record.sourceEntryId !== "string" || !record.sourceEntryId
+    || !Array.isArray(record.items)
+    || !finiteFields(record, ["totalCalories", "totalProteinG", "totalCarbsG", "totalFatG"])) return null;
+  const items = parseArray(record.items, parseMealItem);
+  if (!items) return null;
+  return {
+    id: record.id,
+    sourceEntryId: record.sourceEntryId,
+    caption: stringOr(record.caption),
+    entryType: typeof record.entryType === "string" ? record.entryType : null,
+    totalCalories: numberOr(record.totalCalories),
+    totalProteinG: numberOr(record.totalProteinG),
+    totalCarbsG: numberOr(record.totalCarbsG),
+    totalFatG: numberOr(record.totalFatG),
+    items,
+  };
+}
+
+export function parseSavedEntriesResponse(value: unknown): SavedEntry[] | null {
+  const entries = asRecord(value)?.entries;
+  return parseArray(entries, parseSavedEntry);
+}
+
+export function parseTrackedEntryResponse(value: unknown) {
+  return parseSerializedMeal(asRecord(value)?.entry);
 }
 
 export function parseSettingsTargets(value: unknown) {

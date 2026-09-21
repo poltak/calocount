@@ -45,7 +45,7 @@ export function MealNutritionDetails({ meal }: MealNutritionDetailsProps) {
   return <div className="meal-nutrition-details">
     <button type="button" className="nutrition-details-button" aria-expanded={open} onClick={() => setOpen((current) => !current)}>{open ? "Hide nutrition details" : "Nutrition details"}</button>
     {open ? <div className="meal-nutrition-detail-card">
-      <div className="meal-nutrition-detail-heading"><div><strong>{meal.name}</strong><span>{meal.description || "Meal nutrition"}</span></div><span>{meal.items.length} item{meal.items.length === 1 ? "" : "s"}</span></div>
+      <div className="meal-nutrition-detail-heading"><div><strong>{meal.name}</strong><span>{meal.description || "Entry nutrition"}</span></div><span>{meal.items.length} item{meal.items.length === 1 ? "" : "s"}</span></div>
       <div className="meal-nutrition-macros"><span>{meal.calories.toLocaleString("en-US")} kcal</span><span>{meal.protein.toLocaleString("en-US")}g protein</span><span>{(meal.carbs ?? 0).toLocaleString("en-US")}g carbs</span><span>{(meal.fat ?? 0).toLocaleString("en-US")}g fat</span></div>
       <div className="meal-nutrition-total-grid">
         {nutrientKeys.map((key) => <div className="nutrient-stat" key={key}><span className="nutrient-stat-label">{nutrientLabel(key)}</span><span className="nutrient-value"><strong><NutrientValueText nutrientKey={key} aggregate={aggregates[key]} /></strong>{aggregates[key] && !aggregates[key].complete && aggregates[key].amount !== null ? <em>Partial</em> : null}</span></div>)}
@@ -55,7 +55,7 @@ export function MealNutritionDetails({ meal }: MealNutritionDetailsProps) {
         <div className="meal-item-macros"><span>{(item.calories ?? 0).toLocaleString("en-US")} kcal</span><span>{(item.proteinG ?? 0).toLocaleString("en-US")}g protein</span><span>{(item.carbsG ?? 0).toLocaleString("en-US")}g carbs</span><span>{(item.fatG ?? 0).toLocaleString("en-US")}g fat</span></div>
         <div className="meal-item-nutrients">{nutrientKeys.map((key) => <span key={key}><b>{nutrientLabel(key)}</b> <NutrientValueText nutrientKey={key} value={itemValue(item, key)} /></span>)}</div>
         {item.source || item.confidence !== null && item.confidence !== undefined ? <small className="meal-item-source">{item.source ? `Source: ${item.source}` : null}{item.source && item.confidence !== null && item.confidence !== undefined ? " · " : null}{item.confidence !== null && item.confidence !== undefined ? `Confidence: ${item.confidence}` : null}</small> : null}
-      </article>) : <p className="meal-item-empty">No item breakdown is available for this meal.</p>}</div>
+      </article>) : <p className="meal-item-empty">No item breakdown is available for this entry.</p>}</div>
     </div> : null}
   </div>;
 }

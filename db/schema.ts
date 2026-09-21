@@ -78,6 +78,7 @@ export const mealLogs = sqliteTable(
     assumptionsJson: text("assumptions_json").notNull().default("[]"),
     notes: text("notes"),
     externalRequestId: text("external_request_id"),
+    savedEntryId: text("saved_entry_id"),
     ...createdAt(),
     ...updatedAt(),
   },
@@ -85,6 +86,7 @@ export const mealLogs = sqliteTable(
     index("meal_logs_owner_consumed_at_idx").on(table.ownerKey, table.consumedAt),
     index("meal_logs_owner_status_updated_idx").on(table.ownerKey, table.status, table.updatedAt),
     index("meal_logs_photo_key_owner_idx").on(table.photoKey, table.ownerKey),
+    index("meal_logs_owner_saved_entry_idx").on(table.ownerKey, table.savedEntryId),
     uniqueIndex("meal_logs_external_request_id_idx").on(table.externalRequestId),
   ],
 );
@@ -134,6 +136,23 @@ export const mealItems = sqliteTable(
   (table) => [
     index("meal_items_meal_id_idx").on(table.mealId),
     index("meal_items_owner_meal_id_idx").on(table.ownerKey, table.mealId),
+  ],
+);
+
+/** Reusable, owner-curated snapshots of recorded entries. */
+export const savedEntries = sqliteTable(
+  "saved_entries",
+  {
+    id: text("id").primaryKey(),
+    ownerKey: text("owner_key").notNull(),
+    sourceMealId: text("source_meal_id").notNull(),
+    snapshotJson: text("snapshot_json").notNull(),
+    ...createdAt(),
+    ...updatedAt(),
+  },
+  (table) => [
+    uniqueIndex("saved_entries_owner_source_idx").on(table.ownerKey, table.sourceMealId),
+    index("saved_entries_owner_created_idx").on(table.ownerKey, table.createdAt),
   ],
 );
 
@@ -268,6 +287,7 @@ export const shareLinks = sqliteTable(
 export type Settings = typeof settings.$inferSelect;
 export type MealLog = typeof mealLogs.$inferSelect;
 export type MealItem = typeof mealItems.$inferSelect;
+export type SavedEntry = typeof savedEntries.$inferSelect;
 export type AnalysisJob = typeof analysisJobs.$inferSelect;
 export type MealRevision = typeof mealRevisions.$inferSelect;
 export type AiProfile = typeof aiProfiles.$inferSelect;

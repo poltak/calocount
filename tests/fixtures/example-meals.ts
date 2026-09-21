@@ -32,7 +32,7 @@ export type CompleteMealItemFixture = {
  */
 export type CompleteMealFixture = Omit<
   Required<MealInput>,
-  "assumptions" | "confidence" | "externalRequestId" | "items"
+  "assumptions" | "confidence" | "externalRequestId" | "savedEntryId" | "items"
 > & {
   assumptions: string[];
   confidence: number;
