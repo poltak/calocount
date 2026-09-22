@@ -14,14 +14,18 @@ export type SettingsDraft = {
   proteinGoalMode: ProteinGoalMode;
   proteinPerKg: string;
   nutrients: NutrientGoalDraft;
+  vitaminB6UsFnbAdultUlEnabled: boolean;
+  usFnbAdultUlEnabled: boolean;
 };
 
-export function settingsDraftForTargets(targets: TargetState, proteinGoal: ProteinGoalSummary): SettingsDraft {
+export function settingsDraftForTargets(targets: TargetState, proteinGoal: ProteinGoalSummary, vitaminB6UsFnbAdultUlEnabled = false, usFnbAdultUlEnabled = false): SettingsDraft {
   return {
     calories: String(targets.calories),
     proteinG: String(proteinGoal.fixedTargetG ?? targets.proteinG),
     proteinGoalMode: proteinGoal.mode,
     proteinPerKg: String(proteinGoal.gramsPerKg ?? DEFAULT_PROTEIN_PER_KG),
     nutrients: nutrientGoalDraftFromMap(targets.nutrients),
+    vitaminB6UsFnbAdultUlEnabled,
+    usFnbAdultUlEnabled,
   };
 }

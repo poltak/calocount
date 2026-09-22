@@ -1,7 +1,7 @@
 import type { Page } from "@playwright/test";
 import { buildProteinGoalSummary, type ProteinGoalMode } from "../../domain/protein-goals";
 import { resolveNutrientGoals } from "../../domain/nutrient-goals";
-import { aggregateNutrients, NUTRIENT_KEYS } from "../../domain/nutrients";
+import { aggregateNutrients, NUTRIENT_KEYS, NUTRIENT_UPPER_LIMIT_KEYS } from "../../domain/nutrients";
 
 const dayMs = 86_400_000;
 const date = "2026-09-12";
@@ -17,7 +17,7 @@ export async function mockDashboardApi(page: Page) {
     date,
     meals: [structuredClone(initialMeal)],
     weights: [{ logicalDate: "2026-09-11", weightKg: 70, recordedAt: Date.parse(`${date}T12:00:00Z`) }],
-    settings: { dailyCalorieTarget: 2400, dailyProteinTargetG: 160, proteinGoalMode: "grams" as ProteinGoalMode, dailyProteinTargetPerKg: 1.6, nutrientTargets: null },
+    settings: { dailyCalorieTarget: 2400, dailyProteinTargetG: 160, proteinGoalMode: "grams" as ProteinGoalMode, dailyProteinTargetPerKg: 1.6, nutrientTargets: null, vitaminB6UsFnbAdultUlEnabled: false, usFnbAdultUlEnabled: false },
     summaryReads: 0,
     writes: 0,
     invalidSummary: false,
@@ -44,6 +44,7 @@ export async function mockDashboardApi(page: Page) {
     });
     return {
       date: state.date,
+      referenceSettings: { vitaminB6UsFnbAdultUlEnabled: state.settings.vitaminB6UsFnbAdultUlEnabled, usFnbAdultUlEnabled: state.settings.usFnbAdultUlEnabled },
       targets: { calories: state.settings.dailyCalorieTarget, proteinG: proteinGoal.targetG, nutrients: resolveNutrientGoals() },
       proteinGoal, today: byDate[29], sevenDay: { calories: 500, proteinG: 30, averageCalories: 0, averageProteinG: 0, daysWithMeals: 1 },
       recentMeals: state.meals, recentWeights: state.weights,
@@ -55,7 +56,8 @@ export async function mockDashboardApi(page: Page) {
           calories: meal.totalCalories, proteinG: meal.totalProteinG,
           items: meal.items.map((item) => ({
             name: item.name, quantity: item.quantity, unit: item.unit, calories: item.calories, proteinG: item.proteinG,
-            nutrients: Object.fromEntries(NUTRIENT_KEYS.map((key) => [key, (item as Record<string, unknown>)[key] ?? null])),
+            nutrients: Object.fromEntries([...NUTRIENT_KEYS, ...NUTRIENT_UPPER_LIMIT_KEYS].map((key) => [key, (item as Record<string, unknown>)[key] ?? null])),
+            nutrientProvenance: (item as Record<string, unknown>).nutrientProvenance,
           })),
         })),
       },
@@ -68,7 +70,10 @@ export async function mockDashboardApi(page: Page) {
     const pathname = new URL(request.url()).pathname;
     if (pathname.endsWith("/summary")) {
       state.summaryReads++;
-      const body = state.invalidSummary ? { date, today: {}, sevenDay: {} } : summary();
+      const fullBody = state.invalidSummary ? { date, today: {}, sevenDay: {} } : summary();
+      const body = pathname === "/api/public/summary" && "referenceSettings" in fullBody
+        ? Object.fromEntries(Object.entries(fullBody).filter(([key]) => key !== "referenceSettings"))
+        : fullBody;
       if (state.holdSummary) await state.holdSummary;
       await route.fulfill({ json: body }).catch(() => {});
       return;

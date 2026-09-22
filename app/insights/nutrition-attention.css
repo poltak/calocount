@@ -1,0 +1,1032 @@
+.nutrition-attention {
+  padding: 22px;
+}
+
+.nutrition-attention__heading,
+.nutrition-attention__block-heading,
+.nutrition-source-detail__heading,
+.nutrition-excess-summary,
+.nutrition-coverage-row summary,
+.nutrition-finding__button,
+.nutrition-excess-day,
+.nutrition-source-list button {
+  display: flex;
+  align-items: center;
+}
+
+.nutrition-attention__heading {
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.nutrition-attention__heading h2,
+.nutrition-attention__block-heading h3,
+.nutrition-source-detail__heading h4 {
+  margin: 0;
+}
+
+.nutrition-attention__heading h2 {
+  font-size: 18px;
+  letter-spacing: -.035em;
+}
+
+.nutrition-attention__intro {
+  max-width: 620px;
+  margin: 6px 0 0;
+  color: var(--muted-strong);
+  line-height: 1.5;
+}
+
+.nutrition-attention__controls {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px;
+  border: 1px solid var(--form-control-border);
+  border-radius: 9px;
+  background: var(--form-control-background);
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.nutrition-attention__controls > span {
+  padding-left: 7px;
+}
+
+.nutrition-attention__controls button {
+  min-height: 29px;
+  padding: 0 9px;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted-strong);
+  font-size: 11px;
+}
+
+.nutrition-attention__controls button:hover,
+.nutrition-attention__controls button.is-active {
+  background: var(--button-secondary-hover-background);
+  color: var(--foreground);
+}
+
+.nutrition-attention__coverage-line,
+.nutrition-attention__hint,
+.nutrition-attention__fine-print,
+.nutrition-attention__note {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.nutrition-attention__coverage-line {
+  margin: 16px 0 0;
+}
+
+.nutrition-attention__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.nutrition-attention__block,
+.nutrition-attention__coverage {
+  min-width: 0;
+  padding: 17px;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  background: var(--surface-soft);
+}
+
+.nutrition-attention__block-heading {
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.nutrition-attention__block-heading h3 {
+  font-size: 14px;
+  letter-spacing: -.02em;
+}
+
+.nutrition-attention__hint {
+  margin: 8px 0 13px;
+}
+
+.nutrition-attention__fine-print {
+  margin: 10px 0 0;
+  font-size: 10px;
+}
+
+.nutrition-attention__empty {
+  display: grid;
+  min-height: 120px;
+  place-items: center;
+  align-content: center;
+  gap: 5px;
+  padding: 16px;
+  border: 1px dashed var(--chart-empty-border);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 11px;
+  text-align: center;
+}
+
+.nutrition-attention__empty strong {
+  color: var(--muted-strong);
+}
+
+.nutrition-attention__findings {
+  display: grid;
+  gap: 7px;
+}
+
+.nutrition-finding {
+  overflow: hidden;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  background: var(--button-action-background);
+}
+
+.nutrition-finding.is-selected {
+  border-color: var(--button-secondary-border);
+  background: var(--button-action-hover-background);
+}
+
+.nutrition-finding__button {
+  width: 100%;
+  gap: 10px;
+  padding: 10px;
+  background: transparent;
+  color: var(--foreground);
+  text-align: left;
+}
+
+.nutrition-finding__button:hover,
+.nutrition-finding__button:focus-visible {
+  background: var(--button-quiet-hover-background);
+}
+
+.nutrition-finding__rank {
+  display: grid;
+  width: 19px;
+  height: 19px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--orange) 20%, transparent);
+  color: var(--orange-soft);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.nutrition-finding__main {
+  display: grid;
+  min-width: 0;
+  flex: 1 1 auto;
+  gap: 8px;
+}
+
+.nutrition-finding__label,
+.nutrition-finding__value {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.nutrition-finding__label {
+  align-items: baseline;
+}
+
+.nutrition-finding__label strong {
+  font-size: 12px;
+}
+
+.nutrition-finding__label small,
+.nutrition-finding__value small {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 400;
+}
+
+.nutrition-finding__label small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nutrition-finding__bar {
+  position: relative;
+  display: block;
+  height: 7px;
+  overflow: visible;
+  border-radius: 99px;
+  background: var(--chart-base);
+}
+
+.nutrition-finding__bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--chart-blue), var(--chart-orange));
+}
+
+.nutrition-finding__bar > i {
+  position: absolute;
+  top: -3px;
+  left: calc(100% - 1px);
+  width: 1px;
+  height: 13px;
+  background: var(--chart-target);
+  content: "";
+}
+
+.nutrition-finding__value {
+  min-width: 76px;
+  align-items: flex-end;
+  flex-direction: column;
+  color: var(--foreground);
+  font-size: 11px;
+  font-weight: 700;
+  text-align: right;
+}
+
+.nutrition-finding__value small {
+  white-space: nowrap;
+}
+
+.nutrition-finding__detail {
+  padding: 0 12px 12px 41px;
+  color: var(--muted-strong);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.nutrition-finding__detail p {
+  margin: 0 0 7px;
+}
+
+.nutrition-finding__detail p strong {
+  color: var(--foreground);
+}
+
+.nutrition-finding__detail details {
+  margin-top: 9px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.nutrition-finding__detail summary {
+  padding: 8px 0 0;
+  color: var(--blue);
+  cursor: pointer;
+  font-size: 10px;
+}
+
+.nutrition-attention__missing-list {
+  display: grid;
+  gap: 5px;
+  margin: 7px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.nutrition-attention__missing-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 5px;
+  border-top: 1px solid var(--line-soft);
+  color: var(--muted);
+}
+
+.nutrition-attention__missing-list strong {
+  overflow: hidden;
+  color: var(--muted-strong);
+  font-weight: 500;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nutrition-attention__missing-list .nutrition-attention__inspect-entry {
+  flex: 0 0 auto;
+}
+
+.nutrition-attention__inspect-entry {
+  padding: 0;
+  background: transparent;
+  color: var(--blue);
+  font-size: 9px;
+  white-space: nowrap;
+}
+
+.nutrition-attention__inspect-entry:hover,
+.nutrition-attention__inspect-entry:focus-visible {
+  color: var(--text-blue-hover);
+  text-decoration: underline;
+}
+
+.nutrition-attention__reference-details,
+.nutrition-attention__coverage-help {
+  margin: 10px 0 0;
+  border-top: 1px solid var(--line-soft);
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.nutrition-attention__reference-details summary,
+.nutrition-attention__coverage-help summary {
+  padding-top: 8px;
+  color: var(--blue);
+  cursor: pointer;
+  font-size: 10px;
+}
+
+.nutrition-attention__reference-details p,
+.nutrition-attention__coverage-help p {
+  margin: 7px 0 0;
+}
+
+.nutrition-attention__reference-details p strong,
+.nutrition-attention__coverage-help p strong {
+  color: var(--muted-strong);
+}
+
+.nutrition-attention__reference-details a {
+  display: inline-block;
+  margin-top: 7px;
+  color: var(--blue);
+}
+
+.nutrition-attention__upper-limit-list {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.nutrition-attention__upper-limit-list li {
+  display: grid;
+  gap: 2px;
+  padding-top: 6px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.nutrition-attention__upper-limit-list strong {
+  color: var(--muted-strong);
+  font-size: 10px;
+}
+
+.nutrition-attention__upper-limit-list span {
+  color: var(--muted);
+}
+
+.nutrition-attention__compare {
+  margin-top: 9px;
+  padding: 6px 9px;
+  border: 1px solid var(--button-secondary-border);
+  border-radius: 6px;
+  background: var(--button-secondary-background);
+  color: var(--blue);
+  font-size: 10px;
+}
+
+.nutrition-attention__compare:hover,
+.nutrition-attention__compare:focus-visible {
+  background: var(--button-secondary-hover-background);
+  color: var(--foreground);
+}
+
+.nutrition-attention__daily-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line-soft);
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.nutrition-attention__daily-heading > div {
+  display: grid;
+  gap: 3px;
+}
+
+.nutrition-attention__daily-heading strong {
+  color: var(--muted-strong);
+  font-size: 10px;
+}
+
+.nutrition-attention__daily-heading > span {
+  flex: 0 0 auto;
+  align-self: start;
+  text-align: right;
+}
+
+.nutrition-attention__daily-list {
+  display: grid;
+  max-height: 255px;
+  gap: 4px;
+  margin-top: 8px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.nutrition-attention__daily-row {
+  display: grid;
+  grid-template-columns: 47px minmax(35px, 1fr) auto minmax(82px, auto);
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  min-height: 28px;
+  padding: 4px 6px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted-strong);
+  text-align: left;
+}
+
+.nutrition-attention__daily-row:hover,
+.nutrition-attention__daily-row:focus-visible,
+.nutrition-attention__daily-row.is-selected {
+  border-color: var(--button-secondary-border);
+  background: var(--button-secondary-background);
+}
+
+.nutrition-attention__daily-row > strong,
+.nutrition-attention__daily-row > small,
+.nutrition-attention__daily-date {
+  align-self: center;
+  font-size: 9px;
+}
+
+.nutrition-attention__daily-row > strong {
+  color: var(--foreground);
+  font-size: 10px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.nutrition-attention__daily-row > small {
+  overflow: hidden;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nutrition-attention__daily-row.is-partial > small,
+.nutrition-attention__daily-row.is-unknown > small {
+  color: var(--blue);
+}
+
+.nutrition-attention__daily-row.is-unlogged > small {
+  color: var(--muted);
+}
+
+.nutrition-attention__daily-bar {
+  display: block;
+  align-self: center;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: var(--chart-base);
+}
+
+.nutrition-attention__daily-bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--chart-blue), var(--chart-orange));
+}
+
+.nutrition-attention__daily-row.is-partial .nutrition-attention__daily-bar i,
+.nutrition-attention__daily-row.is-unknown .nutrition-attention__daily-bar i {
+  background: repeating-linear-gradient(135deg, var(--chart-blue) 0 3px, transparent 3px 6px);
+}
+
+.nutrition-attention__daily-row.is-unlogged .nutrition-attention__daily-bar {
+  background: transparent;
+}
+
+.nutrition-attention__day-detail {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid var(--line-soft);
+  border-radius: 7px;
+  background: var(--detail-card-background);
+}
+
+.nutrition-attention__select-label {
+  display: grid;
+  flex: 0 0 auto;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 650;
+}
+
+.nutrition-attention__select-label select {
+  min-height: 30px;
+  padding: 0 24px 0 8px;
+  border: 1px solid var(--form-control-border);
+  border-radius: 7px;
+  background: var(--form-control-background);
+  color: var(--foreground);
+  font: inherit;
+}
+
+.nutrition-excess-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  justify-content: space-between;
+  gap: 10px;
+  margin: 14px 0 10px;
+  padding: 10px;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--orange) 8%, transparent);
+  color: var(--muted-strong);
+  font-size: 10px;
+}
+
+.nutrition-excess-summary > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.nutrition-excess-summary > div + div {
+  padding-left: 10px;
+  border-left: 1px solid var(--line-soft);
+}
+
+.nutrition-excess-summary > div > span,
+.nutrition-excess-summary > div > small {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.nutrition-excess-summary > div > strong {
+  color: var(--foreground);
+  font-size: 11px;
+}
+
+.nutrition-excess-summary > div > small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nutrition-current-observation {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 0 10px;
+  padding: 9px 10px;
+  border: 1px solid var(--line-soft);
+  border-radius: 7px;
+  background: var(--button-action-background);
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.nutrition-current-observation strong {
+  color: var(--muted-strong);
+}
+
+.nutrition-current-observation > strong {
+  color: var(--foreground);
+  text-align: right;
+}
+
+.nutrition-current-observation.is-above {
+  border-color: color-mix(in srgb, var(--orange) 48%, var(--line));
+  background: color-mix(in srgb, var(--orange) 9%, transparent);
+}
+
+.nutrition-current-observation.is-above > strong {
+  color: var(--orange-soft);
+}
+
+.nutrition-excess-days {
+  display: grid;
+  max-height: 265px;
+  gap: 5px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.nutrition-excess-day {
+  display: grid;
+  grid-template-columns: 47px minmax(35px, 1fr) auto 50px;
+  gap: 7px;
+  width: 100%;
+  min-height: 29px;
+  padding: 5px 7px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted-strong);
+  text-align: left;
+}
+
+.nutrition-excess-day:hover,
+.nutrition-excess-day:focus-visible,
+.nutrition-excess-day.is-selected {
+  border-color: var(--button-secondary-border);
+  background: var(--button-secondary-background);
+}
+
+.nutrition-excess-day__date,
+.nutrition-excess-day strong,
+.nutrition-excess-day small {
+  align-self: center;
+  font-size: 9px;
+}
+
+.nutrition-excess-day strong {
+  color: var(--foreground);
+  font-size: 10px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.nutrition-excess-day small {
+  color: var(--muted);
+  text-align: right;
+  text-transform: capitalize;
+}
+
+.nutrition-excess-day.is-above small {
+  color: var(--orange-soft);
+}
+
+.nutrition-excess-day.is-incomplete small {
+  color: var(--blue);
+}
+
+.nutrition-excess-day__bar {
+  display: block;
+  align-self: center;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: var(--chart-base);
+}
+
+.nutrition-excess-day__bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--chart-neutral);
+}
+
+.nutrition-excess-day.is-above .nutrition-excess-day__bar i {
+  background: var(--chart-orange);
+}
+
+.nutrition-excess-day.is-incomplete .nutrition-excess-day__bar i {
+  background: repeating-linear-gradient(135deg, var(--chart-blue) 0 3px, transparent 3px 6px);
+}
+
+.nutrition-source-detail {
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  background: var(--detail-card-background);
+}
+
+.nutrition-source-detail__heading {
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 9px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.nutrition-source-detail__heading h4 {
+  font-size: 12px;
+}
+
+.nutrition-source-detail__heading > span {
+  color: var(--muted-strong);
+  font-size: 10px;
+  text-align: right;
+}
+
+.nutrition-source-list {
+  display: grid;
+  gap: 5px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.nutrition-source-list li {
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.nutrition-source-list button {
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 0;
+  background: transparent;
+  color: var(--muted-strong);
+  font-size: 10px;
+  text-align: left;
+}
+
+.nutrition-source-list button:hover,
+.nutrition-source-list button:focus-visible {
+  color: var(--foreground);
+}
+
+.nutrition-source-list button span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nutrition-source-list button strong {
+  flex: 0 0 auto;
+  color: var(--foreground);
+}
+
+.nutrition-source-list button strong small {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 400;
+}
+
+.nutrition-source-list li > small {
+  display: block;
+  padding: 0 0 7px;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.nutrition-source-list li > .nutrition-attention__inspect-entry {
+  display: block;
+  margin: 0 0 7px;
+}
+
+.nutrition-attention__coverage {
+  margin-top: 18px;
+}
+
+.nutrition-coverage-list {
+  display: grid;
+  gap: 5px;
+}
+
+.nutrition-coverage-row {
+  border: 1px solid var(--line-soft);
+  border-radius: 7px;
+  background: var(--button-action-background);
+}
+
+.nutrition-coverage-row summary {
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 10px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.nutrition-coverage-row summary::-webkit-details-marker {
+  display: none;
+}
+
+.nutrition-coverage-row summary::after {
+  flex: 0 0 auto;
+  color: var(--muted);
+  content: "⌄";
+  font-size: 13px;
+}
+
+.nutrition-coverage-row[open] summary::after {
+  content: "⌃";
+}
+
+.nutrition-coverage-row__name {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.nutrition-coverage-row__name strong {
+  font-size: 11px;
+}
+
+.nutrition-coverage-row__name small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nutrition-coverage-row__state {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.nutrition-coverage-row.is-partial .nutrition-coverage-row__state {
+  color: var(--orange-soft);
+}
+
+.nutrition-coverage-row.is-unknown .nutrition-coverage-row__state {
+  color: var(--blue);
+}
+
+.nutrition-coverage-row__detail {
+  padding: 0 10px 10px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.nutrition-coverage-row__detail p {
+  margin: 0;
+}
+
+.nutrition-attention__show-all {
+  margin-top: 10px;
+  padding: 0;
+  background: transparent;
+  color: var(--blue);
+  font-size: 10px;
+}
+
+.nutrition-attention__show-all:hover,
+.nutrition-attention__show-all:focus-visible {
+  color: var(--text-blue-hover);
+  text-decoration: underline;
+}
+
+.historical-meal-editor {
+  scroll-margin-top: 18px;
+}
+
+.historical-meal-editor__heading {
+  align-items: flex-start;
+}
+
+.historical-meal-editor__heading h2 {
+  margin: 0;
+}
+
+.historical-meal-editor__date {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.historical-meal-editor__message {
+  max-width: 720px;
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.historical-meal-editor__form {
+  padding: 0;
+}
+
+.nutrition-attention__note {
+  margin: 15px 0 0;
+  font-size: 10px;
+}
+
+@media (max-width: 560px) {
+  .nutrition-attention {
+    padding: 17px;
+  }
+
+  .nutrition-attention__heading,
+  .nutrition-attention__block-heading {
+    display: block;
+  }
+
+  .nutrition-attention__controls {
+    width: max-content;
+    margin-top: 13px;
+  }
+
+  .nutrition-attention__block-heading .nutrition-attention__select-label {
+    width: max-content;
+    margin-top: 10px;
+  }
+
+  .nutrition-finding__button {
+    align-items: flex-start;
+  }
+
+  .nutrition-finding__label {
+    display: grid;
+    gap: 3px;
+  }
+
+  .nutrition-finding__label small {
+    white-space: normal;
+  }
+
+  .nutrition-finding__value {
+    min-width: 64px;
+  }
+
+  .nutrition-excess-day {
+    grid-template-columns: 43px minmax(30px, 1fr) auto;
+  }
+
+  .nutrition-excess-day small {
+    display: none;
+  }
+
+  .nutrition-current-observation {
+    display: grid;
+    gap: 4px;
+  }
+
+  .nutrition-current-observation > strong {
+    text-align: left;
+  }
+
+  .nutrition-excess-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .nutrition-excess-summary > div:first-child {
+    grid-column: 1 / -1;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+
+  .nutrition-excess-summary > div:nth-child(2) {
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .nutrition-excess-summary > div + div {
+    padding-left: 6px;
+  }
+
+  .nutrition-excess-summary > div > small {
+    overflow: visible;
+    white-space: normal;
+  }
+
+  .nutrition-attention__daily-heading {
+    display: grid;
+    gap: 4px;
+  }
+
+  .nutrition-attention__daily-heading > span {
+    text-align: left;
+  }
+
+  .nutrition-attention__daily-row {
+    grid-template-columns: 43px minmax(30px, 1fr) auto;
+  }
+
+  .nutrition-attention__daily-row > small {
+    grid-column: 1 / -1;
+    padding-left: 50px;
+    margin-top: -2px;
+  }
+
+  .historical-meal-editor__heading {
+    display: flex;
+    align-items: flex-start;
+  }
+
+  .historical-meal-editor__heading .close-button {
+    margin-left: auto;
+  }
+
+  .nutrition-coverage-row__state {
+    display: none;
+  }
+
+  .nutrition-attention__missing-list li {
+    display: grid;
+    gap: 2px;
+  }
+
+  .nutrition-attention__missing-list strong {
+    text-align: left;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nutrition-attention * {
+    scroll-behavior: auto;
+  }
+}

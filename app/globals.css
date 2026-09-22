@@ -1,6 +1,8 @@
 @import "./insights/days-worth-repeating.css";
 @import "./insights/weekly-changes.css";
 @import "./insights/frequency-portion.css";
+@import "./insights/nutrition-attention.css";
+@import "./insights/nutrient-food-scenarios.css";
 
 :root {
   --background: #0f131b;
@@ -402,6 +404,19 @@ input:focus-visible {
 
 .settings-section { padding: 14px; }
 
+.reference-setting {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 12px;
+  color: var(--foreground);
+  cursor: pointer;
+}
+
+.reference-setting input { flex: none; margin: 2px 0 0; accent-color: var(--orange); }
+.reference-setting label { display: block; font-size: 11px; font-weight: 650; cursor: pointer; }
+.reference-setting small { display: block; margin-top: 4px; color: var(--muted); font-size: 9px; line-height: 1.5; }
+
 .settings-section-heading strong,
 .nutrient-goal-settings summary strong {
   display: block;
@@ -498,6 +513,17 @@ input:focus-visible {
 }
 
 .settings-form input:focus { border-color: var(--orange); }
+
+.settings-form .reference-setting input[type="checkbox"] {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  min-height: 0;
+  padding: 0;
+}
+
+.settings-form .reference-setting > div { flex: 1; min-width: 0; }
+.settings-form .reference-setting label { display: block; color: var(--foreground); }
 
 .nutrient-goal-settings > summary {
   display: flex;
@@ -2898,6 +2924,18 @@ input:focus-visible {
 
 .advanced-nutrition-grid input:focus { border-color: var(--orange); }
 .advanced-nutrition-grid label > small { color: #778391; font-size: 8px; line-height: 1.2; }
+.advanced-nutrition-grid select {
+  width: 100%;
+  min-height: 26px;
+  padding: 4px 6px;
+  border: 1px solid var(--form-control-border);
+  border-radius: 5px;
+  background: var(--form-control-background);
+  color: var(--muted-strong);
+  font: inherit;
+  font-size: 8px;
+}
+.advanced-nutrition-grid select:focus { border-color: var(--orange); }
 
 .meal-nutrition-details { padding: 0 0 9px 46px; }
 
@@ -2937,6 +2975,7 @@ input:focus-visible {
 .meal-nutrition-detail-heading span,
 .meal-item-editor-heading span,
 .meal-item-editors-heading span { color: var(--muted); font-size: 9px; }
+.meal-nutrition-detail-heading > div { display: grid; gap: 3px; min-width: 0; }
 
 .meal-nutrition-macros,
 .meal-item-macros {
@@ -2983,6 +3022,11 @@ input:focus-visible {
 
 .meal-item-nutrients span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .meal-item-nutrients b { color: var(--muted-strong); font-weight: 600; }
+.meal-item-upper-limit-details { margin-top: 12px; }
+.meal-item-upper-limit-details > strong { display: block; margin-bottom: 8px; color: var(--muted-strong); font-size: 12px; }
+.meal-item-upper-limit-details .meal-item-nutrients { grid-template-columns: 1fr; font-size: 10px; }
+.meal-item-upper-limit-details .meal-item-nutrients span { overflow: visible; white-space: normal; }
+.meal-item-provenance { display: block; color: #788694; font-size: 7px; font-style: normal; }
 .meal-item-source { color: #788694; font-size: 8px; }
 .meal-item-empty { margin: 0; color: var(--muted); font-size: 9px; }
 
@@ -3234,6 +3278,7 @@ input:focus-visible {
 :root[data-theme="light"] .inline-editor input,
 :root[data-theme="light"] .add-meal-form input,
 :root[data-theme="light"] .advanced-nutrition-grid input,
+:root[data-theme="light"] .advanced-nutrition-grid select,
 :root[data-theme="light"] .nutrient-trend-controls select {
   border-color: #bdcbc3;
   background: var(--surface-raised);

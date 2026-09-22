@@ -7,6 +7,7 @@ import { mergeTrendDays, mergeTrendWeights } from "./dashboard-trend";
 import { settingsDraftForTargets, type SettingsDraft, type TargetState } from "./dashboard-settings";
 
 import { resolveNutrientGoals } from "../domain/nutrient-goals";
+import type { NutrientKey } from "../domain/nutrients";
 import {
   calculateProteinTargetG,
   DEFAULT_PROTEIN_PER_KG,
@@ -49,7 +50,8 @@ import {
 } from "./nutrition/nutrient-meta";
 import { nutrientGoalOverridesFromDraft } from "./nutrition/nutrient-goal-draft";
 import { MealNutritionDetails, type NutritionItem } from "./nutrition/meal-nutrition-details";
-import { MealNutritionEditor, nutrientValuesFromForm } from "./nutrition/meal-nutrition-editor";
+import { MealNutritionEditor, nutrientProvenanceFromForm, nutrientValuesFromForm } from "./nutrition/meal-nutrition-editor";
+import type { NutrientValueOrigin } from "../domain/nutrient-provenance";
 import { readNutritionCollapsed, writeNutritionCollapsed } from "./nutrition/nutrition-collapse";
 import { NutrientTrendPanel } from "./nutrition/nutrient-trend-panel";
 import { NutritionOverview } from "./nutrition/nutrition-overview";
@@ -58,6 +60,8 @@ import { FoodContributionChart, NutrientConsistencyMatrix, ProteinTargetChart } 
 import { DaysWorthRepeating } from "./insights/days-worth-repeating";
 import { WeeklyChanges } from "./insights/weekly-changes";
 import { FrequencyPortion } from "./insights/frequency-portion";
+import { NutritionAttention } from "./insights/nutrition-attention";
+import { NutrientFoodScenarios } from "./insights/nutrient-food-scenarios";
 import { buildInsightData } from "./insights/insight-data";
 import type { InsightHistory } from "./insights/types";
 
@@ -330,6 +334,7 @@ function mealPayload(meal: Meal, consumedAt?: number) {
       ...item.nutrients,
       confidence: item.confidence ?? null,
       source: item.source ?? "dashboard",
+      ...(item.nutrientProvenance ? { nutrientProvenance: item.nutrientProvenance } : {}),
     })) : [{
       name: meal.name,
       quantity: 1,
@@ -414,10 +419,13 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
   const [activeSection, setActiveSection] = useState<DashboardSection>("today");
   const [nutritionCollapsed, setNutritionCollapsed] = useState(false);
   const [insightsCollapsed, setInsightsCollapsed] = useState(false);
+  const [focusedInsightNutrient, setFocusedInsightNutrient] = useState<NutrientKey | null>(null);
   const [proteinGoal, setProteinGoal] = useState<ProteinGoalSummary>(defaultProteinGoal);
   const [settingsDraft, setSettingsDraft] = useState<SettingsDraft>(() => settingsDraftForTargets(initialTargets, defaultProteinGoal));
   const [dataMode, setDataMode] = useState<DataMode>("loading");
   const [targets, setTargets] = useState<TargetState>(initialTargets);
+  const [vitaminB6UsFnbAdultUlEnabled, setVitaminB6UsFnbAdultUlEnabled] = useState(false);
+  const [usFnbAdultUlEnabled, setUsFnbAdultUlEnabled] = useState(false);
   const [dataMessage, setDataMessage] = useState<string | null>(readOnly ? "Loading the public dashboard…" : "Loading your saved log…");
   const [actionStatus, setActionStatus] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -433,6 +441,10 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
   const loadedSummaryDate = useRef<string | null>(null);
   const [mealPhotoDrafts, setMealPhotoDrafts] = useState<Record<string, File | null>>({});
   const [previewMeal, setPreviewMeal] = useState<Meal | null>(null);
+  const [historicalMeal, setHistoricalMeal] = useState<Meal | null>(null);
+  const [historicalMealLoadingId, setHistoricalMealLoadingId] = useState<string | null>(null);
+  const [historicalMealError, setHistoricalMealError] = useState<string | null>(null);
+  const historicalMealRequest = useRef(0);
   const [failedPhotoUrls, setFailedPhotoUrls] = useState<Set<string>>(() => new Set());
   const [clockNow, setClockNow] = useState(() => new Date());
   const dashboardDate = dateKeyFromTimestamp(clockNow.getTime(), { mode: publicView ? "utc" : "local" });
@@ -449,6 +461,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
   const copyingMealId = pendingAction?.kind === "meal-copy" ? pendingAction.id : null;
   const duplicatingMealId = pendingAction?.kind === "meal-duplicate" ? pendingAction.id : null;
   const editingMealId = mealEditState.editingMealId;
+  const historicalMealDraft = historicalMeal ? mealDraftFor(mealEditState, historicalMeal) : null;
 
   const selectedDay = days.find((day) => day.key === selectedDayKey) ?? days[4];
   const selectedWeight = selectedDay.weight ?? null;
@@ -684,6 +697,8 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
           }
         }
         setProteinGoal(parsed.proteinGoal);
+        setVitaminB6UsFnbAdultUlEnabled(parsed.referenceSettings?.vitaminB6UsFnbAdultUlEnabled === true);
+        setUsFnbAdultUlEnabled(parsed.referenceSettings?.usFnbAdultUlEnabled === true);
         setTargets({
           calories: parsed.targets.calories ?? calorieTarget,
           proteinG: parsed.targets.proteinG ?? proteinTarget,
@@ -844,9 +859,31 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     setMealEditState((current) => updateMealDraftItem(current, { mealId, itemId, itemIndex, key, value }));
   }
 
+  function updateMealItemProvenance(mealId: string, itemId: string | undefined, itemIndex: number, key: NutrientKey, origin: NutrientValueOrigin | null) {
+    if (readOnly || pendingActionRef.current) return;
+    setMealEditState((current) => {
+      const draft = current.drafts[mealId];
+      if (!draft) return current;
+      const items = draft.items.map((item, index) => {
+        if ((itemId && item.id !== itemId) || (!itemId && index !== itemIndex)) return item;
+        const value = item.nutrients?.[key];
+        const nextOrigin = origin !== null && typeof value === "number" && Number.isFinite(value) ? origin : null;
+        const nutrientProvenance = { ...(item.nutrientProvenance ?? {}) };
+        if (nextOrigin === null) delete nutrientProvenance[key];
+        else nutrientProvenance[key] = nextOrigin;
+        return {
+          ...item,
+          nutrientProvenance: Object.keys(nutrientProvenance).length > 0 ? nutrientProvenance : undefined,
+        };
+      });
+      return { ...current, drafts: { ...current.drafts, [mealId]: { ...draft, items } } };
+    });
+  }
+
   function replaceRemoteMeal(remoteMeal: SerializedMeal) {
     const nextMeal = mapRemoteMeal(remoteMeal, { publicView });
     const date = dateKeyFromTimestamp(remoteMeal.consumedAt, { mode: publicView ? "utc" : "local" });
+    if (historicalMeal?.id === nextMeal.id) setHistoricalMeal(nextMeal);
     setDays((currentDays) => currentDays.map((day) => {
       if (day.date !== date) return day;
       const meals = day.meals.some((meal) => meal.id === nextMeal.id)
@@ -884,7 +921,8 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
 
   async function saveMeal(mealId: string) {
     if (readOnly || dataMode !== "live" || pendingActionRef.current) return;
-    const canonicalMeal = days.flatMap((day) => day.meals).find((entry) => entry.id === mealId);
+    const canonicalMeal = days.flatMap((day) => day.meals).find((entry) => entry.id === mealId)
+      ?? (historicalMeal?.id === mealId ? historicalMeal : undefined);
     const meal = mealEditState.drafts[mealId];
     if (!canonicalMeal || !meal) return;
     const action = beginAction("meal-save", mealId);
@@ -904,6 +942,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
       if (!parsedMeal) throw new Error("The saved entry response was invalid.");
       if (!isCurrentAction(action)) return;
       replaceRemoteMeal(parsedMeal);
+      if (historicalMeal?.id === mealId) setHistoricalMeal(null);
       setMealEditState((current) => commitMealEdit(current, mealId));
       setMealPhotoDrafts((current) => {
         const next = { ...current };
@@ -930,6 +969,10 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
 
   function cancelMealEditor(mealId?: string) {
     if (pendingActionRef.current) return;
+    if (!mealId || historicalMeal?.id === mealId) {
+      setHistoricalMeal(null);
+      setHistoricalMealError(null);
+    }
     setMealEditState((current) => discardMealEdit(current, mealId));
     setMealPhotoDrafts((current) => {
       if (!mealId) return {};
@@ -1174,6 +1217,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     const carbs = Number(form.get("carbs") || 0);
     const fat = Number(form.get("fat") || 0);
     const nutrients = nutrientValuesFromForm(form);
+    const nutrientProvenance = nutrientProvenanceFromForm(form, "nutrient-origin-", nutrients);
     const time = String(form.get("time") || "");
     const consumedAt = mealDateTimestamp({ date: selectedDay.date, time });
     if (consumedAt === null) {
@@ -1203,6 +1247,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
         fatG: fat,
         nutrients,
         source: "dashboard",
+        ...(Object.keys(nutrientProvenance).length > 0 ? { nutrientProvenance } : {}),
       }],
       pending: "creating",
       kind: "snack",
@@ -1303,7 +1348,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     if (readOnly || dataMode !== "live" || pendingActionRef.current) return;
     const action = beginAction("settings-load");
     if (!action) return;
-    setSettingsDraft(settingsDraftForTargets(targets, proteinGoal));
+    setSettingsDraft(settingsDraftForTargets(targets, proteinGoal, vitaminB6UsFnbAdultUlEnabled, usFnbAdultUlEnabled));
     setShowSettings(true);
     setActionError(null);
     setActionStatus(null);
@@ -1331,7 +1376,9 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
       };
       setTargets(nextTargets);
       setProteinGoal(nextProteinGoal);
-      setSettingsDraft(settingsDraftForTargets(nextTargets, nextProteinGoal));
+      setVitaminB6UsFnbAdultUlEnabled(parsed.vitaminB6UsFnbAdultUlEnabled);
+      setUsFnbAdultUlEnabled(parsed.usFnbAdultUlEnabled);
+      setSettingsDraft(settingsDraftForTargets(nextTargets, nextProteinGoal, parsed.vitaminB6UsFnbAdultUlEnabled, parsed.usFnbAdultUlEnabled));
     } catch (error) {
       if (!isCurrentAction(action)) return;
       setActionError(error instanceof Error ? error.message : "The current targets could not be loaded.");
@@ -1373,8 +1420,12 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     const action = beginAction("settings-save");
     if (!action) return;
     const previousTargets = targets;
+    const previousVitaminB6UsFnbAdultUlEnabled = vitaminB6UsFnbAdultUlEnabled;
+    const previousUsFnbAdultUlEnabled = usFnbAdultUlEnabled;
     setActionError(null);
     setTargets({ calories, proteinG: Number.isFinite(proteinG) && proteinG > 0 ? proteinG : targets.proteinG, nutrients: nutrientTargets });
+    setVitaminB6UsFnbAdultUlEnabled(settingsDraft.vitaminB6UsFnbAdultUlEnabled);
+    setUsFnbAdultUlEnabled(settingsDraft.usFnbAdultUlEnabled);
     try {
       let nextTargets = { calories, proteinG: Number.isFinite(proteinG) && proteinG > 0 ? proteinG : targets.proteinG, nutrients: nutrientTargets };
       const response = await fetch("/api/settings", {
@@ -1386,6 +1437,8 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
           proteinGoalMode: settingsDraft.proteinGoalMode,
           dailyProteinTargetPerKg: isValidProteinPerKg(proteinPerKg) ? proteinPerKg : null,
           nutrientTargets: nutrientTargetOverrides,
+          vitaminB6UsFnbAdultUlEnabled: settingsDraft.vitaminB6UsFnbAdultUlEnabled,
+          usFnbAdultUlEnabled: settingsDraft.usFnbAdultUlEnabled,
         }),
       });
       const responseBody = await response.json().catch(() => null);
@@ -1400,11 +1453,15 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
       }
       if (!isCurrentAction(action)) return;
       setTargets(nextTargets);
+      setVitaminB6UsFnbAdultUlEnabled(parsed?.vitaminB6UsFnbAdultUlEnabled ?? settingsDraft.vitaminB6UsFnbAdultUlEnabled);
+      setUsFnbAdultUlEnabled(parsed?.usFnbAdultUlEnabled ?? settingsDraft.usFnbAdultUlEnabled);
       setShowSettings(false);
       setActionStatus("Targets saved.");
     } catch (error) {
       if (!isCurrentAction(action)) return;
       setTargets(previousTargets);
+      setVitaminB6UsFnbAdultUlEnabled(previousVitaminB6UsFnbAdultUlEnabled);
+      setUsFnbAdultUlEnabled(previousUsFnbAdultUlEnabled);
       setActionError(error instanceof Error ? error.message : "The targets could not be saved.");
       setActionStatus(null);
     } finally {
@@ -1414,11 +1471,68 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
 
   function selectDay(key: DayKey) {
     if (pendingActionRef.current) return;
+    historicalMealRequest.current += 1;
     setSelectedDayKey(key);
+    setHistoricalMeal(null);
+    setHistoricalMealLoadingId(null);
+    setHistoricalMealError(null);
     setMealEditState(emptyMealEditState<Meal>());
     setMealPhotoDrafts({});
     setShowAddMeal(false);
     setShowWeightForm(false);
+  }
+
+  async function loadHistoricalMeal(entryId: string, date: string) {
+    if (readOnly || pendingActionRef.current || historicalMealLoadingId) return;
+    const requestId = historicalMealRequest.current + 1;
+    historicalMealRequest.current = requestId;
+    setHistoricalMealLoadingId(entryId);
+    setHistoricalMealError(null);
+    setHistoricalMeal(null);
+    setMealEditState(emptyMealEditState<Meal>());
+    setMealPhotoDrafts({});
+    try {
+      const response = await fetch(`/api/meals/${encodeURIComponent(entryId)}`, { cache: "no-store" });
+      const responseBody = await response.json().catch(() => null);
+      if (!response.ok) {
+        const errorRecord = asRecord(asRecord(responseBody)?.error);
+        throw new Error(stringOr(errorRecord?.message, "The historical entry could not be loaded."));
+      }
+      const parsedMeal = parseMealResponse(responseBody);
+      if (!parsedMeal) throw new Error("The historical entry response was invalid.");
+      const mappedMeal = mapRemoteMeal(parsedMeal, { publicView: false });
+      const mappedDate = dateKeyFromTimestamp(mappedMeal.consumedAt, { mode: "local" });
+      if (mappedDate !== date) throw new Error("The historical entry date no longer matches the insight.");
+      if (historicalMealRequest.current !== requestId) return;
+      setHistoricalMeal(mappedMeal);
+      setMealEditState(beginMealEdit(mappedMeal));
+      requestAnimationFrame(() => document.getElementById("historical-meal-editor")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    } catch (error) {
+      if (historicalMealRequest.current !== requestId) return;
+      setHistoricalMealError(error instanceof Error ? error.message : "The historical entry could not be loaded.");
+    } finally {
+      if (historicalMealRequest.current === requestId) setHistoricalMealLoadingId(null);
+    }
+  }
+
+  function inspectInsightEntry(entryId: string, date: string) {
+    if (readOnly || pendingActionRef.current) return;
+    const day = days.find((candidate) => candidate.date === date);
+    const meal = day?.meals.find((candidate) => candidate.id === entryId);
+    if (day && meal) {
+      selectDay(day.key);
+      openMealEditor(meal);
+      requestAnimationFrame(() => document.getElementById("meals")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+      return;
+    }
+    if (insightHistory?.entries.some((entry) => entry.id === entryId && entry.date === date)) {
+      void loadHistoricalMeal(entryId, date);
+    }
+  }
+
+  function compareFoodForNutrient(nutrient: NutrientKey) {
+    setFocusedInsightNutrient(nutrient);
+    requestAnimationFrame(() => document.getElementById("nutrient-food-scenarios")?.scrollIntoView({ behavior: "smooth", block: "start" }));
   }
 
   function moveSelectedDay(direction: "previous" | "next") {
@@ -1823,12 +1937,14 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
                     }}
                   /><small>{mealPhotoDrafts[meal.id]?.name ?? (mealDraft.photoKey ? "Current photo stays unless you select a replacement." : "JPEG, PNG, or WebP · up to 10 MB")}</small></label>
                   <div className="meal-item-editors">
-                    <div className="meal-item-editors-heading"><strong>Food item nutrition</strong><span>Values stay with each item in an AI entry.</span></div>
+                    <div className="meal-item-editors-heading"><strong>Food item nutrition</strong><span>Values stay with each item in this meal.</span></div>
                     {mealDraft.items.map((item, index) => <div className="meal-item-editor" key={item.id ?? `${meal.id}-item-${index}`}>
                       <div className="meal-item-editor-heading"><strong>{item.name}</strong><span>{item.quantity ?? 1}{item.unit ? ` ${item.unit}` : " serving"}</span></div>
                       <MealNutritionEditor
                         values={item.nutrients ?? {}}
+                        provenance={item.nutrientProvenance}
                         onChange={(key, value) => updateMealItem(meal.id, item.id, index, key, value)}
+                        onProvenanceChange={(key, origin) => updateMealItemProvenance(meal.id, item.id, index, key, origin)}
                         idPrefix={`edit-${meal.id}-${item.id ?? index}-`}
                         namePrefix={`edit-${meal.id}-${item.id ?? index}-`}
                         disabled={actionInProgress}
@@ -1867,6 +1983,84 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
           </div>
         </div>
         <div className="insights-overview-content" id="insights-overview-content" hidden={insightsCollapsed}>
+          <NutritionAttention
+            days={insightData.days}
+            entries={insightData.entries}
+            currentDate={dashboardDate}
+            goals={targets.nutrients}
+            referenceSettings={{ vitaminB6UsFnbAdultUlEnabled, usFnbAdultUlEnabled }}
+            onInspectEntry={readOnly ? undefined : inspectInsightEntry}
+            onSelectFoodChange={compareFoodForNutrient}
+          />
+
+          <NutrientFoodScenarios
+            entries={insightData.entries}
+            currentDate={dashboardDate}
+            goals={targets.nutrients}
+            focusedNutrient={focusedInsightNutrient}
+          />
+
+          {historicalMealLoadingId ? <section className="panel historical-meal-editor" id="historical-meal-editor" aria-live="polite" role="status">
+            <div className="panel-heading compact-heading"><div><p className="eyebrow">Entry inspection</p><h2>Loading historical entry</h2></div><span className="panel-meta">owner only</span></div>
+            <p className="historical-meal-editor__message">Loading the original entry so its nutrient values can be inspected and edited safely.</p>
+          </section> : null}
+
+          {historicalMealError ? <section className="panel historical-meal-editor" id="historical-meal-editor" aria-live="polite" role="alert">
+            <div className="panel-heading compact-heading"><div><p className="eyebrow">Entry inspection</p><h2>Historical entry unavailable</h2></div><span className="panel-meta">owner only</span></div>
+            <p className="historical-meal-editor__message">{historicalMealError}</p>
+            <button className="cancel-button" type="button" onClick={() => setHistoricalMealError(null)}>Dismiss</button>
+          </section> : null}
+
+          {!readOnly && historicalMeal && historicalMealDraft ? <section className="panel historical-meal-editor" id="historical-meal-editor" aria-labelledby="historical-meal-editor-title">
+            <div className="panel-heading historical-meal-editor__heading"><div><p className="eyebrow">Entry inspection</p><h2 id="historical-meal-editor-title">Edit historical entry</h2><span className="historical-meal-editor__date">{fullDateLabel(dateKeyFromTimestamp(historicalMeal.consumedAt, { mode: "local" }))} · {historicalMeal.name}</span></div><button className="close-button" type="button" disabled={actionInProgress} onClick={() => cancelMealEditor(historicalMeal.id)} aria-label="Close historical entry editor">×</button></div>
+            <p className="historical-meal-editor__message">This entry is outside the seven-day dashboard editor. It was loaded from your owner history; changes use the same saved meal endpoint and recalculate the insight after refresh.</p>
+            <div className="inline-editor historical-meal-editor__form">
+              <label>Name<input value={historicalMealDraft.name} disabled={actionInProgress} onChange={(event) => updateMeal(historicalMeal.id, { name: event.target.value })} /></label>
+              <label className="editor-description-field">Description<input value={historicalMealDraft.description} disabled={actionInProgress} onChange={(event) => updateMeal(historicalMeal.id, { description: event.target.value })} /></label>
+              <label>Calories<input type="number" min="0" step="any" value={historicalMealDraft.calories} disabled={actionInProgress} onChange={(event) => updateMeal(historicalMeal.id, { calories: Number(event.target.value) })} /></label>
+              <label>Protein<input type="number" min="0" step="any" value={historicalMealDraft.protein} disabled={actionInProgress} onChange={(event) => updateMeal(historicalMeal.id, { protein: Number(event.target.value) })} /></label>
+              <label>Carbs<input type="number" min="0" step="any" value={historicalMealDraft.carbs ?? 0} disabled={actionInProgress} onChange={(event) => updateMeal(historicalMeal.id, { carbs: Number(event.target.value) })} /></label>
+              <label>Fat<input type="number" min="0" step="any" value={historicalMealDraft.fat ?? 0} disabled={actionInProgress} onChange={(event) => updateMeal(historicalMeal.id, { fat: Number(event.target.value) })} /></label>
+              <label className="editor-photo-field">{historicalMealDraft.photoKey ? "Replace photo (optional)" : "Photo (optional)"}<input
+                type="file"
+                accept={mealPhotoAccept}
+                disabled={actionInProgress}
+                onChange={(event) => {
+                  const photo = event.target.files?.[0] ?? null;
+                  if (photo) {
+                    const photoError = mealPhotoError(photo);
+                    if (photoError) {
+                      event.target.value = "";
+                      setActionError(photoError);
+                      return;
+                    }
+                  }
+                  setActionError(null);
+                  setMealPhotoDrafts((current) => ({ ...current, [historicalMeal.id]: photo }));
+                }}
+              /><small>{mealPhotoDrafts[historicalMeal.id]?.name ?? (historicalMealDraft.photoKey ? "Current photo stays unless you select a replacement." : "JPEG, PNG, or WebP · up to 10 MB")}</small></label>
+              <div className="meal-item-editors">
+                <div className="meal-item-editors-heading"><strong>Food item nutrition</strong><span>Values stay with each item in this historical entry.</span></div>
+                {historicalMealDraft.items.map((item, index) => <div className="meal-item-editor" key={item.id ?? `${historicalMeal.id}-item-${index}`}>
+                  <div className="meal-item-editor-heading"><strong>{item.name}</strong><span>{item.quantity ?? 1}{item.unit ? ` ${item.unit}` : " serving"}</span></div>
+                  <MealNutritionEditor
+                    values={item.nutrients ?? {}}
+                    provenance={item.nutrientProvenance}
+                    onChange={(key, value) => updateMealItem(historicalMeal.id, item.id, index, key, value)}
+                    onProvenanceChange={(key, origin) => updateMealItemProvenance(historicalMeal.id, item.id, index, key, origin)}
+                    idPrefix={`historical-edit-${historicalMeal.id}-${item.id ?? index}-`}
+                    namePrefix={`historical-edit-${historicalMeal.id}-${item.id ?? index}-`}
+                    disabled={actionInProgress}
+                  />
+                </div>)}
+              </div>
+              <div className="editor-actions">
+                <button className="cancel-button" type="button" disabled={actionInProgress} onClick={() => cancelMealEditor(historicalMeal.id)}>Cancel</button>
+                <button className="done-button" type="button" disabled={actionInProgress} aria-busy={pendingAction?.kind === "meal-save" && pendingAction.id === historicalMeal.id} onClick={() => void saveMeal(historicalMeal.id)}>{pendingAction?.kind === "meal-save" && pendingAction.id === historicalMeal.id ? "Saving…" : "Save changes"}</button>
+              </div>
+            </div>
+          </section> : null}
+
           <DaysWorthRepeating
             days={insightData.days}
             entries={insightData.entries}

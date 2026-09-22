@@ -81,6 +81,31 @@ export default function SettingsPanel({ draft, setDraft, onSave, onClose, loadin
         }))}
         onReset={() => setDraft((current) => ({ ...current, nutrients: nutrientGoalDraftFromMap() }))}
       />
+      <section className="settings-section" aria-labelledby="nutrition-reference-title">
+        <div className="settings-section-heading"><div><strong id="nutrition-reference-title">Nutrition reference</strong><span>Optional upper-limit comparisons for explicitly recorded values</span></div></div>
+        <div className="reference-setting">
+          <input
+            id="vitamin-b6-us-fnb-adult-ul"
+            type="checkbox"
+            name="vitamin-b6-us-fnb-adult-ul"
+            checked={draft.vitaminB6UsFnbAdultUlEnabled}
+            onChange={(event) => setDraft((current) => ({ ...current, vitaminB6UsFnbAdultUlEnabled: event.target.checked }))}
+            disabled={loading || saving}
+          />
+          <div><label htmlFor="vitamin-b6-us-fnb-adult-ul">I am 19 or older; use the U.S. adult vitamin B6 upper limit</label><small>Compare recorded B6 intake with the U.S. Food and Nutrition Board limit of 100 mg/day. This reference does not apply to doses taken for medical treatment. Other authorities use different limits.</small></div>
+        </div>
+        <div className="reference-setting">
+          <input
+            id="us-fnb-adult-ul"
+            type="checkbox"
+            name="us-fnb-adult-ul"
+            checked={draft.usFnbAdultUlEnabled}
+            onChange={(event) => setDraft((current) => ({ ...current, usFnbAdultUlEnabled: event.target.checked }))}
+            disabled={loading || saving}
+          />
+          <div><label htmlFor="us-fnb-adult-ul">I am 19 or older; use applicable U.S. nutrient upper limits</label><small>Compare explicitly recorded preformed vitamin A, supplemental magnesium, folic acid, and supplemental vitamin E amounts with the U.S. Food and Nutrition Board adult limits. A total nutrient value alone does not count as one of these amounts. Medical-treatment doses are outside these comparisons.</small></div>
+        </div>
+      </section>
       <button className="save-button settings-save-button" type="submit" disabled={loading || saving} aria-busy={saving}>{saving ? "Saving…" : loading ? "Loading…" : "Save targets"}</button>
     </form>
     <p className="settings-help" role="status" aria-live="polite">{loading ? "Loading saved targets…" : saving ? "Saving targets…" : "Targets guide the rings, nutrient progress, trend lines, and daily nudge."}</p>
