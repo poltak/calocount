@@ -1,5 +1,7 @@
 import { useState } from "react";
 
+import { nutrientValueOriginLabel, type NutrientProvenanceMap } from "../../domain/nutrient-provenance";
+import { NUTRIENT_UPPER_LIMIT_META } from "../../domain/nutrients";
 import { aggregateNutrientValues, nutrientLabel, nutrientKeys, type NutrientValueMap } from "./nutrient-meta";
 import { NutrientValueText } from "./nutrient-value";
 
@@ -13,6 +15,7 @@ export type NutritionItem = {
   carbsG?: number;
   fatG?: number;
   nutrients?: NutrientValueMap;
+  nutrientProvenance?: NutrientProvenanceMap;
   source?: string | null;
   confidence?: string | number | null;
 };
@@ -39,6 +42,10 @@ function itemValue(item: NutritionItem, key: string) {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
+function itemOrigin(item: NutritionItem, key: string) {
+  return item.nutrientProvenance?.[key as keyof NutrientProvenanceMap];
+}
+
 export function MealNutritionDetails({ meal }: MealNutritionDetailsProps) {
   const [open, setOpen] = useState(false);
   const aggregates = aggregateNutrientValues(meal.items.map((item) => item.nutrients ?? {}));
@@ -53,7 +60,14 @@ export function MealNutritionDetails({ meal }: MealNutritionDetailsProps) {
       <div className="meal-items-list"><h3>Food items</h3>{meal.items.length ? meal.items.map((item, index) => <article className="meal-item-detail" key={item.id ?? `${item.name}-${index}`}>
         <div className="meal-item-heading"><strong>{item.name}</strong><span>{item.quantity ?? 1}{item.unit ? ` ${item.unit}` : " serving"}</span></div>
         <div className="meal-item-macros"><span>{(item.calories ?? 0).toLocaleString("en-US")} kcal</span><span>{(item.proteinG ?? 0).toLocaleString("en-US")}g protein</span><span>{(item.carbsG ?? 0).toLocaleString("en-US")}g carbs</span><span>{(item.fatG ?? 0).toLocaleString("en-US")}g fat</span></div>
-        <div className="meal-item-nutrients">{nutrientKeys.map((key) => <span key={key}><b>{nutrientLabel(key)}</b> <NutrientValueText nutrientKey={key} value={itemValue(item, key)} /></span>)}</div>
+        <div className="meal-item-nutrients">{nutrientKeys.map((key) => {
+          const value = itemValue(item, key);
+          return <span key={key}><b>{nutrientLabel(key)}</b> <NutrientValueText nutrientKey={key} value={value} />{value !== null ? <small className="meal-item-provenance">{nutrientValueOriginLabel(itemOrigin(item, key))}</small> : null}</span>;
+        })}</div>
+        {NUTRIENT_UPPER_LIMIT_META.some(({ key }) => itemValue(item, key) !== null) ? <div className="meal-item-upper-limit-details">
+          <strong>Recorded form and source amounts</strong>
+          <div className="meal-item-nutrients">{NUTRIENT_UPPER_LIMIT_META.filter(({ key }) => itemValue(item, key) !== null).map(({ key, label, unit }) => <span key={key}><b>{label}</b> {itemValue(item, key)?.toLocaleString("en-US")} {unit}</span>)}</div>
+        </div> : null}
         {item.source || item.confidence !== null && item.confidence !== undefined ? <small className="meal-item-source">{item.source ? `Source: ${item.source}` : null}{item.source && item.confidence !== null && item.confidence !== undefined ? " · " : null}{item.confidence !== null && item.confidence !== undefined ? `Confidence: ${item.confidence}` : null}</small> : null}
       </article>) : <p className="meal-item-empty">No item breakdown is available for this entry.</p>}</div>
     </div> : null}

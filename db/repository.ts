@@ -12,11 +12,16 @@ import { getDb } from "./index";
 import {
   aggregateNutrients,
   NUTRIENT_KEYS,
+  NUTRIENT_UPPER_LIMIT_KEYS,
   nullableNutrientValue,
   type NutrientAggregateMap,
+  type NutrientUpperLimitValues,
+  type PartialNutrientUpperLimitValues,
+  type PartialTrackedNutrientValues,
   type NutrientValues,
   type PartialNutrientValues,
 } from "../domain/nutrients";
+import { parseNutrientProvenance, type NutrientProvenanceMap } from "../domain/nutrient-provenance";
 import {
   parseNutrientGoalOverridesJson,
   resolveNutrientGoals,
@@ -52,7 +57,8 @@ export type MealItemInput = {
   fatG?: number;
   confidence?: number | null;
   source?: string;
-} & PartialNutrientValues;
+  nutrientProvenance?: NutrientProvenanceMap | null;
+} & PartialTrackedNutrientValues;
 
 export type MealInput = {
   id?: string;
@@ -110,7 +116,7 @@ export type ExternalMealInput = Omit<MealInput, "externalRequestId" | "id" | "it
   protein: number;
   carbs: number;
   fat: number;
-  nutrients?: PartialNutrientValues;
+  nutrients?: PartialTrackedNutrientValues;
 };
 
 export type CurrentDayMealTotals = {
@@ -134,6 +140,8 @@ export type SettingsPatch = Partial<{
   proteinGoalMode: ProteinGoalMode;
   dailyProteinTargetPerKg: number | null;
   nutrientTargets: NutrientGoalOverrides | null;
+  vitaminB6UsFnbAdultUlEnabled: boolean;
+  usFnbAdultUlEnabled: boolean;
   photoRetentionDays: number;
 }>;
 
@@ -265,6 +273,26 @@ function normaliseNutrientFields(item: PartialNutrientValues): NutrientValues {
   return values;
 }
 
+function normaliseNutrientUpperLimitFields(item: PartialNutrientUpperLimitValues): NutrientUpperLimitValues {
+  const values = {} as NutrientUpperLimitValues;
+  for (const key of NUTRIENT_UPPER_LIMIT_KEYS) values[key] = nullableNutrientValue(item[key]);
+  return values;
+}
+
+function normaliseNutrientProvenance(item: MealItemInput, nutrientValues: NutrientValues): string | null {
+  const provenance = parseNutrientProvenance(item.nutrientProvenance, nutrientValues);
+  return Object.keys(provenance).length > 0 ? safeJson(provenance, {}) : null;
+}
+
+function parsedNutrientProvenance(value: string | null | undefined, nutrientValues: PartialNutrientValues): NutrientProvenanceMap {
+  if (!value) return {};
+  try {
+    return parseNutrientProvenance(JSON.parse(value), nutrientValues);
+  } catch {
+    return {};
+  }
+}
+
 export function calculateNutrientAggregates(
   items: readonly PartialNutrientValues[],
 ): NutrientAggregateMap {
@@ -281,6 +309,7 @@ function safeJson(value: unknown, fallback: unknown): string {
 
 function normaliseItem(item: MealItemInput, ownerKey: string, mealId: string) {
   const nutrients = normaliseNutrientFields(item);
+  const upperLimitNutrients = normaliseNutrientUpperLimitFields(item);
   return {
     id: item.id ?? createId("item"),
     mealId,
@@ -293,6 +322,8 @@ function normaliseItem(item: MealItemInput, ownerKey: string, mealId: string) {
     carbsG: Math.max(0, finiteNumber(item.carbsG)),
     fatG: Math.max(0, finiteNumber(item.fatG)),
     ...nutrients,
+    ...upperLimitNutrients,
+    nutrientProvenanceJson: normaliseNutrientProvenance(item, nutrients),
     confidence: item.confidence == null ? null : finiteNumber(item.confidence),
     source: item.source?.trim() || "manual",
   };
@@ -565,6 +596,8 @@ function snapshotForMeal(source: MealWithItems): SavedEntrySnapshot {
       carbsG: item.carbsG,
       fatG: item.fatG,
       ...normaliseNutrientFields(item),
+      ...normaliseNutrientUpperLimitFields(item),
+      nutrientProvenance: parsedNutrientProvenance(item.nutrientProvenanceJson, item),
       confidence: item.confidence,
       source: item.source,
     })),
@@ -781,6 +814,8 @@ export async function createMealsForExternalRequests(
       carbsG: input.carbs,
       fatG: input.fat,
       ...normaliseNutrientFields(input.nutrients ?? {}),
+      ...normaliseNutrientUpperLimitFields(input.nutrients ?? {}),
+      nutrientProvenanceJson: null,
       confidence: null,
       source: input.source?.trim() || "chatgpt",
       createdAt: timestamp,
@@ -967,6 +1002,18 @@ export async function upsertSettings(db: AppDb, ownerKey: string, patch: Setting
   const existing = await getSettings(db, ownerKey);
   const timestamp = nowMs();
   const id = existing?.id ?? `settings_${ownerKey}`;
+  const vitaminB6UsFnbAdultUlEnabled = patch.vitaminB6UsFnbAdultUlEnabled === undefined
+    ? existing?.vitaminB6UsFnbAdultUlEnabled === true
+    : patch.vitaminB6UsFnbAdultUlEnabled;
+  const vitaminB6UsFnbAdultUlConfirmedAt = patch.vitaminB6UsFnbAdultUlEnabled === undefined
+    ? existing?.vitaminB6UsFnbAdultUlConfirmedAt ?? null
+    : vitaminB6UsFnbAdultUlEnabled ? existing?.vitaminB6UsFnbAdultUlConfirmedAt ?? timestamp : null;
+  const usFnbAdultUlEnabled = patch.usFnbAdultUlEnabled === undefined
+    ? existing?.usFnbAdultUlEnabled === true
+    : patch.usFnbAdultUlEnabled;
+  const usFnbAdultUlConfirmedAt = patch.usFnbAdultUlEnabled === undefined
+    ? existing?.usFnbAdultUlConfirmedAt ?? null
+    : usFnbAdultUlEnabled ? existing?.usFnbAdultUlConfirmedAt ?? timestamp : null;
   if (existing) {
     await db.update(settings).set({
       timezone: patch.timezone ?? existing.timezone,
@@ -979,6 +1026,10 @@ export async function upsertSettings(db: AppDb, ownerKey: string, patch: Setting
       nutrientTargetsJson: patch.nutrientTargets === undefined
         ? existing.nutrientTargetsJson
         : patch.nutrientTargets === null ? null : safeJson(patch.nutrientTargets, {}),
+      vitaminB6UsFnbAdultUlEnabled,
+      vitaminB6UsFnbAdultUlConfirmedAt,
+      usFnbAdultUlEnabled,
+      usFnbAdultUlConfirmedAt,
       photoRetentionDays: patch.photoRetentionDays ?? existing.photoRetentionDays,
       updatedAt: timestamp,
     }).where(and(eq(settings.id, id), eq(settings.ownerKey, ownerKey))).prepare().run();
@@ -992,6 +1043,10 @@ export async function upsertSettings(db: AppDb, ownerKey: string, patch: Setting
       proteinGoalMode: patch.proteinGoalMode ?? "grams",
       dailyProteinTargetPerKg: patch.dailyProteinTargetPerKg ?? null,
       nutrientTargetsJson: patch.nutrientTargets === null ? null : safeJson(patch.nutrientTargets, {}),
+      vitaminB6UsFnbAdultUlEnabled,
+      vitaminB6UsFnbAdultUlConfirmedAt,
+      usFnbAdultUlEnabled,
+      usFnbAdultUlConfirmedAt,
       photoRetentionDays: patch.photoRetentionDays ?? 30,
       createdAt: timestamp,
       updatedAt: timestamp,
@@ -1073,6 +1128,10 @@ export async function getDashboardSummary(db: AppDb, ownerKey: string, options: 
       proteinG: proteinGoal.targetG,
       nutrients: resolveNutrientGoals(nutrientTargetOverrides),
     },
+    referenceSettings: {
+      vitaminB6UsFnbAdultUlEnabled: settingsRow?.vitaminB6UsFnbAdultUlEnabled === true,
+      usFnbAdultUlEnabled: settingsRow?.usFnbAdultUlEnabled === true,
+    },
     proteinGoal,
     today: {
       calories: today.calories, proteinG: today.proteinG, carbsG: today.carbsG,
@@ -1110,7 +1169,13 @@ export async function getDashboardSummary(db: AppDb, ownerKey: string, options: 
           unit: item.unit,
           calories: item.calories,
           proteinG: item.proteinG,
-          nutrients: Object.fromEntries(NUTRIENT_KEYS.map((key) => [key, nullableNutrientValue(item[key])])) as NutrientValues,
+          nutrients: {
+            ...Object.fromEntries(NUTRIENT_KEYS.map((key) => [key, nullableNutrientValue(item[key])])),
+            ...Object.fromEntries(NUTRIENT_UPPER_LIMIT_KEYS.map((key) => [key, nullableNutrientValue(item[key])])),
+          } as NutrientValues & NutrientUpperLimitValues,
+          ...(Object.keys(parsedNutrientProvenance(item.nutrientProvenanceJson, item)).length > 0
+            ? { nutrientProvenance: parsedNutrientProvenance(item.nutrientProvenanceJson, item) }
+            : {}),
         })),
       }))),
     },

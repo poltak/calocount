@@ -71,6 +71,13 @@
       "when": 1789964800636,
       "tag": "0010_left_smasher",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1790087450417,
+      "tag": "0011_famous_blink",
+      "breakpoints": true
     }
   ]
 }

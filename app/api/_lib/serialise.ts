@@ -1,4 +1,5 @@
 import { calculateTotals, type MealWithItems, type SavedEntryWithSnapshot } from "../../../db/repository";
+import { hasNutrientProvenance, parseNutrientProvenance } from "../../../domain/nutrient-provenance";
 
 function parseJson(value: string | null | undefined, fallback: unknown) {
   if (!value) return fallback;
@@ -21,7 +22,23 @@ export function serialiseMeal(entry: MealWithItems) {
   return {
     ...meal,
     assumptions: parseJson(assumptionsJson, []),
-    items: entry.items.map(withoutOwnerKey),
+    items: entry.items.map((item) => {
+      const { nutrientProvenanceJson, ...itemWithOwner } = item;
+      const itemWithoutOwner = withoutOwnerKey(itemWithOwner);
+      let rawProvenance: unknown = null;
+      if (nutrientProvenanceJson) {
+        try {
+          rawProvenance = JSON.parse(nutrientProvenanceJson);
+        } catch {
+          rawProvenance = null;
+        }
+      }
+      const nutrientProvenance = parseNutrientProvenance(rawProvenance, item);
+      return {
+        ...itemWithoutOwner,
+        ...(hasNutrientProvenance(nutrientProvenance) ? { nutrientProvenance } : {}),
+      };
+    }),
   };
 }
 

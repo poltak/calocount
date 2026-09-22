@@ -39,7 +39,12 @@ test("D1 migration stores optional nutrient goals and item nutrients", () => {
   assert.match(migration, /ALTER TABLE `settings` ADD `nutrient_targets_json` text/);
   assert.match(migration, /ALTER TABLE `settings` ADD `protein_goal_mode` text DEFAULT 'grams' NOT NULL/);
   assert.match(migration, /ALTER TABLE `settings` ADD `daily_protein_target_per_kg` real/);
-  for (const column of ["fiber_g", "total_sugars_g", "saturated_fat_g", "vitamin_c_mg", "selenium_mcg", "caffeine_mg"]) {
+  assert.match(migration, /ALTER TABLE `settings` ADD `vitamin_b6_us_fnb_adult_ul_enabled` integer DEFAULT false NOT NULL/);
+  assert.match(migration, /ALTER TABLE `settings` ADD `vitamin_b6_us_fnb_adult_ul_confirmed_at` integer/);
+  assert.match(migration, /ALTER TABLE `settings` ADD `us_fnb_adult_ul_enabled` integer DEFAULT false NOT NULL/);
+  assert.match(migration, /ALTER TABLE `settings` ADD `us_fnb_adult_ul_confirmed_at` integer/);
+  for (const column of ["fiber_g", "total_sugars_g", "saturated_fat_g", "vitamin_c_mg", "selenium_mcg", "caffeine_mg", "preformed_vitamin_a_mcg_rae", "supplemental_magnesium_mg", "folic_acid_mcg", "supplemental_vitamin_e_mg"]) {
     assert.match(migration, new RegExp("ADD `" + column + "` real"));
   }
+  assert.match(migration, /ADD `nutrient_provenance_json` text/);
 });

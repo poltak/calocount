@@ -1,5 +1,11 @@
 import type { ExternalMealResult, MealWithItems } from "../../../db/repository";
-import { NUTRIENT_KEYS, NUTRIENT_META, type PartialNutrientValues } from "../../../domain/nutrients";
+import {
+  NUTRIENT_KEYS,
+  NUTRIENT_META,
+  NUTRIENT_UPPER_LIMIT_KEYS,
+  NUTRIENT_UPPER_LIMIT_META,
+  type PartialTrackedNutrientValues,
+} from "../../../domain/nutrients";
 import {
   MAX_DASHBOARD_MEAL_PHOTO_BYTES,
   MealPhotoError,
@@ -54,7 +60,7 @@ export type AddMealRequest = {
   eatenAt: string;
   consumedAt: number;
   imageRef?: OpenAIFileRef;
-  nutrients?: PartialNutrientValues;
+  nutrients?: PartialTrackedNutrientValues;
 };
 
 export type DailyMealTotals = {
@@ -123,7 +129,7 @@ function requiredNumber(body: Record<string, unknown>, field: string, max: numbe
   return value;
 }
 
-function parseNullableNutrients(body: Record<string, unknown>): PartialNutrientValues | undefined {
+function parseNullableNutrients(body: Record<string, unknown>): PartialTrackedNutrientValues | undefined {
   if (!("nutrients" in body)) return undefined;
   const value = body.nutrients;
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -131,13 +137,14 @@ function parseNullableNutrients(body: Record<string, unknown>): PartialNutrientV
   }
 
   const record = value as Record<string, unknown>;
-  const allowed = new Set<string>(NUTRIENT_KEYS);
+  const allowed = new Set<string>([...NUTRIENT_KEYS, ...NUTRIENT_UPPER_LIMIT_KEYS]);
   for (const key of Object.keys(record)) {
     if (!allowed.has(key)) invalidField(`nutrients.${key}`, "is not a supported nutrient");
   }
 
-  const nutrients: PartialNutrientValues = {};
-  for (const metadata of NUTRIENT_META) {
+  const nutrients: PartialTrackedNutrientValues = {};
+  const metadataEntries = [...NUTRIENT_META, ...NUTRIENT_UPPER_LIMIT_META];
+  for (const metadata of metadataEntries) {
     if (!(metadata.key in record)) continue;
     const nutrient = record[metadata.key];
     if (nutrient === null) {

@@ -34,6 +34,21 @@ export const NUTRIENT_KEYS = [
 
 export type NutrientKey = (typeof NUTRIENT_KEYS)[number];
 
+/**
+ * Optional source/form-specific amounts used by published upper-limit
+ * references. These stay outside NUTRIENT_KEYS because they are not daily
+ * totals and must never silently replace or augment the regular nutrient
+ * aggregates.
+ */
+export const NUTRIENT_UPPER_LIMIT_KEYS = [
+  "preformedVitaminAMcgRae",
+  "supplementalMagnesiumMg",
+  "folicAcidMcg",
+  "supplementalVitaminEMg",
+] as const;
+
+export type NutrientUpperLimitKey = (typeof NUTRIENT_UPPER_LIMIT_KEYS)[number];
+
 type NutrientGroup = "carbohydrates" | "fats" | "vitamins" | "minerals" | "other";
 
 export type NutrientMetadata = {
@@ -73,6 +88,27 @@ export const NUTRIENT_META = [
   { key: "caffeineMg", label: "Caffeine", unit: "mg", group: "other", precision: 0, maximum: 100_000 },
 ] as const satisfies readonly NutrientMetadata[];
 
+export type NutrientUpperLimitMetadata = {
+  readonly key: NutrientUpperLimitKey;
+  readonly label: string;
+  readonly unit: "mg" | "mcg";
+  readonly precision: number;
+  /** Maximum safe value for one item in API and AI input. */
+  readonly maximum: number;
+};
+
+/**
+ * Source/form-specific fields are explicit inputs. A null value means that
+ * the source/form amount was not recorded for that item; it is not inferred
+ * from the corresponding total nutrient.
+ */
+export const NUTRIENT_UPPER_LIMIT_META = [
+  { key: "preformedVitaminAMcgRae", label: "Preformed vitamin A", unit: "mcg", precision: 0, maximum: 10_000_000 },
+  { key: "supplementalMagnesiumMg", label: "Supplemental magnesium", unit: "mg", precision: 0, maximum: 10_000_000 },
+  { key: "folicAcidMcg", label: "Folic acid", unit: "mcg", precision: 0, maximum: 1_000_000 },
+  { key: "supplementalVitaminEMg", label: "Supplemental vitamin E", unit: "mg", precision: 1, maximum: 1_000_000 },
+] as const satisfies readonly NutrientUpperLimitMetadata[];
+
 export type NutrientValues = {
   [Key in NutrientKey]: number | null;
 };
@@ -80,6 +116,17 @@ export type NutrientValues = {
 export type PartialNutrientValues = Partial<{
   [Key in NutrientKey]: number | null;
 }>;
+
+export type NutrientUpperLimitValues = {
+  [Key in NutrientUpperLimitKey]: number | null;
+};
+
+export type PartialNutrientUpperLimitValues = Partial<{
+  [Key in NutrientUpperLimitKey]: number | null;
+}>;
+
+/** Values accepted for private meal input, including explicit UL fields. */
+export type PartialTrackedNutrientValues = PartialNutrientValues & PartialNutrientUpperLimitValues;
 
 export type NutrientAggregate = {
   readonly amount: number | null;

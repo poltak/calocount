@@ -1,5 +1,14 @@
 import { ApiError, optionalNumber, requireString } from "./http";
-import { NUTRIENT_KEYS, NUTRIENT_META, type PartialNutrientValues, type NutrientKey } from "../../../domain/nutrients";
+import { isNutrientValueOrigin, type NutrientProvenanceMap } from "../../../domain/nutrient-provenance";
+import {
+  NUTRIENT_KEYS,
+  NUTRIENT_META,
+  NUTRIENT_UPPER_LIMIT_KEYS,
+  NUTRIENT_UPPER_LIMIT_META,
+  type NutrientKey,
+  type NutrientUpperLimitKey,
+  type PartialTrackedNutrientValues,
+} from "../../../domain/nutrients";
 import type { MealInput, MealItemInput, MealPatch } from "../../../db/repository";
 
 const MAX_ITEMS = 100;
@@ -20,14 +29,42 @@ function parseConsumedAt(value: unknown): number | undefined {
 
 function parseNullableNutrient(
   item: Record<string, unknown>,
-  key: NutrientKey,
+  key: NutrientKey | NutrientUpperLimitKey,
   field: string,
 ): number | null | undefined {
   if (!(key in item)) return undefined;
   if (item[key] === null) return null;
-  const maximum = NUTRIENT_META.find((entry) => entry.key === key)?.maximum ?? 100_000;
+  const maximum = NUTRIENT_META.find((entry) => entry.key === key)?.maximum
+    ?? NUTRIENT_UPPER_LIMIT_META.find((entry) => entry.key === key)?.maximum
+    ?? 100_000;
   const value = optionalNumber(item[key], field, { min: 0, max: maximum });
   return value === undefined ? undefined : value;
+}
+
+function parseNutrientProvenance(
+  value: unknown,
+  field: string,
+  nutrients: PartialTrackedNutrientValues,
+): NutrientProvenanceMap | undefined {
+  if (value === undefined) return undefined;
+  if (value === null) return {};
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new ApiError(400, "invalid_field", `${field} must be an object or null.`);
+  }
+  const record = value as Record<string, unknown>;
+  const provenance: NutrientProvenanceMap = {};
+  for (const [key, origin] of Object.entries(record)) {
+    if (!(NUTRIENT_KEYS as readonly string[]).includes(key)) {
+      throw new ApiError(400, "invalid_field", `${field}.${key} is not a supported nutrient.`);
+    }
+    if (!isNutrientValueOrigin(origin)) {
+      throw new ApiError(400, "invalid_field", `${field}.${key} must be manual, label, database, or ai.`);
+    }
+    if (typeof nutrients[key as NutrientKey] === "number") {
+      provenance[key as NutrientKey] = origin;
+    }
+  }
+  return provenance;
 }
 
 function parseItems(value: unknown): MealItemInput[] {
@@ -45,11 +82,16 @@ function parseItems(value: unknown): MealItemInput[] {
     const carbsG = optionalNumber(item.carbsG, `items[${index}].carbsG`, { min: 0, max: 10_000 });
     const fatG = optionalNumber(item.fatG, `items[${index}].fatG`, { min: 0, max: 10_000 });
     const confidence = optionalNumber(item.confidence, `items[${index}].confidence`, { min: 0, max: 1 });
-    const nutrients = {} as PartialNutrientValues;
+    const nutrients = {} as PartialTrackedNutrientValues;
     for (const key of NUTRIENT_KEYS) {
       const value = parseNullableNutrient(item, key, `items[${index}].${key}`);
       if (value !== undefined) nutrients[key] = value;
     }
+    for (const key of NUTRIENT_UPPER_LIMIT_KEYS) {
+      const value = parseNullableNutrient(item, key, `items[${index}].${key}`);
+      if (value !== undefined) nutrients[key] = value;
+    }
+    const nutrientProvenance = parseNutrientProvenance(item.nutrientProvenance, `items[${index}].nutrientProvenance`, nutrients);
     return {
       id: optionalString(item.id, `items[${index}].id`, 100),
       name: name ?? "",
@@ -61,6 +103,7 @@ function parseItems(value: unknown): MealItemInput[] {
       fatG,
       confidence,
       source: optionalString(item.source, `items[${index}].source`, 50),
+      nutrientProvenance,
       ...nutrients,
     };
   });

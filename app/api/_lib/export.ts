@@ -1,5 +1,5 @@
 import type { getExportData } from "../../../db/repository";
-import { NUTRIENT_KEYS } from "../../../domain/nutrients";
+import { NUTRIENT_KEYS, NUTRIENT_UPPER_LIMIT_KEYS } from "../../../domain/nutrients";
 import { serialiseMeal, withoutOwnerKey } from "./serialise";
 
 type ExportData = Awaited<ReturnType<typeof getExportData>>;
@@ -12,15 +12,15 @@ function csvCell(value: unknown): string {
 }
 
 function* csvChunks(data: ExportData): Generator<string> {
-  yield ["meal_id", "consumed_at", "meal_type", "caption", "status", "calories", "protein_g", "carbs_g", "fat_g", "item_name", "quantity", "unit", "item_calories", "item_protein_g", "item_carbs_g", "item_fat_g", ...NUTRIENT_KEYS].map(csvCell).join(",") + "\n";
+  yield ["meal_id", "consumed_at", "meal_type", "caption", "status", "calories", "protein_g", "carbs_g", "fat_g", "item_name", "quantity", "unit", "item_calories", "item_protein_g", "item_carbs_g", "item_fat_g", ...NUTRIENT_KEYS, ...NUTRIENT_UPPER_LIMIT_KEYS].map(csvCell).join(",") + "\n";
   for (const entry of data.meals) {
     const meal = entry.meal;
     const base = [meal.id, new Date(meal.consumedAt).toISOString(), meal.mealType, meal.caption, meal.status, meal.totalCalories, meal.totalProteinG, meal.totalCarbsG, meal.totalFatG];
     if (entry.items.length === 0) {
-      yield [...base, ...Array(7 + NUTRIENT_KEYS.length).fill("")].map(csvCell).join(",") + "\n";
+      yield [...base, ...Array(7 + NUTRIENT_KEYS.length + NUTRIENT_UPPER_LIMIT_KEYS.length).fill("")].map(csvCell).join(",") + "\n";
     }
     for (const item of entry.items) {
-      yield [...base, item.name, item.quantity, item.unit, item.calories, item.proteinG, item.carbsG, item.fatG, ...NUTRIENT_KEYS.map((key) => item[key])].map(csvCell).join(",") + "\n";
+      yield [...base, item.name, item.quantity, item.unit, item.calories, item.proteinG, item.carbsG, item.fatG, ...NUTRIENT_KEYS.map((key) => item[key]), ...NUTRIENT_UPPER_LIMIT_KEYS.map((key) => item[key])].map(csvCell).join(",") + "\n";
     }
   }
 }

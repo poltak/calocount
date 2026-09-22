@@ -1,4 +1,5 @@
 import type { NutrientAggregateMap, NutrientValueMap } from "../nutrition/nutrient-meta";
+import type { NutrientProvenanceMap } from "../../domain/nutrient-provenance";
 
 /** A food or drink log; an entry does not necessarily represent a whole meal. */
 export type InsightItem = {
@@ -8,6 +9,7 @@ export type InsightItem = {
   calories: number;
   proteinG: number;
   nutrients?: NutrientValueMap;
+  nutrientProvenance?: NutrientProvenanceMap;
 };
 
 export type InsightEntry = {

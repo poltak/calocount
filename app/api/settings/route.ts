@@ -75,6 +75,18 @@ function parseSettingsPatch(body: Record<string, unknown>): SettingsPatch {
       patch.nutrientTargets = targets;
     }
   }
+  if (body.vitaminB6UsFnbAdultUlEnabled !== undefined) {
+    if (typeof body.vitaminB6UsFnbAdultUlEnabled !== "boolean") {
+      throw new ApiError(400, "invalid_field", "vitaminB6UsFnbAdultUlEnabled must be a boolean.");
+    }
+    patch.vitaminB6UsFnbAdultUlEnabled = body.vitaminB6UsFnbAdultUlEnabled;
+  }
+  if (body.usFnbAdultUlEnabled !== undefined) {
+    if (typeof body.usFnbAdultUlEnabled !== "boolean") {
+      throw new ApiError(400, "invalid_field", "usFnbAdultUlEnabled must be a boolean.");
+    }
+    patch.usFnbAdultUlEnabled = body.usFnbAdultUlEnabled;
+  }
   if (body.photoRetentionDays !== undefined) patch.photoRetentionDays = Math.round(optionalNumber(body.photoRetentionDays, "photoRetentionDays", { min: 0, max: 3650 }) ?? 30);
   return patch;
 }

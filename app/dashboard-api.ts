@@ -1,7 +1,9 @@
 import { isProteinGoalMode, isValidProteinPerKg, type ProteinGoalDay, type ProteinGoalSummary } from "../domain/protein-goals";
+import { hasNutrientProvenance, parseNutrientProvenance, type NutrientProvenanceMap } from "../domain/nutrient-provenance";
 import type { NutritionItem } from "./nutrition/meal-nutrition-details";
 import type { InsightEntry, InsightHistory, InsightItem } from "./insights/types";
 import { nutrientKeys, parseNutrientGoalMap, parseNutrientAggregateMap, parseNutrientValue, type NutrientAggregateMap, type NutrientGoalMap, type NutrientValueMap } from "./nutrition/nutrient-meta";
+import { NUTRIENT_UPPER_LIMIT_KEYS } from "../domain/nutrients";
 
 export type SerializedMealItem = NutritionItem & {
   id?: string;
@@ -13,6 +15,7 @@ export type SerializedMealItem = NutritionItem & {
   carbsG: number;
   fatG: number;
   nutrients?: NutrientValueMap;
+  nutrientProvenance?: NutrientProvenanceMap;
   confidence?: string | number | null;
   source?: string | null;
 };
@@ -52,6 +55,11 @@ export type DailyWeight = {
   recordedAt: number;
 };
 
+export type NutritionReferenceSettings = {
+  vitaminB6UsFnbAdultUlEnabled: boolean;
+  usFnbAdultUlEnabled: boolean;
+};
+
 export type TrendDay = {
   date: string;
   calories: number;
@@ -65,6 +73,7 @@ export type TrendDay = {
 export type DashboardSummary = {
   date: string;
   targets: { calories: number | null; proteinG: number | null; nutrients: NutrientGoalMap };
+  referenceSettings?: NutritionReferenceSettings;
   proteinGoal: ProteinGoalSummary;
   today: {
     calories: number;
@@ -135,6 +144,13 @@ function parseMealItem(value: unknown): SerializedMealItem | null {
       : record[key];
     nutrients[key] = parseNutrientValue(source);
   }
+  for (const key of NUTRIENT_UPPER_LIMIT_KEYS) {
+    const source = nestedNutrients && Object.prototype.hasOwnProperty.call(nestedNutrients, key)
+      ? nestedNutrients[key]
+      : Object.prototype.hasOwnProperty.call(record, key) ? record[key] : undefined;
+    if (source !== undefined) nutrients[key] = parseNutrientValue(source);
+  }
+  const nutrientProvenance = parseNutrientProvenance(record.nutrientProvenance, nutrients);
   return {
     id: typeof record.id === "string" ? record.id : undefined,
     name: record.name,
@@ -147,6 +163,7 @@ function parseMealItem(value: unknown): SerializedMealItem | null {
     confidence: typeof record.confidence === "number" || typeof record.confidence === "string" ? record.confidence : null,
     source: typeof record.source === "string" ? record.source : null,
     nutrients,
+    ...(hasNutrientProvenance(nutrientProvenance) ? { nutrientProvenance } : {}),
   };
 }
 
@@ -249,6 +266,12 @@ function parseInsightHistory(value: unknown): InsightHistory | null {
       const rawNutrients = asRecord(item.nutrients);
       const nutrients: NutrientValueMap = {};
       for (const key of nutrientKeys) nutrients[key] = parseNutrientValue(rawNutrients?.[key]);
+      for (const key of NUTRIENT_UPPER_LIMIT_KEYS) {
+        if (rawNutrients && Object.prototype.hasOwnProperty.call(rawNutrients, key)) {
+          nutrients[key] = parseNutrientValue(rawNutrients[key]);
+        }
+      }
+      const nutrientProvenance = parseNutrientProvenance(item.nutrientProvenance, nutrients);
       return {
         name: item.name,
         quantity: typeof item.quantity === "number" && Number.isFinite(item.quantity) ? item.quantity : null,
@@ -256,6 +279,7 @@ function parseInsightHistory(value: unknown): InsightHistory | null {
         calories: numberOr(item.calories),
         proteinG: numberOr(item.proteinG),
         nutrients,
+        ...(hasNutrientProvenance(nutrientProvenance) ? { nutrientProvenance } : {}),
       };
     });
     if (!items) return null;
@@ -313,9 +337,15 @@ export function parseDashboardPayload(value: unknown): DashboardSummary | null {
     proteinG: targets && typeof targets.proteinG === "number" ? targets.proteinG : null,
     nutrients: parseNutrientGoalMap(targets?.nutrients),
   };
+  const referenceSettingsRecord = asRecord(record.referenceSettings);
+  const referenceSettings = referenceSettingsRecord ? {
+    vitaminB6UsFnbAdultUlEnabled: referenceSettingsRecord.vitaminB6UsFnbAdultUlEnabled === true,
+    usFnbAdultUlEnabled: referenceSettingsRecord.usFnbAdultUlEnabled === true,
+  } : undefined;
   return {
     date: record.date,
     targets: parsedTargets,
+    referenceSettings,
     proteinGoal: parseProteinGoal(record.proteinGoal, parsedTargets.proteinG),
     today: {
       calories: numberOr(today.calories),
@@ -409,5 +439,7 @@ export function parseSettingsTargets(value: unknown) {
     proteinGoalMode,
     proteinPerKg: isValidProteinPerKg(proteinPerKg) ? proteinPerKg : null,
     nutrients: parseNutrientGoalMap(settings.nutrientTargets),
+    vitaminB6UsFnbAdultUlEnabled: settings.vitaminB6UsFnbAdultUlEnabled === true,
+    usFnbAdultUlEnabled: settings.usFnbAdultUlEnabled === true,
   };
 }

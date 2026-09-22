@@ -32,6 +32,7 @@ test("public summary returns a no-store projection without private fields", asyn
   const nutrientAggregates = aggregateNutrients([itemNutrients]);
   const summary = {
     date,
+    referenceSettings: { vitaminB6UsFnbAdultUlEnabled: true, usFnbAdultUlEnabled: true },
     targets: {
       calories: 2_100,
       proteinG: 150,
@@ -107,6 +108,11 @@ test("public summary returns a no-store projection without private fields", asyn
         carbsG: 220,
         fatG: 80,
         ...itemNutrients,
+        preformedVitaminAMcgRae: 3_500,
+        supplementalMagnesiumMg: 400,
+        folicAcidMcg: 1_100,
+        supplementalVitaminEMg: 900,
+        nutrientProvenanceJson: JSON.stringify({ vitaminAMcgRae: "label" }),
         confidence: 0.9,
         source: "ai",
         createdAt: 1,
@@ -138,7 +144,8 @@ test("public summary returns a no-store projection without private fields", asyn
   const serialised = JSON.stringify(body);
   for (const field of [
     "ownerKey", "caption", "notes", "photoKey", "photoMimeType", "assumptions",
-    "confidence", "source", "provider", "telegram", "export", "rawUsage",
+    "confidence", "source", "provider", "telegram", "export", "rawUsage", "referenceSettings", "vitaminB6UsFnbAdultUl",
+    "preformedVitaminAMcgRae", "supplementalMagnesiumMg", "folicAcidMcg", "supplementalVitaminEMg", "nutrientProvenance",
   ]) assert.doesNotMatch(serialised, new RegExp(field, "i"));
   assert.equal((body.targets as Record<string, unknown>).calories, 2_100);
   assert.equal(((body.sevenDay as Record<string, unknown>).trend as Array<Record<string, unknown>>).at(-1)?.calories, 2_337);

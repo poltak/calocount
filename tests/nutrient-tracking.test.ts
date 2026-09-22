@@ -5,9 +5,10 @@ import {
   NUTRIENT_KEYS,
   NUTRIENT_META,
 } from "../domain/nutrients";
-import { calculateNutrientAggregates } from "../db/repository";
+import { calculateNutrientAggregates, copyMeal, createMeal, updateMeal } from "../db/repository";
 import { parseAddMealRequest } from "../app/api/_lib/add-meal";
 import { serialiseMeal } from "../app/api/_lib/serialise";
+import { createSqliteTestDb } from "./helpers/sqlite-db";
 
 const REQUEST_ID = "c5a84680-d0c7-4af6-a4f5-89495c3923ec";
 
@@ -55,6 +56,74 @@ test("ChatGPT Action accepts an optional nested nutrient object", () => {
     nutrients: { fiberG: 2, caffeineMg: 95, vitaminB12Mcg: null },
   });
   assert.deepEqual(parsed.nutrients, { fiberG: 2, caffeineMg: 95, vitaminB12Mcg: null });
+});
+
+test("source/form-specific upper-limit fields stay explicit and do not replace totals", () => {
+  const parsed = parseAddMealRequest({
+    request_id: REQUEST_ID,
+    name: "Supplemented meal",
+    kcal: 250,
+    protein: 8,
+    carbs: 35,
+    fat: 8,
+    eaten_at: "2026-08-30T18:25:00+07:00",
+    nutrients: {
+      vitaminAMcgRae: 4_000,
+      preformedVitaminAMcgRae: 3_500,
+      magnesiumMg: 500,
+      supplementalMagnesiumMg: 400,
+      folateMcgDfe: 1_200,
+      folicAcidMcg: 1_100,
+      vitaminEMg: 1_200,
+      supplementalVitaminEMg: 900,
+    },
+  });
+  assert.equal(parsed.nutrients?.vitaminAMcgRae, 4_000);
+  assert.equal(parsed.nutrients?.preformedVitaminAMcgRae, 3_500);
+  assert.equal(parsed.nutrients?.magnesiumMg, 500);
+  assert.equal(parsed.nutrients?.supplementalMagnesiumMg, 400);
+  assert.equal(parsed.nutrients?.folateMcgDfe, 1_200);
+  assert.equal(parsed.nutrients?.folicAcidMcg, 1_100);
+  assert.equal(parsed.nutrients?.vitaminEMg, 1_200);
+  assert.equal(parsed.nutrients?.supplementalVitaminEMg, 900);
+});
+
+test("upper-limit fields and provenance survive private meal copy and update", async () => {
+  const fixture = createSqliteTestDb();
+  try {
+    const created = await createMeal(fixture.db, "nutrient-owner", {
+      consumedAt: Date.parse("2026-09-12T12:00:00Z"),
+      items: [{
+        name: "Supplemented soup",
+        calories: 100,
+        proteinG: 4,
+        vitaminAMcgRae: 4_000,
+        preformedVitaminAMcgRae: 3_500,
+        nutrientProvenance: { vitaminAMcgRae: "label" },
+      }],
+    });
+    assert.equal(created.items[0]?.preformedVitaminAMcgRae, 3_500);
+    assert.equal(created.items[0]?.nutrientProvenanceJson, JSON.stringify({ vitaminAMcgRae: "label" }));
+
+    const copied = await copyMeal(fixture.db, "nutrient-owner", created.meal.id, { consumedAt: Date.parse("2026-09-13T12:00:00Z") });
+    assert.equal(copied?.items[0]?.preformedVitaminAMcgRae, 3_500);
+    assert.equal(copied?.items[0]?.nutrientProvenanceJson, JSON.stringify({ vitaminAMcgRae: "label" }));
+
+    const updated = await updateMeal(fixture.db, "nutrient-owner", created.meal.id, {
+      items: [{
+        name: "Updated soup",
+        calories: 100,
+        proteinG: 4,
+        vitaminAMcgRae: 4_500,
+        preformedVitaminAMcgRae: 4_200,
+        nutrientProvenance: { vitaminAMcgRae: "database" },
+      }],
+    });
+    assert.equal(updated?.items[0]?.preformedVitaminAMcgRae, 4_200);
+    assert.equal(updated?.items[0]?.nutrientProvenanceJson, JSON.stringify({ vitaminAMcgRae: "database" }));
+  } finally {
+    fixture.sqlite.close();
+  }
 });
 
 test("JSON meal serialization keeps nullable nutrient item columns", () => {
