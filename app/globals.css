@@ -2533,6 +2533,14 @@ input:focus-visible {
   gap: var(--dashboard-gap, 12px);
 }
 
+.nutrition-insights-content {
+  display: grid;
+  gap: var(--dashboard-gap, 12px);
+  margin-bottom: var(--dashboard-gap, 12px);
+}
+
+.nutrition-insights-content[hidden] { display: none; }
+
 .insights-overview-content[hidden] { display: none; }
 
 .insights-overview-content > * {

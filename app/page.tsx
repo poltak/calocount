@@ -1974,7 +1974,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
               type="button"
               className="nutrition-section-toggle"
               aria-expanded={!insightsCollapsed}
-              aria-controls="insights-overview-content"
+              aria-controls="nutrition-insights-content insights-overview-content"
               onClick={toggleInsightsSection}
             >
               {insightsCollapsed ? "Show insights" : "Hide insights"}
@@ -1982,7 +1982,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
             </button>
           </div>
         </div>
-        <div className="insights-overview-content" id="insights-overview-content" hidden={insightsCollapsed}>
+        <div className="nutrition-insights-content" id="nutrition-insights-content" hidden={insightsCollapsed}>
           <NutritionAttention
             days={insightData.days}
             entries={insightData.entries}
@@ -2061,6 +2061,8 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
             </div>
           </section> : null}
 
+        </div>
+        <div className="insights-overview-content" id="insights-overview-content" hidden={insightsCollapsed}>
           <DaysWorthRepeating
             days={insightData.days}
             entries={insightData.entries}
