@@ -61,7 +61,10 @@ function configuredOwnerEmailSha256(): string | undefined {
  * Require a Cloudflare Access or Sites identity. Anonymous access is only
  * enabled when CALOCOUNT_ALLOW_LOCAL is explicitly set to "true".
  */
-export async function requireApiIdentity(request: Request): Promise<ApiIdentity> {
+export async function requireApiIdentity(
+  request: Request,
+  options?: { accessAudience?: string },
+): Promise<ApiIdentity> {
   const email = firstHeader(request, [
     "cf-access-authenticated-user-email",
     "oai-authenticated-user-email",
@@ -74,13 +77,17 @@ export async function requireApiIdentity(request: Request): Promise<ApiIdentity>
   const allowedEmailSha256 = configuredOwnerEmailSha256();
   const allowedUserId = getEnvValue("CALOCOUNT_ALLOWED_USER_ID")?.trim();
   const allowLocal = getEnvValue("CALOCOUNT_ALLOW_LOCAL") === "true";
+  const accessTeamDomain = getEnvValue("CALOCOUNT_ACCESS_TEAM_DOMAIN")?.trim();
+  const accessAudience = options === undefined
+    ? getEnvValue("CALOCOUNT_ACCESS_AUDIENCE")?.trim()
+    : options.accessAudience?.trim();
 
   if (allowLocal) {
     if (!email && !userId && !allowedEmail && !allowedEmailSha256 && !allowedUserId) {
       return localApiIdentity({ ownerKey: getEnvValue("CALOCOUNT_OWNER_KEY") });
     }
   } else {
-    if (!getEnvValue("CALOCOUNT_ACCESS_TEAM_DOMAIN")?.trim() || !getEnvValue("CALOCOUNT_ACCESS_AUDIENCE")?.trim()) {
+    if (!accessTeamDomain || !accessAudience) {
       logAccessConfigurationFailure("access_settings_missing");
       throw new ApiError(503, "auth_access_settings_missing", "Owner authentication is not configured.");
     }
@@ -92,8 +99,8 @@ export async function requireApiIdentity(request: Request): Promise<ApiIdentity>
     let claims;
     try {
       claims = await verifyAccessJwt(request, {
-        teamDomain: getEnvValue("CALOCOUNT_ACCESS_TEAM_DOMAIN"),
-        audience: getEnvValue("CALOCOUNT_ACCESS_AUDIENCE"),
+        teamDomain: accessTeamDomain,
+        audience: accessAudience,
       });
     } catch (error) {
       logAccessJwtFailure(error);

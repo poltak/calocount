@@ -46,7 +46,7 @@ export class AddMealRequestError extends Error {
 }
 
 export type OpenAIFileRef = {
-  declaredContentType: SupportedMealPhotoType;
+  declaredContentType?: SupportedMealPhotoType;
   downloadLink: string;
 };
 
@@ -79,7 +79,7 @@ export type StoredAddMealPhoto = {
 export type AddMealHandlerOptions = {
   expectedToken: string | undefined;
   ownerKey: string | undefined;
-  /** Tests may provide an already parsed body. Routes should use readBody. */
+  /** Tests may provide a parsed body. Routes should use readBody. */
   body?: Record<string, unknown>;
   readBody?: () => Promise<Record<string, unknown>>;
   /** This pre-check avoids a second download on a normal sequential retry. */
@@ -102,6 +102,11 @@ export type AddMealHandlerOptions = {
     requests: Array<{ request: AddMealRequest; photo: StoredAddMealPhoto | null }>,
   ) => Promise<ExternalMealResult[]>;
 };
+
+export type AddMealRuntimeOptions = Omit<
+  AddMealHandlerOptions,
+  "expectedToken" | "ownerKey" | "body" | "readBody"
+>;
 
 function invalidField(field: string, detail: string): never {
   throw new AddMealRequestError(400, "invalid_field", `${field} ${detail}.`);
@@ -256,9 +261,11 @@ function parseImageRef(body: Record<string, unknown>): OpenAIFileRef | undefined
   for (const ref of refs) {
     if (!ref || typeof ref !== "object" || Array.isArray(ref)) continue;
     const record = ref as Record<string, unknown>;
-    const contentType = supportedContentType(record.mime_type);
+    const contentType = record.mime_type === undefined ? undefined : supportedContentType(record.mime_type);
     const downloadLink = safeOpenAIFileUrl(record.download_link);
-    if (contentType && downloadLink) return { declaredContentType: contentType, downloadLink };
+    if ((record.mime_type === undefined || contentType) && downloadLink) {
+      return { ...(contentType ? { declaredContentType: contentType } : {}), downloadLink };
+    }
   }
 
   throw new AddMealRequestError(400, "invalid_image_refs", "openaiFileIdRefs contains no usable image.");
@@ -399,7 +406,7 @@ function responseForMeal(
 }
 
 async function getDailyTotals(
-  options: AddMealHandlerOptions,
+  options: Pick<AddMealRuntimeOptions, "getDailyTotals">,
   ownerKey: string,
   now: number,
 ): Promise<DailyMealTotals | undefined> {
@@ -432,7 +439,7 @@ async function downloadOpenAIPhoto(ref: OpenAIFileRef, fetchImage: typeof fetch)
   }
 
   const responseType = supportedContentType(response.headers.get("content-type"));
-  if (!responseType || responseType !== ref.declaredContentType) {
+  if (!responseType || (ref.declaredContentType && responseType !== ref.declaredContentType)) {
     throw new AddMealRequestError(400, "invalid_image", "The downloaded image type is invalid.");
   }
 
@@ -483,7 +490,7 @@ async function downloadOpenAIPhoto(ref: OpenAIFileRef, fetchImage: typeof fetch)
     throw new AddMealRequestError(502, "image_download_failed", "The image response size is invalid.");
   }
   try {
-    return validateMealPhotoBytes(bytes.buffer, ref.declaredContentType);
+    return validateMealPhotoBytes(bytes.buffer, ref.declaredContentType ?? responseType);
   } catch (error) {
     if (error instanceof MealPhotoError) {
       const status = error.status === 413 ? 413 : 400;
@@ -506,17 +513,15 @@ async function cleanupPhoto(
   }
 }
 
-export async function handleAddMealRequest(
-  request: Request,
-  options: AddMealHandlerOptions,
+export async function handleAuthorizedAddMealRequest(
+  authorizedOwnerKey: string,
+  body: Record<string, unknown>,
+  options: AddMealRuntimeOptions,
   now = Date.now(),
 ): Promise<Response> {
-  await authenticate(request, options.expectedToken);
-  const ownerKey = options.ownerKey?.trim();
+  const ownerKey = authorizedOwnerKey.trim();
   if (!ownerKey) throw new AddMealRequestError(503, "owner_key_missing", "The meal owner is not configured.");
 
-  const body = options.body ?? (options.readBody ? await options.readBody() : undefined);
-  if (!body) throw new AddMealRequestError(400, "invalid_json", "The request body must be valid JSON.");
   const parsed = parseAddMealRequests(body, now);
   const inputs = parsed.requests;
   const existing = new Map<string, MealWithItems>();
@@ -659,4 +664,18 @@ export async function handleAddMealRequest(
     for (const photo of uploaded.values()) await cleanupPhoto(photo, options.deletePhoto);
     throw error;
   }
+}
+
+export async function handleAddMealRequest(
+  request: Request,
+  options: AddMealHandlerOptions,
+  now = Date.now(),
+): Promise<Response> {
+  await authenticate(request, options.expectedToken);
+  const ownerKey = options.ownerKey?.trim();
+  if (!ownerKey) throw new AddMealRequestError(503, "owner_key_missing", "The meal owner is not configured.");
+
+  const body = options.body ?? (options.readBody ? await options.readBody() : undefined);
+  if (!body) throw new AddMealRequestError(400, "invalid_json", "The request body must be valid JSON.");
+  return handleAuthorizedAddMealRequest(ownerKey, body, options, now);
 }

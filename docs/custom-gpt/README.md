@@ -2,6 +2,8 @@
 
 This directory contains reusable files for a custom GPT that estimates meal nutrition and logs explicitly requested meals to a Calocount deployment.
 
+For the new private ChatGPT plugin path, see the [plugin setup guide](../plugin/README.md). Keep this Custom GPT Action until a live plugin write test succeeds.
+
 - [`instructions.md`](./instructions.md) contains the GPT instructions.
 - [`action-schema.yaml`](./action-schema.yaml) defines the `addMeal` action.
 

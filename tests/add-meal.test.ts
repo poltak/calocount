@@ -4,6 +4,7 @@ import test from "node:test";
 import type { ExternalMealResult, MealWithItems } from "../db/repository";
 import {
   AddMealRequestError,
+  handleAuthorizedAddMealRequest,
   handleAddMealRequest,
   parseAddMealRequest,
   type AddMealHandlerOptions,
@@ -160,6 +161,20 @@ test("creates a meal from a JSON POST and returns the response contract", async 
   });
 });
 
+test("authorized meal core works without bearer-token options", async () => {
+  let savedOwner: string | undefined;
+  const response = await handleAuthorizedAddMealRequest(OWNER_KEY, mealBody(), {
+    createMeal: async (ownerKey, input, photo) => {
+      savedOwner = ownerKey;
+      return { created: true, meal: entry(ownerKey, input, undefined, photo) };
+    },
+  }, NOW);
+
+  assert.equal(response.status, 201);
+  assert.equal(savedOwner, OWNER_KEY);
+  assert.equal((await response.json() as Record<string, unknown>).request_id, REQUEST_ID);
+});
+
 test("downloads and stores the first valid OpenAI image reference", async () => {
   const fetched: Array<{ url: string; redirect: unknown }> = [];
   const uploaded: Array<{ ownerKey: string; requestId: string; photo: MealPhotoUpload }> = [];
@@ -201,6 +216,29 @@ test("downloads and stores the first valid OpenAI image reference", async () => 
     mimeType: "image/png",
     sizeBytes: PNG_BYTES.byteLength,
   });
+  assert.equal((await response.json() as Record<string, unknown>).has_image, true);
+});
+
+test("infers an omitted photo MIME type from the response and validates the image bytes", async () => {
+  const uploaded: MealPhotoUpload[] = [];
+  const response = await handler(
+    async (ownerKey, input, photo) => ({ created: true, meal: entry(ownerKey, input, undefined, photo) }),
+    mealBody({ openaiFileIdRefs: [{
+      id: "file-123",
+      download_link: "https://files.oaiusercontent.com/file-123?sig=temporary",
+    }] }),
+    {
+      fetchImage: async () => imageResponse(PNG_BYTES, "image/png; charset=binary"),
+      uploadPhoto: async (_ownerKey, _requestId, photo) => {
+        uploaded.push(photo);
+        return { key: "photo-inferred", mimeType: photo.contentType, sizeBytes: photo.sizeBytes };
+      },
+    },
+  );
+
+  assert.equal(response.status, 201);
+  assert.equal(uploaded.length, 1);
+  assert.equal(uploaded[0]?.contentType, "image/png");
   assert.equal((await response.json() as Record<string, unknown>).has_image, true);
 });
 

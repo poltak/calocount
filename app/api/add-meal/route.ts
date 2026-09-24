@@ -1,14 +1,6 @@
-import {
-  createMealForExternalRequest,
-  createMealsForExternalRequests,
-  findMealByExternalRequestId,
-  getCurrentDayMealTotals,
-} from "../../../db/repository";
 import { getEnvValue } from "../../../db";
 import {
   ApiError,
-  getPhotosBucket,
-  getRequestDb,
   parseJsonBody,
   withApiErrors,
 } from "../_lib/http";
@@ -16,11 +8,7 @@ import {
   AddMealRequestError,
   handleAddMealRequest,
 } from "../_lib/add-meal";
-import {
-  deleteUploadedMealPhoto,
-  uploadDashboardMealPhoto,
-  type MealPhotoBucket,
-} from "../_lib/meal-photo";
+import { createAddMealRuntimeOptions } from "../_lib/add-meal-runtime";
 
 export { handleAddMealRequest, parseAddMealRequest } from "../_lib/add-meal";
 
@@ -31,6 +19,7 @@ export async function POST(request: Request): Promise<Response> {
       return await handleAddMealRequest(request, {
         expectedToken: getEnvValue("CALOCOUNT_CHATGPT_MEAL_TOKEN"),
         ownerKey,
+        ...createAddMealRuntimeOptions(),
         readBody: async () => {
           const contentType = request.headers.get("content-type")
             ?.split(";", 1)[0]
@@ -41,52 +30,6 @@ export async function POST(request: Request): Promise<Response> {
           }
           return parseJsonBody(request);
         },
-        findExistingMeal: (owner, requestId) => findMealByExternalRequestId(getRequestDb(), owner, requestId),
-        getDailyTotals: (owner, timestamp) => getCurrentDayMealTotals(getRequestDb(), owner, {
-          now: new Date(timestamp),
-        }),
-        fetchImage: fetch,
-        uploadPhoto: async (owner, requestId, photo) => {
-          const uploaded = await uploadDashboardMealPhoto({
-            bucket: getPhotosBucket() as unknown as MealPhotoBucket,
-            ownerKey: owner,
-            mealId: `meal_external_${requestId}`,
-            photo,
-          });
-          return uploaded;
-        },
-        deletePhoto: async (photo) => {
-          await deleteUploadedMealPhoto(getPhotosBucket() as unknown as MealPhotoBucket, photo.key);
-        },
-        createMeal: (owner, input, photo) => createMealForExternalRequest(getRequestDb(), owner, input.requestId, {
-          name: input.name,
-          kcal: input.kcal,
-          protein: input.protein,
-          carbs: input.carbs,
-          fat: input.fat,
-          consumedAt: input.consumedAt,
-          source: "chatgpt",
-          caption: input.name,
-          ...(input.nutrients === undefined ? {} : { nutrients: input.nutrients }),
-          photoKey: photo?.key ?? null,
-          photoMimeType: photo?.mimeType ?? null,
-          photoSizeBytes: photo?.sizeBytes ?? null,
-        }),
-        createMeals: (owner, requests) => createMealsForExternalRequests(getRequestDb(), owner, requests.map(({ request: input, photo }) => ({
-          requestId: input.requestId,
-          name: input.name,
-          kcal: input.kcal,
-          protein: input.protein,
-          carbs: input.carbs,
-          fat: input.fat,
-          consumedAt: input.consumedAt,
-          source: "chatgpt",
-          caption: input.name,
-          ...(input.nutrients === undefined ? {} : { nutrients: input.nutrients }),
-          photoKey: photo?.key ?? null,
-          photoMimeType: photo?.mimeType ?? null,
-          photoSizeBytes: photo?.sizeBytes ?? null,
-        }))),
       });
     } catch (error) {
       if (error instanceof AddMealRequestError) {

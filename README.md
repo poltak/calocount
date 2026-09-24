@@ -59,7 +59,7 @@ The command creates three meals per day through today in `Asia/Ho_Chi_Minh` and 
 
 The owner dashboard waits for live API data and fails closed when local D1 or owner authentication is not ready. Set `CALOCOUNT_ALLOW_LOCAL=true` only in `.dev.vars` while running a configured local stack. Production must set `CALOCOUNT_ALLOW_LOCAL=false` and use a valid, signed Cloudflare Access JWT. Identity headers by themselves are not trusted. The public root uses only `/api/public/summary` and `/meal-photos/*`; it does not fall back to owner or demo data.
 
-The dashboard supports manual meal entry. See [`docs/custom-gpt`](./docs/custom-gpt/README.md) for reusable action and instruction templates and full custom GPT setup steps. An external GPT meal action uses `CALOCOUNT_CHATGPT_MEAL_TOKEN` from `.dev.vars`. Set a long random value in the local file (the example file contains a placeholder). For production, store it as a Worker secret:
+The dashboard supports manual meal entry. See [`docs/custom-gpt`](./docs/custom-gpt/README.md) for reusable action and instruction templates and full custom GPT setup steps. For the new private plugin path, see the [plugin setup guide](./docs/plugin/README.md). Keep this Custom GPT Action until a live plugin write test succeeds. An external GPT meal action uses `CALOCOUNT_CHATGPT_MEAL_TOKEN` from `.dev.vars`. Set a long random value in the local file (the example file contains a placeholder). For production, store it as a Worker secret:
 
 ```bash
 pnpm exec wrangler secret put CALOCOUNT_CHATGPT_MEAL_TOKEN

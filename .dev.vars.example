@@ -7,6 +7,7 @@ CALOCOUNT_CHATGPT_MEAL_TOKEN=replace-with-a-long-random-secret
 # Cloudflare Access values used when CALOCOUNT_ALLOW_LOCAL=false.
 CALOCOUNT_ACCESS_TEAM_DOMAIN=
 CALOCOUNT_ACCESS_AUDIENCE=
+CALOCOUNT_MCP_ACCESS_AUDIENCE=
 
 # Preferred production owner email secret. Set it with:
 # pnpm exec wrangler secret put CALOCOUNT_OWNER_EMAIL

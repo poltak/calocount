@@ -1,0 +1,6 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "calocount-meal-tracker",
+  "version": "0.1.0",
+  "description": "Estimate meal nutrition and log meals to Calocount."
+}
