@@ -100,16 +100,30 @@ test("initializes and lists the single meal tool without session state", async (
   assert.equal(initialize.status, 200);
   assert.equal(initialize.headers.get("content-type")?.split(";", 1)[0], "application/json");
   assert.equal(initialize.headers.get("mcp-session-id"), null);
-  assert.deepEqual(await initialize.json(), {
-    jsonrpc: "2.0",
-    id: 1,
+  const initializePayload = await initialize.json() as {
+    jsonrpc: string;
+    id: number;
     result: {
-      protocolVersion: MCP_PROTOCOL_VERSION,
-      capabilities: { tools: {} },
-      serverInfo: { name: "calocount", version: "0.1.0" },
-      instructions: "Use add_meals to save meals for the authenticated Calocount account.",
-    },
+      protocolVersion: string;
+      capabilities: { tools: Record<string, unknown> };
+      serverInfo: { name: string; version: string };
+      instructions: string;
+    };
+  };
+  assert.equal(initializePayload.jsonrpc, "2.0");
+  assert.equal(initializePayload.id, 1);
+  const { instructions, ...initializeResult } = initializePayload.result;
+  assert.deepEqual(initializeResult, {
+    protocolVersion: MCP_PROTOCOL_VERSION,
+    capabilities: { tools: {} },
+    serverInfo: { name: "calocount", version: "0.1.0" },
   });
+  assert.ok(instructions.length <= 512);
+  assert.match(instructions, /Estimate calories, protein, carbs, and fat before logging/u);
+  assert.match(instructions, /only when the user clearly asks to log/u);
+  assert.match(instructions, /ChatGPT-supplied photo file values.*photo_meal_indices/u);
+  assert.match(instructions, /new UUID per meal.*reuse it only to retry/u);
+  assert.match(instructions, /has_image is true/u);
 
   const list = await route.POST(request({ jsonrpc: "2.0", id: 2, method: "tools/list" }));
   const listPayload = await list.json() as {

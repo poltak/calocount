@@ -13,6 +13,7 @@ export const MCP_PROTOCOL_VERSION = "2025-11-25";
 const SUPPORTED_PROTOCOL_VERSIONS = [MCP_PROTOCOL_VERSION, "2025-03-26"];
 const MAX_BODY_BYTES = 1_000_000;
 const SECURITY_SCHEMES = [{ type: "oauth2", scopes: [] }] as const;
+const SERVER_INSTRUCTIONS = "Estimate calories, protein, carbs, and fat before logging. Call add_meals only when the user clearly asks to log, save, add, track, or record a meal; estimates and photos alone do not authorize a write. Use only ChatGPT-supplied photo file values, unchanged, in photos, and map each with photo_meal_indices. If no file value is supplied, omit the photo. Use a new UUID per meal and reuse it only to retry that meal. Report results truthfully; say a photo was stored only when has_image is true.";
 type JsonObject = Record<string, unknown>;
 type McpIdentity = { ownerKey: string };
 
@@ -498,7 +499,7 @@ function createServer(ownerKey: string, dependencies: McpHandlerDependencies): S
     { name: "calocount", version: "0.1.0" },
     {
       capabilities: { tools: {} },
-      instructions: "Use add_meals to save meals for the authenticated Calocount account.",
+      instructions: SERVER_INSTRUCTIONS,
       supportedProtocolVersions: SUPPORTED_PROTOCOL_VERSIONS,
     },
   );

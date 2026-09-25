@@ -22,26 +22,21 @@ Each Access application has its own JWT audience. Set `CALOCOUNT_MCP_ACCESS_AUDI
 
 Do not use the old Custom GPT bearer secret for this connection. ChatGPT signs in through Access Managed OAuth. The server must still validate the Access JWT and allow only the configured owner.
 
-## Register a private ChatGPT app
+## Test in standard Chat
 
-1. Confirm that ChatGPT developer mode and MCP write actions are available for the owner's account or workspace. As checked on 2026-09-24, OpenAI's Help Center and developer page differ on plan access. Review the current pages and test the real account in ChatGPT before you rely on write access ([Help Center](https://help.openai.com/en/articles/12584461-developer-mode-and-mcp-apps-in-chatgpt), [ChatGPT developer page](https://developers.openai.com/chatgpt)).
-2. In ChatGPT, enable Developer mode. Open the Apps or Plugins page, create a custom app, and enter the deployed HTTPS endpoint ending in `/mcp`.
-3. Select OAuth when ChatGPT asks for authentication. Sign in with the owner account that matches the Calocount Allow policy. Scan the tools. Confirm that ChatGPT finds exactly one tool named `add_meals`, with a required `meals` array of 1 to 20 entries and optional `photos` and `photo_meal_indices` arrays.
-4. Complete a safe write test in the intended test environment. Confirm that the tool call creates a meal once and returns the batch result and daily totals. Confirm that the same UUID can safely retry without creating a duplicate.
-5. In a ChatGPT chat, upload a meal photo and clearly ask to log the meal. Confirm that ChatGPT sends the file value to `photos`, maps it to the correct meal, and reports image storage only when the result has `has_image: true`. Test multiple meals with one photo per meal. Confirm that estimate-only requests and photos without a clear log request do not call the tool.
-6. After ChatGPT creates the app, copy its real technical ID from the browser URL. It starts with `plugin_asdk_app`. Do not guess or add an example ID to this repository.
+Use the owner's Personal Plus or Pro account in ChatGPT web. OpenAI's current [developer mode guide](https://developers.openai.com/api/docs/guides/developer-mode) says Plus and Pro can use MCP write tools in web developer mode. ChatGPT can ask for confirmation before a write. Confirm each test write in ChatGPT when it asks.
 
-OpenAI may ask for confirmation before a write action. Follow the prompt during setup and testing. Developer mode and MCP app availability can change, so use the live ChatGPT UI as the final check.
+1. Deploy the Worker and confirm the HTTPS `/mcp` endpoint works. Finish the Cloudflare Access setup above first.
+2. The owner must enable Developer mode and create the private app in ChatGPT. Enter the deployed endpoint ending in `/mcp`, select OAuth, and sign in with the account that matches the Calocount Access policy. Confirm that ChatGPT lists exactly one tool: `add_meals`.
+3. Start a new **standard Chat**. Use the `+` control in the composer, open **Developer mode**, and select the Calocount app. OpenAI also documents the app picker under `+` > **More** for supported chats ([Connect and test your plugin](https://developers.openai.com/plugins/build/app-quickstart)). Test the app in standard Chat. Do not switch to Work for this acceptance test.
+4. Test an estimate-only request. Confirm that ChatGPT gives an estimate and does not call `add_meals`. A photo without a clear request to log also must not call the tool.
+5. Clearly ask ChatGPT to log a meal. Confirm that it shows the estimate before the write, calls `add_meals`, and reports the returned result. Check the meal in Calocount. Retry with the same UUID and confirm that the server reports an existing meal without adding a duplicate.
+6. Upload a meal photo and clearly ask ChatGPT to log the meal. Confirm that it sends only the file values supplied by ChatGPT and maps the photo to the correct meal. ChatGPT can say that the photo was stored only when the result has `has_image: true`. If ChatGPT supplies no file value, the meal can be logged without the photo.
 
-## Wire the app ID to this package
+## Install and test the skill
 
-After the endpoint and write test work, use `$plugin-creator` in Codex to wire the registered app to this existing package. Give it the actual ID from ChatGPT and this package path: `plugins/calocount-meal-tracker`. Ask it to keep the portable root `plugin.json` and the existing `meal-tracking` skill, create the registered-app mapping, and set `extensions.com.openai.apps` in the root manifest to `./.app.json`. Do not ask it to publish a public plugin.
+After the owner creates the app, copy its real technical ID from the browser URL. It starts with `plugin_asdk_app`. Do not guess or add an example ID to this repository. Keep the root `plugin.json` and `skills/meal-tracking/SKILL.md`, put the real ID in `.app.json`, and set `extensions.com.openai.apps` to `./.app.json`. Do not publish a public plugin. Keep credentials out of the package.
 
-Review the result before installation:
+Install the private plugin with a ChatGPT flow that is available to the owner's account. OpenAI says installed plugins, including their Skills and MCP tools, can run in Chat and Work on supported clients ([Plugins in ChatGPT](https://learn.chatgpt.com/docs/plugins)). Open a new standard Chat after install, then select Calocount from `+` > **More**. Confirm that the `meal-tracking` skill guides the estimate, intent, photo, retry, and truthful-result behavior. The server also sends short instructions during MCP initialization, so the app has the key meal rules if the skill is not active.
 
-- `.app.json` must contain the actual ID that ChatGPT returned.
-- `plugin.json` must point to `./.app.json` through `extensions.com.openai.apps`.
-- `skills/meal-tracking/SKILL.md` must remain in the package.
-- The package must not contain API keys, bearer tokens, or other credentials.
-
-Then add this package to a personal or repo-local plugin marketplace and install it from the Plugins Directory in the ChatGPT desktop app. Keep that marketplace private. Open a new chat and test estimate-only requests, clear log requests, and a retry with the same UUID. OpenAI documents local marketplaces as authoring and testing sources separate from public plugin publication ([Package your plugin](https://developers.openai.com/plugins/build/plugins)).
+The [local marketplace instructions](https://developers.openai.com/plugins/build/plugins) describe a local package picker in Work or Codex desktop. That is one authoring path. It does not make Work a requirement for an installed plugin in ChatGPT. Use the standard Chat plugin picker to test the installed plugin.
