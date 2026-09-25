@@ -7,6 +7,9 @@ import {
   inArray,
   lte,
   lt,
+  or,
+  sql,
+  type SQL,
 } from "drizzle-orm";
 import { getDb } from "./index";
 import {
@@ -20,6 +23,8 @@ import {
   type PartialTrackedNutrientValues,
   type NutrientValues,
   type PartialNutrientValues,
+  type NutrientKey,
+  type NutrientUpperLimitKey,
 } from "../domain/nutrients";
 import { parseNutrientProvenance, type NutrientProvenanceMap } from "../domain/nutrient-provenance";
 import {
@@ -415,6 +420,257 @@ export async function listMealsInRange({ db, ownerKey, from, to }: {
     itemsByMeal.set(item.mealId, group);
   }
   return meals.map((meal) => ({ meal, items: itemsByMeal.get(meal.id) ?? [] }));
+}
+
+export type NutritionReadItem = {
+  name: string;
+  quantity: number;
+  unit: string;
+  caloriesKcal: number;
+  proteinG: number;
+  carbsG: number;
+  fatG: number;
+  nutrients: Record<NutrientKey, number | null>;
+  sourceFormAmounts: Record<NutrientUpperLimitKey, number | null>;
+};
+
+export type NutritionHistoryMeal = {
+  /** Internal key for the encrypted continuation cursor. Never return this field to a client. */
+  id: string;
+  consumedAt: number;
+  mealType: string | null;
+  caloriesKcal: number;
+  proteinG: number;
+  carbsG: number;
+  fatG: number;
+  items: NutritionReadItem[];
+};
+
+export type NutritionHistoryPage = {
+  meals: NutritionHistoryMeal[];
+  hasMore: boolean;
+};
+
+export type NutritionDailyNutrient = {
+  recordedAmount: number | null;
+  knownItemCount: number;
+  totalItemCount: number;
+  complete: boolean;
+};
+
+export type NutritionDailySummary = {
+  date: string;
+  status: "logged" | "unlogged";
+  mealCount: number;
+  itemCount: number;
+  totals: { caloriesKcal: number; proteinG: number; carbsG: number; fatG: number };
+  nutrients: Record<NutrientKey, NutritionDailyNutrient>;
+  sourceFormAmounts: Record<NutrientUpperLimitKey, NutritionDailyNutrient>;
+};
+
+export type CurrentNutritionTargets = {
+  scope: "current_settings_only";
+  caloriesKcal: number | null;
+  protein: { mode: ProteinGoalMode; grams: number | null; gramsPerKg: number | null };
+  nutrients: ReturnType<typeof resolveNutrientGoals>;
+};
+
+export type NutritionSummaryReport = {
+  startDate: string;
+  endDate: string;
+  days: NutritionDailySummary[];
+  currentTargets: CurrentNutritionTargets;
+};
+
+/** Fetch one bounded, owner-scoped page of completed meals in stable UTC order. */
+export async function listNutritionHistoryPage({ db, ownerKey, from, to, limit, cursor }: {
+  db: AppDb;
+  ownerKey: string;
+  from: number;
+  to: number;
+  limit: number;
+  cursor?: { consumedAt: number; id: string } | null;
+}): Promise<NutritionHistoryPage> {
+  const conditions = [
+    eq(mealLogs.ownerKey, ownerKey),
+    eq(mealLogs.status, "complete"),
+    gte(mealLogs.consumedAt, from),
+    lt(mealLogs.consumedAt, to),
+  ];
+  if (cursor) {
+    conditions.push(or(
+      lt(mealLogs.consumedAt, cursor.consumedAt),
+      and(eq(mealLogs.consumedAt, cursor.consumedAt), lt(mealLogs.id, cursor.id)),
+    )!);
+  }
+
+  const meals = await db.select({
+    id: mealLogs.id,
+    consumedAt: mealLogs.consumedAt,
+    mealType: mealLogs.mealType,
+    caloriesKcal: mealLogs.totalCalories,
+    proteinG: mealLogs.totalProteinG,
+    carbsG: mealLogs.totalCarbsG,
+    fatG: mealLogs.totalFatG,
+  }).from(mealLogs)
+    .where(and(...conditions))
+    .orderBy(desc(mealLogs.consumedAt), desc(mealLogs.id))
+    .limit(limit + 1)
+    .prepare()
+    .all();
+
+  const hasMore = meals.length > limit;
+  const pageMeals = meals.slice(0, limit);
+  if (pageMeals.length === 0) return { meals: [], hasMore: false };
+
+  const items = await db.select().from(mealItems)
+    .where(and(
+      eq(mealItems.ownerKey, ownerKey),
+      inArray(mealItems.mealId, pageMeals.map((meal) => meal.id)),
+    ))
+    .orderBy(desc(mealItems.createdAt))
+    .prepare()
+    .all();
+
+  const itemsByMeal = new Map<string, typeof items>();
+  for (const item of items) {
+    const grouped = itemsByMeal.get(item.mealId) ?? [];
+    grouped.push(item);
+    itemsByMeal.set(item.mealId, grouped);
+  }
+  return {
+    meals: pageMeals.map((meal) => ({
+      ...meal,
+      items: (itemsByMeal.get(meal.id) ?? []).map((item) => ({
+        name: item.name,
+        quantity: item.quantity,
+        unit: item.unit,
+        caloriesKcal: item.calories,
+        proteinG: item.proteinG,
+        carbsG: item.carbsG,
+        fatG: item.fatG,
+        nutrients: Object.fromEntries(NUTRIENT_KEYS.map((key) => [key, item[key] ?? null])) as Record<NutrientKey, number | null>,
+        sourceFormAmounts: Object.fromEntries(NUTRIENT_UPPER_LIMIT_KEYS.map((key) => [key, item[key] ?? null])) as Record<NutrientUpperLimitKey, number | null>,
+      })),
+    })),
+    hasMore,
+  };
+}
+
+function finiteCount(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+function nullableAmount(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+/** Aggregate a bounded UTC range in SQLite and return one row for each date, including unlogged dates. */
+export async function getNutritionSummary({ db, ownerKey, from, to, startDate, endDate, dayCount }: {
+  db: AppDb;
+  ownerKey: string;
+  from: number;
+  to: number;
+  startDate: string;
+  endDate: string;
+  dayCount: number;
+}): Promise<NutritionSummaryReport> {
+  const mealDate = sql<string>`date(${mealLogs.consumedAt} / 1000, 'unixepoch')`;
+  const [mealRows, nutrientRows, currentSettings] = await Promise.all([
+    db.select({
+      date: mealDate,
+      mealCount: sql<number>`count(*)`,
+      caloriesKcal: sql<number>`coalesce(sum(${mealLogs.totalCalories}), 0)`,
+      proteinG: sql<number>`coalesce(sum(${mealLogs.totalProteinG}), 0)`,
+      carbsG: sql<number>`coalesce(sum(${mealLogs.totalCarbsG}), 0)`,
+      fatG: sql<number>`coalesce(sum(${mealLogs.totalFatG}), 0)`,
+    }).from(mealLogs)
+      .where(and(
+        eq(mealLogs.ownerKey, ownerKey),
+        eq(mealLogs.status, "complete"),
+        gte(mealLogs.consumedAt, from),
+        lt(mealLogs.consumedAt, to),
+      ))
+      .groupBy(mealDate)
+      .prepare()
+      .all(),
+    (() => {
+      const aggregateColumns: Record<string, SQL> = {};
+      for (const key of [...NUTRIENT_KEYS, ...NUTRIENT_UPPER_LIMIT_KEYS]) {
+        aggregateColumns[`${key}Amount`] = sql<number | null>`sum(${mealItems[key]})`;
+        aggregateColumns[`${key}KnownItemCount`] = sql<number>`count(${mealItems[key]})`;
+      }
+      const itemDate = sql<string>`date(${mealLogs.consumedAt} / 1000, 'unixepoch')`;
+      return db.select({
+        date: itemDate,
+        itemCount: sql<number>`count(*)`,
+        ...aggregateColumns,
+      }).from(mealItems)
+        .innerJoin(mealLogs, eq(mealLogs.id, mealItems.mealId))
+        .where(and(
+          eq(mealItems.ownerKey, ownerKey),
+          eq(mealLogs.ownerKey, ownerKey),
+          eq(mealLogs.status, "complete"),
+          gte(mealLogs.consumedAt, from),
+          lt(mealLogs.consumedAt, to),
+        ))
+        .groupBy(itemDate)
+        .prepare()
+        .all();
+    })(),
+    getSettings(db, ownerKey),
+  ]);
+
+  const mealsByDate = new Map(mealRows.map((row) => [row.date, row]));
+  const nutrientValuesByDate = new Map<string, Map<string, unknown>>();
+  for (const row of nutrientRows) nutrientValuesByDate.set(row.date, new Map(Object.entries(row)));
+  const days: NutritionDailySummary[] = [];
+  for (let offset = 0; offset < dayCount; offset += 1) {
+    const date = new Date(from + offset * 86_400_000).toISOString().slice(0, 10);
+    const mealRow = mealsByDate.get(date);
+    const itemRow = nutrientValuesByDate.get(date);
+    const itemCount = finiteCount(itemRow?.get("itemCount"));
+    const makeNutrientSummary = (key: NutrientKey | NutrientUpperLimitKey): NutritionDailyNutrient => {
+      const knownItemCount = finiteCount(itemRow?.get(`${key}KnownItemCount`));
+      return {
+        recordedAmount: nullableAmount(itemRow?.get(`${key}Amount`)),
+        knownItemCount,
+        totalItemCount: itemCount,
+        complete: itemCount > 0 && knownItemCount === itemCount,
+      };
+    };
+    days.push({
+      date,
+      status: mealRow ? "logged" : "unlogged",
+      mealCount: finiteCount(mealRow?.mealCount),
+      itemCount,
+      totals: {
+        caloriesKcal: finiteCount(mealRow?.caloriesKcal),
+        proteinG: finiteCount(mealRow?.proteinG),
+        carbsG: finiteCount(mealRow?.carbsG),
+        fatG: finiteCount(mealRow?.fatG),
+      },
+      nutrients: Object.fromEntries(NUTRIENT_KEYS.map((key) => [key, makeNutrientSummary(key)])) as Record<NutrientKey, NutritionDailyNutrient>,
+      sourceFormAmounts: Object.fromEntries(NUTRIENT_UPPER_LIMIT_KEYS.map((key) => [key, makeNutrientSummary(key)])) as Record<NutrientUpperLimitKey, NutritionDailyNutrient>,
+    });
+  }
+
+  const nutrientOverrides = parseNutrientGoalOverridesJson(currentSettings?.nutrientTargetsJson);
+  return {
+    startDate,
+    endDate,
+    days,
+    currentTargets: {
+      scope: "current_settings_only",
+      caloriesKcal: currentSettings?.dailyCalorieTarget ?? null,
+      protein: {
+        mode: normaliseProteinGoalMode(currentSettings?.proteinGoalMode),
+        grams: currentSettings?.dailyProteinTargetG ?? null,
+        gramsPerKg: currentSettings?.dailyProteinTargetPerKg ?? null,
+      },
+      nutrients: resolveNutrientGoals(nutrientOverrides),
+    },
+  };
 }
 
 export async function getDailyWeight({

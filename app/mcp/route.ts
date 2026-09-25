@@ -1,4 +1,5 @@
-import { getEnvValue } from "../../db";
+import { getDb, getEnvValue } from "../../db";
+import { getNutritionSummary, listNutritionHistoryPage } from "../../db/repository";
 import { handleAuthorizedAddMealRequest } from "../api/_lib/add-meal";
 import { createAddMealRuntimeOptions } from "../api/_lib/add-meal-runtime";
 import { requireApiIdentity } from "../api/_lib/http";
@@ -13,6 +14,19 @@ const handler = createMcpHandler({
     body,
     createAddMealRuntimeOptions(),
   ),
+  getNutritionHistory: (ownerKey, input) => listNutritionHistoryPage({
+    db: getDb(),
+    ownerKey,
+    from: input.from,
+    to: input.to,
+    limit: input.pageSize,
+    cursor: input.cursor,
+  }),
+  getNutritionSummary: (ownerKey, input) => getNutritionSummary({
+    db: getDb(),
+    ownerKey,
+    ...input,
+  }),
 });
 
 export const GET = handler.GET;

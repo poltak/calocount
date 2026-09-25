@@ -3,6 +3,7 @@ import test from "node:test";
 
 import { AddMealRequestError } from "../app/api/_lib/add-meal";
 import { createMcpHandler, MCP_PROTOCOL_VERSION, type McpHandlerDependencies } from "../app/mcp/handler";
+import { resolveNutrientGoals } from "../domain/nutrient-goals";
 
 const ACCEPT = "application/json, text/event-stream";
 const OWNER = { ownerKey: "owner-1", userId: "user-1", email: "owner@example.test" };
@@ -85,11 +86,23 @@ function handler(overrides: Partial<McpHandlerDependencies> = {}) {
   return createMcpHandler({
     authorize: async () => OWNER,
     addMeals: async () => new Response("{}", { status: 201 }),
+    getNutritionHistory: async () => ({ meals: [], hasMore: false }),
+    getNutritionSummary: async (_ownerKey, input) => ({
+      startDate: input.startDate,
+      endDate: input.endDate,
+      days: [],
+      currentTargets: {
+        scope: "current_settings_only",
+        caloriesKcal: null,
+        protein: { mode: "grams", grams: null, gramsPerKg: null },
+        nutrients: resolveNutrientGoals(),
+      },
+    }),
     ...overrides,
   });
 }
 
-test("initializes and lists the single meal tool without session state", async () => {
+test("initializes and lists the meal write tool and both nutrition read tools without session state", async () => {
   let authorizationCalls = 0;
   const route = handler({ authorize: async () => {
     authorizationCalls += 1;
@@ -129,7 +142,12 @@ test("initializes and lists the single meal tool without session state", async (
   const listPayload = await list.json() as {
     result: { tools: Array<Record<string, unknown>> };
   };
-  assert.equal(listPayload.result.tools.length, 1);
+  assert.deepEqual(listPayload.result.tools.map((listedTool) => listedTool.name), [
+    "add_meals",
+    "get_nutrition_history",
+    "get_nutrition_summary",
+  ]);
+  assert.equal(listPayload.result.tools.length, 3);
   const [tool] = listPayload.result.tools;
   assert.equal(tool?.name, "add_meals");
   assert.match(tool?.description as string, /generate a UUID v4 request_id.*code tool when available/u);
@@ -149,6 +167,24 @@ test("initializes and lists the single meal tool without session state", async (
     openWorldHint: false,
     idempotentHint: true,
   });
+  for (const readTool of listPayload.result.tools.slice(1)) {
+    assert.deepEqual(readTool?.securitySchemes, [{ type: "oauth2", scopes: [] }]);
+    assert.deepEqual(readTool?.annotations, {
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false,
+      idempotentHint: true,
+    });
+  }
+  const historySchema = listPayload.result.tools[1]?.inputSchema as {
+    properties: { page_size: { minimum: number; maximum: number }; start_date: unknown; end_date: unknown };
+    required: string[];
+    additionalProperties: boolean;
+  };
+  assert.equal(historySchema.properties.page_size.minimum, 1);
+  assert.equal(historySchema.properties.page_size.maximum, 100);
+  assert.deepEqual(historySchema.required, ["start_date", "end_date"]);
+  assert.equal(historySchema.additionalProperties, false);
   const inputSchema = tool?.inputSchema as {
     properties: {
       meals: { minItems: number; maxItems: number };
@@ -319,6 +355,7 @@ test("rejects unsupported protocol versions on later requests", async () => {
 
 test("requires identity before parsing or dispatching every request", async () => {
   let addMealCalls = 0;
+  let nutritionReadCalls = 0;
   const route = handler({
     authorize: async () => {
       throw Object.assign(new Error("Sign-in is required."), {
@@ -331,6 +368,10 @@ test("requires identity before parsing or dispatching every request", async () =
       addMealCalls += 1;
       return new Response("{}", { status: 201 });
     },
+    getNutritionHistory: async () => {
+      nutritionReadCalls += 1;
+      return { meals: [], hasMore: false };
+    },
   });
 
   const response = await route.POST(request(null, { rawBody: "not json" }));
@@ -339,6 +380,18 @@ test("requires identity before parsing or dispatching every request", async () =
     error: { code: "unauthorized", message: "Sign-in is required." },
   });
   assert.equal(addMealCalls, 0);
+
+  const readResponse = await route.POST(request({
+    jsonrpc: "2.0",
+    id: 2,
+    method: "tools/call",
+    params: {
+      name: "get_nutrition_history",
+      arguments: { start_date: "2026-09-01", end_date: "2026-09-01" },
+    },
+  }));
+  assert.equal(readResponse.status, 401);
+  assert.equal(nutritionReadCalls, 0);
 });
 
 test("rejects invalid JSON-RPC bodies and malformed meal arguments", async () => {

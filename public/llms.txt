@@ -40,3 +40,21 @@ exports, and API credentials.
 
 This file contains no live dashboard data. Fetch `/api/public/summary` for
 current values.
+
+## Private MCP access
+
+The private MCP endpoint is `https://calocount-app.hoian-embroidery.workers.dev/mcp`.
+These read tools are available only on deployments that include this revision
+and require a signed-in, owner-authorized Calocount app connection. Do not treat
+this as a public endpoint.
+
+- `get_nutrition_summary` returns daily totals, item counts, nutrient coverage,
+  and targets labelled as current settings.
+- `get_nutrition_history` returns completed meals and item details for a date
+  range. Continue with `next_cursor` and the same dates and `page_size`.
+- Both tools use inclusive UTC `start_date` and `end_date` values in
+  `YYYY-MM-DD` format. A request can cover at most 366 days.
+- In nutrient results, `null` means unknown. `knownItemCount` and
+  `totalItemCount` show coverage; `complete` means every logged item has a
+  value. A known zero differs from `null`. Use the day's logged status to
+  distinguish an unlogged date from a logged date with zero totals.

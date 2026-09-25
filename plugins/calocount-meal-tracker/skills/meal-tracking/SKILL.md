@@ -1,11 +1,21 @@
 ---
 name: meal-tracking
-description: Estimate meal nutrition and log meals to the user's Calocount tracker when they clearly ask to save, add, track, or record a meal.
+description: Answer questions about recorded nutrition, estimate meal nutrition, and log meals to the user's Calocount tracker when they clearly ask to save, add, track, or record a meal.
 ---
 
 # Calocount meal tracking
 
 Use this skill to estimate meal nutrition and to log meals in Calocount. Use the `add_meals` MCP tool only when the user clearly asks to log a meal.
+
+## Answer nutrition questions
+
+For questions about recorded food, nutrients, or trends, use the read tools. Do not use `add_meals` for a question.
+
+- Use `get_nutrition_summary` for daily calories, macros, nutrient totals, and data coverage.
+- Use `get_nutrition_history` for the meals and food items behind those totals. It returns completed meals and paged item details.
+- Give both tools an inclusive UTC date range. The range can include at most 366 days. For another history page, pass the returned `next_cursor` with the same dates and `page_size`.
+- Treat `null` as unknown. In a summary, `recordedAmount` is null when no item has a value. `knownItemCount` and `totalItemCount` show coverage; `complete` is true only when every item has a value. A recorded zero is different from null. Use `status` to tell an unlogged date from a logged date with zero totals.
+- `currentTargets.scope` is `current_settings_only`. These targets describe current settings, not past dates.
 
 ## Estimate nutrition
 

@@ -6,20 +6,33 @@ import {
   type Tool,
 } from "@modelcontextprotocol/server";
 import { NUTRIENT_META } from "../../domain/nutrients";
+import type { NutritionHistoryPage, NutritionSummaryReport } from "../../db/repository";
 import { AddMealRequestError } from "../api/_lib/add-meal";
+import {
+  DEFAULT_NUTRITION_PAGE_SIZE,
+  MAX_NUTRITION_PAGE_SIZE,
+  MAX_NUTRITION_RANGE_DAYS,
+  NutritionReadInputError,
+  encodeNutritionHistoryCursor,
+  parseNutritionHistoryInput,
+  parseNutritionSummaryInput,
+  SOURCE_FORM_OUTPUT_KEYS,
+} from "./nutrition-read";
 
 export const MCP_PROTOCOL_VERSION = "2025-11-25";
 
 const SUPPORTED_PROTOCOL_VERSIONS = [MCP_PROTOCOL_VERSION, "2025-03-26"];
 const MAX_BODY_BYTES = 1_000_000;
 const SECURITY_SCHEMES = [{ type: "oauth2", scopes: [] }] as const;
-const SERVER_INSTRUCTIONS = "Estimate calories, protein, carbs, and fat before logging. Call add_meals only when the user clearly asks to log, save, add, track, or record a meal; estimates and photos alone do not authorize a write. Use only ChatGPT-supplied photo file values, unchanged, in photos, and map each with photo_meal_indices. If no file value is supplied, omit the photo. Use a new UUID per meal and reuse it only to retry that meal. Report results truthfully; say a photo was stored only when has_image is true.";
+const SERVER_INSTRUCTIONS = "Use get_nutrition_summary for totals and get_nutrition_history for items; dates are inclusive UTC. Estimate calories, protein, carbs, and fat before logging. Call add_meals only when the user clearly asks to log, save, add, track, or record a meal. Use only ChatGPT-supplied photo file values unchanged with photo_meal_indices; omit photos if there is no file value. Use a new UUID per meal; reuse it only to retry. Report results truthfully; say a photo was stored only when has_image is true.";
 type JsonObject = Record<string, unknown>;
 type McpIdentity = { ownerKey: string };
 
 export type McpHandlerDependencies = {
   authorize: (request: Request) => Promise<McpIdentity>;
   addMeals: (ownerKey: string, body: JsonObject) => Promise<Response>;
+  getNutritionHistory: (ownerKey: string, input: Awaited<ReturnType<typeof parseNutritionHistoryInput>>) => Promise<NutritionHistoryPage>;
+  getNutritionSummary: (ownerKey: string, input: ReturnType<typeof parseNutritionSummaryInput>) => Promise<NutritionSummaryReport>;
 };
 
 const nutrientProperties = Object.fromEntries(NUTRIENT_META.map((nutrient) => [
@@ -121,6 +134,203 @@ const toolErrorOutput = {
   required: ["error"],
   additionalProperties: false,
 };
+
+const nullableNumberSchema = { type: ["number", "null"] };
+const nutrientValueOutputSchema = {
+  type: "object",
+  properties: Object.fromEntries(NUTRIENT_META.map((nutrient) => [nutrient.key, nullableNumberSchema])),
+  required: NUTRIENT_META.map((nutrient) => nutrient.key),
+  additionalProperties: false,
+};
+const nutrientCoverageSchema = {
+  type: "object",
+  properties: {
+    recordedAmount: nullableNumberSchema,
+    knownItemCount: { type: "integer", minimum: 0 },
+    totalItemCount: { type: "integer", minimum: 0 },
+    complete: { type: "boolean" },
+  },
+  required: ["recordedAmount", "knownItemCount", "totalItemCount", "complete"],
+  additionalProperties: false,
+};
+const nutrientCoverageProperties = Object.fromEntries(NUTRIENT_META.map((nutrient) => [nutrient.key, nutrientCoverageSchema]));
+const nutrientCoverageOutputSchema = {
+  type: "object",
+  properties: nutrientCoverageProperties,
+  required: Object.keys(nutrientCoverageProperties),
+  additionalProperties: false,
+};
+const dailyMacroSchema = {
+  type: "object",
+  properties: {
+    caloriesKcal: { type: "number" },
+    proteinG: { type: "number" },
+    carbsG: { type: "number" },
+    fatG: { type: "number" },
+  },
+  required: ["caloriesKcal", "proteinG", "carbsG", "fatG"],
+  additionalProperties: false,
+};
+
+const GET_NUTRITION_HISTORY_TOOL = {
+  name: "get_nutrition_history",
+  title: "Read Calocount nutrition history",
+  description: `Read completed meal items for an inclusive UTC date range of up to ${MAX_NUTRITION_RANGE_DAYS} days. Results include known and unknown nutrient values. Use the opaque next_cursor to read the next page.`,
+  inputSchema: {
+    type: "object",
+    properties: {
+      start_date: { type: "string", format: "date", description: "First UTC date, inclusive (YYYY-MM-DD)." },
+      end_date: { type: "string", format: "date", description: "Last UTC date, inclusive (YYYY-MM-DD)." },
+      page_size: { type: "integer", minimum: 1, maximum: MAX_NUTRITION_PAGE_SIZE, default: DEFAULT_NUTRITION_PAGE_SIZE },
+      cursor: { type: "string", maxLength: 4096, description: "Opaque next_cursor from the previous page. Keep the same dates and page_size." },
+    },
+    required: ["start_date", "end_date"],
+    additionalProperties: false,
+  },
+  outputSchema: {
+    type: "object",
+    oneOf: [{
+      type: "object",
+      properties: {
+      start_date: { type: "string", format: "date" },
+      end_date: { type: "string", format: "date" },
+      meals: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            date: { type: "string", format: "date" },
+            eaten_at: { type: "string", format: "date-time" },
+            meal_type: { type: ["string", "null"] },
+            totals: dailyMacroSchema,
+            items: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  name: { type: "string" },
+                  quantity: { type: "number" },
+                  unit: { type: "string" },
+                  caloriesKcal: { type: "number" },
+                  proteinG: { type: "number" },
+                  carbsG: { type: "number" },
+                  fatG: { type: "number" },
+                  nutrients: nutrientValueOutputSchema,
+                  sourceFormAmounts: {
+                    type: "object",
+                    properties: Object.fromEntries(SOURCE_FORM_OUTPUT_KEYS.map((key) => [key, nullableNumberSchema])),
+                    required: [...SOURCE_FORM_OUTPUT_KEYS],
+                    additionalProperties: false,
+                  },
+                },
+                required: ["name", "quantity", "unit", "caloriesKcal", "proteinG", "carbsG", "fatG", "nutrients", "sourceFormAmounts"],
+                additionalProperties: false,
+              },
+            },
+          },
+          required: ["date", "eaten_at", "meal_type", "totals", "items"],
+          additionalProperties: false,
+        },
+      },
+      has_more: { type: "boolean" },
+      next_cursor: { type: ["string", "null"] },
+      },
+      required: ["start_date", "end_date", "meals", "has_more", "next_cursor"],
+      additionalProperties: false,
+    }, toolErrorOutput],
+  },
+  securitySchemes: SECURITY_SCHEMES,
+  _meta: { securitySchemes: SECURITY_SCHEMES },
+  annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false, idempotentHint: true },
+} as const;
+
+const GET_NUTRITION_SUMMARY_TOOL = {
+  name: "get_nutrition_summary",
+  title: "Summarize Calocount nutrition",
+  description: `Summarize completed meal totals by UTC day for an inclusive range of up to ${MAX_NUTRITION_RANGE_DAYS} days. Each nutrient includes recorded amount and coverage counts. Current targets are separate and do not describe historical targets.`,
+  inputSchema: {
+    type: "object",
+    properties: {
+      start_date: { type: "string", format: "date", description: "First UTC date, inclusive (YYYY-MM-DD)." },
+      end_date: { type: "string", format: "date", description: "Last UTC date, inclusive (YYYY-MM-DD)." },
+    },
+    required: ["start_date", "end_date"],
+    additionalProperties: false,
+  },
+  outputSchema: {
+    type: "object",
+    oneOf: [{
+      type: "object",
+      properties: {
+      startDate: { type: "string", format: "date" },
+      endDate: { type: "string", format: "date" },
+      days: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            date: { type: "string", format: "date" },
+            status: { type: "string", enum: ["logged", "unlogged"] },
+            mealCount: { type: "integer", minimum: 0 },
+            itemCount: { type: "integer", minimum: 0 },
+            totals: dailyMacroSchema,
+            nutrients: nutrientCoverageOutputSchema,
+            sourceFormAmounts: {
+              type: "object",
+              properties: Object.fromEntries(SOURCE_FORM_OUTPUT_KEYS.map((key) => [key, nutrientCoverageSchema])),
+              required: [...SOURCE_FORM_OUTPUT_KEYS],
+              additionalProperties: false,
+            },
+          },
+          required: ["date", "status", "mealCount", "itemCount", "totals", "nutrients", "sourceFormAmounts"],
+          additionalProperties: false,
+        },
+      },
+      currentTargets: {
+        type: "object",
+        properties: {
+          scope: { type: "string", const: "current_settings_only" },
+          caloriesKcal: nullableNumberSchema,
+          protein: {
+            type: "object",
+            properties: {
+              mode: { type: "string", enum: ["grams", "per_kg"] },
+              grams: nullableNumberSchema,
+              gramsPerKg: nullableNumberSchema,
+            },
+            required: ["mode", "grams", "gramsPerKg"],
+            additionalProperties: false,
+          },
+          nutrients: {
+            type: "object",
+            properties: Object.fromEntries(NUTRIENT_META.map((nutrient) => [nutrient.key, {
+              type: "object",
+              properties: {
+                value: nullableNumberSchema,
+                direction: { type: "string", enum: ["minimum", "maximum"] },
+                source: { type: "string", enum: ["default", "custom", "disabled"] },
+              },
+              required: ["value", "direction", "source"],
+              additionalProperties: false,
+            }])),
+            required: NUTRIENT_META.map((nutrient) => nutrient.key),
+            additionalProperties: false,
+          },
+        },
+        required: ["scope", "caloriesKcal", "protein", "nutrients"],
+        additionalProperties: false,
+      },
+      },
+      required: ["startDate", "endDate", "days", "currentTargets"],
+      additionalProperties: false,
+    }, toolErrorOutput],
+  },
+  securitySchemes: SECURITY_SCHEMES,
+  _meta: { securitySchemes: SECURITY_SCHEMES },
+  annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false, idempotentHint: true },
+} as const;
+
+const READ_TOOL_NAMES = new Set<string>([GET_NUTRITION_HISTORY_TOOL.name, GET_NUTRITION_SUMMARY_TOOL.name]);
 
 const ADD_MEALS_TOOL = {
   name: "add_meals",
@@ -423,6 +633,74 @@ async function createToolCall(ownerKey: string, arguments_: JsonObject, dependen
   }
 }
 
+function safeNutritionReadError(error: unknown): { code: string; message: string } {
+  if (error instanceof NutritionReadInputError) return { code: error.code, message: error.message };
+  return { code: "nutrition_read_failed", message: "Calocount could not read the requested nutrition data." };
+}
+
+async function createNutritionHistoryToolCall(ownerKey: string, arguments_: JsonObject, dependencies: McpHandlerDependencies) {
+  try {
+    const input = await parseNutritionHistoryInput(ownerKey, arguments_);
+    const page = await dependencies.getNutritionHistory(ownerKey, input);
+    const lastMeal = page.meals.at(-1);
+    const nextCursor = page.hasMore && lastMeal
+      ? await encodeNutritionHistoryCursor(ownerKey, input, { consumedAt: lastMeal.consumedAt, id: lastMeal.id })
+      : null;
+    const meals = page.meals.map((meal) => ({
+      date: new Date(meal.consumedAt).toISOString().slice(0, 10),
+      eaten_at: new Date(meal.consumedAt).toISOString(),
+      meal_type: meal.mealType,
+      totals: {
+        caloriesKcal: meal.caloriesKcal,
+        proteinG: meal.proteinG,
+        carbsG: meal.carbsG,
+        fatG: meal.fatG,
+      },
+      items: meal.items.map((item) => ({
+        name: item.name,
+        quantity: item.quantity,
+        unit: item.unit,
+        caloriesKcal: item.caloriesKcal,
+        proteinG: item.proteinG,
+        carbsG: item.carbsG,
+        fatG: item.fatG,
+        nutrients: item.nutrients,
+        sourceFormAmounts: item.sourceFormAmounts,
+      })),
+    }));
+    const payload = {
+      start_date: input.startDate,
+      end_date: input.endDate,
+      meals,
+      has_more: page.hasMore,
+      next_cursor: nextCursor,
+    };
+    return {
+      content: [{ type: "text" as const, text: `Returned ${meals.length} completed meals. See the structured data for items and nutrients.` }],
+      structuredContent: payload,
+      isError: false,
+    };
+  } catch (error) {
+    const safe = safeNutritionReadError(error);
+    return toolErrorResult(safe.code, safe.message);
+  }
+}
+
+async function createNutritionSummaryToolCall(ownerKey: string, arguments_: JsonObject, dependencies: McpHandlerDependencies) {
+  try {
+    const input = parseNutritionSummaryInput(arguments_);
+    const payload = await dependencies.getNutritionSummary(ownerKey, input);
+    return {
+      content: [{ type: "text" as const, text: `Returned nutrition totals for ${payload.days.length} UTC dates. Current targets apply to current settings only.` }],
+      structuredContent: payload,
+      isError: false,
+    };
+  } catch (error) {
+    const safe = safeNutritionReadError(error);
+    return toolErrorResult(safe.code, safe.message);
+  }
+}
+
 async function validateRequestSize(request: Request): Promise<boolean> {
   const contentLength = Number(request.headers.get("content-length") ?? 0);
   if (Number.isFinite(contentLength) && contentLength > MAX_BODY_BYTES) return true;
@@ -479,7 +757,7 @@ async function addOpenAISecuritySchemes(response: Response): Promise<Response> {
   if (!isObject(payload) || !isObject(payload.result) || !Array.isArray(payload.result.tools)) return response;
 
   const tools = payload.result.tools.map((tool) => {
-    if (!isObject(tool) || tool.name !== ADD_MEALS_TOOL.name) return tool;
+    if (!isObject(tool) || (tool.name !== ADD_MEALS_TOOL.name && !READ_TOOL_NAMES.has(String(tool.name)))) return tool;
     return { ...tool, securitySchemes: SECURITY_SCHEMES };
   });
   const headers = new Headers(response.headers);
@@ -504,14 +782,26 @@ function createServer(ownerKey: string, dependencies: McpHandlerDependencies): S
     },
   );
   server.setRequestHandler("tools/list", () => ({
-    tools: [ADD_MEALS_TOOL as unknown as Tool],
+    tools: [
+      ADD_MEALS_TOOL as unknown as Tool,
+      GET_NUTRITION_HISTORY_TOOL as unknown as Tool,
+      GET_NUTRITION_SUMMARY_TOOL as unknown as Tool,
+    ],
   }));
   server.setRequestHandler("tools/call", async (request) => {
-    if (request.params.name !== ADD_MEALS_TOOL.name) {
+    if (request.params.name !== ADD_MEALS_TOOL.name
+      && request.params.name !== GET_NUTRITION_HISTORY_TOOL.name
+      && request.params.name !== GET_NUTRITION_SUMMARY_TOOL.name) {
       throw new ProtocolError(INVALID_PARAMS, `Unknown tool: ${request.params.name}`);
     }
     if (!isObject(request.params.arguments)) {
       throw new ProtocolError(INVALID_PARAMS, "Tool arguments must be an object.");
+    }
+    if (request.params.name === GET_NUTRITION_HISTORY_TOOL.name) {
+      return createNutritionHistoryToolCall(ownerKey, request.params.arguments, dependencies);
+    }
+    if (request.params.name === GET_NUTRITION_SUMMARY_TOOL.name) {
+      return createNutritionSummaryToolCall(ownerKey, request.params.arguments, dependencies);
     }
     return createToolCall(ownerKey, request.params.arguments, dependencies);
   });
