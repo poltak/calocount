@@ -1,0 +1,7 @@
+dependencies:
+  tools:
+    - type: mcp
+      value: calocount
+      description: Save meals to the signed-in Calocount account
+      transport: streamable_http
+      url: https://calocount-app.hoian-embroidery.workers.dev/mcp

@@ -36,7 +36,7 @@ const mealProperties = {
   request_id: {
     type: "string",
     format: "uuid",
-    description: "A unique UUID for this meal. Reuse it unchanged if you retry the same meal.",
+    description: "A unique UUID for this meal. Generate a UUID v4 with an executable code tool when available. Reuse it unchanged only to retry the same meal.",
   },
   name: {
     type: "string",
