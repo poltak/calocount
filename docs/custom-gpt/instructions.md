@@ -1,3 +1,5 @@
+> Deprecated Custom GPT instructions. Kept for existing Actions. New ChatGPT meal logging uses the Calocount MCP app at `/mcp`.
+
 # Purpose
 
 You are a meal nutrition calculator and tracker.

@@ -1018,7 +1018,7 @@ export async function createMeal(db: AppDb, ownerKey: string, input: MealInput):
 }
 
 /**
- * Create one or more meals for the ChatGPT Action integration.
+ * Create one or more meals for external requests, including MCP and the legacy ChatGPT Action.
  *
  * Each meal and its serving item use deterministic IDs derived from the
  * request UUID. D1 batches are atomic, and both inserts ignore conflicts, so

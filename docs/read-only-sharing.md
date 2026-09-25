@@ -7,9 +7,9 @@ Calocount has two dashboard entry points:
 - `/owner` is private and read-write. It loads the normal owner dashboard and
   may call the private data APIs.
 
-Meals are entered in the owner dashboard or through the external GPT
-`POST /api/add-meal` workflow. This document covers the public and owner route
-boundary.
+Meals are entered in the owner dashboard or through the private ChatGPT `/mcp`
+app. The deprecated Custom GPT Action still uses `POST /api/add-meal` for existing
+clients. This document covers the public and owner route boundary.
 
 This document keeps its existing filename for repository continuity. The
 application no longer creates or serves token-based links. The existing D1
@@ -25,7 +25,8 @@ compatibility; do not remove or alter them without a separate database decision.
 | `/owner` and `/owner/*` | Existing private Cloudflare Access application, existing owner Allow policy and audience, plus server-side signed JWT check | Owner read-write dashboard |
 | `/api/public/summary` | Separate exact Cloudflare Access application with Bypass Everyone | Explicit read-only dashboard projection |
 | `/meal-photos/*` | Public because no Access destination matches it, with server-side projection checks | Images for completed meals in the current public seven-day projection |
-| `/api/*` in general | Private Cloudflare Access and server-side owner authentication | Owner data and all write operations |
+| `/api/*` in general | Private Cloudflare Access and server-side owner authentication | Owner data and API write operations, including the legacy Action route |
+| `/mcp` | Exact private Cloudflare Access application and server-side owner authentication | ChatGPT meal logging and nutrition reads |
 | `/_next/static/*`, manifest, service worker, and required icons | Public because no Access destination matches them | JavaScript, CSS, and install metadata only |
 | `/api/photos/*`, exports, settings, and other owner APIs | Private | Sensitive data and mutations |
 

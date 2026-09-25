@@ -1,6 +1,6 @@
 # Calocount
 
-Calocount is a single-user calorie tracker with a public read-only dashboard and a private owner dashboard. Add meals manually in the owner dashboard or use the external GPT add-meal workflow. The app validates and stores structured nutrition data and shows a compact Caltrack-inspired dashboard.
+Calocount is a single-user calorie tracker with a public read-only dashboard and a private owner dashboard. Add meals manually in the owner dashboard or through the private ChatGPT MCP app. The app validates and stores structured nutrition data and shows a compact Caltrack-inspired dashboard.
 
 The application backend uses Cloudflare Workers, D1, R2, Cron Triggers, Static Assets, and Access. The scheduled photo-maintenance Worker remains under `workers/ingest` for deployment compatibility.
 
@@ -11,7 +11,7 @@ The application backend uses Cloudflare Workers, D1, R2, Cron Triggers, Static A
 - meal detail, additions, edits, and correction history
 - live API data with a clear fail-closed unavailable state
 - private R2 storage with scoped owner and public photo delivery
-- manual meal entry and an external GPT add-meal workflow
+- manual meal entry and a private ChatGPT MCP integration
 - idempotent structured meal and nutrient validation
 - scheduled cleanup of shared meal photos
 - JSON and CSV export
@@ -59,7 +59,15 @@ The command creates three meals per day through today in `Asia/Ho_Chi_Minh` and 
 
 The owner dashboard waits for live API data and fails closed when local D1 or owner authentication is not ready. Set `CALOCOUNT_ALLOW_LOCAL=true` only in `.dev.vars` while running a configured local stack. Production must set `CALOCOUNT_ALLOW_LOCAL=false` and use a valid, signed Cloudflare Access JWT. Identity headers by themselves are not trusted. The public root uses only `/api/public/summary` and `/meal-photos/*`; it does not fall back to owner or demo data.
 
-The dashboard supports manual meal entry. See [`docs/custom-gpt`](./docs/custom-gpt/README.md) for reusable action and instruction templates and full custom GPT setup steps. For the new private plugin path, see the [plugin setup guide](./docs/plugin/README.md). Keep this Custom GPT Action until a live plugin write test succeeds. An external GPT meal action uses `CALOCOUNT_CHATGPT_MEAL_TOKEN` from `.dev.vars`. Set a long random value in the local file (the example file contains a placeholder). For production, store it as a Worker secret:
+## ChatGPT meal logging
+
+Use the private MCP app at `/mcp` for ChatGPT meal logging. It provides `add_meals`, `get_nutrition_summary`, and `get_nutrition_history`. See the [MCP setup guide](./docs/plugin/README.md).
+
+### Deprecated Custom GPT Action
+
+The old Custom GPT Action and its [instruction and schema templates](./docs/custom-gpt/README.md) are deprecated. Keep them only for existing setups. The bearer-token `POST /api/add-meal` route remains available for compatibility; the MCP app uses the shared meal-processing code, not this token-based route.
+
+Existing external Action clients use `CALOCOUNT_CHATGPT_MEAL_TOKEN` from `.dev.vars`. Set a long random value in the local file (the example file contains a placeholder). For production, store it as a Worker secret:
 
 ```bash
 pnpm exec wrangler secret put CALOCOUNT_CHATGPT_MEAL_TOKEN
@@ -67,7 +75,7 @@ pnpm exec wrangler secret put CALOCOUNT_CHATGPT_MEAL_TOKEN
 
 Do not put this token in `wrangler.jsonc` or in application links. The endpoint is `POST /api/add-meal`. Send the token only in an `Authorization: Bearer <token>` header and send a JSON body with `request_id`, `name`, `kcal`, `protein`, `carbs`, `fat`, and ISO-8601 `eaten_at` values. An optional `nutrients` object accepts the 24 item nutrient fields used by the dashboard; each value is a non-negative number or `null` when unknown. For this external request, `request_id` is a UUID idempotency key: repeating it returns the original meal without creating another entry.
 
-External GPT image actions may also send `openaiFileIdRefs` as an array of file reference objects. The endpoint accepts the first valid HTTPS JPEG, PNG, or WebP reference from an approved OpenAI file host, downloads it immediately, and stores it with the meal. Temporary links are never stored. A photo is limited to 10 MiB.
+Existing GPT image actions may also send `openaiFileIdRefs` as an array of file reference objects. The endpoint accepts the first valid HTTPS JPEG, PNG, or WebP reference from an approved OpenAI file host, downloads it immediately, and stores it with the meal. Temporary links are never stored. A photo is limited to 10 MiB.
 
 For a local smoke test, use a new UUID and the token from `.dev.vars`:
 
@@ -180,7 +188,7 @@ Then:
 1. Review the public projection, route conditions, and owner JWT checks. The PWA manifest starts at `/owner`; its `id` and `scope` remain `/`.
 2. Leave `calocount-ingest` public so `/healthz` can be monitored. Cron does not require public access.
 3. Confirm that the scheduled bounded cleanup uses the shared D1 and R2 bindings and removes only unlinked photos older than 24 hours.
-4. Test one manual dashboard meal and one external GPT `POST /api/add-meal` request.
+4. Test one manual dashboard meal and the MCP meal and nutrition tools. If the legacy Action is still configured, test one `POST /api/add-meal` request for compatibility.
 5. On the separate `calocount-ingest` origin, verify that `/telegram/webhook` and `/ai-media/*` return `404`; also verify the anonymous public projection/photo flow plus the private owner flow.
 
 For the public/owner route split, follow [docs/read-only-sharing.md](docs/read-only-sharing.md). The production Access layout was live-verified on 2026-08-26:
@@ -201,7 +209,7 @@ Cloudflare resource and secret setup are not done automatically by this reposito
 - Meal photos stay in a private R2 bucket.
 - The owner dashboard streams photos through an authenticated API route.
 - The public root may stream photos for completed meals in its current seven-day projection through `/meal-photos/*`; raw R2 keys are not exposed.
-- External GPT temporary image links are downloaded immediately and are never stored as temporary links.
+- Temporary ChatGPT image links are downloaded immediately and are never stored as temporary links.
 - The public root exposes only the selected dashboard projection: targets, meal and macro totals, seven-day trend, recent weights, recent meal-item nutrition, and photo availability.
 - The public projection does not expose photo storage keys, captions, notes, assumptions, confidence, AI/provider data, Telegram data, or private settings.
 - Normal logs do not include captions, images, signed URLs, or full provider payloads.

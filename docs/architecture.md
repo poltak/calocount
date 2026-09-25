@@ -65,25 +65,26 @@ a repository rule for future changes; the current layout was verified on
 
 ## Meal flow
 
-1. The owner enters a meal in the private dashboard, or an external GPT action prepares structured data and calls `POST /api/add-meal` with the dashboard's bearer token.
-2. The dashboard API validates the request and stores the meal, nutrient values, and optional photo in D1 and private R2. For the external request path, its UUID `request_id` makes retries idempotent.
+1. The owner enters a meal in the private dashboard, or ChatGPT prepares structured data and calls `add_meals` through the private `/mcp` app. The deprecated Custom GPT Action can still call `POST /api/add-meal` with its bearer token for existing clients.
+2. The shared meal-processing code validates the request and stores the meal, nutrient values, and optional photo in D1 and private R2. A UUID `request_id` makes external retries idempotent.
 3. The public read-only projection updates from the stored meal data. The owner dashboard continues to provide edits, corrections, exports, and private photo access.
 4. The photo-maintenance Worker runs its scheduled bounded scan and removes only unlinked R2 photos older than the 24-hour grace period.
 
-## External GPT boundary
+## ChatGPT integration boundary
 
 Calocount does not call an AI provider or run an AI analysis worker. The external
-GPT action prepares the meal estimate and sends validated structured values to
-`POST /api/add-meal`. The dashboard Worker keeps the bearer token in a Worker
-secret. For the external photo flow, it accepts approved temporary OpenAI image
-references, downloads a photo immediately, and does not store the temporary
-link.
+ChatGPT MCP app prepares the meal estimate and sends structured values to
+`/mcp`; the Worker checks the owner's Cloudflare Access identity. The deprecated
+Custom GPT Action uses `POST /api/add-meal` and a Worker bearer-token secret for
+existing clients. Both paths use the shared meal-processing code. For external
+photos, the Worker accepts approved temporary OpenAI image references, downloads
+a photo immediately, and does not store the temporary link.
 
 ## Privacy boundary
 
 - R2 is private.
 - Dashboard photo requests require the same server-side allowlist as other private API routes.
-- External GPT photo references are downloaded immediately; temporary links are not stored.
+- Temporary ChatGPT photo references are downloaded immediately; temporary links are not stored.
 - Secrets are Worker secrets. They are not D1 records or configuration values.
 - Normal logs do not contain captions, photo URLs, or full request payloads.
 - The scheduled cleanup removes only unlinked photos older than the 24-hour grace period; linked meal photos stay with their structured nutrition data.

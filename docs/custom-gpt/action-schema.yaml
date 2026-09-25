@@ -1,3 +1,4 @@
+# Deprecated Custom GPT Action schema. Kept for existing setups; new ChatGPT connections use /mcp.
 openapi: 3.1.0
 
 info:

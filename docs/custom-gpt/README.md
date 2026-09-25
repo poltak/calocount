@@ -1,13 +1,13 @@
-# Calocount custom GPT setup
+# Deprecated: Calocount Custom GPT setup
 
-This directory contains reusable files for a custom GPT that estimates meal nutrition and logs explicitly requested meals to a Calocount deployment.
+This directory is retained for existing Custom GPT Action setups. Do not use these templates for a new ChatGPT connection. Use the private MCP app at `/mcp` instead; see the [MCP setup guide](../plugin/README.md). The token-based `POST /api/add-meal` route remains available for existing clients.
 
-For the new private ChatGPT plugin path, see the [plugin setup guide](../plugin/README.md). Keep this Custom GPT Action until a live plugin write test succeeds.
+The files below document the deprecated setup for maintenance and compatibility testing:
 
 - [`instructions.md`](./instructions.md) contains the GPT instructions.
 - [`action-schema.yaml`](./action-schema.yaml) defines the `addMeal` action.
 
-## Requirements
+## Legacy setup requirements
 
 You need:
 

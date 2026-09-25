@@ -10,6 +10,8 @@ import {
 } from "../_lib/add-meal";
 import { createAddMealRuntimeOptions } from "../_lib/add-meal-runtime";
 
+// Legacy Custom GPT Action entry point. Keep it for existing token-based clients;
+// new ChatGPT connections use the authenticated /mcp route.
 export { handleAddMealRequest, parseAddMealRequest } from "../_lib/add-meal";
 
 export async function POST(request: Request): Promise<Response> {

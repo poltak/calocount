@@ -1,5 +1,7 @@
 # Nutrient Tracking Implementation Plan
 
+Historical plan: references to the ChatGPT Action describe the deprecated Custom GPT integration. Current ChatGPT meal logging uses the private `/mcp` app. The `POST /api/add-meal` route remains available for existing clients.
+
 ## Goal
 
 Add 24 optional nutrient values to every meal creation path. Keep the current calorie and macro experience unchanged. Add detailed daily, trend, meal-detail, and edit views that use the existing dashboard style.

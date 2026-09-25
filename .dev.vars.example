@@ -1,7 +1,8 @@
 # Set this only for local development. Production must use Cloudflare Access.
 CALOCOUNT_ALLOW_LOCAL=true
 CALOCOUNT_OWNER_KEY=local-owner
-# Long random secret used only by POST /api/add-meal. Never commit a real value.
+# Legacy Custom GPT Action secret for POST /api/add-meal. Do not use for /mcp.
+# Keep a long random value only if an existing Action client still uses this route. Never commit a real value.
 CALOCOUNT_CHATGPT_MEAL_TOKEN=replace-with-a-long-random-secret
 
 # Cloudflare Access values used when CALOCOUNT_ALLOW_LOCAL=false.
