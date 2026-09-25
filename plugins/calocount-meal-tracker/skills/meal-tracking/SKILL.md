@@ -51,7 +51,7 @@ Show the estimate before the tool call. Then call `add_meals` with one argument 
 
 For each meal:
 
-1. Create a new UUID v4 for `request_id`. When an executable code tool is available, generate it with Python `str(uuid.uuid4())` or JavaScript `crypto.randomUUID()`. Do not claim that code ran unless it did. If no code tool is available, supply a fresh UUID v4 yourself and check that it differs from every `request_id` already used in this chat. Use a different UUID for each meal. Reuse the same UUID and meal details only to retry after an error, timeout, or unclear result. Never reuse it for a different meal.
+1. Create a new UUID for `request_id`. Use a different UUID for each meal. Reuse that UUID only to retry the same request after an error, timeout, or unclear result. Never reuse it for a different meal.
 2. Set `eaten_at` to an ISO 8601 date and time with an explicit UTC offset. Use the date and time the user gave. If the user gives a time without an offset, use the user's local time zone. If the user gives no date or time, use the current time in the user's local time zone. If you cannot determine the local time zone, ask the user before logging.
 3. Give `name` a short, useful description. Include a known weight or identifying detail when it helps.
 4. Include `request_id`, `name`, `kcal`, `protein`, `carbs`, `fat`, and `eaten_at`. Add a `nutrients` object only for useful supported estimates for the full meal. Omit unknown and unsupported fields.

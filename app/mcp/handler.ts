@@ -36,7 +36,7 @@ const mealProperties = {
   request_id: {
     type: "string",
     format: "uuid",
-    description: "A unique UUID for this meal. Generate a UUID v4 with an executable code tool when available. Reuse it unchanged only to retry the same meal.",
+    description: "Generate a fresh UUID v4 with a code tool (for example, crypto.randomUUID() or uuid.uuid4()) when one is available. If no code tool is available, supply a fresh valid UUID v4. Reuse the ID only for an exact retry of the same meal details.",
   },
   name: {
     type: "string",
@@ -125,7 +125,7 @@ const toolErrorOutput = {
 const ADD_MEALS_TOOL = {
   name: "add_meals",
   title: "Add meals to Calocount",
-  description: "Save one or more meals to the signed-in Calocount account. Use a stable request_id UUID for each meal and keep it unchanged when retrying that same meal.",
+  description: "Save one or more meals to the signed-in Calocount account. Before calling, generate a UUID v4 request_id for each new meal with a code tool when available. Reuse an ID only for an exact retry of the same meal.",
   inputSchema: {
     type: "object",
     properties: {

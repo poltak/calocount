@@ -1,12 +1,12 @@
-# Calocount private meal-tracking plugin
+# Calocount private MCP app
 
-This directory contains the local plugin package at [`plugins/calocount-meal-tracker`](../../plugins/calocount-meal-tracker/). It has one skill: `meal-tracking`. The skill tells ChatGPT when and how to call Calocount's `add_meals` MCP tool.
+The owner's standard Chat uses the Calocount MCP app connected in ChatGPT developer mode. It exposes one tool: `add_meals`. The repository also contains an unused [meal-tracking skill draft](../../plugins/calocount-meal-tracker/skills/meal-tracking/SKILL.md). That local file is not installed in the owner's standard Chat and does not control it.
 
 The tool contract is one argument object with a `meals` array and optional top-level `photos` and `photo_meal_indices` arrays. It accepts 1 to 20 meals in a call. Each meal follows the current `/api/add-meal` meal fields. Each `photos` entry is a ChatGPT file value. The entry at `photos[i]` belongs to the meal at `meals[photo_meal_indices[i]]`; indices start at zero. Both arrays must have the same length, with no more than one photo per meal and 20 photos per call. The tool returns the meal batch result, `daily_totals`, and whether each meal has an image.
 
 OpenAI requires the MCP tool metadata to declare `photos` as a file parameter in `_meta["openai/fileParams"]`. ChatGPT provides the file value with `download_url` and `file_id`, and may include `mime_type` and `file_name`. See the [OpenAI file APIs reference](https://developers.openai.com/plugins/reference#file-apis).
 
-The root `plugin.json` uses the portable Agent Plugins format. The skill is under `skills/meal-tracking/SKILL.md`. The OpenAI app mapping in `.app.json` uses the owner's registered **App Id** (`asdk_app_...`), not the version-specific `asdk_app_v_...` ID. The skill declares the Calocount MCP dependency in `agents/openai.yaml`. OpenAI's plugin docs describe this split: the skill gives workflow instructions, while the MCP server provides live data and controlled actions ([Build skills](https://developers.openai.com/plugins/build/skills), [Package your plugin](https://developers.openai.com/plugins/build/plugins)).
+The MCP server sends short workflow instructions during initialization. Its `add_meals` tool description and `request_id` field description ask ChatGPT to generate a UUID v4 with a code tool when available and reuse it only for an exact retry. These descriptions guide the model; the server validates the UUID but cannot verify how ChatGPT generated it. After deploying a metadata change, refresh the existing app in ChatGPT Plugins and start a new chat ([Connect and test your plugin](https://developers.openai.com/plugins/deploy/connect-chatgpt)).
 
 ## Required server and Access setup
 
@@ -33,12 +33,6 @@ Use the owner's Personal Plus or Pro account in ChatGPT web. OpenAI's current [d
 5. Clearly ask ChatGPT to log a meal. Confirm that it shows the estimate before the write, calls `add_meals`, and reports the returned result. Check the meal in Calocount. Retry with the same UUID and confirm that the server reports an existing meal without adding a duplicate.
 6. Upload a meal photo and clearly ask ChatGPT to log the meal. Confirm that it sends only the file values supplied by ChatGPT and maps the photo to the correct meal. ChatGPT can say that the photo was stored only when the result has `has_image: true`. If ChatGPT supplies no file value, the meal can be logged without the photo.
 
-## Install and test the skill
+## Skill draft
 
-The package now links the registered Calocount app and the `meal-tracking` skill. The App Id is in `.app.json`; the Version Id is not part of the package. Keep credentials out of the package. Do not publish it to the public directory. OpenAI's [plugin validation rules](https://developers.openai.com/plugins/deploy/submission-errors) accept registered app IDs that start with `asdk_app_`.
-
-The repository includes a private marketplace entry at [`.agents/plugins/marketplace.json`](../../.agents/plugins/marketplace.json). Restart the ChatGPT desktop app and open the Calocount repository. In its Plugins Directory, choose **Calocount Local**, inspect **calocount-meal-tracker**, and install it. This marketplace is local to the repository. OpenAI documents this [repo marketplace format](https://developers.openai.com/plugins/build/plugins).
-
-After installation, check for the plugin in a new **standard Chat** in ChatGPT desktop and at chatgpt.com. Where it appears, select Calocount from the app picker and confirm that the `meal-tracking` skill guides the estimate, intent, photo, UUID, retry, and truthful-result behavior. The skill asks for a programmatically generated UUID when a code tool is available. It cannot guarantee that ChatGPT ran code in a chat without that tool. The MCP server still validates UUID syntax and prevents duplicate rows.
-
-OpenAI says installed plugins can run in Chat and Work on supported clients ([Plugins in ChatGPT](https://learn.chatgpt.com/docs/plugins)). Its [local marketplace instructions](https://developers.openai.com/plugins/build/plugins) describe repository discovery in the desktop app. They do not establish that a repository-local install makes this skill available in a Personal account on chatgpt.com. Treat that part as unverified until it appears and works in a live standard Chat. The existing MCP app works in standard Chat independently of this skill package.
+The skill draft and its portable manifest remain in the repository for possible future use. They are not linked to the registered ChatGPT app. OpenAI documents standalone skills in desktop clients and skills bundled with installed plugins in supported ChatGPT chats ([Build skills](https://learn.chatgpt.com/docs/build-skills)). Its [local marketplace instructions](https://developers.openai.com/plugins/build/plugins) do not establish that a repository-local install will reach this owner's Personal standard web Chat. Keep using the working MCP app unless that path is confirmed with a live test.

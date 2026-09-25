@@ -132,6 +132,12 @@ test("initializes and lists the single meal tool without session state", async (
   assert.equal(listPayload.result.tools.length, 1);
   const [tool] = listPayload.result.tools;
   assert.equal(tool?.name, "add_meals");
+  assert.match(tool?.description as string, /generate a UUID v4 request_id.*code tool when available/u);
+  const uuidInputSchema = tool?.inputSchema as {
+    properties: { meals: { items: { properties: { request_id: { description: string } } } } };
+  };
+  assert.match(uuidInputSchema.properties.meals.items.properties.request_id.description, /crypto\.randomUUID\(\).*uuid\.uuid4\(\)/u);
+  assert.match(uuidInputSchema.properties.meals.items.properties.request_id.description, /exact retry of the same meal details/u);
   assert.deepEqual(tool?.securitySchemes, [{ type: "oauth2", scopes: [] }]);
   assert.deepEqual(tool?._meta, {
     securitySchemes: [{ type: "oauth2", scopes: [] }],
