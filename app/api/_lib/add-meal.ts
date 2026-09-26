@@ -254,24 +254,26 @@ function isAllowedOpenAIFileHost(hostname: string): boolean {
     || hostname.endsWith(`.${OPENAI_FILE_BASE_DOMAIN}`);
 }
 
-function safeOpenAIFileUrl(value: unknown): string | null {
-  if (typeof value !== "string" || !value.trim()) return null;
+type OpenAIFileUrlResult = { downloadLink: string; reason?: never } | { downloadLink?: never; reason: string };
+
+function safeOpenAIFileUrl(value: unknown): OpenAIFileUrlResult {
+  if (typeof value !== "string" || !value.trim()) return { reason: "missing_download_link" };
   let parsed: URL;
   try {
     parsed = new URL(value.trim());
   } catch {
-    return null;
+    return { reason: "malformed_download_url" };
   }
-  if (
-    parsed.protocol !== "https:"
-    || parsed.username
-    || parsed.password
-    || parsed.port
-    || !parsed.pathname
-    || parsed.pathname === "/"
-    || !isAllowedOpenAIFileHost(parsed.hostname.toLowerCase())
-  ) return null;
-  return parsed.toString();
+  if (parsed.protocol !== "https:") return { reason: "unsupported_scheme" };
+  if (parsed.username || parsed.password || parsed.port) return { reason: "credentials_or_port" };
+  if (!parsed.pathname || parsed.pathname === "/") return { reason: "missing_path" };
+  const hostname = parsed.hostname.toLowerCase();
+  if (!isAllowedOpenAIFileHost(hostname)) {
+    // Return only a bounded DNS hostname, never the signed URL or other URL components.
+    const safeHostname = /^[a-z0-9.-]{1,253}$/u.test(hostname) ? hostname : null;
+    return { reason: safeHostname ? `unsupported_host(host=${safeHostname})` : "unsupported_host" };
+  }
+  return { downloadLink: parsed.toString() };
 }
 
 function parseImageRef(body: Record<string, unknown>): OpenAIFileRef | undefined {
@@ -285,17 +287,26 @@ function parseImageRef(body: Record<string, unknown>): OpenAIFileRef | undefined
   }
   if (refs.length === 0) return undefined;
 
+  const reasons = new Set<string>();
   for (const ref of refs) {
-    if (!ref || typeof ref !== "object" || Array.isArray(ref)) continue;
+    if (!ref || typeof ref !== "object" || Array.isArray(ref)) {
+      reasons.add("missing_ref_object");
+      continue;
+    }
     const record = ref as Record<string, unknown>;
     const contentType = record.mime_type === undefined ? undefined : normalizeExternalMealPhotoType(record.mime_type);
-    const downloadLink = safeOpenAIFileUrl(record.download_link);
-    if ((record.mime_type === undefined || contentType) && downloadLink) {
-      return { ...(contentType ? { declaredContentType: contentType } : {}), downloadLink };
+    if (record.mime_type !== undefined && !contentType) {
+      reasons.add("unsupported_mime");
+      continue;
     }
+    const url = safeOpenAIFileUrl(record.download_link);
+    if (url.downloadLink !== undefined) {
+      return { ...(contentType ? { declaredContentType: contentType } : {}), downloadLink: url.downloadLink };
+    }
+    reasons.add(url.reason);
   }
 
-  throw new AddMealRequestError(400, "invalid_image_refs", "openaiFileIdRefs contains no usable image.");
+  throw new AddMealRequestError(400, "invalid_image_refs", `openaiFileIdRefs contains no usable image. [image-ref-v2: ${[...reasons].join(", ")}]`);
 }
 
 export function parseAddMealRequest(body: Record<string, unknown>, now = Date.now()): AddMealRequest {

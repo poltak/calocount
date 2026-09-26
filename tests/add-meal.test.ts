@@ -709,6 +709,46 @@ test("rejects unsafe or unsupported image references before download", async () 
   assert.equal(fetchCalls, 0);
 });
 
+test("reports safe image reference reasons without private URL or file values", () => {
+  const privateUrl = "https://provider.example/private-photo?signature=secret-query#secret-fragment";
+  const cases: Array<{ ref: unknown; reason: string }> = [
+    { ref: "secret-file-id", reason: "missing_ref_object" },
+    { ref: null, reason: "missing_ref_object" },
+    { ref: [], reason: "missing_ref_object" },
+    { ref: { download_url: privateUrl }, reason: "missing_download_link" },
+    { ref: imageRef({ download_link: " " }), reason: "missing_download_link" },
+    { ref: imageRef({ download_link: "/private-photo" }), reason: "malformed_download_url" },
+    { ref: imageRef({ download_link: "http://provider.example/private-photo?signature=secret-query" }), reason: "unsupported_scheme" },
+    { ref: imageRef({ download_link: "https://secret-user:secret-pass@provider.example/private-photo" }), reason: "credentials_or_port" },
+    { ref: imageRef({ download_link: "https://provider.example:8443/private-photo" }), reason: "credentials_or_port" },
+    { ref: imageRef({ download_link: "https://provider.example/?signature=secret-query" }), reason: "missing_path" },
+    { ref: imageRef({ download_link: privateUrl }), reason: "unsupported_host(host=provider.example)" },
+    { ref: imageRef({ download_link: `https://${"a".repeat(254)}.example/private-photo` }), reason: "unsupported_host" },
+    { ref: imageRef({ download_link: "https://[::1]/private-photo" }), reason: "unsupported_host" },
+    { ref: imageRef({ mime_type: "application/octet-stream" }), reason: "unsupported_mime" },
+    { ref: imageRef({ mime_type: "image/heif" }), reason: "unsupported_mime" },
+  ];
+  for (const { ref, reason } of cases) {
+    assert.throws(
+      () => parseAddMealRequest(mealBody({ openaiFileIdRefs: [ref] }), NOW),
+      (error: unknown) => {
+        assert.ok(error instanceof AddMealRequestError);
+        assert.equal(error.status, 400);
+        assert.equal(error.code, "invalid_image_refs");
+        assert.equal(error.message, `openaiFileIdRefs contains no usable image. [image-ref-v2: ${reason}]`);
+        assert.doesNotMatch(error.message, /private-photo|secret-|signature|https?:|file-123/u);
+        return true;
+      },
+    );
+  }
+  const validRef = imageRef({ mime_type: "image/heic" });
+  assert.ok(parseAddMealRequest(mealBody({ openaiFileIdRefs: [null, validRef] }), NOW).imageRef);
+  assert.throws(
+    () => parseAddMealRequest(mealBody({ openaiFileIdRefs: [null, null, {}] }), NOW),
+    /\[image-ref-v2: missing_ref_object, missing_download_link\]/u,
+  );
+});
+
 test("keeps invalid image and oversized downloads as hard errors", async () => {
   const uploadPhoto = async (_ownerKey: string, _requestId: string, photo: MealPhotoUpload) => ({
     key: "photo-test",

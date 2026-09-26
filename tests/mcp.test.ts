@@ -450,6 +450,76 @@ test("downloads hydrated photos through MCP and stores HEIC as converted JPEG", 
   ]);
 });
 
+test("reports safe URL rejection reasons through the real MCP meal core", async () => {
+  let fetchCalls = 0;
+  let createCalls = 0;
+  const route = handler({
+    addMeals: (_ownerKey, body) => handleAuthorizedAddMealRequest(OWNER.ownerKey, body, {
+      fetchImage: async () => { fetchCalls += 1; throw new Error("Must not fetch."); },
+      createMeal: async () => { createCalls += 1; throw new Error("Must not create."); },
+    }),
+  });
+  const cases = [
+    { url: "https://provider.example/private-photo?signature=secret-query#secret-fragment", reason: "unsupported_host(host=provider.example)" },
+    { url: "/mnt/data/private-photo.heic", reason: "malformed_download_url" },
+    { url: "file_secret-id", reason: "malformed_download_url" },
+    { url: "https://secret-user:secret-pass@provider.example/private-photo?signature=secret-query", reason: "credentials_or_port" },
+    { url: "http://provider.example/private-photo", reason: "unsupported_scheme" },
+    { url: "https://provider.example:8443/private-photo", reason: "credentials_or_port" },
+    { url: "https://provider.example/?signature=secret-query", reason: "missing_path" },
+  ];
+  for (const { url, reason } of cases) {
+    const response = await route.POST(toolCall({
+      meals: [meal("c5a84680-d0c7-4af6-a4f5-89495c3923ec")],
+      photos: [{ download_url: url, file_id: "secret-file-id", file_name: "secret-name.heic", mime_type: "image/heic" }],
+      photo_meal_indices: [0],
+    }));
+    const payload = await response.json() as { result: { isError: boolean; structuredContent: { error: { code: string; message: string } } } };
+    assert.equal(payload.result.isError, true);
+    assert.deepEqual(payload.result.structuredContent.error, {
+      code: "invalid_image_refs",
+      message: `openaiFileIdRefs contains no usable image. [image-ref-v2: ${reason}] [mcp/photos]`,
+    });
+    assert.doesNotMatch(JSON.stringify(payload), /private-photo|secret-|signature|https?:/u);
+  }
+  assert.equal(fetchCalls, 0);
+  assert.equal(createCalls, 0);
+});
+
+test("rejects legacy per-meal file refs before the MCP meal core runs", async () => {
+  let coreCalls = 0;
+  const route = handler({ addMeals: async () => { coreCalls += 1; throw new Error("Must not call core."); } });
+  for (const photos of [undefined, [], [{ download_url: "https://files.oaiusercontent.com/synthetic", file_id: "synthetic" }]]) {
+    const response = await route.POST(toolCall({
+      meals: [{ ...meal("c5a84680-d0c7-4af6-a4f5-89495c3923ec"), openaiFileIdRefs: ["secret-file-id"] }],
+      ...(photos === undefined ? {} : { photos, photo_meal_indices: photos.length ? [0] : [] }),
+    }));
+    const payload = await response.json() as { result: { isError: boolean; structuredContent: { error: { code: string; message: string } } } };
+    assert.equal(payload.result.isError, true);
+    assert.equal(payload.result.structuredContent.error.code, "invalid_field");
+    assert.match(payload.result.structuredContent.error.message, /Use top-level photos and photo_meal_indices/u);
+    assert.match(payload.result.structuredContent.error.message, /\[mcp\/photos\]/u);
+    assert.doesNotMatch(JSON.stringify(payload), /secret-file-id/u);
+  }
+  assert.equal(coreCalls, 0);
+});
+
+test("rejects the legacy top-level single-meal file handoff at the MCP boundary", async () => {
+  let coreCalls = 0;
+  const route = handler({ addMeals: async () => { coreCalls += 1; throw new Error("Must not call core."); } });
+  const response = await route.POST(toolCall({
+    ...meal("c5a84680-d0c7-4af6-a4f5-89495c3923ec"),
+    openaiFileIdRefs: ["secret-file-id"],
+  }));
+  const payload = await response.json() as { result: { isError: boolean; structuredContent: { error: { code: string; message: string } } } };
+  assert.equal(payload.result.isError, true);
+  assert.equal(payload.result.structuredContent.error.code, "invalid_field");
+  assert.match(payload.result.structuredContent.error.message, /Use meals with top-level photos and photo_meal_indices/u);
+  assert.match(payload.result.structuredContent.error.message, /\[mcp\/photos\]/u);
+  assert.doesNotMatch(JSON.stringify(payload), /secret-file-id/u);
+  assert.equal(coreCalls, 0);
+});
+
 test("returns actionable unsupported_image_type for TIFF before the meal core runs", async () => {
   let mealCoreCalls = 0;
   const route = handler({
