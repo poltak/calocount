@@ -7,7 +7,10 @@ import {
 } from "@modelcontextprotocol/server";
 import { NUTRIENT_META } from "../../domain/nutrients";
 import type { NutritionHistoryPage, NutritionSummaryReport } from "../../db/repository";
-import { AddMealRequestError } from "../api/_lib/add-meal";
+import {
+  AddMealRequestError,
+  normalizeExternalMealPhotoType,
+} from "../api/_lib/add-meal";
 import {
   DEFAULT_NUTRITION_PAGE_SIZE,
   MAX_NUTRITION_PAGE_SIZE,
@@ -24,7 +27,7 @@ export const MCP_PROTOCOL_VERSION = "2025-11-25";
 const SUPPORTED_PROTOCOL_VERSIONS = [MCP_PROTOCOL_VERSION, "2025-03-26"];
 const MAX_BODY_BYTES = 1_000_000;
 const SECURITY_SCHEMES = [{ type: "oauth2", scopes: [] }] as const;
-const SERVER_INSTRUCTIONS = "Use get_nutrition_summary for totals and get_nutrition_history for items; dates are inclusive UTC. Estimate calories, protein, carbs, and fat before logging. Call add_meals only when the user clearly asks to log, save, add, track, or record a meal. Use only ChatGPT-supplied photo file values unchanged with photo_meal_indices; omit photos if there is no file value. Use a new UUID per meal; reuse it only to retry. Report results truthfully; say a photo was stored only when has_image is true.";
+const SERVER_INSTRUCTIONS = "Use get_nutrition_summary for totals and get_nutrition_history for items; dates are inclusive UTC. Estimate calories, protein, carbs, and fat before logging. Call add_meals only when the user clearly asks to log, save, add, track, or record a meal. Pass ChatGPT-supplied photo values unchanged in photos; use photo_meal_indices. Never invent file IDs or download URLs. Photos: JPEG, PNG, WebP, and HEIC. Use a new UUID per meal; reuse only for exact retries. Report a photo only if has_image is true.";
 type JsonObject = Record<string, unknown>;
 type McpIdentity = { ownerKey: string };
 
@@ -355,7 +358,7 @@ const ADD_MEALS_TOOL = {
         type: "array",
         minItems: 0,
         maxItems: 20,
-        description: "Optional ChatGPT images to attach to meals. Use photo_meal_indices to map each image to one meal.",
+        description: "Optional ChatGPT-supplied photo values. Pass them unchanged; never invent a file ID or download URL. Attach each photo to one meal with photo_meal_indices. Supported photo types: JPEG, PNG, WebP, and HEIC.",
         items: {
           type: "object",
           properties: {
@@ -516,7 +519,10 @@ function mappedMealBody(arguments_: JsonObject): JsonObject {
       || typeof photo.file_id !== "string" || !photo.file_id.trim()
       || (photo.mime_type !== undefined && (typeof photo.mime_type !== "string" || !photo.mime_type.trim()))
       || (photo.file_name !== undefined && (typeof photo.file_name !== "string" || !photo.file_name.trim()))) {
-      throw new AddMealRequestError(400, "invalid_field", `photos[${photoIndex}] must include download_url and file_id, with optional mime_type and file_name strings.`);
+      throw new AddMealRequestError(400, "invalid_field", `photos[${photoIndex}] must be a file object with download_url and file_id. Bare local paths and bare file IDs cannot be resolved.`);
+    }
+    if (photo.mime_type !== undefined && normalizeExternalMealPhotoType(photo.mime_type) === null) {
+      throw new AddMealRequestError(415, "unsupported_image_type", "This photo type is not supported. Use JPEG, PNG, WebP, or HEIC.");
     }
     const meal = meals[mealIndex];
     if (!isObject(meal)) {

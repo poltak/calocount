@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { AddMealRequestError } from "../app/api/_lib/add-meal";
+import type { MealWithItems } from "../db/repository";
+import {
+  AddMealRequestError,
+  handleAuthorizedAddMealRequest,
+  type AddMealRequest,
+  type StoredAddMealPhoto,
+} from "../app/api/_lib/add-meal";
 import { createMcpHandler, MCP_PROTOCOL_VERSION, type McpHandlerDependencies } from "../app/mcp/handler";
 import { resolveNutrientGoals } from "../domain/nutrient-goals";
 
@@ -50,6 +56,49 @@ function meal(requestId: string, name = "Lunch") {
     fat: 15,
     eaten_at: "2026-09-24T12:00:00+07:00",
   };
+}
+
+function mealWithPhoto({
+  ownerKey,
+  input,
+  photo,
+}: {
+  ownerKey: string;
+  input: AddMealRequest;
+  photo: StoredAddMealPhoto | null;
+}): MealWithItems {
+  return {
+    meal: {
+      id: `meal-${input.requestId}`,
+      ownerKey,
+      consumedAt: input.consumedAt,
+      source: "chatgpt",
+      caption: input.name,
+      mealType: null,
+      status: "complete",
+      photoKey: photo?.key ?? null,
+      photoMimeType: photo?.mimeType ?? null,
+      photoSizeBytes: photo?.sizeBytes ?? null,
+      totalCalories: input.kcal,
+      totalProteinG: input.protein,
+      totalCarbsG: input.carbs,
+      totalFatG: input.fat,
+      confidence: null,
+      assumptionsJson: "[]",
+      notes: null,
+      externalRequestId: input.requestId,
+      createdAt: input.consumedAt,
+      updatedAt: input.consumedAt,
+    },
+    items: [],
+  };
+}
+
+function imageResponse(bytes: Uint8Array, contentType: string): Response {
+  return new Response(bytes.buffer as ArrayBuffer, {
+    status: 200,
+    headers: { "content-type": contentType },
+  });
 }
 
 function mealBatchResponse(body: Record<string, unknown>): Response {
@@ -134,8 +183,11 @@ test("initializes and lists the meal write tool and both nutrition read tools wi
   assert.ok(instructions.length <= 512);
   assert.match(instructions, /Estimate calories, protein, carbs, and fat before logging/u);
   assert.match(instructions, /only when the user clearly asks to log/u);
-  assert.match(instructions, /ChatGPT-supplied photo file values.*photo_meal_indices/u);
-  assert.match(instructions, /new UUID per meal.*reuse it only to retry/u);
+  assert.match(instructions, /save.*add.*track.*record/u);
+  assert.match(instructions, /ChatGPT-supplied photo values unchanged.*photo_meal_indices/u);
+  assert.match(instructions, /Never invent file IDs or download URLs/u);
+  assert.match(instructions, /JPEG.*PNG.*WebP.*HEIC/u);
+  assert.match(instructions, /new UUID per meal.*reuse only for exact retries/u);
   assert.match(instructions, /has_image is true/u);
 
   const list = await route.POST(request({ jsonrpc: "2.0", id: 2, method: "tools/list" }));
@@ -189,6 +241,7 @@ test("initializes and lists the meal write tool and both nutrition read tools wi
     properties: {
       meals: { minItems: number; maxItems: number };
       photos: {
+        description: string;
         maxItems: number;
         items: { properties: Record<string, unknown>; required: string[] };
       };
@@ -200,6 +253,9 @@ test("initializes and lists the meal write tool and both nutrition read tools wi
   assert.equal(inputSchema.properties.meals.minItems, 1);
   assert.equal(inputSchema.properties.meals.maxItems, 20);
   assert.equal(inputSchema.properties.photos.maxItems, 20);
+  assert.match(inputSchema.properties.photos.description, /ChatGPT-supplied photo values.*unchanged/u);
+  assert.match(inputSchema.properties.photos.description, /photo_meal_indices/u);
+  assert.match(inputSchema.properties.photos.description, /JPEG.*PNG.*WebP.*HEIC/u);
   assert.deepEqual(inputSchema.properties.photos.items.required, ["download_url", "file_id"]);
   assert.deepEqual(Object.keys(inputSchema.properties.photos.items.properties).sort(), [
     "download_url",
@@ -285,6 +341,169 @@ test("maps multiple photos to selected meals in one mixed batch call", async () 
     id: "dinner-id",
     download_link: "https://files.oaiusercontent.com/dinner",
   }]);
+});
+
+test("downloads hydrated photos through MCP and stores HEIC as converted JPEG", async () => {
+  const jpegBytes = Uint8Array.from([0xff, 0xd8, 0xff, 0xd9]);
+  const pngBytes = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  const heicBytes = Uint8Array.from([0, 1, 2, 3]);
+  const fetched: Array<{ url: string; redirect: unknown }> = [];
+  const converted: number[][] = [];
+  const uploaded: Array<{
+    requestId: string;
+    contentType: string;
+    sizeBytes: number;
+    signature: number[];
+  }> = [];
+  const route = handler({
+    addMeals: (_ownerKey, body) => handleAuthorizedAddMealRequest(OWNER.ownerKey, body, {
+      fetchImage: async (url, init) => {
+        const value = String(url);
+        fetched.push({ url: value, redirect: (init as RequestInit | undefined)?.redirect });
+        if (value.endsWith("/jpeg-test")) return imageResponse(jpegBytes, "image/jpeg");
+        if (value.endsWith("/heic-test")) return imageResponse(heicBytes, "image/heic");
+        return imageResponse(pngBytes, "image/png");
+      },
+      convertHeicToJpeg: async ({ bytes }) => {
+        converted.push(Array.from(bytes));
+        return imageResponse(jpegBytes, "image/jpeg");
+      },
+      uploadPhoto: async (_ownerKey, requestId, photo) => {
+        uploaded.push({
+          requestId,
+          contentType: photo.contentType,
+          sizeBytes: photo.sizeBytes,
+          signature: Array.from(new Uint8Array(photo.bytes).slice(0, 4)),
+        });
+        return {
+          key: `photos/${requestId}`,
+          mimeType: photo.contentType,
+          sizeBytes: photo.sizeBytes,
+        };
+      },
+      createMeal: async () => {
+        throw new Error("Batch fixture must not call the single-meal callback.");
+      },
+      createMeals: async (ownerKey, requests) => requests.map(({ request: input, photo }) => ({
+        created: true,
+        meal: mealWithPhoto({ ownerKey, input, photo }),
+      })),
+    }),
+  });
+
+  const response = await route.POST(toolCall({
+    meals: [
+      meal("c5a84680-d0c7-4af6-a4f5-89495c3923ec", "JPEG meal"),
+      meal("d7e4b7f1-8f16-4d6e-9f9c-b9f4d5d4b0b6", "PNG meal"),
+      meal("f420b0a0-5029-4bd0-b257-621cced44a62", "HEIC meal"),
+    ],
+    photos: [
+      {
+        download_url: "https://files.oaiusercontent.com/jpeg-test",
+        file_id: "file-jpeg-test",
+        mime_type: "IMAGE/JPEG; charset=binary",
+        file_name: "meal.jpg",
+      },
+      {
+        download_url: "https://files.oaiusercontent.com/png-test",
+        file_id: "file-png-test",
+      },
+      {
+        download_url: "https://files.oaiusercontent.com/heic-test",
+        file_id: "file-heic-test",
+        mime_type: "image/heic",
+        file_name: "meal.heic",
+      },
+    ],
+    photo_meal_indices: [0, 1, 2],
+  }));
+  const payload = await response.json() as {
+    result: {
+      isError: boolean;
+      structuredContent: { meals: Array<{ has_image: boolean }> };
+    };
+  };
+
+  assert.equal(payload.result.isError, false);
+  assert.deepEqual(payload.result.structuredContent.meals.map((item) => item.has_image), [true, true, true]);
+  assert.deepEqual(fetched.map((item) => item.redirect), ["error", "error", "error"]);
+  assert.deepEqual(converted, [Array.from(heicBytes)]);
+  assert.deepEqual(uploaded, [
+    {
+      requestId: "c5a84680-d0c7-4af6-a4f5-89495c3923ec",
+      contentType: "image/jpeg",
+      sizeBytes: jpegBytes.byteLength,
+      signature: Array.from(jpegBytes),
+    },
+    {
+      requestId: "d7e4b7f1-8f16-4d6e-9f9c-b9f4d5d4b0b6",
+      contentType: "image/png",
+      sizeBytes: pngBytes.byteLength,
+      signature: Array.from(pngBytes.slice(0, 4)),
+    },
+    {
+      requestId: "f420b0a0-5029-4bd0-b257-621cced44a62",
+      contentType: "image/jpeg",
+      sizeBytes: jpegBytes.byteLength,
+      signature: Array.from(jpegBytes),
+    },
+  ]);
+});
+
+test("returns actionable unsupported_image_type for TIFF before the meal core runs", async () => {
+  let mealCoreCalls = 0;
+  const route = handler({
+    addMeals: async () => {
+      mealCoreCalls += 1;
+      return new Response("{}", { status: 201 });
+    },
+  });
+  const response = await route.POST(toolCall({
+    meals: [meal("c5a84680-d0c7-4af6-a4f5-89495c3923ec")],
+    photos: [{
+      download_url: "https://files.oaiusercontent.com/tiff-test",
+      file_id: "file-tiff-test",
+      mime_type: "image/tiff",
+      file_name: "lunch.tiff",
+    }],
+    photo_meal_indices: [0],
+  }));
+  const payload = await response.json() as {
+    result: { isError: boolean; structuredContent: { error?: { code?: string; message?: string } } };
+  };
+
+  assert.equal(payload.result.isError, true);
+  assert.equal(payload.result.structuredContent.error?.code, "unsupported_image_type");
+  assert.match(payload.result.structuredContent.error?.message ?? "", /Use JPEG, PNG, WebP, or HEIC/u);
+  assert.equal(mealCoreCalls, 0);
+});
+
+test("rejects bare local paths and file IDs with actionable MCP guidance", async () => {
+  let mealCoreCalls = 0;
+  const route = handler({
+    addMeals: async () => {
+      mealCoreCalls += 1;
+      return new Response("{}", { status: 201 });
+    },
+  });
+  for (const photo of [
+    "/mnt/data/1000072671.heic",
+    "file_000000004c4481fa8c2f31c450bb37d3",
+  ]) {
+    const response = await route.POST(toolCall({
+      meals: [meal("c5a84680-d0c7-4af6-a4f5-89495c3923ec")],
+      photos: [photo],
+      photo_meal_indices: [0],
+    }));
+    const payload = await response.json() as {
+      result: { isError: boolean; structuredContent: { error?: { code?: string; message?: string } } };
+    };
+
+    assert.equal(payload.result.isError, true);
+    assert.equal(payload.result.structuredContent.error?.code, "invalid_field");
+    assert.match(payload.result.structuredContent.error?.message ?? "", /file object with download_url and file_id.*Bare local paths and bare file IDs cannot be resolved/u);
+  }
+  assert.equal(mealCoreCalls, 0);
 });
 
 test("rejects invalid photo mappings without calling the meal core", async () => {

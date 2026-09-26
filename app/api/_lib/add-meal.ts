@@ -34,6 +34,15 @@ const ENDPOINT_HEADERS = {
   "x-robots-tag": "noindex, nofollow, noarchive",
 };
 
+export const SUPPORTED_EXTERNAL_MEAL_PHOTO_TYPES = [
+  ...SUPPORTED_MEAL_PHOTO_TYPES,
+  "image/heic",
+] as const;
+
+export type ExternalMealPhotoType = (typeof SUPPORTED_EXTERNAL_MEAL_PHOTO_TYPES)[number];
+
+type HeicImagesBinding = Pick<Env["IMAGES"], "input">;
+
 export class AddMealRequestError extends Error {
   constructor(
     public readonly status: number,
@@ -46,7 +55,7 @@ export class AddMealRequestError extends Error {
 }
 
 export type OpenAIFileRef = {
-  declaredContentType?: SupportedMealPhotoType;
+  declaredContentType?: ExternalMealPhotoType;
   downloadLink: string;
 };
 
@@ -86,6 +95,7 @@ export type AddMealHandlerOptions = {
   findExistingMeal?: (ownerKey: string, requestId: string) => Promise<MealWithItems | null>;
   getDailyTotals?: (ownerKey: string, now: number) => Promise<DailyMealTotals>;
   fetchImage?: typeof fetch;
+  convertHeicToJpeg?: (input: { bytes: Uint8Array }) => Promise<Response>;
   uploadPhoto?: (
     ownerKey: string,
     requestId: string,
@@ -214,12 +224,29 @@ function normaliseContentType(value: string): string {
   return value.split(";", 1)[0]?.trim().toLowerCase() ?? "";
 }
 
-function supportedContentType(value: unknown): SupportedMealPhotoType | null {
+export function normalizeExternalMealPhotoType(value: unknown): ExternalMealPhotoType | null {
   if (typeof value !== "string") return null;
   const normalised = normaliseContentType(value);
-  return (SUPPORTED_MEAL_PHOTO_TYPES as readonly string[]).includes(normalised)
-    ? normalised as SupportedMealPhotoType
+  return (SUPPORTED_EXTERNAL_MEAL_PHOTO_TYPES as readonly string[]).includes(normalised)
+    ? normalised as ExternalMealPhotoType
     : null;
+}
+
+/** Adapt the Cloudflare Images binding to the add-meal HEIC conversion callback. */
+export function createHeicPhotoConverter(
+  images: HeicImagesBinding | undefined,
+): AddMealHandlerOptions["convertHeicToJpeg"] {
+  if (!images) return undefined;
+  return async ({ bytes }) => {
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(bytes);
+        controller.close();
+      },
+    });
+    const output = await images.input(stream).output({ format: "image/jpeg" });
+    return output.response();
+  };
 }
 
 function isAllowedOpenAIFileHost(hostname: string): boolean {
@@ -261,7 +288,7 @@ function parseImageRef(body: Record<string, unknown>): OpenAIFileRef | undefined
   for (const ref of refs) {
     if (!ref || typeof ref !== "object" || Array.isArray(ref)) continue;
     const record = ref as Record<string, unknown>;
-    const contentType = record.mime_type === undefined ? undefined : supportedContentType(record.mime_type);
+    const contentType = record.mime_type === undefined ? undefined : normalizeExternalMealPhotoType(record.mime_type);
     const downloadLink = safeOpenAIFileUrl(record.download_link);
     if ((record.mime_type === undefined || contentType) && downloadLink) {
       return { ...(contentType ? { declaredContentType: contentType } : {}), downloadLink };
@@ -427,7 +454,120 @@ function contentLength(response: Response): number | null {
   return parsed;
 }
 
-async function downloadOpenAIPhoto(ref: OpenAIFileRef, fetchImage: typeof fetch): Promise<MealPhotoUpload> {
+function validateDownloadedPhoto(bytes: Uint8Array<ArrayBuffer>, contentType: SupportedMealPhotoType): MealPhotoUpload {
+  try {
+    return validateMealPhotoBytes(bytes.buffer, contentType);
+  } catch (error) {
+    if (error instanceof MealPhotoError) {
+      const status = error.status === 413 ? 413 : 400;
+      throw new AddMealRequestError(status, error.code, error.message);
+    }
+    throw error;
+  }
+}
+
+async function convertHeicPhoto(
+  bytes: Uint8Array,
+  converter: AddMealHandlerOptions["convertHeicToJpeg"],
+): Promise<MealPhotoUpload> {
+  if (!converter) {
+    throw new AddMealRequestError(
+      503,
+      "image_conversion_unavailable",
+      "HEIC photo conversion is not configured.",
+    );
+  }
+
+  let response: Response;
+  try {
+    response = await converter({ bytes });
+  } catch {
+    throw new AddMealRequestError(
+      502,
+      "image_conversion_failed",
+      "The HEIC photo could not be converted. Try a JPEG, PNG, or WebP copy.",
+    );
+  }
+  if (!response.ok) {
+    throw new AddMealRequestError(
+      502,
+      "image_conversion_failed",
+      "The HEIC photo could not be converted. Try a JPEG, PNG, or WebP copy.",
+    );
+  }
+  if (normalizeExternalMealPhotoType(response.headers.get("content-type")) !== "image/jpeg") {
+    throw new AddMealRequestError(502, "image_conversion_failed", "The converted photo type is invalid.");
+  }
+
+  const contentLengthValue = response.headers.get("content-length");
+  let declaredLength: number | null = null;
+  if (contentLengthValue !== null) {
+    const trimmed = contentLengthValue.trim();
+    if (!/^\d+$/u.test(trimmed)) {
+      throw new AddMealRequestError(502, "image_conversion_failed", "The converted photo size is invalid.");
+    }
+    declaredLength = Number(trimmed);
+    if (!Number.isSafeInteger(declaredLength)) {
+      throw new AddMealRequestError(502, "image_conversion_failed", "The converted photo size is invalid.");
+    }
+    if (declaredLength > MAX_DASHBOARD_MEAL_PHOTO_BYTES) {
+      throw new AddMealRequestError(413, "payload_too_large", "The converted photo is too large.");
+    }
+  }
+  if (!response.body) {
+    throw new AddMealRequestError(502, "image_conversion_failed", "The converted photo has no body.");
+  }
+
+  let reader: ReadableStreamDefaultReader<Uint8Array>;
+  try {
+    reader = response.body.getReader();
+  } catch {
+    throw new AddMealRequestError(502, "image_conversion_failed", "The converted photo could not be read.");
+  }
+  const chunks: Uint8Array[] = [];
+  let byteCount = 0;
+  try {
+    while (true) {
+      const chunk = await reader.read();
+      if (chunk.done) break;
+      if (!(chunk.value instanceof Uint8Array)) {
+        throw new AddMealRequestError(502, "image_conversion_failed", "The converted photo is invalid.");
+      }
+      byteCount += chunk.value.byteLength;
+      if (byteCount > MAX_DASHBOARD_MEAL_PHOTO_BYTES) {
+        await reader.cancel("payload_too_large").catch(() => undefined);
+        throw new AddMealRequestError(413, "payload_too_large", "The converted photo is too large.");
+      }
+      chunks.push(chunk.value);
+    }
+  } catch (error) {
+    if (error instanceof AddMealRequestError) throw error;
+    throw new AddMealRequestError(502, "image_conversion_failed", "The converted photo could not be read.");
+  } finally {
+    reader.releaseLock();
+  }
+
+  if (declaredLength !== null && declaredLength !== byteCount) {
+    throw new AddMealRequestError(502, "image_conversion_failed", "The converted photo size is invalid.");
+  }
+  const outputBytes = new Uint8Array(byteCount);
+  let offset = 0;
+  for (const chunk of chunks) {
+    outputBytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return validateDownloadedPhoto(outputBytes, "image/jpeg");
+}
+
+async function downloadOpenAIPhoto({
+  ref,
+  fetchImage,
+  convertHeicToJpeg,
+}: {
+  ref: OpenAIFileRef;
+  fetchImage: typeof fetch;
+  convertHeicToJpeg: AddMealHandlerOptions["convertHeicToJpeg"];
+}): Promise<MealPhotoUpload> {
   let response: Response;
   try {
     response = await fetchImage(ref.downloadLink, { redirect: "error" });
@@ -438,7 +578,7 @@ async function downloadOpenAIPhoto(ref: OpenAIFileRef, fetchImage: typeof fetch)
     throw new AddMealRequestError(502, "image_download_failed", "The image could not be downloaded.");
   }
 
-  const responseType = supportedContentType(response.headers.get("content-type"));
+  const responseType = normalizeExternalMealPhotoType(response.headers.get("content-type"));
   if (!responseType || (ref.declaredContentType && responseType !== ref.declaredContentType)) {
     throw new AddMealRequestError(400, "invalid_image", "The downloaded image type is invalid.");
   }
@@ -489,15 +629,10 @@ async function downloadOpenAIPhoto(ref: OpenAIFileRef, fetchImage: typeof fetch)
   if (declaredLength !== null && declaredLength !== byteCount) {
     throw new AddMealRequestError(502, "image_download_failed", "The image response size is invalid.");
   }
-  try {
-    return validateMealPhotoBytes(bytes.buffer, ref.declaredContentType ?? responseType);
-  } catch (error) {
-    if (error instanceof MealPhotoError) {
-      const status = error.status === 413 ? 413 : 400;
-      throw new AddMealRequestError(status, error.code, error.message);
-    }
-    throw error;
+  if (responseType === "image/heic") {
+    return convertHeicPhoto(bytes, convertHeicToJpeg);
   }
+  return validateDownloadedPhoto(bytes, responseType);
 }
 
 async function cleanupPhoto(
@@ -558,7 +693,11 @@ export async function handleAuthorizedAddMealRequest(
         }
         let photo: MealPhotoUpload | null = null;
         try {
-          photo = await downloadOpenAIPhoto(input.imageRef, options.fetchImage);
+          photo = await downloadOpenAIPhoto({
+            ref: input.imageRef,
+            fetchImage: options.fetchImage,
+            convertHeicToJpeg: options.convertHeicToJpeg,
+          });
         } catch (error) {
           if (!(error instanceof AddMealRequestError) || error.code !== "image_download_failed") throw error;
           photoDownloadFailed = true;
@@ -604,7 +743,11 @@ export async function handleAuthorizedAddMealRequest(
       }
       let photo: MealPhotoUpload | null = null;
       try {
-        photo = await downloadOpenAIPhoto(input.imageRef, options.fetchImage);
+        photo = await downloadOpenAIPhoto({
+          ref: input.imageRef,
+          fetchImage: options.fetchImage,
+          convertHeicToJpeg: options.convertHeicToJpeg,
+        });
       } catch (error) {
         if (!(error instanceof AddMealRequestError) || error.code !== "image_download_failed") throw error;
         photoDownloadFailed.add(input.requestId);

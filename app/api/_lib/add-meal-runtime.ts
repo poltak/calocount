@@ -10,16 +10,20 @@ import {
   uploadDashboardMealPhoto,
   type MealPhotoBucket,
 } from "./meal-photo";
+import { getRuntimeEnv } from "../../../db";
+import { createHeicPhotoConverter } from "./add-meal";
 import type { AddMealRuntimeOptions } from "./add-meal";
 
 /** Build the database and photo callbacks for authorized meal writes. */
 export function createAddMealRuntimeOptions(): AddMealRuntimeOptions {
+  const runtimeEnv = getRuntimeEnv();
   return {
     findExistingMeal: (owner, requestId) => findMealByExternalRequestId(getRequestDb(), owner, requestId),
     getDailyTotals: (owner, timestamp) => getCurrentDayMealTotals(getRequestDb(), owner, {
       now: new Date(timestamp),
     }),
     fetchImage: fetch,
+    convertHeicToJpeg: createHeicPhotoConverter(runtimeEnv.IMAGES),
     uploadPhoto: async (owner, requestId, photo) => {
       return uploadDashboardMealPhoto({
         bucket: getPhotosBucket() as unknown as MealPhotoBucket,

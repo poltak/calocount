@@ -4,6 +4,7 @@ import test from "node:test";
 import type { ExternalMealResult, MealWithItems } from "../db/repository";
 import {
   AddMealRequestError,
+  createHeicPhotoConverter,
   handleAuthorizedAddMealRequest,
   handleAddMealRequest,
   parseAddMealRequest,
@@ -21,6 +22,12 @@ const EATEN_AT = "2026-08-30T18:25:00+07:00";
 const EATEN_TS = Date.parse(EATEN_AT);
 const NOW = 1_756_560_300_000;
 const PNG_BYTES = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+const HEIC_BYTES = Uint8Array.from([
+  0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70,
+  0x68, 0x65, 0x69, 0x63, 0x00, 0x00, 0x00, 0x00,
+  0x6d, 0x69, 0x66, 0x31, 0x68, 0x65, 0x69, 0x63,
+]);
+const JPEG_BYTES = Uint8Array.from([0xff, 0xd8, 0xff, 0xd9]);
 
 type Body = Record<string, unknown>;
 
@@ -240,6 +247,258 @@ test("infers an omitted photo MIME type from the response and validates the imag
   assert.equal(uploaded.length, 1);
   assert.equal(uploaded[0]?.contentType, "image/png");
   assert.equal((await response.json() as Record<string, unknown>).has_image, true);
+});
+
+test("converts an external HEIC photo to JPEG before storage", async () => {
+  let conversionInput: Uint8Array | undefined;
+  let outputFormat: string | undefined;
+  const convertHeicToJpeg = createHeicPhotoConverter({
+    input: (stream) => ({
+      transform: () => {
+        throw new Error("Unexpected image transform");
+      },
+      draw: () => {
+        throw new Error("Unexpected image draw");
+      },
+      output: async ({ format }) => {
+        outputFormat = format;
+        const reader = stream.getReader();
+        const chunks: Uint8Array[] = [];
+        while (true) {
+          const chunk = await reader.read();
+          if (chunk.done) break;
+          chunks.push(chunk.value);
+        }
+        conversionInput = new Uint8Array(chunks.reduce((total, chunk) => total + chunk.byteLength, 0));
+        let offset = 0;
+        for (const chunk of chunks) {
+          conversionInput.set(chunk, offset);
+          offset += chunk.byteLength;
+        }
+        return {
+          response: () => imageResponse(JPEG_BYTES, "image/jpeg"),
+          contentType: () => "image/jpeg",
+          image: () => new ReadableStream<Uint8Array>(),
+        };
+      },
+    }),
+  });
+  const uploaded: MealPhotoUpload[] = [];
+  const response = await handler(
+    async (ownerKey, input, photo) => ({ created: true, meal: entry(ownerKey, input, undefined, photo) }),
+    mealBody({ openaiFileIdRefs: [imageRef({ mime_type: "image/heic" })] }),
+    {
+      fetchImage: async () => imageResponse(HEIC_BYTES, "image/heic"),
+      convertHeicToJpeg,
+      uploadPhoto: async (_ownerKey, _requestId, photo) => {
+        uploaded.push(photo);
+        return { key: "heic-converted-photo", mimeType: photo.contentType, sizeBytes: photo.sizeBytes };
+      },
+    },
+  );
+
+  assert.equal(response.status, 201);
+  assert.deepEqual(conversionInput, HEIC_BYTES);
+  assert.equal(outputFormat, "image/jpeg");
+  assert.equal(uploaded.length, 1);
+  assert.equal(uploaded[0]?.contentType, "image/jpeg");
+  assert.deepEqual(new Uint8Array(uploaded[0]?.bytes ?? new ArrayBuffer(0)), JPEG_BYTES);
+  assert.equal((await response.json() as Record<string, unknown>).has_image, true);
+});
+
+test("infers an omitted HEIC MIME type from the downloaded response", async () => {
+  let conversions = 0;
+  const response = await handler(
+    async (ownerKey, input, photo) => ({ created: true, meal: entry(ownerKey, input, undefined, photo) }),
+    mealBody({ openaiFileIdRefs: [imageRef({ mime_type: undefined })] }),
+    {
+      fetchImage: async () => imageResponse(HEIC_BYTES, "image/heic"),
+      convertHeicToJpeg: async () => {
+        conversions += 1;
+        return imageResponse(JPEG_BYTES, "image/jpeg");
+      },
+      uploadPhoto: async (_ownerKey, _requestId, photo) => ({
+        key: "heic-inferred-photo",
+        mimeType: photo.contentType,
+        sizeBytes: photo.sizeBytes,
+      }),
+    },
+  );
+
+  assert.equal(response.status, 201);
+  assert.equal(conversions, 1);
+  assert.equal((await response.json() as Record<string, unknown>).has_image, true);
+});
+
+test("fails hard when HEIC conversion is missing or fails", async () => {
+  const scenarios: Array<{
+    name: string;
+    convertHeicToJpeg?: AddMealHandlerOptions["convertHeicToJpeg"];
+    status: number;
+    code: string;
+    message: string;
+  }> = [
+    {
+      name: "missing binding",
+      status: 503,
+      code: "image_conversion_unavailable",
+      message: "HEIC photo conversion is not configured.",
+    },
+    {
+      name: "failed conversion",
+      convertHeicToJpeg: async () => {
+        throw new Error("Images unavailable");
+      },
+      status: 502,
+      code: "image_conversion_failed",
+      message: "The HEIC photo could not be converted. Try a JPEG, PNG, or WebP copy.",
+    },
+  ];
+
+  for (const scenario of scenarios) {
+    let mealWrites = 0;
+    let photoWrites = 0;
+    const options: Partial<Omit<AddMealHandlerOptions, "createMeal" | "expectedToken" | "ownerKey" | "body">> = {
+      fetchImage: async () => imageResponse(HEIC_BYTES, "image/heic"),
+      uploadPhoto: async () => {
+        photoWrites += 1;
+        return { key: "unexpected-photo", mimeType: "image/jpeg", sizeBytes: JPEG_BYTES.byteLength };
+      },
+    };
+    if (scenario.convertHeicToJpeg) options.convertHeicToJpeg = scenario.convertHeicToJpeg;
+
+    await assert.rejects(
+      () => handler(async () => {
+        mealWrites += 1;
+        throw new Error("Must not write a meal after HEIC conversion fails");
+      }, mealBody({ openaiFileIdRefs: [imageRef({ mime_type: "image/heic" })] }), options),
+      (error: unknown) => error instanceof AddMealRequestError
+        && error.status === scenario.status && error.code === scenario.code && error.message === scenario.message,
+      scenario.name,
+    );
+    assert.equal(mealWrites, 0, scenario.name);
+    assert.equal(photoWrites, 0, scenario.name);
+  }
+});
+
+test("rejects mismatched HEIC MIME and invalid or oversized conversion output", async () => {
+  let conversionCalls = 0;
+  let mealWrites = 0;
+  let photoWrites = 0;
+  await assert.rejects(
+    () => handler(async () => {
+      mealWrites += 1;
+      throw new Error("Must not write a meal after a MIME mismatch");
+    }, mealBody({ openaiFileIdRefs: [imageRef({ mime_type: "image/heic" })] }), {
+      fetchImage: async () => imageResponse(JPEG_BYTES, "image/jpeg"),
+      convertHeicToJpeg: async () => {
+        conversionCalls += 1;
+        return imageResponse(JPEG_BYTES, "image/jpeg");
+      },
+      uploadPhoto: async () => {
+        photoWrites += 1;
+        return { key: "unexpected-photo", mimeType: "image/jpeg", sizeBytes: JPEG_BYTES.byteLength };
+      },
+    }),
+    (error: unknown) => error instanceof AddMealRequestError
+      && error.status === 400 && error.code === "invalid_image",
+  );
+  assert.equal(conversionCalls, 0);
+  assert.equal(mealWrites, 0);
+
+  const outputTooLarge = new Uint8Array(MAX_DASHBOARD_MEAL_PHOTO_BYTES + 1);
+  outputTooLarge.set(JPEG_BYTES);
+  const outputs: Array<{ response: Response; status: number; code: string }> = [
+    {
+      response: new Response(JPEG_BYTES, { status: 500, headers: { "content-type": "image/jpeg" } }),
+      status: 502,
+      code: "image_conversion_failed",
+    },
+    { response: imageResponse(JPEG_BYTES, "image/png"), status: 502, code: "image_conversion_failed" },
+    { response: imageResponse(PNG_BYTES, "image/jpeg"), status: 400, code: "unsupported_photo_type" },
+    { response: imageResponse(outputTooLarge, "image/jpeg"), status: 413, code: "payload_too_large" },
+  ];
+  for (const output of outputs) {
+    await assert.rejects(
+      () => handler(async () => {
+        mealWrites += 1;
+        throw new Error("Must not write a meal after invalid converted output");
+      }, mealBody({ openaiFileIdRefs: [imageRef({ mime_type: "image/heic" })] }), {
+        fetchImage: async () => imageResponse(HEIC_BYTES, "image/heic"),
+        convertHeicToJpeg: async () => output.response,
+        uploadPhoto: async () => {
+          photoWrites += 1;
+          return { key: "unexpected-photo", mimeType: "image/jpeg", sizeBytes: JPEG_BYTES.byteLength };
+        },
+      }),
+      (error: unknown) => error instanceof AddMealRequestError
+        && error.status === output.status && error.code === output.code,
+    );
+  }
+  assert.equal(mealWrites, 0);
+  assert.equal(photoWrites, 0);
+});
+
+test("rejects oversized HEIC input before conversion and does not convert again on retry", async () => {
+  const sourceTooLarge = new Uint8Array(MAX_DASHBOARD_MEAL_PHOTO_BYTES + 1);
+  let conversions = 0;
+  let creates = 0;
+  await assert.rejects(
+    () => handler(async () => {
+      creates += 1;
+      throw new Error("Must not write a meal with oversized HEIC input");
+    }, mealBody({ openaiFileIdRefs: [imageRef({ mime_type: "image/heic" })] }), {
+      fetchImage: async () => imageResponse(sourceTooLarge, "image/heic"),
+      convertHeicToJpeg: async () => {
+        conversions += 1;
+        return imageResponse(JPEG_BYTES, "image/jpeg");
+      },
+      uploadPhoto: async () => ({
+        key: "unexpected-photo",
+        mimeType: "image/jpeg",
+        sizeBytes: JPEG_BYTES.byteLength,
+      }),
+    }),
+    (error: unknown) => error instanceof AddMealRequestError
+      && error.status === 413 && error.code === "payload_too_large",
+  );
+  assert.equal(conversions, 0);
+  assert.equal(creates, 0);
+
+  let existing: MealWithItems | null = null;
+  let fetches = 0;
+  const body = mealBody({ openaiFileIdRefs: [imageRef({ mime_type: "image/heic" })] });
+  const options = {
+    findExistingMeal: async () => existing,
+    fetchImage: async () => {
+      fetches += 1;
+      return imageResponse(HEIC_BYTES, "image/heic");
+    },
+    convertHeicToJpeg: async () => {
+      conversions += 1;
+      return imageResponse(JPEG_BYTES, "image/jpeg");
+    },
+    uploadPhoto: async (_ownerKey: string, _requestId: string, photo: MealPhotoUpload) => ({
+      key: "heic-retry-photo",
+      mimeType: photo.contentType,
+      sizeBytes: photo.sizeBytes,
+    }),
+  } satisfies Partial<Omit<AddMealHandlerOptions, "createMeal" | "expectedToken" | "ownerKey" | "body">>;
+  const first = await handler(async (ownerKey, input, photo) => {
+    creates += 1;
+    existing = entry(ownerKey, input, "meal-heic-retry", photo);
+    return { created: true, meal: existing };
+  }, body, options);
+  const retry = await handler(async () => {
+    creates += 1;
+    throw new Error("The retry should return the stored meal");
+  }, body, options);
+
+  assert.equal(first.status, 201);
+  assert.equal(retry.status, 200);
+  assert.equal(fetches, 1);
+  assert.equal(conversions, 1);
+  assert.equal(creates, 1);
 });
 
 test("records the meal and reports a failed image download", async () => {
