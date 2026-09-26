@@ -480,8 +480,8 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
   const remainingCalories = activeCalorieTarget - totalCalories;
   const remainingProtein = activeProteinTarget === null ? null : activeProteinTarget - totalProtein;
   const remainingProteinLabel = remainingProtein === null ? null : remainingProtein >= 0
-    ? `${formatNumber(remainingProtein)}g left to reach your target`
-    : `${formatNumber(Math.abs(remainingProtein))}g above target`;
+    ? `${formatNumber(Math.round(remainingProtein))}g left to reach your target`
+    : `${formatNumber(Math.round(Math.abs(remainingProtein)))}g above target`;
   const proteinWeightSource = proteinGoal.mode === "gramsPerKg" && selectedProteinGoal.weightDate && selectedProteinGoal.weightDate !== selectedDay.date
     ? `Using weight from ${fullDateLabel(selectedProteinGoal.weightDate)}`
     : null;
@@ -1613,9 +1613,9 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
         <article className="summary-card calories-card">
           <div className="summary-copy">
             <div className="card-label-row"><span className="metric-dot calorie-dot" aria-hidden="true" /><span className="card-label">Calories</span></div>
-            <p className="metric-value">{formatNumber(totalCalories)} <span>/ {formatNumber(activeCalorieTarget)}</span></p>
+            <p className="metric-value">{formatNumber(Math.round(totalCalories))} <span>/ {formatNumber(Math.round(activeCalorieTarget))}</span></p>
             <p className={`metric-subtitle ${remainingCalories < 0 ? "over" : ""}`}>
-              {remainingCalories >= 0 ? `${formatNumber(remainingCalories)} kcal left today` : `${formatNumber(Math.abs(remainingCalories))} kcal over target`}
+              {remainingCalories >= 0 ? `${formatNumber(Math.round(remainingCalories))} kcal left today` : `${formatNumber(Math.round(Math.abs(remainingCalories)))} kcal over target`}
             </p>
           </div>
           <div className="metric-ring calorie-ring" style={{ "--progress": `${calculateTargetPercent(totalCalories, activeCalorieTarget)}%` } as CSSProperties} aria-label={`${calculateTargetPercent(totalCalories, activeCalorieTarget)} percent of calorie target`} role="img"><strong>{calculateTargetPercent(totalCalories, activeCalorieTarget)}%</strong></div>
@@ -1630,7 +1630,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
           </div> : <>
             <div className="summary-copy">
               <div className="card-label-row"><span className="metric-dot protein-dot" aria-hidden="true" /><span className="card-label">Protein</span></div>
-              <p className="metric-value">{formatNumber(totalProtein)}g <span>/ {formatNumber(activeProteinTarget)}g</span></p>
+              <p className="metric-value">{formatNumber(Math.round(totalProtein))}g <span>/ {formatNumber(Math.round(activeProteinTarget))}g</span></p>
               <p className="metric-subtitle">{remainingProteinLabel}</p>
               {proteinWeightSource ? <span className="protein-goal-hint">{proteinWeightSource}</span> : null}
             </div>
@@ -1641,7 +1641,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
         <article className="summary-card average-card">
           <div>
             <div className="card-label-row"><span className="metric-dot average-dot" aria-hidden="true" /><span className="card-label">7 day average</span></div>
-            <p className="metric-value">{formatNumber(averageCalories)} <span>kcal</span></p>
+            <p className="metric-value">{formatNumber(Math.round(averageCalories))} <span>kcal</span></p>
             <p className={`metric-subtitle ${averageComparison.direction === "above" ? "over" : "positive"}`}>
               {averageComparison.direction === "at"
                 ? "At your target average"
@@ -1816,7 +1816,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
 
           <section className="panel macro-panel compact-dashboard-panel" aria-labelledby="macros">
             <div className="panel-heading compact-heading"><div><p className="eyebrow">Daily split</p><h2 id="macros">Macros</h2></div><span className="panel-meta">per day</span></div>
-            <div className="macro-donut" style={{ background: macroValues.gradient }} role="img" aria-label={`Estimated daily macro split: ${macroValues.carbs} percent carbohydrates, ${macroValues.protein} percent protein, ${macroValues.fat} percent fat`}><div><strong>{formatNumber(totalCalories)}</strong><span>kcal</span></div></div>
+            <div className="macro-donut" style={{ background: macroValues.gradient }} role="img" aria-label={`Estimated daily macro split: ${macroValues.carbs} percent carbohydrates, ${macroValues.protein} percent protein, ${macroValues.fat} percent fat`}><div><strong>{formatNumber(Math.round(totalCalories))}</strong><span>kcal</span></div></div>
             <div className="macro-legend"><div><span className="macro-key carbs" /><span>Carbs</span><strong>{macroValues.carbs}%</strong></div><div><span className="macro-key protein" /><span>Protein</span><strong>{macroValues.protein}%</strong></div><div><span className="macro-key fat" /><span>Fat</span><strong>{macroValues.fat}%</strong></div></div>
           </section>
 

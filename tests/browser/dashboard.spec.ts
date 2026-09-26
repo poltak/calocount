@@ -16,6 +16,31 @@ test("deleting a meal updates both daily totals and the loaded trend", async ({ 
   await expect(page.locator('.bar-column[aria-label*="500 kilocalories"]')).toHaveCount(0);
 });
 
+test("summary and daily calorie displays round fractional values", async ({ page }) => {
+  const state = await mockDashboardApi(page);
+  const meal = state.meals[0]!;
+  meal.totalCalories = 2_386.677;
+  meal.totalProteinG = 171.718;
+  state.settings.dailyCalorieTarget = 2_100.1;
+  state.settings.dailyProteinTargetG = 133.1;
+  state.meals.push({
+    ...meal,
+    id: "previous-day",
+    consumedAt: Date.parse("2026-09-11T12:00:00Z"),
+    totalCalories: 1_000.123,
+    totalProteinG: 50,
+  });
+
+  await page.goto("/");
+
+  await expect(page.locator(".calories-card .metric-value")).toHaveText("2,387 / 2,100");
+  await expect(page.locator(".calories-card .metric-subtitle")).toHaveText("287 kcal over target");
+  await expect(page.locator(".protein-card .metric-value")).toHaveText("172g / 133g");
+  await expect(page.locator(".protein-card .metric-subtitle")).toHaveText("39g above target");
+  await expect(page.locator(".macro-donut strong")).toHaveText("2,387");
+  await expect(page.locator(".average-card .metric-value")).toHaveText(/^\d{1,3}(?:,\d{3})* kcal$/);
+});
+
 test("saving an earlier weight keeps the selected day", async ({ page }) => {
   const state = await mockDashboardApi(page);
   await page.goto("/");
