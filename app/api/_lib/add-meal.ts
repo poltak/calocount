@@ -23,6 +23,8 @@ const MAX_BATCH_MEALS = 20;
 const ISO_DATETIME = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,9}))?(Z|[+-](\d{2}):(\d{2}))$/u;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
 const OPENAI_FILE_BASE_DOMAIN = "oaiusercontent.com";
+// Public Azure Blob account hosts can vary between ChatGPT file handoffs.
+const AZURE_BLOB_ACCOUNT_HOST = /^[a-z0-9]{3,24}(?:-secondary)?\.blob\.core\.windows\.net$/u;
 const OPENAI_FILE_HOSTS = new Set([
   "files.oaiusercontent.com",
   "files.openai.com",
@@ -251,7 +253,8 @@ export function createHeicPhotoConverter(
 
 function isAllowedOpenAIFileHost(hostname: string): boolean {
   return OPENAI_FILE_HOSTS.has(hostname)
-    || hostname.endsWith(`.${OPENAI_FILE_BASE_DOMAIN}`);
+    || hostname.endsWith(`.${OPENAI_FILE_BASE_DOMAIN}`)
+    || AZURE_BLOB_ACCOUNT_HOST.test(hostname);
 }
 
 type OpenAIFileUrlResult = { downloadLink: string; reason?: never } | { downloadLink?: never; reason: string };

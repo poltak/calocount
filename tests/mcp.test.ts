@@ -343,7 +343,8 @@ test("maps multiple photos to selected meals in one mixed batch call", async () 
   }]);
 });
 
-test("downloads hydrated photos through MCP and stores HEIC as converted JPEG", async () => {
+async function assertHydratedPhotoFlow({ heicHost }: { heicHost: string }) {
+  const heicLink = `https://${heicHost}/heic-test?sig=synthetic%2Bsignature%2Fvalue%3D&sp=r`;
   const jpegBytes = Uint8Array.from([0xff, 0xd8, 0xff, 0xd9]);
   const pngBytes = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
   const heicBytes = Uint8Array.from([0, 1, 2, 3]);
@@ -361,7 +362,7 @@ test("downloads hydrated photos through MCP and stores HEIC as converted JPEG", 
         const value = String(url);
         fetched.push({ url: value, redirect: (init as RequestInit | undefined)?.redirect });
         if (value.endsWith("/jpeg-test")) return imageResponse(jpegBytes, "image/jpeg");
-        if (value.endsWith("/heic-test")) return imageResponse(heicBytes, "image/heic");
+        if (value === heicLink) return imageResponse(heicBytes, "image/heic");
         return imageResponse(pngBytes, "image/png");
       },
       convertHeicToJpeg: async ({ bytes }) => {
@@ -409,7 +410,7 @@ test("downloads hydrated photos through MCP and stores HEIC as converted JPEG", 
         file_id: "file-png-test",
       },
       {
-        download_url: "https://files.oaiusercontent.com/heic-test",
+        download_url: heicLink,
         file_id: "file-heic-test",
         mime_type: "image/heic",
         file_name: "meal.heic",
@@ -427,6 +428,7 @@ test("downloads hydrated photos through MCP and stores HEIC as converted JPEG", 
   assert.equal(payload.result.isError, false);
   assert.deepEqual(payload.result.structuredContent.meals.map((item) => item.has_image), [true, true, true]);
   assert.deepEqual(fetched.map((item) => item.redirect), ["error", "error", "error"]);
+  assert.equal(fetched[2]?.url, heicLink);
   assert.deepEqual(converted, [Array.from(heicBytes)]);
   assert.deepEqual(uploaded, [
     {
@@ -448,7 +450,11 @@ test("downloads hydrated photos through MCP and stores HEIC as converted JPEG", 
       signature: Array.from(jpegBytes),
     },
   ]);
-});
+}
+
+for (const heicHost of ["files.oaiusercontent.com", "oaisdmntpraustraliaeast.blob.core.windows.net", "otheraccount.blob.core.windows.net"]) {
+  test(`downloads hydrated photos through MCP and stores HEIC from ${heicHost} as converted JPEG`, () => assertHydratedPhotoFlow({ heicHost }));
+}
 
 test("reports safe URL rejection reasons through the real MCP meal core", async () => {
   let fetchCalls = 0;

@@ -75,7 +75,7 @@ pnpm exec wrangler secret put CALOCOUNT_CHATGPT_MEAL_TOKEN
 
 Do not put this token in `wrangler.jsonc` or in application links. The endpoint is `POST /api/add-meal`. Send the token only in an `Authorization: Bearer <token>` header and send a JSON body with `request_id`, `name`, `kcal`, `protein`, `carbs`, `fat`, and ISO-8601 `eaten_at` values. An optional `nutrients` object accepts the 24 item nutrient fields used by the dashboard; each value is a non-negative number or `null` when unknown. For this external request, `request_id` is a UUID idempotency key: repeating it returns the original meal without creating another entry.
 
-Existing GPT image actions may also send `openaiFileIdRefs` as an array of file reference objects. The endpoint accepts the first valid HTTPS JPEG, PNG, or WebP reference from an approved OpenAI file host, downloads it immediately, and stores it with the meal. Temporary links are never stored. A photo is limited to 10 MiB.
+Existing GPT image actions may also send `openaiFileIdRefs` as an array of file reference objects. Shared external photo handling accepts the first valid HTTPS JPEG, PNG, WebP, or HEIC reference from an approved OpenAI file host or a public Azure Blob account host (`<account>.blob.core.windows.net` or `<account>-secondary.blob.core.windows.net`, where the account has 3–24 lowercase letters or digits). Azure storage accounts can belong to other tenants; this rule is not an OpenAI ownership check. HEIC photos are converted to JPEG through Cloudflare Images before storage. Photos are downloaded immediately, redirects are rejected, and temporary links are never stored. A photo is limited to 10 MiB.
 
 For a local smoke test, use a new UUID and the token from `.dev.vars`:
 

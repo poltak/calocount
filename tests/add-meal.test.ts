@@ -683,6 +683,54 @@ test("accepts regional OpenAI image hosts and rejects deceptive lookalikes", () 
   }
 });
 
+test("accepts public Azure Blob account hosts and preserves signed queries", async () => {
+  const host = "oaisdmntpraustraliaeast.blob.core.windows.net";
+  for (const account of ["oaisdmntpraustraliaeast", "otheraccount", "abc", "a".repeat(24), "abc-secondary", `${"a".repeat(24)}-secondary`]) {
+    const signedLink = `https://${account}.blob.core.windows.net/private/synthetic.heic?sv=2025-01-05&sig=synthetic%2Bsignature%2Fvalue%3D&sp=r`;
+    const parsed = parseAddMealRequest(mealBody({
+      openaiFileIdRefs: [imageRef({ download_link: signedLink, mime_type: "image/heic" })],
+    }), NOW);
+    assert.equal(parsed.imageRef?.downloadLink, signedLink);
+    assert.equal(parsed.imageRef?.declaredContentType, "image/heic");
+  }
+
+  const rejectedLinks = [
+    "https://ab.blob.core.windows.net/private/synthetic.heic",
+    `https://${"a".repeat(25)}.blob.core.windows.net/private/synthetic.heic`,
+    "https://other-account.blob.core.windows.net/private/synthetic.heic",
+    "https://ab-secondary.blob.core.windows.net/private/synthetic.heic",
+    `https://${"a".repeat(25)}-secondary.blob.core.windows.net/private/synthetic.heic`,
+    "https://otheraccount--secondary.blob.core.windows.net/private/synthetic.heic",
+    "https://otheraccount-secondary-secondary.blob.core.windows.net/private/synthetic.heic",
+    "https://otheraccount-primary.blob.core.windows.net/private/synthetic.heic",
+    "https://otheraccount.privatelink.blob.core.windows.net/private/synthetic.heic",
+    "https://blob.core.windows.net/private/synthetic.heic",
+    "https://otheraccount.queue.core.windows.net/private/synthetic.heic",
+    `https://child.${host}/private/synthetic.heic`,
+    `https://${host}.evil.example/private/synthetic.heic`,
+    `http://${host}/private/synthetic.heic`,
+    `https://${host}:8443/private/synthetic.heic`,
+    `https://user:password@${host}/private/synthetic.heic`,
+    `https://${host}/?sig=synthetic`,
+  ];
+  let fetchCalls = 0;
+  let writeCalls = 0;
+  for (const downloadLink of rejectedLinks) {
+    await assert.rejects(
+      () => handler(async () => {
+        writeCalls += 1;
+        throw new Error("Must not create.");
+      }, mealBody({ openaiFileIdRefs: [imageRef({ download_link: downloadLink })] }), {
+        fetchImage: async () => { fetchCalls += 1; throw new Error("Must not fetch."); },
+        uploadPhoto: async () => { writeCalls += 1; throw new Error("Must not upload."); },
+      }),
+      (error: unknown) => error instanceof AddMealRequestError && error.status === 400 && error.code === "invalid_image_refs",
+    );
+  }
+  assert.equal(fetchCalls, 0);
+  assert.equal(writeCalls, 0);
+});
+
 test("rejects unsafe or unsupported image references before download", async () => {
   const refs = [
     imageRef({ mime_type: "image/gif" }),
