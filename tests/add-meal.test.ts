@@ -770,7 +770,7 @@ test("reports safe image reference reasons without private URL or file values", 
     { ref: imageRef({ download_link: "https://secret-user:secret-pass@provider.example/private-photo" }), reason: "credentials_or_port" },
     { ref: imageRef({ download_link: "https://provider.example:8443/private-photo" }), reason: "credentials_or_port" },
     { ref: imageRef({ download_link: "https://provider.example/?signature=secret-query" }), reason: "missing_path" },
-    { ref: imageRef({ download_link: privateUrl }), reason: "unsupported_host(host=provider.example)" },
+    { ref: imageRef({ download_link: privateUrl }), reason: "unsupported_host" },
     { ref: imageRef({ download_link: `https://${"a".repeat(254)}.example/private-photo` }), reason: "unsupported_host" },
     { ref: imageRef({ download_link: "https://[::1]/private-photo" }), reason: "unsupported_host" },
     { ref: imageRef({ mime_type: "application/octet-stream" }), reason: "unsupported_mime" },
@@ -783,8 +783,8 @@ test("reports safe image reference reasons without private URL or file values", 
         assert.ok(error instanceof AddMealRequestError);
         assert.equal(error.status, 400);
         assert.equal(error.code, "invalid_image_refs");
-        assert.equal(error.message, `openaiFileIdRefs contains no usable image. [image-ref-v2: ${reason}]`);
-        assert.doesNotMatch(error.message, /private-photo|secret-|signature|https?:|file-123/u);
+        assert.equal(error.message, `openaiFileIdRefs contains no usable image. Reasons: ${reason}.`);
+        assert.doesNotMatch(error.message, /provider\.example|\.example|\[::1\]|private-photo|secret-|signature|https?:|file-123|image-ref-v2/u);
         return true;
       },
     );
@@ -793,7 +793,7 @@ test("reports safe image reference reasons without private URL or file values", 
   assert.ok(parseAddMealRequest(mealBody({ openaiFileIdRefs: [null, validRef] }), NOW).imageRef);
   assert.throws(
     () => parseAddMealRequest(mealBody({ openaiFileIdRefs: [null, null, {}] }), NOW),
-    /\[image-ref-v2: missing_ref_object, missing_download_link\]/u,
+    /Reasons: missing_ref_object, missing_download_link\./u,
   );
 });
 

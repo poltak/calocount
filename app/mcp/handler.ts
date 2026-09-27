@@ -480,12 +480,12 @@ function toolErrorResult(code: string, message: string) {
 
 function mappedMealBody(arguments_: JsonObject): JsonObject {
   if (Object.hasOwn(arguments_, "openaiFileIdRefs")) {
-    throw new AddMealRequestError(400, "invalid_field", "openaiFileIdRefs is not supported by MCP. Use meals with top-level photos and photo_meal_indices so ChatGPT can supply file values. [mcp/photos]");
+    throw new AddMealRequestError(400, "invalid_field", "openaiFileIdRefs is not supported by MCP. Use meals with top-level photos and photo_meal_indices so ChatGPT can supply file values.");
   }
   if (Array.isArray(arguments_.meals)) {
     for (const [index, meal] of arguments_.meals.entries()) {
       if (isObject(meal) && Object.hasOwn(meal, "openaiFileIdRefs")) {
-        throw new AddMealRequestError(400, "invalid_field", `meals[${index}].openaiFileIdRefs is not supported by MCP. Use top-level photos and photo_meal_indices so ChatGPT can supply file values. [mcp/photos]`);
+        throw new AddMealRequestError(400, "invalid_field", `meals[${index}].openaiFileIdRefs is not supported by MCP. Use top-level photos and photo_meal_indices so ChatGPT can supply file values.`);
       }
     }
   }
@@ -645,7 +645,7 @@ async function createToolCall(ownerKey: string, arguments_: JsonObject, dependen
     return await parseToolResponse(await dependencies.addMeals(ownerKey, mappedMealBody(arguments_)));
   } catch (error) {
     const safe = safeToolError(error);
-    return toolErrorResult(safe.code, safe.code === "invalid_image_refs" ? `${safe.message} [mcp/photos]` : safe.message);
+    return toolErrorResult(safe.code, safe.message);
   }
 }
 

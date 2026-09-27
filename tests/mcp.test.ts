@@ -466,7 +466,7 @@ test("reports safe URL rejection reasons through the real MCP meal core", async 
     }),
   });
   const cases = [
-    { url: "https://provider.example/private-photo?signature=secret-query#secret-fragment", reason: "unsupported_host(host=provider.example)" },
+    { url: "https://provider.example/private-photo?signature=secret-query#secret-fragment", reason: "unsupported_host" },
     { url: "/mnt/data/private-photo.heic", reason: "malformed_download_url" },
     { url: "file_secret-id", reason: "malformed_download_url" },
     { url: "https://secret-user:secret-pass@provider.example/private-photo?signature=secret-query", reason: "credentials_or_port" },
@@ -484,9 +484,9 @@ test("reports safe URL rejection reasons through the real MCP meal core", async 
     assert.equal(payload.result.isError, true);
     assert.deepEqual(payload.result.structuredContent.error, {
       code: "invalid_image_refs",
-      message: `openaiFileIdRefs contains no usable image. [image-ref-v2: ${reason}] [mcp/photos]`,
+      message: `openaiFileIdRefs contains no usable image. Reasons: ${reason}.`,
     });
-    assert.doesNotMatch(JSON.stringify(payload), /private-photo|secret-|signature|https?:/u);
+    assert.doesNotMatch(JSON.stringify(payload), /provider\.example|private-photo|secret-|signature|https?:|image-ref-v2|\[mcp\/photos\]/u);
   }
   assert.equal(fetchCalls, 0);
   assert.equal(createCalls, 0);
@@ -504,7 +504,7 @@ test("rejects legacy per-meal file refs before the MCP meal core runs", async ()
     assert.equal(payload.result.isError, true);
     assert.equal(payload.result.structuredContent.error.code, "invalid_field");
     assert.match(payload.result.structuredContent.error.message, /Use top-level photos and photo_meal_indices/u);
-    assert.match(payload.result.structuredContent.error.message, /\[mcp\/photos\]/u);
+    assert.doesNotMatch(payload.result.structuredContent.error.message, /\[mcp\/photos\]/u);
     assert.doesNotMatch(JSON.stringify(payload), /secret-file-id/u);
   }
   assert.equal(coreCalls, 0);
@@ -521,7 +521,7 @@ test("rejects the legacy top-level single-meal file handoff at the MCP boundary"
   assert.equal(payload.result.isError, true);
   assert.equal(payload.result.structuredContent.error.code, "invalid_field");
   assert.match(payload.result.structuredContent.error.message, /Use meals with top-level photos and photo_meal_indices/u);
-  assert.match(payload.result.structuredContent.error.message, /\[mcp\/photos\]/u);
+  assert.doesNotMatch(payload.result.structuredContent.error.message, /\[mcp\/photos\]/u);
   assert.doesNotMatch(JSON.stringify(payload), /secret-file-id/u);
   assert.equal(coreCalls, 0);
 });

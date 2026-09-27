@@ -272,9 +272,7 @@ function safeOpenAIFileUrl(value: unknown): OpenAIFileUrlResult {
   if (!parsed.pathname || parsed.pathname === "/") return { reason: "missing_path" };
   const hostname = parsed.hostname.toLowerCase();
   if (!isAllowedOpenAIFileHost(hostname)) {
-    // Return only a bounded DNS hostname, never the signed URL or other URL components.
-    const safeHostname = /^[a-z0-9.-]{1,253}$/u.test(hostname) ? hostname : null;
-    return { reason: safeHostname ? `unsupported_host(host=${safeHostname})` : "unsupported_host" };
+    return { reason: "unsupported_host" };
   }
   return { downloadLink: parsed.toString() };
 }
@@ -309,7 +307,7 @@ function parseImageRef(body: Record<string, unknown>): OpenAIFileRef | undefined
     reasons.add(url.reason);
   }
 
-  throw new AddMealRequestError(400, "invalid_image_refs", `openaiFileIdRefs contains no usable image. [image-ref-v2: ${[...reasons].join(", ")}]`);
+  throw new AddMealRequestError(400, "invalid_image_refs", `openaiFileIdRefs contains no usable image. Reasons: ${[...reasons].join(", ")}.`);
 }
 
 export function parseAddMealRequest(body: Record<string, unknown>, now = Date.now()): AddMealRequest {
