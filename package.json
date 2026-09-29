@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "check": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run build && pnpm run unused:check",
+    "check": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run build && pnpm -r --if-present run test && pnpm run unused:check",
     "build": "pnpm -r --if-present run build",
     "lint": "oxlint --deny-warnings backend frontend common",
     "unused:check": "knip",

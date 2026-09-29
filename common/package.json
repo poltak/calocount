@@ -7,10 +7,23 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./features/core/events/event-emitter": {
+      "types": "./dist/features/core/events/event-emitter.d.ts",
+      "default": "./dist/features/core/events/event-emitter.js"
+    },
+    "./features/core/logic/logic-plugin": {
+      "types": "./dist/features/core/logic/logic-plugin.d.ts",
+      "default": "./dist/features/core/logic/logic-plugin.js"
+    },
+    "./features/core/logic/logic": {
+      "types": "./dist/features/core/logic/logic.d.ts",
+      "default": "./dist/features/core/logic/logic.js"
     }
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "pnpm run build && node --test tests/*.test.mjs"
   }
 }

@@ -15,8 +15,8 @@ LogicPlugin classes encapsulate a reusable slice of state and the methods that
 act on it. They are not limited to UI Logic classes. Many Logic classes may use
 the same LogicPlugin class, but each Logic instance must receive its own
 LogicPlugin instance and its own plugin state. A LogicPlugin must not depend on
-another LogicPlugin or on a Logic class. Supply the LogicPlugin instance and its
-dependencies through each consuming Logic class's setup function.
+another LogicPlugin or on a Logic class. Create each plugin instance through its
+consuming Logic's `plugins` factory.
 
 Service and Storage classes may hold injected clients and technical handles needed
 for their boundary. They must not own application or product state. Logic and
@@ -57,6 +57,26 @@ in `common/package.json` when another workspace needs to import it. Code that th
 frontend imports from `common` must work in a browser and must not depend on
 backend-only APIs or secrets. Apart from imports from `common`, workspaces should
 not have cross-workspace imports.
+
+## Logic and event infrastructure
+
+Import these modules through their public package subpaths:
+
+- `@shadow/common/features/core/logic/logic`
+- `@shadow/common/features/core/logic/logic-plugin`
+- `@shadow/common/features/core/events/event-emitter`
+
+Construct each Logic with explicit `deps` and `initialState`. Pass plugin
+factories in `plugins`; each factory receives the Logic's dependencies and must
+return a new plugin instance for that Logic. Each LogicPlugin instance owns its
+own state and takes explicit `deps` and `initialState`.
+
+`emit` is fire-and-forget. It ignores listener errors and rejected promises.
+Use `emitAsync` when the caller must observe listener failures; it waits for all
+listeners and rejects with an `AggregateError` if any listener fails.
+
+Do not await `cleanup()` from the same Logic or LogicPlugin's `onInitialize()`.
+Cleanup waits for initialization to finish, so that call would not complete.
 
 ## Dependency flow
 
