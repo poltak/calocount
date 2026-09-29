@@ -3,9 +3,10 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "check": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run build",
+    "check": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run build && pnpm run unused:check",
     "build": "pnpm -r --if-present run build",
     "lint": "oxlint --deny-warnings backend frontend common",
+    "unused:check": "knip",
     "typecheck": "pnpm --filter @shadow/common build && pnpm -r --if-present run typecheck",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
@@ -27,6 +28,7 @@
     "node": "26.10.0"
   },
   "devDependencies": {
+    "knip": "6.38.0",
     "lint-staged": "17.6.0",
     "oxlint": "1.85.0",
     "prettier": "3.9.9",

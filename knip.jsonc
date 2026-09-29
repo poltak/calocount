@@ -1,0 +1,19 @@
+{
+  "workspaces": {
+    ".": {
+      "entry": [
+        ".agents/hooks/format-edited-files.mjs",
+        ".agents/hooks/format-edited-files.test.mjs",
+      ],
+      "project": [".agents/hooks/**/*.mjs"],
+    },
+    "backend": {
+      // The shared package is declared before this workspace has code that imports it.
+      "ignoreDependencies": ["@shadow/common"],
+    },
+    "frontend": {
+      // The shared package is declared before this workspace has code that imports it.
+      "ignoreDependencies": ["@shadow/common"],
+    },
+  },
+}
