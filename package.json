@@ -5,7 +5,10 @@
   "scripts": {
     "build": "pnpm -r --if-present run build",
     "lint": "oxlint --deny-warnings backend frontend common",
-    "typecheck": "pnpm --filter @shadow/common build && pnpm -r --if-present run typecheck"
+    "typecheck": "pnpm --filter @shadow/common build && pnpm -r --if-present run typecheck",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prepare": "simple-git-hooks"
   },
   "description": "",
   "keywords": [],
@@ -23,7 +26,16 @@
     "node": "26.10.0"
   },
   "devDependencies": {
+    "lint-staged": "17.6.0",
     "oxlint": "1.85.0",
+    "prettier": "3.9.9",
+    "simple-git-hooks": "2.14.0",
     "typescript": "7.0.2"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "pnpm exec lint-staged"
+  },
+  "lint-staged": {
+    "**/*": "prettier --write --ignore-unknown"
   }
 }

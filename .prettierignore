@@ -1,0 +1,6 @@
+all-in-one-app-boilerplate/
+.agents/skills/
+**/node_modules/
+**/dist/
+**/coverage/
+pnpm-lock.yaml

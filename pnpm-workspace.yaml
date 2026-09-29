@@ -3,4 +3,7 @@ packages:
   - frontend
   - common
 
+allowBuilds:
+  simple-git-hooks: true
+
 engineStrict: true

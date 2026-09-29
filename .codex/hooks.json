@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "^apply_patch$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "REPO_ROOT=\"$(git rev-parse --show-toplevel)\" && node \"$REPO_ROOT/.agents/hooks/format-edited-files.mjs\" \"$REPO_ROOT\"",
+            "timeout": 60
+          }
+        ]
+      }
+    ]
+  }
+}
