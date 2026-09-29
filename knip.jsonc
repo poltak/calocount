@@ -8,6 +8,7 @@
       "project": [".agents/hooks/**/*.mjs"],
     },
     "backend": {
+      "entry": ["src/live/index.ts", "src/tests/index.ts"],
       // The shared package is declared before this workspace has code that imports it.
       "ignoreDependencies": ["@shadow/common"],
     },

@@ -147,6 +147,18 @@ Classify a boundary by what it does:
 
 ## Backend handlers
 
+`backend/src/live/index.ts` and `backend/src/tests/index.ts` each define
+`createApp()`. Import the entrypoint for the required environment so a test app
+does not load live service modules. `backend/src/index.ts` defines the shared
+`App` types without runtime imports. Both entrypoints create the same Storage
+classes and pass a database instance that implements the shared `Database`
+interface. Place each live service and its fake in separate files at the same
+`services/` depth, with their shared interface in `types.ts`. Keep integration
+setup in these composition roots and business rules in backend Logic classes.
+The service and database interfaces will gain methods when those operations are
+defined. The current implementations are stubs: live integrations and test
+persistence do not perform I/O yet.
+
 Backend handlers are transport entrypoints. New handlers should validate and
 normalize their input, apply transport-level authentication when required,
 delegate to a backend Logic entrypoint, and map the result to the transport
