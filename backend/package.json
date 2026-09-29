@@ -9,9 +9,13 @@
     "test": "pnpm run build && node --test tests/*.test.mjs"
   },
   "dependencies": {
-    "@shadow/common": "workspace:*"
+    "@shadow/common": "workspace:*",
+    "kysely": "0.29.6",
+    "pg": "8.23.0"
   },
   "devDependencies": {
-    "@types/node": "26.6.3"
+    "@electric-sql/pglite": "0.5.8",
+    "@types/node": "26.6.3",
+    "@types/pg": "8.23.1"
   }
 }

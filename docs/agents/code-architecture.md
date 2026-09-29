@@ -151,13 +151,16 @@ Classify a boundary by what it does:
 `createApp()`. Import the entrypoint for the required environment so a test app
 does not load live service modules. `backend/src/index.ts` defines the shared
 `App` types without runtime imports. Both entrypoints create the same Storage
-classes and pass a database instance that implements the shared `Database`
-interface. Place each live service and its fake in separate files at the same
-`services/` depth, with their shared interface in `types.ts`. Keep integration
+classes and pass a `Kysely<DatabaseSchema>` instance. The live database factory
+uses a PostgreSQL pool. The live entrypoint reads `DATABASE_URL` by default;
+callers may instead pass `databaseUrl` to `createApp`. The test factory uses a
+fresh in-memory PGlite database. Call `App.close()` to release either database.
+Place each live service and its fake in separate files at the same `services/`
+depth, with their shared interface in `types.ts`. Keep integration
 setup in these composition roots and business rules in backend Logic classes.
-The service and database interfaces will gain methods when those operations are
-defined. The current implementations are stubs: live integrations and test
-persistence do not perform I/O yet.
+The service interfaces will gain methods when those operations are defined.
+`DatabaseSchema` will gain table types with the first migration. The storage
+and service classes are still stubs; they have no application operations yet.
 
 Backend handlers are transport entrypoints. New handlers should validate and
 normalize their input, apply transport-level authentication when required,

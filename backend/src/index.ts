@@ -16,4 +16,6 @@ export interface BackendServices {
 export interface App {
   storage: BackendStorage;
   services: BackendServices;
+  /** Release the database connection pool or in-memory database. */
+  close(): Promise<void>;
 }
