@@ -1,0 +1,15 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn"
+  },
+  "rules": {
+    "unicorn/require-module-specifiers": "off"
+  },
+  "ignorePatterns": [
+    "all-in-one-app-boilerplate/**",
+    "**/dist/**",
+    "**/coverage/**"
+  ]
+}
