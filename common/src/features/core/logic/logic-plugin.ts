@@ -63,7 +63,7 @@ export abstract class LogicPlugin<
     }
 
     this.lifecycleState = "initializing";
-    const promise = this.runInitialize();
+    const promise = Promise.resolve().then(() => this.runInitialize());
     this.initializationPromise = promise;
     return promise;
   }

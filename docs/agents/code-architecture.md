@@ -71,12 +71,15 @@ factories in `plugins`; each factory receives the Logic's dependencies and must
 return a new plugin instance for that Logic. Each LogicPlugin instance owns its
 own state and takes explicit `deps` and `initialState`.
 
-`emit` is fire-and-forget. It ignores listener errors and rejected promises.
-Use `emitAsync` when the caller must observe listener failures; it waits for all
-listeners and rejects with an `AggregateError` if any listener fails.
+`emit` returns a promise. It calls every listener, waits for all listeners, and
+rejects with an `AggregateError` if any listener throws or rejects. Await `emit`
+or handle its rejection when you intentionally start it without waiting.
 
 Do not await `cleanup()` from the same Logic or LogicPlugin's `onInitialize()`.
-Cleanup waits for initialization to finish, so that call would not complete.
+Initialization waits for `onInitialize()`, and cleanup waits for initialization.
+Awaiting cleanup from that hook would create a wait cycle. An external caller may
+still call cleanup during initialization; cleanup waits for initialization to
+settle before it runs.
 
 ## Dependency flow
 

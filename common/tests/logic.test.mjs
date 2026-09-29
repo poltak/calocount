@@ -139,8 +139,12 @@ describe("Logic and LogicPlugin", () => {
 
   it("runs concurrent initialization requests once", async () => {
     let finishInitialization;
+    let signalInitializationStarted;
     const gate = new Promise((resolve) => {
       finishInitialization = resolve;
+    });
+    const started = new Promise((resolve) => {
+      signalInitializationStarted = resolve;
     });
     const trace = [];
 
@@ -151,6 +155,7 @@ describe("Logic and LogicPlugin", () => {
 
       async onInitialize() {
         this.deps.trace.push("init:waiting");
+        signalInitializationStarted();
         await this.deps.gate;
       }
     }
@@ -169,6 +174,8 @@ describe("Logic and LogicPlugin", () => {
     const firstInitialization = logic.initialize();
     const secondInitialization = logic.initialize();
 
+    assert.deepEqual(trace, []);
+    await started;
     assert.deepEqual(trace, ["init:waiting"]);
     finishInitialization();
     await Promise.all([firstInitialization, secondInitialization]);
@@ -177,8 +184,12 @@ describe("Logic and LogicPlugin", () => {
 
   it("waits for in-flight initialization before cleanup", async () => {
     let finishInitialization;
+    let signalInitializationStarted;
     const gate = new Promise((resolve) => {
       finishInitialization = resolve;
+    });
+    const started = new Promise((resolve) => {
+      signalInitializationStarted = resolve;
     });
     const trace = [];
 
@@ -189,6 +200,7 @@ describe("Logic and LogicPlugin", () => {
 
       async onInitialize() {
         this.deps.trace.push("init:waiting");
+        signalInitializationStarted();
         await this.deps.gate;
         this.deps.trace.push("init:finished");
       }
@@ -210,6 +222,9 @@ describe("Logic and LogicPlugin", () => {
 
     const logic = new WaitingLogic({ trace, gate });
     const initialization = logic.initialize();
+
+    assert.deepEqual(trace, []);
+    await started;
     const cleanup = logic.cleanup();
 
     assert.deepEqual(trace, ["init:waiting"]);
@@ -227,15 +242,75 @@ describe("Logic and LogicPlugin", () => {
     ]);
   });
 
+  it("assigns the Logic initialization promise before its hook runs", async () => {
+    const trace = [];
+
+    class CleanupRequestLogic extends Logic {
+      constructor() {
+        super({ deps: { trace }, initialState: {} });
+      }
+
+      async onInitialize() {
+        trace.push("logic:init:start");
+        void this.cleanup();
+        trace.push("logic:init:end");
+      }
+
+      async onCleanup() {
+        trace.push("logic:cleanup");
+      }
+    }
+
+    const logic = new CleanupRequestLogic();
+    await logic.initialize();
+    await logic.cleanup();
+
+    assert.deepEqual(trace, [
+      "logic:init:start",
+      "logic:init:end",
+      "logic:cleanup",
+    ]);
+  });
+
+  it("assigns the plugin initialization promise before its hook runs", async () => {
+    const trace = [];
+
+    class CleanupRequestPlugin extends LogicPlugin {
+      constructor() {
+        super({ deps: { trace }, initialState: {} });
+      }
+
+      async onInitialize() {
+        this.deps.trace.push("plugin:init:start");
+        void this.cleanup();
+        this.deps.trace.push("plugin:init:end");
+      }
+
+      async onCleanup() {
+        this.deps.trace.push("plugin:cleanup");
+      }
+    }
+
+    const plugin = new CleanupRequestPlugin();
+    await plugin.initialize();
+    await plugin.cleanup();
+
+    assert.deepEqual(trace, [
+      "plugin:init:start",
+      "plugin:init:end",
+      "plugin:cleanup",
+    ]);
+  });
+
   it("cleans listeners and plugins once", async () => {
     const trace = [];
     const logic = new CounterLogic({ trace });
     logic.observe();
-    logic.source.emit(3);
+    await logic.source.emit(3);
 
     await Promise.all([logic.initialize(), logic.initialize()]);
     await Promise.all([logic.cleanup(), logic.cleanup()]);
-    logic.source.emit(7);
+    await logic.source.emit(7);
     await logic.cleanup();
 
     assert.equal(logic.state.value, 3);

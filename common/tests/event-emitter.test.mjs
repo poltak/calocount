@@ -4,7 +4,7 @@ import { describe, it } from "node:test";
 import { EventEmitter } from "@shadow/common/features/core/events/event-emitter";
 
 describe("EventEmitter", () => {
-  it("uses a stable listener snapshot and supports idempotent unsubscribe", () => {
+  it("uses a stable listener snapshot and supports idempotent unsubscribe", async () => {
     const emitter = new EventEmitter();
     const calls = [];
     let unsubscribeSecond;
@@ -12,8 +12,8 @@ describe("EventEmitter", () => {
     const unsubscribeFirst = emitter.listen(() => unsubscribeSecond());
     unsubscribeSecond = emitter.listen((event) => calls.push(event));
 
-    emitter.emit("first");
-    emitter.emit("second");
+    await emitter.emit("first");
+    await emitter.emit("second");
     unsubscribeSecond();
     unsubscribeFirst();
     unsubscribeFirst();
@@ -22,34 +22,25 @@ describe("EventEmitter", () => {
     assert.equal(emitter.size, 0);
   });
 
-  it("reports all async listener failures from emitAsync", async () => {
-    const emitter = new EventEmitter();
-    emitter.listen(async () => {
-      throw new Error("first failure");
-    });
-    emitter.listen(async () => {
-      throw new Error("second failure");
-    });
-
-    await assert.rejects(emitter.emitAsync("event"), (error) => {
-      assert.ok(error instanceof AggregateError);
-      assert.deepEqual(
-        error.errors.map((listenerError) => listenerError.message),
-        ["first failure", "second failure"],
-      );
-      return true;
-    });
-  });
-
-  it("does not stop emit when a listener throws", () => {
+  it("reports sync and async listener failures from emit", async () => {
     const emitter = new EventEmitter();
     const calls = [];
     emitter.listen(() => {
-      throw new Error("ignored by fire-and-forget emit");
+      throw new Error("sync failure");
+    });
+    emitter.listen(async () => {
+      throw new Error("async failure");
     });
     emitter.listen(() => calls.push("called"));
 
-    emitter.emit("event");
+    await assert.rejects(emitter.emit("event"), (error) => {
+      assert.ok(error instanceof AggregateError);
+      assert.deepEqual(
+        error.errors.map((listenerError) => listenerError.message),
+        ["sync failure", "async failure"],
+      );
+      return true;
+    });
 
     assert.deepEqual(calls, ["called"]);
   });

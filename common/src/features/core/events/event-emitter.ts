@@ -19,22 +19,8 @@ export class EventEmitter<Event> {
     };
   }
 
-  /** Notify every listener and ignore listener errors. */
-  emit(event: Event): void {
-    for (const listener of Array.from(this.listeners)) {
-      try {
-        const result = listener(event);
-        if (result !== undefined) {
-          void Promise.resolve(result).catch(() => undefined);
-        }
-      } catch {
-        // Fire-and-forget listeners must not block other listeners.
-      }
-    }
-  }
-
   /** Notify every listener and reject if one or more listeners fail. */
-  async emitAsync(event: Event): Promise<void> {
+  async emit(event: Event): Promise<void> {
     const results = await Promise.allSettled(
       Array.from(this.listeners).map(async (listener) => listener(event)),
     );
