@@ -1,11 +1,12 @@
 {
   "name": "shadow",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "private": true,
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "pnpm -r --if-present run build",
+    "typecheck": "pnpm --filter @shadow/common build && pnpm -r --if-present run typecheck"
   },
+  "description": "",
   "keywords": [],
   "author": "WorldBrain",
   "devEngines": {
@@ -19,5 +20,8 @@
   "type": "module",
   "engines": {
     "node": "26.10.0"
+  },
+  "devDependencies": {
+    "typescript": "7.0.2"
   }
 }

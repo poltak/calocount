@@ -1,1 +1,6 @@
+packages:
+  - backend
+  - frontend
+  - common
+
 engineStrict: true
