@@ -73,7 +73,9 @@ own state and takes explicit `deps` and `initialState`.
 
 `emit` returns a promise. It calls every listener, waits for all listeners, and
 rejects with an `AggregateError` if any listener throws or rejects. Await `emit`
-or handle its rejection when you intentionally start it without waiting.
+when the caller needs the outcome. Use `emitDetached` when the caller does not
+need to wait or observe listener failures. It returns without waiting and
+deliberately discards those failures.
 
 Do not await `cleanup()` from the same Logic or LogicPlugin's `onInitialize()`.
 Initialization waits for `onInitialize()`, and cleanup waits for initialization.

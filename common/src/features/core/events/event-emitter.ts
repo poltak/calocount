@@ -33,6 +33,11 @@ export class EventEmitter<Event> {
     }
   }
 
+  /** Notify listeners without waiting for them or reporting their errors. */
+  emitDetached(event: Event): void {
+    void this.emit(event).catch(() => undefined);
+  }
+
   clear(): void {
     this.listeners.clear();
   }

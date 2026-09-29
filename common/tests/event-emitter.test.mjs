@@ -44,4 +44,28 @@ describe("EventEmitter", () => {
 
     assert.deepEqual(calls, ["called"]);
   });
+
+  it("emits without waiting and discards listener failures", async () => {
+    const emitter = new EventEmitter();
+    const calls = [];
+    let finishListener;
+    const gate = new Promise((resolve) => {
+      finishListener = resolve;
+    });
+
+    emitter.listen(async (event) => {
+      calls.push(`started:${event}`);
+      await gate;
+      calls.push(`finished:${event}`);
+      throw new Error("ignored by detached emit");
+    });
+    emitter.listen((event) => calls.push(`other:${event}`));
+
+    assert.equal(emitter.emitDetached("event"), undefined);
+    assert.deepEqual(calls, ["started:event", "other:event"]);
+
+    finishListener();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(calls, ["started:event", "other:event", "finished:event"]);
+  });
 });
