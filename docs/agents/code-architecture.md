@@ -51,7 +51,9 @@ Utility functions shared by features in one workspace belong in that workspace's
 
 `common` exposes modules that other workspaces may import. Its features live in
 `common/src/features/<feature>/` and follow the same feature directory layout.
-Expose shared modules through `common`'s public package entrypoint. Code that the
+Do not add barrel files that re-export many modules. Import modules from their
+defining files. Expose a shared module through an explicit package subpath export
+in `common/package.json` when another workspace needs to import it. Code that the
 frontend imports from `common` must work in a browser and must not depend on
 backend-only APIs or secrets. Apart from imports from `common`, workspaces should
 not have cross-workspace imports.

@@ -9,6 +9,9 @@ project information. Read the documents that apply to the task.
 - This is a pnpm workspace with `backend`, `frontend`, and `common` packages.
 - Use the Node version in `.nvmrc` and the pnpm version in `package.json`.
 - Put code used by both apps in `common`. Code imported by `frontend` must work in a browser. Keep server-only code in `backend`.
+- Avoid barrel exports. Do not add `index` files that re-export many modules.
+  Import from defining modules. Use explicit package subpath exports when a
+  workspace needs to expose a public API.
 
 ## Checks
 
