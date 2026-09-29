@@ -1,10 +1,6 @@
-import type { Database } from "../../../database/database.js";
-
-export interface EncounterLifecycleStorageProps {
-  db: Database;
-}
+import type { BackendStorageProps } from "../../../storage/types.js";
 
 /** Shared storage boundary for live and test database implementations. */
 export class EncounterLifecycleStorage {
-  constructor(readonly props: EncounterLifecycleStorageProps) {}
+  constructor(readonly props: BackendStorageProps) {}
 }

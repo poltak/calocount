@@ -155,6 +155,8 @@ classes and pass a `Kysely<DatabaseSchema>` instance. The live database factory
 uses a PostgreSQL pool. The live entrypoint reads `DATABASE_URL` by default;
 callers may instead pass `databaseUrl` to `createApp`. The test factory uses a
 fresh in-memory PGlite database. Call `App.close()` to release either database.
+Backend Storage constructors use `BackendStorageProps` from
+`backend/src/storage/types.ts`; extend it when a class needs more dependencies.
 Place each live service and its fake in separate files at the same `services/`
 depth, with their shared interface in `types.ts`. Keep integration
 setup in these composition roots and business rules in backend Logic classes.
