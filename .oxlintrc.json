@@ -7,6 +7,32 @@
   "rules": {
     "unicorn/require-module-specifiers": "off"
   },
+  "overrides": [
+    {
+      "files": ["frontend/src/**", "common/src/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "^(?:backend|@shadow/backend)(?:/|$)",
+                "message": "Frontend and common code must not import the backend workspace."
+              },
+              {
+                "regex": "^(?:\\.\\./)+backend(?:/|$)",
+                "message": "Frontend and common code must not import the backend workspace."
+              },
+              {
+                "regex": "^(?:node:|(?:_http_agent|_http_client|_http_common|_http_incoming|_http_outgoing|_http_server|_tls_common|_tls_wrap|assert|async_hooks|buffer|child_process|cluster|console|constants|crypto|dgram|diagnostics_channel|dns|domain|events|fs|http|http2|https|inspector|module|net|os|path|perf_hooks|process|punycode|querystring|readline|repl|stream|string_decoder|sys|timers|tls|trace_events|tty|url|util|v8|vm|wasi|worker_threads|zlib)(?:/|$))",
+                "message": "Frontend and common code must not import Node.js built-ins."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
   "ignorePatterns": [
     "all-in-one-app-boilerplate/**",
     "**/dist/**",
