@@ -5,6 +5,15 @@ import { createApp } from "../dist/tests/index.js";
 
 function createFixture(context) {
   const app = createApp();
+  // Handler unit tests use a verified caller; integration tests exercise real cookies.
+  context.mock.method(app.services.auth, "getSession", async () => ({
+    user: { id: "test-owner", email: "owner@example.test", name: "Owner" },
+    session: {
+      id: "test-session",
+      userId: "test-owner",
+      expiresAt: new Date("2099-01-01"),
+    },
+  }));
   context.after(() => app.close());
   return { app, httpApp: createHttpApp({ app }) };
 }

@@ -56,30 +56,56 @@ describe("typed API client", () => {
     try {
       const api = createApiClient({
         baseUrl: "http://shadow.test",
-        fetch: backend.fetch,
+        fetch: backend.createBrowserTransport(),
       });
+      // Use a real session; the injected transport keeps cookies in memory.
+      const credentials = {
+        email: "owner@example.test",
+        name: "Owner",
+        password: "test-password-for-auth-only",
+      };
+      await backend.app.services.auth.createAccount(credentials);
+      const fetch = backend.createBrowserTransport();
+      await fetch("http://shadow.test/api/auth/sign-in/email", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(credentials),
+      });
+      const authenticatedApi = createApiClient({
+        baseUrl: "http://shadow.test",
+        fetch,
+      });
+      expect((await api.api.me.$get()).status).toBe(401);
       const start = vi
         .spyOn(backend.app.logic.encounterLifecycle, "start")
         .mockResolvedValue(undefined);
-      const success = await api.encounters[":encounterId"].start.$post({
+      const success = await authenticatedApi.encounters[
+        ":encounterId"
+      ].start.$post({
         param: { encounterId: "enc-1" },
       });
       expect(success.status).toBe(204);
       expect(start).toHaveBeenCalledWith({ encounterId: "enc-1" });
       const reservedId = "enc/part?tag=#%";
-      const reserved = await api.encounters[":encounterId"].start.$post({
+      const reserved = await authenticatedApi.encounters[
+        ":encounterId"
+      ].start.$post({
         param: { encounterId: encodeApiParam(reservedId) },
       });
       expect(reserved.status).toBe(204);
       expect(start).toHaveBeenLastCalledWith({ encounterId: reservedId });
-      const invalid = await api.encounters[":encounterId"].start.$post({
+      const invalid = await authenticatedApi.encounters[
+        ":encounterId"
+      ].start.$post({
         param: { encounterId: " " },
       });
       expect(invalid.status).toBe(400);
       expect(start).toHaveBeenCalledTimes(2);
-      const stub = await api.encounters[":encounterId"].stop.$post({
-        param: { encounterId: "enc-1" },
-      });
+      const stub = await authenticatedApi.encounters[":encounterId"].stop.$post(
+        {
+          param: { encounterId: "enc-1" },
+        },
+      );
       await expect(requireApiSuccess(stub)).rejects.toMatchObject({
         name: "ApiRequestError",
         status: 501,

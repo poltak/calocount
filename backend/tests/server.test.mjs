@@ -49,8 +49,8 @@ it(
       const response = await fetch(`${address}/encounters/enc-1/${operation}`, {
         method: "POST",
       });
-      assert.equal(response.status, 501);
-      assert.equal((await response.json()).error.code, "NOT_IMPLEMENTED");
+      assert.equal(response.status, 401);
+      assert.equal((await response.json()).error.code, "UNAUTHENTICATED");
     }
 
     child.kill("SIGTERM");

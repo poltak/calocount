@@ -21,8 +21,8 @@ describe("in-memory backend transport", () => {
       "http://shadow.test/encounters/enc-1/start",
       { method: "POST" },
     );
-    assert.equal(response.status, 501);
-    assert.equal((await response.json()).error.code, "NOT_IMPLEMENTED");
+    assert.equal(response.status, 401);
+    assert.equal((await response.json()).error.code, "UNAUTHENTICATED");
     assert.equal(network.mock.callCount(), 0);
   });
 

@@ -1,10 +1,12 @@
 import { createHttpApp } from "../server/http-app.js";
 import { createApp } from "./index.js";
+import { createBrowserTransport } from "./browser-transport.js";
 
 /** Node-only fixture: real handlers and validation, with no listening socket. */
 export async function createTestBackend() {
   const app = createApp();
   try {
+    await app.services.auth.migrate();
     await app.logic.encounterLifecycle.initialize();
   } catch (error) {
     await app.close();
@@ -20,5 +22,12 @@ export async function createTestBackend() {
     return httpApp.request(request);
   };
 
-  return { app, httpApp, fetch, close: () => app.close() };
+  return {
+    app,
+    httpApp,
+    fetch,
+    createBrowserTransport: () =>
+      createBrowserTransport({ fetch, origin: "http://shadow.test" }),
+    close: () => app.close(),
+  };
 }

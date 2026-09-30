@@ -13,6 +13,6 @@
 - `POST /encounters/:encounterId/start`, `/pause`, and `/stop` validate a non-empty encounter ID with Zod, then call the matching `EncounterLifecycleLogic` method.
 - All three Logic methods are stubs. Valid requests return **501** with `error.code = "NOT_IMPLEMENTED"`; invalid IDs return **400** before Logic runs. No encounter state is read or changed.
 - Handlers return **204** when a Logic method succeeds. Request bodies, the final ID format, and result contracts will be defined with the feature implementation.
-- Authentication is not implemented in this scaffold. The server binds to localhost by default.
+- All business endpoints require a valid session; unauthenticated requests return 401. Auth entry points remain reachable under `/api/auth/*`. See [authentication](authentication.md) for configuration. The server binds to localhost by default.
 
 Track temporary contracts and unfinished setup in [TODOs from initial set up](initial-setup-todos.md).
