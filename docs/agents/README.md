@@ -8,6 +8,7 @@ should read each one.
 ## Current reference
 
 - [Code architecture](code-architecture.md): read before changing code in any workspace. It defines class roles, feature layout, and dependency direction.
+- [Technology choices](../technology-choices.md): read when selecting or changing backend frameworks and validation tools.
 - The root `AGENTS.md` has the workspace map and basic checks.
 - The workspace packages are `backend`, `frontend`, and `common`. The `common` package is a local dependency of both apps through `workspace:*`.
 - The root `pnpm run typecheck` command checks all three packages. The root `pnpm run build` command builds `common` and `backend`. The frontend has no build tool yet.
