@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { Kysely, sql } from "kysely";
+import { Logic } from "@shadow/common/features/core/logic/logic";
 
 import { AIService as FakeAIService } from "../dist/features/ai/services/fake-ai-service.js";
 import { AIService as LiveAIService } from "../dist/features/ai/services/ai-service.js";
+import { EncounterLifecycleLogic } from "../dist/features/encounter-lifecycle/logic/encounter-lifecycle-logic.js";
 import { EncounterLifecycleStorage } from "../dist/features/encounter-lifecycle/storage/encounter-lifecycle-storage.js";
 import { PatientRecordsService as FakePatientRecordsService } from "../dist/features/patient-records/services/fake-patient-records-service.js";
 import { PatientRecordsService as LivePatientRecordsService } from "../dist/features/patient-records/services/patient-records-service.js";
@@ -20,7 +22,7 @@ describe("createApp", () => {
     );
   });
 
-  it("wires live storage and services without connecting", async () => {
+  it("wires live storage, services, and Logic without connecting", async () => {
     const app = createLiveApp({
       databaseUrl: "postgresql://user:password@127.0.0.1:1/shadow",
     });
@@ -34,6 +36,22 @@ describe("createApp", () => {
       assert.ok(app.services.transcription instanceof LiveTranscriptionService);
       assert.ok(
         app.services.patientRecords instanceof LivePatientRecordsService,
+      );
+      assert.ok(
+        app.logic.encounterLifecycle instanceof EncounterLifecycleLogic,
+      );
+      assert.ok(app.logic.encounterLifecycle instanceof Logic);
+      assert.strictEqual(
+        app.logic.encounterLifecycle.props.storage.encounterLifecycle,
+        app.storage.encounterLifecycle,
+      );
+      assert.strictEqual(
+        app.logic.encounterLifecycle.props.services,
+        app.services,
+      );
+      assert.strictEqual(
+        app.logic.encounterLifecycle.deps,
+        app.logic.encounterLifecycle.props,
       );
     } finally {
       await app.close();
@@ -56,6 +74,29 @@ describe("createApp", () => {
       assert.ok(
         first.services.patientRecords instanceof FakePatientRecordsService,
       );
+      assert.ok(
+        first.logic.encounterLifecycle instanceof EncounterLifecycleLogic,
+      );
+      assert.strictEqual(
+        first.logic.encounterLifecycle.props.storage.encounterLifecycle,
+        first.storage.encounterLifecycle,
+      );
+      assert.strictEqual(
+        first.logic.encounterLifecycle.props.services,
+        first.services,
+      );
+      assert.strictEqual(
+        first.logic.encounterLifecycle.deps,
+        first.logic.encounterLifecycle.props,
+      );
+      assert.notStrictEqual(
+        first.logic.encounterLifecycle,
+        second.logic.encounterLifecycle,
+      );
+      assert.notStrictEqual(
+        first.logic.encounterLifecycle.state,
+        second.logic.encounterLifecycle.state,
+      );
       assert.notStrictEqual(
         first.storage.encounterLifecycle.props.db,
         second.storage.encounterLifecycle.props.db,
@@ -77,6 +118,29 @@ describe("createApp", () => {
       );
     } finally {
       await Promise.all([first.close(), second.close()]);
+    }
+  });
+
+  it("releases the database even when Logic cleanup fails", async (context) => {
+    const app = createTestApp();
+    const db = app.storage.encounterLifecycle.props.db;
+    const destroy = db.destroy.bind(db);
+    const calls = [];
+
+    context.mock.method(app.logic.encounterLifecycle, "cleanup", async () => {
+      calls.push("logic");
+      throw new Error("cleanup failed");
+    });
+    context.mock.method(db, "destroy", async () => {
+      calls.push("database");
+      await destroy();
+    });
+
+    try {
+      await assert.rejects(app.close(), /cleanup failed/);
+      assert.deepEqual(calls, ["logic", "database"]);
+    } finally {
+      await destroy();
     }
   });
 });
