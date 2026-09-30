@@ -1,11 +1,15 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "unicorn", "oxc", "react", "jsx-a11y"],
   "categories": {
     "correctness": "error",
     "suspicious": "warn"
   },
   "rules": {
-    "unicorn/require-module-specifiers": "off"
+    "unicorn/require-module-specifiers": "off",
+    "react/rules-of-hooks": "error",
+    "react/exhaustive-deps": "warn",
+    "react/react-in-jsx-scope": "off"
   },
   "overrides": [
     {
@@ -26,6 +30,41 @@
               {
                 "regex": "^(?:node:|(?:_http_agent|_http_client|_http_common|_http_incoming|_http_outgoing|_http_server|_tls_common|_tls_wrap|assert|async_hooks|buffer|child_process|cluster|console|constants|crypto|dgram|diagnostics_channel|dns|domain|events|fs|http|http2|https|inspector|module|net|os|path|perf_hooks|process|punycode|querystring|readline|repl|stream|string_decoder|sys|timers|tls|trace_events|tty|url|util|v8|vm|wasi|worker_threads|zlib)(?:/|$))",
                 "message": "Frontend and common code must not import Node.js built-ins."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["frontend/src/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "backend/api",
+                "allowTypeImports": true,
+                "message": "Import only the public API type; backend runtime code must not reach the browser."
+              }
+            ],
+            "patterns": [
+              {
+                "regex": "^(?:backend|@shadow/backend)(?!/api$)(?:/|$)",
+                "message": "Only the public backend/api type may be imported by frontend code."
+              },
+              {
+                "regex": "^@shadow/backend/api$",
+                "message": "Use the explicit backend/api type export."
+              },
+              {
+                "regex": "^(?:\\.\\./)+backend(?:/|$)",
+                "message": "Use the public API type instead of importing backend source."
+              },
+              {
+                "regex": "^(?:node:|(?:_http_agent|_http_client|_http_common|_http_incoming|_http_outgoing|_http_server|_tls_common|_tls_wrap|assert|async_hooks|buffer|child_process|cluster|console|constants|crypto|dgram|diagnostics_channel|dns|domain|events|fs|http|http2|https|inspector|module|net|os|path|perf_hooks|process|punycode|querystring|readline|repl|stream|string_decoder|sys|timers|tls|trace_events|tty|url|util|v8|vm|wasi|worker_threads|zlib)(?:/|$))",
+                "message": "Frontend code must not import Node.js built-ins."
               }
             ]
           }

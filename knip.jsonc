@@ -15,8 +15,12 @@
       ],
     },
     "frontend": {
-      // The shared package is declared before this workspace has code that imports it.
-      "ignoreDependencies": ["@shadow/common"],
+      "entry": [
+        "src/live/index.ts",
+        "src/tests/index.ts",
+        "src/logic/types.ts",
+        "src/features/core/logic/use-logic.ts",
+      ],
     },
   },
 }

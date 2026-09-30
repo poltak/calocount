@@ -55,8 +55,10 @@ Do not add barrel files that re-export many modules. Import modules from their
 defining files. Expose a shared module through an explicit package subpath export
 in `common/package.json` when another workspace needs to import it. Code that the
 frontend imports from `common` must work in a browser and must not depend on
-backend-only APIs or secrets. Apart from imports from `common`, workspaces should
-not have cross-workspace imports.
+backend-only APIs or secrets. Apart from imports from `common`, the only
+cross-workspace imports are the frontend's type-only `backend/api` contract and
+Node test files' `backend/testing` fixture. Backend runtime modules must not
+enter the browser bundle.
 
 ## Logic and event infrastructure
 
@@ -98,6 +100,7 @@ Keep dependencies moving in one direction:
 - Backend Logic classes -> Storage class -> persistent data
 - Backend handlers -> Backend Logic classes
 - UI components -> UI Logic classes -> Services -> external services or APIs
+- UI components -> UI Logic classes -> first-party API client -> backend handlers
 - UI components -> UI Logic classes -> Storage classes -> persistent data
 - Logic classes -> LogicPlugin classes
 - LogicPlugin classes -> the same dependencies permitted for their consuming Logic layer
@@ -146,7 +149,8 @@ When in doubt, ask which layer owns the decision:
 
 Classify a boundary by what it does:
 
-- HTTP and WebSocket clients, authentication SDKs, and browser or platform capabilities belong in Services.
+- Third-party HTTP and WebSocket clients, authentication SDKs, and browser or platform capabilities belong in Services.
+- Access to this application's backend belongs in a typed first-party API client, exposed as the frontend App's `api`. Derive its request and response types from the backend route contract. It is separate from the Service collection and does not need a feature Service wrapper.
 - A Service may transport data or change notifications, but direct database reads and writes belong in Storage.
 - Filesystem access belongs in a Service when it exposes a platform capability. It belongs in Storage when it persists or loads application data.
 
@@ -154,7 +158,9 @@ Classify a boundary by what it does:
 
 Use composition roots to construct Storage and Service instances, then inject
 the required dependencies and explicit initial state into Logic instances.
-Expose typed `storage`, `services`, and `logic` collections on the application.
+Expose typed `storage` and `services` collections on the application. Backend
+applications also expose their long-lived `logic` collection.
+Frontend applications expose their typed first-party `api` client.
 Keep dependency setup in these roots and business rules in Logic classes.
 
 Backend Logic constructors accept a shared props type that selects the required
@@ -176,6 +182,14 @@ must release Logic before its dependencies, and must still release the remaining
 resources if a cleanup step fails. Keep runtime startup separate from route
 definitions so tests can call handlers without starting a network server.
 
+For a frontend, create the API client, Storage, and Services once per application instance. UI
+Logic belongs to the component or provider that owns the UI state. Create it
+through a React hook when that owner renders, initialize it after commit, and
+clean it up when the owner unmounts. Do not create all UI Logic at app startup.
+Keep constructors and plugin factories free of external effects because React
+may discard a render. Use a state subscription to connect Logic to rendering;
+React must not replace the Logic instance's state methods.
+
 ## Backend handlers
 
 Backend handlers are transport entrypoints. New handlers should validate and
@@ -193,7 +207,13 @@ Business logic that already exists inside a handler is an architecture violation
 and should be reported as legacy debt. During normal coding tasks, do not require
 immediate refactoring only to correct that existing structure. Put new or
 substantially changed business logic behind a backend Logic class. A caller-side
-Service for the backend API does not replace the architecture inside the handler.
+API client does not replace the architecture inside the handler.
+
+Use the same typed API client in live and test setup. Live transport sends HTTP
+requests. Test transport may call the handler application directly with in-memory
+Request and Response objects, without starting a server. Keep validation, error
+mapping, and handler delegation in that path. Direct backend Logic calls belong
+in Logic unit tests, rather than replacing the API path in application tests.
 
 ## Practical check before shipping
 
