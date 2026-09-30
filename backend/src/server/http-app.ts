@@ -8,10 +8,8 @@ interface HttpAppProps {
 
 /** Register HTTP handlers against an existing business App. */
 export function createHttpApp({ app }: HttpAppProps) {
-  const httpApp = new Hono();
-  httpApp.route(
+  return new Hono().route(
     "/encounters",
     createEncounterLifecycleHandlers({ logic: app.logic }),
   );
-  return httpApp;
 }

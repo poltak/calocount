@@ -28,32 +28,29 @@ export function createEncounterLifecycleHandlers({
     throw error;
   });
 
-  handlers.post(
-    "/:encounterId/start",
-    zValidator("param", encounterParamsSchema),
-    async (context) => {
-      await logic.encounterLifecycle.start(context.req.valid("param"));
-      return context.body(null, 204);
-    },
-  );
-
-  handlers.post(
-    "/:encounterId/pause",
-    zValidator("param", encounterParamsSchema),
-    async (context) => {
-      await logic.encounterLifecycle.pause(context.req.valid("param"));
-      return context.body(null, 204);
-    },
-  );
-
-  handlers.post(
-    "/:encounterId/stop",
-    zValidator("param", encounterParamsSchema),
-    async (context) => {
-      await logic.encounterLifecycle.stop(context.req.valid("param"));
-      return context.body(null, 204);
-    },
-  );
-
-  return handlers;
+  return handlers
+    .post(
+      "/:encounterId/start",
+      zValidator("param", encounterParamsSchema),
+      async (context) => {
+        await logic.encounterLifecycle.start(context.req.valid("param"));
+        return context.body(null, 204);
+      },
+    )
+    .post(
+      "/:encounterId/pause",
+      zValidator("param", encounterParamsSchema),
+      async (context) => {
+        await logic.encounterLifecycle.pause(context.req.valid("param"));
+        return context.body(null, 204);
+      },
+    )
+    .post(
+      "/:encounterId/stop",
+      zValidator("param", encounterParamsSchema),
+      async (context) => {
+        await logic.encounterLifecycle.stop(context.req.valid("param"));
+        return context.body(null, 204);
+      },
+    );
 }

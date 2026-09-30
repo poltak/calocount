@@ -3,6 +3,15 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "exports": {
+    "./api": {
+      "types": "./dist/api.d.ts"
+    },
+    "./testing": {
+      "types": "./dist/tests/api.d.ts",
+      "default": "./dist/tests/api.js"
+    }
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
