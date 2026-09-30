@@ -25,6 +25,11 @@ describe("createApp", () => {
   it("wires live storage, services, and Logic without connecting", async () => {
     const app = createLiveApp({
       databaseUrl: "postgresql://user:password@127.0.0.1:1/shadow",
+      auth: {
+        secret: "test-secret-that-is-at-least-32-characters",
+        baseUrl: "http://shadow.test",
+        trustedOrigins: [],
+      },
     });
 
     try {

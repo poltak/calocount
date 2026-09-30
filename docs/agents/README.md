@@ -11,6 +11,7 @@ should read each one.
 - [Technology choices](../technology-choices.md): read when selecting or changing frontend or backend frameworks and tools.
 - [Frontend setup](frontend-setup.md): read when changing frontend App composition, React hooks, or Vite configuration.
 - [Backend API](backend-api.md): read when changing server startup, routes, or backend App setup.
+- [Authentication](authentication.md): read when changing auth configuration, sessions, or account setup.
 - [TODOs from initial set up](initial-setup-todos.md): read and update while initial setup continues. Record temporary behavior and unresolved decisions with code links; close items when resolved.
 - [Full application test plan](full-application-test-plan.md): read when changing integration tests. It records the shared UI/backend/database fixture and its remaining limits.
 - The root `AGENTS.md` has the workspace map and basic checks.

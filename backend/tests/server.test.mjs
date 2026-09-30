@@ -14,6 +14,8 @@ it(
         DATABASE_URL: "postgresql://user:password@127.0.0.1:1/shadow",
         HOST: "127.0.0.1",
         PORT: "0",
+        BETTER_AUTH_SECRET: "test-secret-that-is-at-least-32-characters",
+        BETTER_AUTH_URL: "http://127.0.0.1:3000",
       },
       stdio: ["ignore", "pipe", "pipe"],
     });

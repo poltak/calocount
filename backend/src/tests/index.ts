@@ -1,4 +1,6 @@
 import { createDatabase } from "../database/pglite-database.js";
+import { randomBytes } from "node:crypto";
+import { AuthService } from "../features/auth/services/auth-service.js";
 import { AIService } from "../features/ai/services/fake-ai-service.js";
 import { EncounterLifecycleLogic } from "../features/encounter-lifecycle/logic/encounter-lifecycle-logic.js";
 import { EncounterLifecycleStorage } from "../features/encounter-lifecycle/storage/encounter-lifecycle-storage.js";
@@ -18,6 +20,12 @@ export function createApp(): App {
     encounterLifecycle: new EncounterLifecycleStorage({ db }),
   };
   const services: BackendServices = {
+    auth: new AuthService({
+      db,
+      secret: randomBytes(32).toString("base64"),
+      baseUrl: "http://shadow.test",
+      trustedOrigins: [],
+    }),
     ai: new AIService(),
     transcription: new TranscriptionService(),
     patientRecords: new PatientRecordsService(),

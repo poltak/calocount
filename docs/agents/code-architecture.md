@@ -152,6 +152,7 @@ Classify a boundary by what it does:
 - Third-party HTTP and WebSocket clients, authentication SDKs, and browser or platform capabilities belong in Services.
 - Access to this application's backend belongs in a typed first-party API client, exposed as the frontend App's `api`. Derive its request and response types from the backend route contract. It is separate from the Service collection and does not need a feature Service wrapper.
 - A Service may transport data or change notifications, but direct database reads and writes belong in Storage.
+- An embedded framework may manage its own internal persistence through its native adapter. Configure that adapter in app setup and keep it behind the framework's Service boundary. This is a narrow exception for framework-owned tables; application data still belongs in Storage. Local integration tests may use the real embedded framework with an isolated database.
 - Filesystem access belongs in a Service when it exposes a platform capability. It belongs in Storage when it persists or loads application data.
 
 ## Application setup

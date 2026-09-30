@@ -1,0 +1,74 @@
+import { betterAuth } from "better-auth";
+import { getMigrations } from "better-auth/db/migration";
+import type { Database } from "../../../database/database.js";
+import type { AuthConfiguration } from "./configuration.js";
+import type { AuthService as AuthServiceContract, AuthUser } from "./types.js";
+
+interface AuthServiceProps extends AuthConfiguration {
+  db: Database;
+}
+
+/** Embedded authentication SDK; Better Auth owns its auth-table persistence. */
+export class AuthService implements AuthServiceContract {
+  private auth?: ReturnType<AuthService["createInstance"]>;
+  readonly trustedOrigins: readonly string[];
+
+  constructor(private readonly props: AuthServiceProps) {
+    this.trustedOrigins = Array.from(
+      new Set([new URL(props.baseUrl).origin, ...props.trustedOrigins]),
+    );
+  }
+
+  private options() {
+    return {
+      appName: "Shadow",
+      database: { db: this.props.db, type: "postgres" as const },
+      secret: this.props.secret,
+      baseURL: this.props.baseUrl,
+      trustedOrigins: [...this.trustedOrigins],
+      emailAndPassword: { enabled: true, disableSignUp: true },
+    };
+  }
+
+  private instance() {
+    // Keep composition lazy: creating an App does not open its database.
+    return (this.auth ??= this.createInstance());
+  }
+
+  private createInstance() {
+    return betterAuth(this.options());
+  }
+
+  handle(request: Request): Promise<Response> {
+    return this.instance().handler(request);
+  }
+
+  async getSession({ headers }: { headers: Headers }) {
+    if (!headers.get("cookie")) return null;
+    return this.instance().api.getSession({ headers });
+  }
+
+  async migrate(): Promise<void> {
+    const migration = await getMigrations(this.options());
+    await migration.runMigrations();
+  }
+
+  async createAccount(props: {
+    email: string;
+    name: string;
+    password: string;
+  }): Promise<AuthUser> {
+    // This private SDK instance is used only by trusted setup code. Its handler
+    // is never mounted. The public instance always has registration disabled.
+    const provisioning = betterAuth({
+      ...this.options(),
+      emailAndPassword: {
+        enabled: true,
+        disableSignUp: false,
+        autoSignIn: false,
+      },
+    });
+    const result = await provisioning.api.signUpEmail({ body: props });
+    return result.user;
+  }
+}
