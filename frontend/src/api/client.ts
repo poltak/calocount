@@ -4,12 +4,24 @@ import { hc } from "hono/client";
 export interface ApiClientProps {
   baseUrl?: string;
   fetch?: typeof globalThis.fetch;
+  onSessionRejected?: () => void;
 }
 
 /** First-party client; its endpoint and request types come from Hono routes. */
-export function createApiClient({ baseUrl = "", fetch }: ApiClientProps = {}) {
+export function createApiClient({
+  baseUrl = "",
+  fetch,
+  onSessionRejected,
+}: ApiClientProps = {}) {
+  const transport = fetch ?? globalThis.fetch.bind(globalThis);
+  const authenticatedFetch: typeof globalThis.fetch = async (input, init) => {
+    const response = await transport(input, init);
+    if (response.status === 401) onSessionRejected?.();
+    return response;
+  };
   return hc<ApiType>(baseUrl.replace(/\/+$/, ""), {
-    fetch: fetch ?? globalThis.fetch.bind(globalThis),
+    init: { credentials: "include" },
+    fetch: authenticatedFetch,
   });
 }
 

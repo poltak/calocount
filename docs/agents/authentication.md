@@ -12,6 +12,9 @@
 - `backend/testing` migrates isolated auth tables and provides one cookie-aware transport per simulated browser. The raw transport is stateless. The cookie helper is test-only and limited to one configured origin.
 - Single-user admission belongs in `AuthAccessLogic`. A valid session for any email other than the configured `SHADOW_OWNER_EMAIL` returns 403. User IDs and sessions remain normal Better Auth records; changing to a multi-user policy later does not require a new auth system.
 - `OwnerSetupLogic` reads the existing account count through AuthStorage and creates only the configured owner through the Service. It refuses to replace existing credentials. The SDK's unique email constraint prevents concurrent attempts from creating multiple owners.
+- The frontend exposes Better Auth's native client as `app.auth`, alongside the Hono `app.api` client. Both include cookies and use the same transport. AuthLogic owns session and sign-in state; components render that state and call its methods. UI route guards are convenience checks; server middleware remains the access boundary.
+- Sign-in checks the protected `/api/me` profile before showing the app. Sign-out clears the SDK session. Business API 401 responses and window focus refreshes update UI access. There is no signup page, default password, token in local storage, or password recovery flow yet.
+- Full application tests exercise the sign-in form, rejected passwords, owner admission, expiry, and sign-out with real handlers and auth tables in one process. Tests inject a cookie-aware transport into both clients; no network fetch is required.
 
 ## Local setup
 

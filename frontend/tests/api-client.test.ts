@@ -46,6 +46,9 @@ describe("typed API client", () => {
       "POST",
       "POST",
     ]);
+    expect(
+      fetch.mock.calls.every(([, init]) => init?.credentials === "include"),
+    ).toBe(true);
   });
 
   it("calls real handlers and validation in memory without global fetch", async () => {

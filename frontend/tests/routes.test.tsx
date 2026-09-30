@@ -12,8 +12,12 @@ import { FrontendAppProvider } from "../src/app/frontend-app-context.js";
 import { AppRoutes } from "../src/app/routes.js";
 import { createApp } from "../src/tests/index.js";
 
-const fetch: typeof globalThis.fetch = async () =>
-  new Response(null, { status: 204 });
+const fetch: typeof globalThis.fetch = async (input) =>
+  String(input).endsWith("/api/me")
+    ? Response.json({
+        user: { id: "owner", email: "owner@example.test", name: "Owner" },
+      })
+    : new Response(null, { status: 204 });
 afterEach(cleanup);
 
 function renderApp(path = "/") {
@@ -31,6 +35,7 @@ function renderApp(path = "/") {
 describe("example routes", () => {
   it("mutates local Logic state and creates fresh state after navigation", async () => {
     renderApp();
+    await screen.findByRole("button", { name: "Increase" });
     fireEvent.click(screen.getByRole("button", { name: "Increase" }));
     fireEvent.click(screen.getByRole("button", { name: "Increase" }));
     expect(screen.getByLabelText("Count").textContent).toBe("2");
@@ -49,6 +54,7 @@ describe("example routes", () => {
 
   it("reads route parameters and reports a successful command", async () => {
     renderApp("/examples/api/enc-42");
+    await screen.findByRole("button", { name: "Start" });
     expect(screen.getByText("enc-42")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Start" }));
     await waitFor(() =>
@@ -59,10 +65,10 @@ describe("example routes", () => {
     expect(screen.getByLabelText("Completed commands").textContent).toBe("1");
   });
 
-  it("renders a fallback for an unknown route", () => {
+  it("renders a fallback for an unknown route", async () => {
     renderApp("/missing");
     expect(
-      screen.getByRole("heading", { name: "Page not found" }),
+      await screen.findByRole("heading", { name: "Page not found" }),
     ).toBeTruthy();
   });
 });

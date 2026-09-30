@@ -31,6 +31,8 @@ describe("frontend app", () => {
     expect(firstApp.storage).not.toBe(secondApp.storage);
     expect(firstApp.services).not.toBe(secondApp.services);
     expect(firstApp.api).not.toBe(secondApp.api);
+    expect(firstApp.auth).not.toBe(secondApp.auth);
+    expect(firstApp.apiAccessEvents).not.toBe(secondApp.apiAccessEvents);
   });
 
   it("makes the app available through its provider", () => {

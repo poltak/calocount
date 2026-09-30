@@ -1,11 +1,14 @@
-import { Link, NavLink, Route, Routes } from "react-router";
+import { Link, NavLink, Outlet, Route, Routes } from "react-router";
 import { ApiExamplePage } from "../features/examples/ui/api-example-page.js";
 import { CounterPage } from "../features/examples/ui/counter-page.js";
+import { AuthProvider, useAuth } from "../features/auth/ui/auth-context.js";
+import { SessionGate } from "../features/auth/ui/session-gate.js";
+import { LoginPage } from "../features/auth/ui/login-page.js";
 
-/** Router-agnostic composition: BrowserRouter in live, MemoryRouter in tests. */
-export function AppRoutes() {
+function ProtectedLayout() {
+  const { logic, state } = useAuth();
   return (
-    <div className="app-shell">
+    <>
       <header>
         <Link className="brand" to="/">
           Shadow
@@ -16,25 +19,48 @@ export function AppRoutes() {
           </NavLink>
           <NavLink to="/examples/api/example-encounter">API example</NavLink>
         </nav>
+        <div className="session-actions">
+          <span>{state.user?.name}</span>
+          <button disabled={state.busy} onClick={() => void logic.signOut()}>
+            Sign out
+          </button>
+        </div>
       </header>
+      {state.error && <p role="alert">{state.error}</p>}
       <main>
-        <Routes>
-          <Route path="/" element={<CounterPage />} />
-          <Route
-            path="/examples/api/:encounterId?"
-            element={<ApiExamplePage />}
-          />
-          <Route
-            path="*"
-            element={
-              <section>
-                <h1>Page not found</h1>
-                <Link to="/">Go to the counter example</Link>
-              </section>
-            }
-          />
-        </Routes>
+        <Outlet />
       </main>
-    </div>
+    </>
+  );
+}
+
+/** Router-agnostic composition: BrowserRouter in live, MemoryRouter in tests. */
+export function AppRoutes() {
+  return (
+    <AuthProvider>
+      <div className="app-shell">
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route element={<SessionGate />}>
+            <Route element={<ProtectedLayout />}>
+              <Route path="/" element={<CounterPage />} />
+              <Route
+                path="/examples/api/:encounterId?"
+                element={<ApiExamplePage />}
+              />
+              <Route
+                path="*"
+                element={
+                  <section>
+                    <h1>Page not found</h1>
+                    <Link to="/">Go to the counter example</Link>
+                  </section>
+                }
+              />
+            </Route>
+          </Route>
+        </Routes>
+      </div>
+    </AuthProvider>
   );
 }

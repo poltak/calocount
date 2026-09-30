@@ -80,3 +80,27 @@ a:focus-visible {
 [role="alert"] {
   color: #9b1c1c;
 }
+.session-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.login-panel {
+  max-width: 360px;
+  margin: 10vh auto;
+}
+.login-panel form {
+  display: grid;
+  gap: 12px;
+}
+input {
+  min-width: 0;
+  padding: 10px 12px;
+  font: inherit;
+  border: 1px solid #b9c4da;
+  border-radius: 8px;
+}
+input:focus-visible {
+  outline: 3px solid #3049a5;
+  outline-offset: 3px;
+}

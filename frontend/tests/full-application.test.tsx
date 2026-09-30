@@ -61,7 +61,7 @@ describe("full application fixture", () => {
         </StrictMode>,
       );
 
-      fireEvent.click(screen.getByRole("button", { name: "Start" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Start" }));
       await waitFor(() =>
         expect(screen.getByLabelText("Completed commands").textContent).toBe(
           "1",
