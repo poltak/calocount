@@ -8,12 +8,14 @@ should read each one.
 ## Current reference
 
 - [Code architecture](code-architecture.md): read before changing code in any workspace. It defines class roles, feature layout, and dependency direction.
-- [Technology choices](../technology-choices.md): read when selecting or changing backend frameworks and validation tools.
+- [Technology choices](../technology-choices.md): read when selecting or changing frontend or backend frameworks and tools.
+- [Frontend setup](frontend-setup.md): read when changing frontend App composition, React hooks, or Vite configuration.
 - [Backend API](backend-api.md): read when changing server startup, routes, or backend App setup.
 - [TODOs from initial set up](initial-setup-todos.md): read and update while initial setup continues. Record temporary behavior and unresolved decisions with code links; close items when resolved.
+- [Full application test plan](full-application-test-plan.md): read when changing integration tests. It records the shared UI/backend/database fixture and its remaining limits.
 - The root `AGENTS.md` has the workspace map and basic checks.
 - The workspace packages are `backend`, `frontend`, and `common`. The `common` package is a local dependency of both apps through `workspace:*`.
-- The root `pnpm run typecheck` command checks all three packages. The root `pnpm run build` command builds `common` and `backend`. The frontend has no build tool yet.
+- The root `pnpm run typecheck` command checks all three packages. The root `pnpm run build` command builds all three packages, including the frontend through Vite.
 
 ## Where to add information
 
