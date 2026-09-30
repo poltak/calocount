@@ -2,6 +2,8 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router";
 import { FrontendAppProvider } from "./app/frontend-app-context.js";
+import { AppRoutes } from "./app/routes.js";
+import "./app/app.css";
 import { createApp } from "./live/index.js";
 
 const rootElement = document.getElementById("root");
@@ -14,7 +16,7 @@ createRoot(rootElement).render(
   <StrictMode>
     <FrontendAppProvider app={app}>
       <BrowserRouter>
-        <h1>Shadow</h1>
+        <AppRoutes />
       </BrowserRouter>
     </FrontendAppProvider>
   </StrictMode>,
