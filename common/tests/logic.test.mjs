@@ -17,6 +17,10 @@ class CounterPlugin extends LogicPlugin {
     this.setState({ count: this.state.count + 1 });
   }
 
+  setCount(count) {
+    this.setState({ count });
+  }
+
   async onInitialize() {
     this.deps.trace.push("plugin:init");
   }
@@ -135,6 +139,101 @@ describe("Logic and LogicPlugin", () => {
     assert.equal(first.plugins.counter.state.count, 1);
     assert.equal(second.plugins.counter.state.count, 0);
     assert.equal(first.state.value, 0);
+  });
+
+  it("notifies subscribers synchronously only when state values change", () => {
+    const logic = new CounterLogic();
+    const initialState = logic.getState();
+    const snapshots = [];
+    const unsubscribe = logic.subscribe(() => {
+      snapshots.push(logic.getState());
+    });
+
+    logic.setState({});
+    logic.setState({ value: 0 });
+
+    assert.equal(logic.getState(), initialState);
+    assert.deepEqual(snapshots, []);
+
+    logic.setState({ value: 3 });
+
+    assert.equal(snapshots.length, 1);
+    assert.equal(snapshots[0], logic.getState());
+    assert.notEqual(snapshots[0], initialState);
+
+    unsubscribe();
+    logic.setState({ value: 4 });
+    assert.equal(snapshots.length, 1);
+  });
+
+  it("clears state subscribers during cleanup", async () => {
+    const logic = new CounterLogic();
+    let notifications = 0;
+    const unsubscribe = logic.subscribe(() => {
+      notifications += 1;
+    });
+
+    logic.setState({ value: 1 });
+    assert.equal(notifications, 1);
+
+    await logic.cleanup();
+    logic.setState({ value: 2 });
+    unsubscribe();
+
+    assert.equal(notifications, 1);
+
+    logic.subscribe(() => {
+      notifications += 1;
+    });
+    logic.setState({ value: 3 });
+    assert.equal(notifications, 1);
+  });
+
+  it("notifies plugin subscribers synchronously only when state changes", () => {
+    const plugin = new CounterPlugin({ deps: { trace: [] } });
+    const snapshots = [];
+    const unsubscribe = plugin.subscribe(() => {
+      snapshots.push(plugin.getState());
+    });
+
+    plugin.setCount(0);
+    assert.deepEqual(snapshots, []);
+
+    plugin.increment();
+    assert.equal(snapshots.length, 1);
+    assert.equal(snapshots[0], plugin.getState());
+    plugin.setCount(1);
+    assert.equal(snapshots.length, 1);
+
+    plugin.setCount(2);
+    assert.equal(snapshots.length, 2);
+    assert.equal(snapshots[1], plugin.getState());
+
+    unsubscribe();
+    plugin.increment();
+    assert.equal(snapshots.length, 2);
+  });
+
+  it("clears plugin state subscribers during cleanup", async () => {
+    const plugin = new CounterPlugin({ deps: { trace: [] } });
+    let notifications = 0;
+    plugin.subscribe(() => {
+      notifications += 1;
+    });
+
+    plugin.increment();
+    assert.equal(notifications, 1);
+
+    await plugin.cleanup();
+    plugin.increment();
+
+    assert.equal(notifications, 1);
+
+    plugin.subscribe(() => {
+      notifications += 1;
+    });
+    plugin.increment();
+    assert.equal(notifications, 1);
   });
 
   it("runs concurrent initialization requests once", async () => {

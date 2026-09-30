@@ -71,6 +71,11 @@ factories in `plugins`; each factory receives the Logic's dependencies and must
 return a new plugin instance for that Logic. Each LogicPlugin instance owns its
 own state and takes explicit `deps` and `initialState`.
 
+Logic and LogicPlugin expose stable state snapshots through `getState()` and
+notify `subscribe()` listeners after a state change. Replace changed state with
+`setState()`; do not mutate a snapshot in place. Each plugin's state is observed
+separately from its consuming Logic's state.
+
 `emit` returns a promise. It calls every listener, waits for all listeners, and
 rejects with an `AggregateError` if any listener throws or rejects. Await `emit`
 when the caller needs the outcome. Use `emitDetached` when the caller does not

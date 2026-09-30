@@ -27,6 +27,7 @@ export abstract class LogicPlugin<
 
   protected readonly deps: Deps;
   private currentState: State;
+  private readonly stateListeners = new Set<() => void>();
   private readonly cleanupCallbacks = new Set<Unsubscribe>();
   private lifecycleState: LifecycleState = "new";
   private initializationPromise?: Promise<void>;
@@ -45,8 +46,40 @@ export abstract class LogicPlugin<
     return this.currentState;
   }
 
+  subscribe(listener: () => void): Unsubscribe {
+    if (
+      this.lifecycleState === "failed" ||
+      this.lifecycleState === "cleaning" ||
+      this.lifecycleState === "cleaned"
+    ) {
+      return () => undefined;
+    }
+
+    this.stateListeners.add(listener);
+    let subscribed = true;
+    return () => {
+      if (!subscribed) {
+        return;
+      }
+      subscribed = false;
+      this.stateListeners.delete(listener);
+    };
+  }
+
   protected setState(updates: Partial<State>): void {
-    this.currentState = { ...this.currentState, ...updates };
+    const currentState = this.currentState;
+    const hasChangedValue = Object.entries(updates).some(
+      ([key, value]) => !Object.is(currentState[key as keyof State], value),
+    );
+    if (!hasChangedValue) {
+      return;
+    }
+
+    this.currentState = { ...currentState, ...updates };
+    const listeners = Array.from(this.stateListeners);
+    for (const listener of listeners) {
+      listener();
+    }
   }
 
   initialize(): Promise<void> {
@@ -153,6 +186,7 @@ export abstract class LogicPlugin<
     }
 
     this.events.clear();
+    this.stateListeners.clear();
     this.lifecycleState = "cleaned";
 
     if (errors.length > 0) {
