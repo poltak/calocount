@@ -66,7 +66,7 @@ Import these modules through their public package subpaths:
 - `@shadow/common/features/core/logic/logic-plugin`
 - `@shadow/common/features/core/events/event-emitter`
 
-Construct each Logic with explicit `deps` and `initialState`. Pass plugin
+Initialize the base Logic with explicit `deps` and `initialState`. Pass plugin
 factories in `plugins`; each factory receives the Logic's dependencies and must
 return a new plugin instance for that Logic. Each LogicPlugin instance owns its
 own state and takes explicit `deps` and `initialState`.
@@ -145,30 +145,44 @@ Classify a boundary by what it does:
 - A Service may transport data or change notifications, but direct database reads and writes belong in Storage.
 - Filesystem access belongs in a Service when it exposes a platform capability. It belongs in Storage when it persists or loads application data.
 
-## Backend handlers
+## Application setup
 
-`backend/src/live/index.ts` and `backend/src/tests/index.ts` each define
-`createApp()`. Import the entrypoint for the required environment so a test app
-does not load live service modules. `backend/src/index.ts` defines the shared
-`App` types without runtime imports. Both entrypoints create the same Storage
-classes and pass a `Kysely<DatabaseSchema>` instance. The live database factory
-uses a PostgreSQL pool. The live entrypoint reads `DATABASE_URL` by default;
-callers may instead pass `databaseUrl` to `createApp`. The test factory uses a
-fresh in-memory PGlite database. Call `App.close()` to release either database.
-Backend Storage constructors use `BackendStorageProps` from
-`backend/src/storage/types.ts`; extend it when a class needs more dependencies.
-Place each live service and its fake in separate files at the same `services/`
-depth, with their shared interface in `types.ts`. Keep integration
-setup in these composition roots and business rules in backend Logic classes.
-The service interfaces will gain methods when those operations are defined.
-`DatabaseSchema` will gain table types with the first migration. The storage
-and service classes are still stubs; they have no application operations yet.
+Use composition roots to construct Storage and Service instances, then inject
+the required dependencies and explicit initial state into Logic instances.
+Expose typed `storage`, `services`, and `logic` collections on the application.
+Keep dependency setup in these roots and business rules in Logic classes.
+
+Backend Logic constructors accept a shared props type that selects the required
+Storage and Service instances by their keys. Feature
+props types can extend it with additional dependencies. Keep these dependencies
+on the Logic instance, and pass the props into the base Logic's `deps`. Operation
+method parameters contain operation data; they do not supply Storage or Service
+instances.
+
+Use separate live and test roots with the same application interface. Tests must
+not load live integration modules. Keep each live Service and its fake in
+separate files at the same feature-local `services/` depth, with their shared
+interface in `types.ts`. Storage classes can share an implementation when the
+database client is injected. Give each test application isolated dependencies.
+
+For a long-running server, construct one application at startup and initialize
+its Logic before accepting requests. Handlers reuse those instances. Cleanup
+must release Logic before its dependencies, and must still release the remaining
+resources if a cleanup step fails. Keep runtime startup separate from route
+definitions so tests can call handlers without starting a network server.
+
+## Backend handlers
 
 Backend handlers are transport entrypoints. New handlers should validate and
 normalize their input, apply transport-level authentication when required,
 delegate to a backend Logic entrypoint, and map the result to the transport
 response. Business logic belongs in backend Logic classes, while external calls
 and persistence remain in Service and Storage classes.
+
+Keep handlers in the feature that owns the operation. The main HTTP application
+registers feature handlers. Handler dependencies should select the required
+features from the shared backend Logic interface with `Pick`, rather than repeat
+the application shape or define a separate collection of Logic classes.
 
 Business logic that already exists inside a handler is an architecture violation
 and should be reported as legacy debt. During normal coding tasks, do not require

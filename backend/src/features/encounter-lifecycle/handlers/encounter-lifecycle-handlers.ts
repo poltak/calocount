@@ -5,7 +5,7 @@ import type { BackendLogic } from "../../../index.js";
 import { EncounterLifecycleNotImplementedError } from "../logic/encounter-lifecycle-logic.js";
 
 const encounterParamsSchema = z.object({
-  // Require a non-empty ID until its format is defined.
+  // Temporary ID validation; see docs/agents/initial-setup-todos.md.
   encounterId: z.string().trim().min(1),
 });
 
