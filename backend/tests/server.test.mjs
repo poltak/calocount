@@ -16,6 +16,7 @@ it(
         PORT: "0",
         BETTER_AUTH_SECRET: "test-secret-that-is-at-least-32-characters",
         BETTER_AUTH_URL: "http://127.0.0.1:3000",
+        SHADOW_OWNER_EMAIL: "owner@example.test",
       },
       stdio: ["ignore", "pipe", "pipe"],
     });

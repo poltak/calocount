@@ -1,13 +1,17 @@
 import { createHttpApp } from "../server/http-app.js";
 import { createApp } from "./index.js";
 import { createBrowserTransport } from "./browser-transport.js";
+import { initializeLogic } from "../logic/lifecycle.js";
 
 /** Node-only fixture: real handlers and validation, with no listening socket. */
-export async function createTestBackend() {
-  const app = createApp();
+export async function createTestBackend({
+  baseUrl = "http://shadow.test",
+  trustedOrigins = [],
+}: { baseUrl?: string; trustedOrigins?: string[] } = {}) {
+  const app = createApp({ authBaseUrl: baseUrl, trustedOrigins });
   try {
     await app.services.auth.migrate();
-    await app.logic.encounterLifecycle.initialize();
+    await initializeLogic({ logic: app.logic });
   } catch (error) {
     await app.close();
     throw error;
@@ -27,7 +31,7 @@ export async function createTestBackend() {
     httpApp,
     fetch,
     createBrowserTransport: () =>
-      createBrowserTransport({ fetch, origin: "http://shadow.test" }),
+      createBrowserTransport({ fetch, origin: new URL(baseUrl).origin }),
     close: () => app.close(),
   };
 }

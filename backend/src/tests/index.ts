@@ -1,6 +1,10 @@
 import { createDatabase } from "../database/pglite-database.js";
 import { randomBytes } from "node:crypto";
 import { AuthService } from "../features/auth/services/auth-service.js";
+import { AuthStorage } from "../features/auth/storage/auth-storage.js";
+import { AuthAccessLogic } from "../features/auth/logic/auth-access-logic.js";
+import { OwnerSetupLogic } from "../features/auth/logic/owner-setup-logic.js";
+import { cleanupLogic } from "../logic/lifecycle.js";
 import { AIService } from "../features/ai/services/fake-ai-service.js";
 import { EncounterLifecycleLogic } from "../features/encounter-lifecycle/logic/encounter-lifecycle-logic.js";
 import { EncounterLifecycleStorage } from "../features/encounter-lifecycle/storage/encounter-lifecycle-storage.js";
@@ -14,17 +18,21 @@ import type {
 } from "../index.js";
 
 /** Compose one backend app with isolated test dependencies. */
-export function createApp(): App {
+export function createApp({
+  authBaseUrl = "http://shadow.test",
+  trustedOrigins = [],
+}: { authBaseUrl?: string; trustedOrigins?: string[] } = {}): App {
   const db = createDatabase();
   const storage: BackendStorage = {
+    auth: new AuthStorage({ db }),
     encounterLifecycle: new EncounterLifecycleStorage({ db }),
   };
   const services: BackendServices = {
     auth: new AuthService({
       db,
       secret: randomBytes(32).toString("base64"),
-      baseUrl: "http://shadow.test",
-      trustedOrigins: [],
+      baseUrl: authBaseUrl,
+      trustedOrigins,
     }),
     ai: new AIService(),
     transcription: new TranscriptionService(),
@@ -32,6 +40,16 @@ export function createApp(): App {
   };
 
   const logic: BackendLogic = {
+    authAccess: new AuthAccessLogic({
+      storage: {},
+      services: {},
+      ownerEmail: "owner@example.test",
+    }),
+    ownerSetup: new OwnerSetupLogic({
+      storage,
+      services,
+      ownerEmail: "owner@example.test",
+    }),
     encounterLifecycle: new EncounterLifecycleLogic({ storage, services }),
   };
 
@@ -41,7 +59,7 @@ export function createApp(): App {
     logic,
     async close() {
       try {
-        await logic.encounterLifecycle.cleanup();
+        await cleanupLogic({ logic });
       } finally {
         await db.destroy();
       }

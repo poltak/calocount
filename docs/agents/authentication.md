@@ -10,3 +10,15 @@
 - Verified identity lives in typed Hono request context. Feature Logic can receive caller identity as operation context when its contracts need it; never set a current user on shared App or Logic instances.
 - CORS permits only configured trusted origins with credentials. Mutation requests with an untrusted Origin are rejected before feature Logic runs. Auth endpoints retain Better Auth's own origin checks.
 - `backend/testing` migrates isolated auth tables and provides one cookie-aware transport per simulated browser. The raw transport is stateless. The cookie helper is test-only and limited to one configured origin.
+- Single-user admission belongs in `AuthAccessLogic`. A valid session for any email other than the configured `SHADOW_OWNER_EMAIL` returns 403. User IDs and sessions remain normal Better Auth records; changing to a multi-user policy later does not require a new auth system.
+- `OwnerSetupLogic` reads the existing account count through AuthStorage and creates only the configured owner through the Service. It refuses to replace existing credentials. The SDK's unique email constraint prevents concurrent attempts from creating multiple owners.
+
+## Local setup
+
+1. Copy the root `.env.example` to `.env`. Set a working PostgreSQL URL and `SHADOW_OWNER_EMAIL`.
+2. Generate a secret with `node --input-type=module -e 'import { randomBytes } from "node:crypto"; console.log(randomBytes(32).toString("base64"))'` and put it in `BETTER_AUTH_SECRET`. Keep `.env` private and untracked.
+3. Run `pnpm --filter backend auth:setup-owner` in a terminal. It migrates auth tables and prompts for the owner's name and password. Password input is hidden and is never accepted as a command argument.
+4. Run `pnpm run build`, then `pnpm --filter backend start`. Backend commands read the root `.env`; explicit process environment values take precedence.
+
+- `pnpm --filter backend auth:migrate` applies auth schema updates without creating an account. Review dependency upgrades before applying migrations to a populated database.
+- Server startup does not migrate or create users. No default live password or auth secret is supplied. Email delivery and password recovery are not configured yet.

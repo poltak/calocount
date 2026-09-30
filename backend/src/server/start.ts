@@ -2,6 +2,7 @@ import { serve } from "@hono/node-server";
 import { z } from "zod";
 import { createApp } from "../live/index.js";
 import { createHttpApp } from "./http-app.js";
+import { initializeLogic } from "../logic/lifecycle.js";
 
 const environmentSchema = z.object({
   HOST: z.string().trim().min(1).default("127.0.0.1"),
@@ -11,7 +12,7 @@ const environment = environmentSchema.parse(process.env);
 const app = createApp();
 
 try {
-  await app.logic.encounterLifecycle.initialize();
+  await initializeLogic({ logic: app.logic });
 } catch (error) {
   await app.close();
   throw error;

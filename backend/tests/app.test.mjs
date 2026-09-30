@@ -30,6 +30,7 @@ describe("createApp", () => {
         baseUrl: "http://shadow.test",
         trustedOrigins: [],
       },
+      ownerEmail: "owner@example.test",
     });
 
     try {

@@ -13,4 +13,6 @@ when they are resolved.
 - [x] **Frontend router:** React Router is installed with counter and API example routes. Replace the [example pages](../../frontend/src/app/routes.tsx) as real screens are added.
 - [ ] **API error contracts:** keep the global response type in [`backend/api`](../../backend/src/api.ts) aligned with handler errors. The client types do not validate responses at runtime; decide on response validation if independently deployed backends require it.
 - [ ] **Frontend persistence:** define browser Storage contracts when a feature needs persistence. Keep the frontend Storage collection empty until then.
+- [ ] **Account recovery:** configure a verified recovery path and email delivery when required. The [owner setup command](../../backend/src/features/auth/commands/setup-owner.ts) only creates a new account and never resets an existing password.
+- [ ] **Multiple users:** replace the [single-user admission policy](../../backend/src/features/auth/logic/auth-access-logic.ts) and add record ownership rules before admitting additional accounts. Registration is currently disabled.
 - [ ] **Local installation:** add packaging, startup, and static file serving for a local Hono server when local deployment is implemented. Choosing React + Vite does not implement this deployment path.

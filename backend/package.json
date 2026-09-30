@@ -15,7 +15,9 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "start": "node dist/server/start.js",
+    "start": "node --env-file-if-exists=../.env dist/server/start.js",
+    "auth:migrate": "pnpm --filter backend... run build && node --env-file-if-exists=../.env dist/features/auth/commands/migrate.js",
+    "auth:setup-owner": "pnpm --filter backend... run build && node --env-file-if-exists=../.env dist/features/auth/commands/setup-owner.js",
     "test": "pnpm run build && node --test tests/*.test.mjs"
   },
   "dependencies": {

@@ -12,6 +12,8 @@
         "src/live/index.ts",
         "src/tests/index.ts",
         "src/server/start.ts",
+        "src/features/auth/commands/migrate.ts",
+        "src/features/auth/commands/setup-owner.ts",
       ],
     },
     "frontend": {

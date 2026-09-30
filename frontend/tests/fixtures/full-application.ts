@@ -11,7 +11,7 @@ export async function createFullApplication() {
     password: "test-password-for-auth-only",
   };
   try {
-    await backend.app.services.auth.createAccount(credentials);
+    await backend.app.logic.ownerSetup.createOwner(credentials);
     const signIn = await fetch("http://shadow.test/api/auth/sign-in/email", {
       method: "POST",
       headers: { "content-type": "application/json" },

@@ -12,7 +12,7 @@ interface HttpAppProps {
 /** Every business route, including future routes, shares the authentication gate. */
 export function createBusinessHttpApp({ app }: HttpAppProps) {
   return new Hono<AuthEnvironment>()
-    .use("*", requireSession({ services: app.services }))
+    .use("*", requireSession({ services: app.services, logic: app.logic }))
     .get("/api/me", (context) => {
       const { id, email, name } = context.get("auth").user;
       return context.json({ user: { id, email, name } });
