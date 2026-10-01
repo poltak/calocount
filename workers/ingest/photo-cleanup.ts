@@ -175,42 +175,27 @@ export async function cleanupUnlinkedMealPhotos(input: PhotoCleanupInput): Promi
     truncated = listing.truncated;
     inspected += listing.objects.length;
 
-    const candidates = listing.objects.filter((object) => (
-      photoCleanupDecision({
+    // Classify each object once; the database is asked only about delete candidates.
+    const candidateKeys: string[] = [];
+    for (const object of listing.objects) {
+      const decision = photoCleanupDecision({
         key: object.key,
         uploadedAtMs: object.uploaded.getTime(),
         nowMs,
         gracePeriodMs,
         linked: false,
-      }) === "delete"
-    ));
-    skippedInvalid += listing.objects.filter((object) => (
-      photoCleanupDecision({
-        key: object.key,
-        uploadedAtMs: object.uploaded.getTime(),
-        nowMs,
-        gracePeriodMs,
-        linked: false,
-      }) === "invalid"
-    )).length;
-    skippedRecent += listing.objects.filter((object) => (
-      photoCleanupDecision({
-        key: object.key,
-        uploadedAtMs: object.uploaded.getTime(),
-        nowMs,
-        gracePeriodMs,
-        linked: false,
-      }) === "recent"
-    )).length;
-
-    const linked = await linkedPhotoKeys(input.db, candidates.map((object) => object.key));
-    const orphanKeys = candidates
-      .map((object) => object.key)
-      .filter((key) => {
-        const isLinked = linked.has(key);
-        if (isLinked) skippedLinked += 1;
-        return !isLinked;
       });
+      if (decision === "delete") candidateKeys.push(object.key);
+      else if (decision === "invalid") skippedInvalid += 1;
+      else if (decision === "recent") skippedRecent += 1;
+    }
+
+    const linked = await linkedPhotoKeys(input.db, candidateKeys);
+    const orphanKeys = candidateKeys.filter((key) => {
+      const isLinked = linked.has(key);
+      if (isLinked) skippedLinked += 1;
+      return !isLinked;
+    });
     if (orphanKeys.length > 0) {
       await input.bucket.delete(orphanKeys);
       deleted += orphanKeys.length;
