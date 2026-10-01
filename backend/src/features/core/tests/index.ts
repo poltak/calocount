@@ -3,7 +3,7 @@ import { composeApp } from "../compose-app.js";
 import type { Database } from "../database/database.js";
 import { createDatabase } from "../database/pglite-database.js";
 import { FakeAIService } from "../../ai/services/fake-ai-service.js";
-import { LiveAuthService } from "../../auth/services/live-auth-service.js";
+import { BetterAuthService } from "../../auth/services/better-auth-service.js";
 import { FakePatientRecordsService } from "../../patient-records/services/fake-patient-records-service.js";
 import { FakeTranscriptionService } from "../../transcription/services/fake-transcription-service.js";
 import type { App } from "../types.js";
@@ -24,7 +24,7 @@ export function createApp({
     ownerEmail: "owner@example.test",
     services: {
       // The embedded auth framework runs for real against the isolated database.
-      auth: new LiveAuthService({
+      auth: new BetterAuthService({
         db,
         secret: randomBytes(32).toString("base64"),
         baseUrl: authBaseUrl,

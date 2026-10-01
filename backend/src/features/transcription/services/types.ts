@@ -1,2 +1,2 @@
 /** External transcription contract. Add methods as needed. */
-export interface TranscriptionService {}
+export interface TranscriptionServiceInterface {}

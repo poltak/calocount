@@ -22,7 +22,7 @@ export type PasswordSignInResult =
     };
 
 /** Authentication boundary. Session identity belongs to the request, never this Service. */
-export interface AuthService {
+export interface AuthServiceInterface {
   readonly trustedOrigins: readonly string[];
   getSession(props: { headers: Headers }): Promise<AuthSession | null>;
   /** Request headers carry the caller's origin and address for the provider's checks. */

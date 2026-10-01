@@ -5,13 +5,13 @@ import {
 import type { App, FrontendServices, FrontendStorage } from "../types.js";
 import { EventEmitter } from "@shadow/common/features/core/events/event-emitter";
 import type { ApiAccessEvent } from "../../api/client/access-events.js";
-import { LiveWindowFocusService } from "../../window-focus/services/live-window-focus-service.js";
+import { BrowserWindowFocusService } from "../../window-focus/services/browser-window-focus-service.js";
 
 /** Compose one frontend app with live dependencies. */
 export function createApp(apiProps: ApiClientProps = {}): App {
   const storage: FrontendStorage = {};
   const services: FrontendServices = {
-    windowFocus: new LiveWindowFocusService(),
+    windowFocus: new BrowserWindowFocusService(),
   };
 
   const apiAccessEvents = new EventEmitter<ApiAccessEvent>();

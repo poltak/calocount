@@ -32,7 +32,7 @@ entry to the choice, the reason, and any rule that follows from it.
 
 ## Authentication
 
-- **Better Auth, embedded in the backend behind `AuthService`.** It is open
+- **Better Auth, embedded in the backend behind `AuthServiceInterface`.** It is open
   source, has a native Kysely adapter, and runs against the isolated test
   database. It owns its own user, account, session, and verification tables.
 - **The frontend never uses Better Auth's client.** Our own `/api/session`

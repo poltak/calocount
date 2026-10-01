@@ -1,9 +1,9 @@
 import { composeApp } from "../compose-app.js";
 import { createDatabase } from "../database/postgres-database.js";
-import { LiveAIService } from "../../ai/services/live-ai-service.js";
-import { LiveAuthService } from "../../auth/services/live-auth-service.js";
-import { LivePatientRecordsService } from "../../patient-records/services/live-patient-records-service.js";
-import { LiveTranscriptionService } from "../../transcription/services/live-transcription-service.js";
+import { PlaceholderAIService } from "../../ai/services/placeholder-ai-service.js";
+import { BetterAuthService } from "../../auth/services/better-auth-service.js";
+import { PlaceholderPatientRecordsService } from "../../patient-records/services/placeholder-patient-records-service.js";
+import { PlaceholderTranscriptionService } from "../../transcription/services/placeholder-transcription-service.js";
 import type { App } from "../types.js";
 import { readLiveConfig, type LiveConfig } from "./config.js";
 
@@ -16,10 +16,10 @@ export function createApp({
     db,
     ownerEmail: config.ownerEmail,
     services: {
-      auth: new LiveAuthService({ db, ...config.auth }),
-      ai: new LiveAIService(),
-      transcription: new LiveTranscriptionService(),
-      patientRecords: new LivePatientRecordsService(),
+      auth: new BetterAuthService({ db, ...config.auth }),
+      ai: new PlaceholderAIService(),
+      transcription: new PlaceholderTranscriptionService(),
+      patientRecords: new PlaceholderPatientRecordsService(),
     },
   });
 }

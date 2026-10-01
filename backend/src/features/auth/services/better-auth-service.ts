@@ -3,22 +3,22 @@ import { getMigrations } from "better-auth/db/migration";
 import type { Database } from "../../core/database/database.js";
 import type { AuthConfiguration } from "./configuration.js";
 import type {
-  AuthService,
+  AuthServiceInterface,
   AuthUser,
   PasswordSignInResult,
   SessionChange,
 } from "./types.js";
 
-interface LiveAuthServiceDeps extends AuthConfiguration {
+interface BetterAuthServiceDeps extends AuthConfiguration {
   db: Database;
 }
 
 /** Embedded authentication. Better Auth owns its auth-table persistence. */
-export class LiveAuthService implements AuthService {
-  private auth?: ReturnType<LiveAuthService["createInstance"]>;
+export class BetterAuthService implements AuthServiceInterface {
+  private auth?: ReturnType<BetterAuthService["createInstance"]>;
   readonly trustedOrigins: readonly string[];
 
-  constructor(private readonly deps: LiveAuthServiceDeps) {
+  constructor(private readonly deps: BetterAuthServiceDeps) {
     this.trustedOrigins = Array.from(
       new Set([new URL(deps.baseUrl).origin, ...deps.trustedOrigins]),
     );
