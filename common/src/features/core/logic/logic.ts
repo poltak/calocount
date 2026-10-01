@@ -49,6 +49,7 @@ export abstract class Logic<
   readonly plugins: Readonly<Plugins>;
 
   protected readonly deps: Deps;
+  private readonly abortController = new AbortController();
   private currentState: State;
   private readonly stateListeners = new Set<() => void>();
   private readonly cleanupCallbacks = new Set<Unsubscribe>();
@@ -70,6 +71,14 @@ export abstract class Logic<
     return this.currentState;
   }
 
+  /**
+   * Aborts when cleanup starts. Pass it to requests and other async work so
+   * teardown cancels them.
+   */
+  protected get signal(): AbortSignal {
+    return this.abortController.signal;
+  }
+
   subscribe(listener: () => void): Unsubscribe {
     if (this.isClosed()) {
       return () => undefined;
@@ -86,7 +95,12 @@ export abstract class Logic<
     };
   }
 
+  /** Ignored once cleanup starts, so late async work cannot change state. */
   protected setState(updates: Partial<State>): void {
+    if (this.isClosed()) {
+      return;
+    }
+
     const currentState = this.currentState;
     const hasChangedValue = Object.entries(updates).some(
       ([key, value]) => !Object.is(currentState[key as keyof State], value),
@@ -161,6 +175,7 @@ export abstract class Logic<
     }
 
     this.lifecycleState = "cleaning";
+    this.abortController.abort();
     const initializationPromise = this.initializationPromise;
     const promise = (async () => {
       if (initializationPromise) {
@@ -203,6 +218,7 @@ export abstract class Logic<
       }
 
       this.lifecycleState = "failed";
+      this.abortController.abort();
       const cleanupPromise = this.performCleanup();
       this.cleanupPromise = cleanupPromise;
 

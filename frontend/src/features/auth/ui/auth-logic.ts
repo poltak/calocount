@@ -19,7 +19,6 @@ interface AuthState {
 /** Owned by the session provider. The protected backend profile decides access. */
 export class AuthLogic extends Logic<AuthProps, AuthState> {
   private requestVersion = 0;
-  private closed = false;
   constructor(deps: AuthProps) {
     super({
       deps,
@@ -52,11 +51,6 @@ export class AuthLogic extends Logic<AuthProps, AuthState> {
     );
     await this.loadSession();
   }
-  protected async onCleanup(): Promise<void> {
-    this.closed = true;
-    this.requestVersion += 1;
-    this.setState({ password: "" });
-  }
   setEmail(email: string): void {
     this.setState({ email });
   }
@@ -64,63 +58,64 @@ export class AuthLogic extends Logic<AuthProps, AuthState> {
     this.setState({ password });
   }
   async refresh(): Promise<void> {
-    if (!this.state.busy && !this.closed) await this.loadSession();
+    if (!this.state.busy) await this.loadSession();
   }
   async signIn(): Promise<void> {
-    if (this.state.busy || this.closed) return;
+    if (this.state.busy) return;
     this.requestVersion += 1;
     this.setState({ busy: true, error: null });
     try {
       const result = await this.deps.auth.signIn.email({
         email: this.state.email.trim(),
         password: this.state.password,
+        fetchOptions: { signal: this.signal },
       });
-      if (this.closed) return;
       if (result.error)
         throw new Error(result.error.message ?? "Sign-in failed");
       await this.loadSession();
     } catch (error) {
-      if (!this.closed)
-        this.setState({
-          status: "signedOut",
-          user: null,
-          error: error instanceof Error ? error.message : "Sign-in failed",
-        });
+      this.setState({
+        status: "signedOut",
+        user: null,
+        error: error instanceof Error ? error.message : "Sign-in failed",
+      });
     } finally {
-      if (!this.closed) this.setState({ busy: false, password: "" });
+      this.setState({ busy: false, password: "" });
     }
   }
   async signOut(): Promise<void> {
-    if (this.state.busy || this.closed) return;
+    if (this.state.busy) return;
     this.requestVersion += 1;
     this.setState({ busy: true, error: null });
     try {
-      const result = await this.deps.auth.signOut();
+      const result = await this.deps.auth.signOut({
+        fetchOptions: { signal: this.signal },
+      });
       if (result.error)
         throw new Error(result.error.message ?? "Sign-out failed");
-      if (!this.closed)
-        this.setState({ status: "signedOut", user: null, password: "" });
+      this.setState({ status: "signedOut", user: null, password: "" });
     } catch (error) {
-      if (!this.closed)
-        this.setState({
-          error: error instanceof Error ? error.message : "Sign-out failed",
-        });
+      this.setState({
+        error: error instanceof Error ? error.message : "Sign-out failed",
+      });
     } finally {
-      if (!this.closed) this.setState({ busy: false });
+      this.setState({ busy: false });
     }
   }
   private async loadSession(): Promise<void> {
     const version = ++this.requestVersion;
     try {
-      const response = await this.deps.api.me.$get();
+      const response = await this.deps.api.me.$get(undefined, {
+        init: { signal: this.signal },
+      });
       await requireApiSuccess(response);
       if (response.status !== 200)
         throw new Error("Unexpected session response");
       const { user } = await response.json();
-      if (this.closed || version !== this.requestVersion) return;
+      if (version !== this.requestVersion) return;
       this.setState({ status: "signedIn", user, error: null });
     } catch (error) {
-      if (this.closed || version !== this.requestVersion) return;
+      if (version !== this.requestVersion) return;
       const denied =
         error instanceof ApiRequestError &&
         (error.status === 401 || error.status === 403);

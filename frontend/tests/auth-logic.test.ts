@@ -1,3 +1,4 @@
+import { InitializationCancelledError } from "@shadow/common/features/core/logic/logic";
 import { describe, expect, it, vi } from "vitest";
 import { AuthLogic } from "../src/features/auth/ui/auth-logic.js";
 import { createApp } from "../src/tests/index.js";
@@ -97,5 +98,26 @@ describe("session state", () => {
     } finally {
       await logic.cleanup();
     }
+  });
+
+  it("cancels an in-flight session check during cleanup", async () => {
+    let signal: AbortSignal | undefined;
+    const { logic } = createLogic(
+      (_input, init) =>
+        new Promise<Response>((_resolve, reject) => {
+          signal = init?.signal ?? undefined;
+          signal?.addEventListener("abort", () => reject(signal?.reason));
+        }),
+    );
+    const initialization = logic.initialize();
+    await vi.waitFor(() => expect(signal).toBeDefined());
+
+    const cleanup = logic.cleanup();
+    expect(signal?.aborted).toBe(true);
+    await expect(initialization).rejects.toBeInstanceOf(
+      InitializationCancelledError,
+    );
+    await cleanup;
+    expect(logic.state.status).toBe("loading");
   });
 });

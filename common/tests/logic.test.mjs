@@ -404,6 +404,48 @@ describe("Logic and LogicPlugin", () => {
     ]);
   });
 
+  it("aborts its signal and stops state changes when cleanup starts", async () => {
+    let finishCleanup;
+    const cleanupGate = new Promise((resolve) => {
+      finishCleanup = resolve;
+    });
+    class TeardownLogic extends Logic {
+      constructor() {
+        super({ deps: {}, initialState: { value: 0 } });
+      }
+
+      get requestSignal() {
+        return this.signal;
+      }
+
+      update(value) {
+        this.setState({ value });
+      }
+
+      async onCleanup() {
+        this.update(2);
+        await cleanupGate;
+      }
+    }
+
+    const logic = new TeardownLogic();
+    await logic.initialize();
+    const notifications = [];
+    logic.subscribe(() => notifications.push(logic.state.value));
+    logic.update(1);
+    assert.equal(logic.requestSignal.aborted, false);
+
+    const cleanup = logic.cleanup();
+    assert.equal(logic.requestSignal.aborted, true);
+    logic.update(3);
+    await Promise.resolve();
+    finishCleanup();
+    await cleanup;
+
+    assert.equal(logic.state.value, 1);
+    assert.deepEqual(notifications, [1]);
+  });
+
   it("cleans listeners and plugins once", async () => {
     const trace = [];
     const logic = new CounterLogic({ trace });

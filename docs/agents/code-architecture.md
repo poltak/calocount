@@ -94,6 +94,11 @@ still call cleanup during initialization; cleanup waits for initialization to
 settle before it runs. Initialization then stops early and `initialize()`
 rejects with `InitializationCancelledError`.
 
+When cleanup starts, the Logic's protected `signal` aborts and its state stops
+changing; later `setState()` calls are ignored. Pass `this.signal` to requests
+and other async work so teardown cancels them. Do not add separate "closed"
+flags to Logic classes.
+
 ## Dependency flow
 
 Keep dependencies moving in one direction:

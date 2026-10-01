@@ -41,9 +41,10 @@ export class ApiExampleLogic extends Logic<ApiExampleProps, ApiExampleState> {
     try {
       const response = await this.deps.api.encounters[":encounterId"][
         operation
-      ].$post({
-        param: { encounterId: encodeApiParam(this.deps.encounterId) },
-      });
+      ].$post(
+        { param: { encounterId: encodeApiParam(this.deps.encounterId) } },
+        { init: { signal: this.signal } },
+      );
       await requireApiSuccess(response);
       this.setState({
         completed: this.state.completed + 1,
