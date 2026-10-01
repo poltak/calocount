@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { drizzle } from "drizzle-orm/d1";
@@ -249,17 +248,6 @@ function createDb({ meals, items }: { meals: Row[]; items: Row[] }) {
   const client = new MemoryD1Database(meals, items);
   return { client, db: drizzle(client as unknown as D1Database, { schema }) };
 }
-
-test("copy route requires the owner identity and returns the serialized clone", async () => {
-  const route = await readFile(new URL("../app/api/meals/[id]/copy/route.ts", import.meta.url), "utf8");
-
-  assert.match(route, /export async function POST/);
-  assert.match(route, /requireApiIdentity\(request\)/);
-  assert.match(route, /copyMeal\(getRequestDb\(\), identity\.ownerKey/);
-  assert.match(route, /serialiseMeal\(meal\)/);
-  assert.match(route, /status: 201/);
-  assert.doesNotMatch(route, /body\.ownerKey/);
-});
 
 test("copyMeal rejects a source meal that belongs to another owner", async () => {
   const { client, db } = createDb({

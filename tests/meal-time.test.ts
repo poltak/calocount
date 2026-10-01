@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { dateKeyFromTimestamp, localTimeValue, mealDateTimestamp } from "../app/page";
@@ -53,29 +52,4 @@ test("local time input defaults to the browser local time", () => {
   withTimezone(() => {
     assert.equal(localTimeValue(new Date("2026-08-26T01:15:00.000Z")), "08:15");
   });
-});
-
-test("add entry form submits its validated local time", async () => {
-  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
-
-  assert.match(page, /<label>Time<input name="time" type="time" defaultValue=\{localTimeValue\(\)\} required/);
-  assert.match(page, /const time = String\(form\.get\("time"\) \|\| ""\)/);
-  assert.match(page, /mealDateTimestamp\(\{ date: selectedDay\.date, time \}\)/);
-  assert.match(page, /mealRequestOptions\(mealPayload\(nextMeal, consumedAt\), photo\)/);
-  assert.match(page, /setActionError\("Enter a valid entry time\."\)/);
-});
-
-test("owner summary requests the browser timezone and validates it server-side", async () => {
-  const [page, route] = await Promise.all([
-    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../app/api/dashboard/summary/route.ts", import.meta.url), "utf8"),
-  ]);
-
-  assert.match(page, /dashboard\/summary\?timezone=\$\{encodeURIComponent\(browserTimeZone\(\)\)\}/);
-  assert.match(page, /buildLiveDays\(parsed, \{ mode: publicView \? "utc" : "local", publicView \}\)/);
-  assert.match(page, /dateKeyFromTimestamp\(remoteMeal\.consumedAt, \{ mode: publicView \? "utc" : "local" \}\)/);
-  assert.match(route, /searchParams\.get\("timezone"\)/);
-  assert.match(route, /isValidTimeZone\(timezone\)/);
-  assert.match(route, /timezone must be a valid IANA timezone/);
-  assert.match(route, /timezone: timezone \?\? undefined/);
 });

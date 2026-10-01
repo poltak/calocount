@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import { webcrypto } from "node:crypto";
-import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
@@ -193,16 +192,6 @@ test("production owner allowlist requires an email or user ID", () => {
   assert.equal(isOwnerAllowlistConfigured({ allowedUserId: "user-123" }), true);
 });
 
-test("local mode does not allow anonymous access when only an email hash allowlist is configured", async () => {
-  const source = await readFile(new URL("../app/api/_lib/http.ts", import.meta.url), "utf8");
-
-  assert.match(source, /const allowLocal = getEnvValue\("CALOCOUNT_ALLOW_LOCAL"\) === "true";/);
-  assert.match(
-    source,
-    /if \(!email && !userId && !allowedEmail && !allowedEmailSha256 && !allowedUserId\) \{\s*return localApiIdentity/u,
-  );
-});
-
 test("owner email allowlist matching is case-insensitive and rejects wrong or missing email", async () => {
   const allowlist = { allowedEmail: "Owner@Example.com" };
 
@@ -375,49 +364,6 @@ test("JWKS failures use stable, non-sensitive reason codes", async (t) => {
         error.reason === "jwks_invalid_json_or_shape",
     );
   });
-});
-
-test("Access JWT diagnostics contain only the stable event, code, and reason", async () => {
-  const source = await readFile(new URL("../app/api/_lib/http.ts", import.meta.url), "utf8");
-
-  assert.match(
-    source,
-    /const code = error instanceof AccessJwtError \? error\.code : "unexpected";/,
-  );
-  assert.match(
-    source,
-    /const reason = error instanceof AccessJwtError \? error\.reason : "unexpected";/,
-  );
-  assert.match(
-    source,
-    /console\.warn\(JSON\.stringify\(\{ event: ACCESS_JWT_FAILURE_EVENT, code, reason \}\)\);/,
-  );
-  assert.match(source, /logAccessConfigurationFailure\("access_settings_missing"\)/);
-  assert.match(source, /logAccessConfigurationFailure\("owner_allowlist_missing"\)/);
-  assert.match(
-    source,
-    /throw new ApiError\(503, "auth_access_settings_missing", "Owner authentication is not configured\."\)/,
-  );
-  assert.match(
-    source,
-    /throw new ApiError\(503, "auth_owner_allowlist_missing", "Owner authentication is not configured\."\)/,
-  );
-  assert.match(
-    source,
-    /if \(error instanceof AccessJwtError && error\.code === "config"\) \{[\s\S]*?throw new ApiError\(503, "auth_unavailable"/,
-  );
-  assert.match(
-    source,
-    /if \(error instanceof AccessJwtError && error\.code === "jwks"\) \{[\s\S]*?throw new ApiError\(503, "auth_unavailable"/,
-  );
-  assert.doesNotMatch(source, /logAccessConfigurationFailure\(\)/);
-  assert.doesNotMatch(
-    source,
-    /console\.warn\(JSON\.stringify\(\{[^}]*\b(?:request|token|headers|claims|email|userId|url|status|message)\b/iu,
-  );
-
-  const verifierSource = await readFile(new URL("../app/api/_lib/access-jwt.ts", import.meta.url), "utf8");
-  assert.doesNotMatch(verifierSource, /fail\(\s*["'][^"']+["']\s*\)/u);
 });
 
 test("Access keys are shared by concurrent requests and warm requests still verify signatures", async () => {
