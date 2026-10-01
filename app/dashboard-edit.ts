@@ -1,5 +1,6 @@
 import type { NutritionItem } from "./nutrition/meal-nutrition-details";
 import { updateMealItemTotals } from "./meal-item-totals";
+import type { MealKind } from "./meal-kind";
 
 export type EditableMeal = {
   id: string;
@@ -9,10 +10,11 @@ export type EditableMeal = {
   protein: number;
   carbs?: number;
   fat?: number;
+  kind?: MealKind | null;
   items: NutritionItem[];
 };
 
-export type MealDraftChanges = Partial<Pick<EditableMeal, "name" | "description" | "calories" | "protein" | "carbs" | "fat">>;
+export type MealDraftChanges = Partial<Pick<EditableMeal, "name" | "description" | "calories" | "protein" | "carbs" | "fat" | "kind">>;
 
 export type MealEditState<T extends EditableMeal> = {
   editingMealId: string | null;

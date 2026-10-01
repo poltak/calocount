@@ -2270,6 +2270,14 @@ input:focus-visible {
   font-size: 9px;
 }
 
+.meal-kind {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .meal-info > span {
   display: block;
   overflow-wrap: anywhere;
@@ -2397,7 +2405,9 @@ input:focus-visible {
 }
 
 .inline-editor input,
-.add-meal-form input {
+.inline-editor select,
+.add-meal-form input,
+.add-meal-form select {
   width: 100%;
   min-height: 31px;
   padding: 5px 8px;
@@ -2438,8 +2448,12 @@ input:focus-visible {
 .editor-photo-field { grid-column: 1 / span 2; }
 .meal-photo-field { grid-column: 1 / span 2; }
 
+.editor-type-field { grid-column: span 2; }
+
 .inline-editor input:focus,
-.add-meal-form input:focus { border-color: var(--orange); }
+.inline-editor select:focus,
+.add-meal-form input:focus,
+.add-meal-form select:focus { border-color: var(--orange); }
 
 .done-button {
   min-height: 31px;
@@ -3284,7 +3298,9 @@ input:focus-visible {
 :root[data-theme="light"] .settings-form input,
 :root[data-theme="light"] .weight-form input,
 :root[data-theme="light"] .inline-editor input,
+:root[data-theme="light"] .inline-editor select,
 :root[data-theme="light"] .add-meal-form input,
+:root[data-theme="light"] .add-meal-form select,
 :root[data-theme="light"] .advanced-nutrition-grid input,
 :root[data-theme="light"] .advanced-nutrition-grid select,
 :root[data-theme="light"] .nutrient-trend-controls select {

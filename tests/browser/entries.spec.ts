@@ -57,6 +57,38 @@ test("adding an entry sends precise macros, the chosen time and optional nutrien
   });
 });
 
+test("a new entry gets the type suggested for its time, or the one the owner picks", async ({ page }) => {
+  const state = await mockDashboardApi(page);
+  await page.goto("/");
+  await page.getByRole("button", { name: "Add entry", exact: true }).click();
+  const form = page.locator(".add-meal-form");
+  // The clock is at noon, so lunch is suggested.
+  await expect(form.getByLabel("Entry type")).toHaveValue("lunch");
+  await form.getByLabel("Entry type").selectOption("dinner");
+  await form.getByLabel("Entry name", { exact: true }).fill("Early dinner");
+  await form.getByLabel("Calories", { exact: true }).fill("400");
+  await form.getByRole("button", { name: "Save entry", exact: true }).click();
+
+  const row = page.locator(".meal-row", { hasText: "Early dinner" });
+  await expect(row.locator(".meal-kind")).toHaveText("Dinner");
+  expect(state.requests.find((request) => request.method === "POST")?.body?.mealType).toBe("dinner");
+});
+
+test("the editor changes an entry's type, and an entry without a type shows none", async ({ page }) => {
+  const state = await mockDashboardApi(page);
+  Object.assign(state.meals[0], { mealType: null });
+  await page.goto("/");
+  await expect(page.locator(".meal-row .meal-kind")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Edit Audit lunch", exact: true }).click();
+  const editor = page.locator(".inline-editor");
+  await expect(editor.getByLabel("Entry type")).toHaveValue("");
+  await editor.getByLabel("Entry type").selectOption("breakfast");
+  await editor.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect(page.locator(".meal-row .meal-kind")).toHaveText("Breakfast");
+  expect(state.requests.find((request) => request.method === "PATCH")?.body?.mealType).toBe("breakfast");
+});
+
 test("saving an edit sends one PATCH with the items and keeps the stored source and type", async ({ page }) => {
   const state = await mockDashboardApi(page);
   await page.goto("/");

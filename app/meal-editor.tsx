@@ -5,6 +5,7 @@ import { useState } from "react";
 import type { NutrientKey, NutrientUpperLimitKey } from "../domain/nutrients";
 import type { NutrientValueOrigin } from "../domain/nutrient-provenance";
 import type { MealDraftChanges } from "./dashboard-edit";
+import { MEAL_KINDS, mealKind, mealKindLabels, type MealKind } from "./meal-kind";
 import type { NutritionItem } from "./nutrition/meal-nutrition-details";
 import { MealNutritionEditor } from "./nutrition/meal-nutrition-editor";
 
@@ -26,6 +27,7 @@ type EditorMeal = {
   protein: number;
   carbs?: number;
   fat?: number;
+  kind?: MealKind | null;
   photoKey?: string | null;
   items: NutritionItem[];
 };
@@ -72,6 +74,14 @@ function TotalField({ label, value, disabled, onChange }: {
   /></label>;
 }
 
+/** The entry type options, shared by the add form and the editor. */
+export function MealKindOptions({ allowUnset = false }: { allowUnset?: boolean }) {
+  return <>
+    {allowUnset ? <option value="">Not set</option> : null}
+    {MEAL_KINDS.map((kind) => <option value={kind} key={kind}>{mealKindLabels[kind]}</option>)}
+  </>;
+}
+
 /** The edit form for one entry: its totals, photo and per-item nutrition. */
 export function MealEditor({
   meal,
@@ -112,6 +122,7 @@ export function MealEditor({
         onPhotoChange(photo);
       }}
     /><small>{photoName ?? (meal.photoKey ? "Current photo stays unless you select a replacement." : "JPEG, PNG, or WebP · up to 10 MB")}</small></label>
+    <label className="editor-type-field">Type<select value={meal.kind ?? ""} aria-label="Entry type" disabled={disabled} onChange={(event) => onChange({ kind: mealKind(event.target.value) })}><MealKindOptions allowUnset /></select></label>
     <div className="meal-item-editors">
       <div className="meal-item-editors-heading"><strong>Food item nutrition</strong><span>{itemsHint}</span></div>
       {meal.items.map((item, index) => <div className="meal-item-editor" key={item.id ?? `${meal.id}-item-${index}`}>

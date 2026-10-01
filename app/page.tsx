@@ -42,7 +42,8 @@ import {
   type MealEditState,
 } from "./dashboard-edit";
 import { scheduleDashboardClock } from "./dashboard-clock";
-import { MealEditor, mealPhotoAccept, mealPhotoError } from "./meal-editor";
+import { MealEditor, MealKindOptions, mealPhotoAccept, mealPhotoError } from "./meal-editor";
+import { mealKind, mealKindForTime, mealKindLabels, type MealKind } from "./meal-kind";
 import { photoUrlForKey, publicPhotoUrlForMealId } from "./photo-url";
 import { readThemePreference, subscribeToTheme, writeThemePreference, type ThemePreference } from "./theme";
 import {
@@ -85,7 +86,7 @@ type Meal = {
   pending?: "creating" | "copying" | "duplicating";
   status?: string;
   savedEntryId?: string | null;
-  kind: "breakfast" | "lunch" | "snack" | "dinner";
+  kind: MealKind | null;
 };
 
 type Day = {
@@ -256,15 +257,10 @@ function apiErrorMessage(body: unknown, fallback: string): string {
   return stringOr(asRecord(asRecord(body)?.error)?.message, fallback);
 }
 
-function mealKind(value: string | null): Meal["kind"] {
-  if (value === "breakfast" || value === "lunch" || value === "dinner") return value;
-  return "snack";
-}
-
 function mapRemoteMeal(meal: SerializedMeal, { publicView = false }: { publicView?: boolean } = {}): Meal {
   const kind = mealKind(meal.mealType);
   const itemNames = meal.items.map((item) => item.name).filter(Boolean);
-  const name = itemNames[0] ?? meal.caption.split(",")[0]?.trim() ?? `${kind[0].toUpperCase()}${kind.slice(1)} entry`;
+  const name = itemNames[0] || meal.caption.split(",")[0]?.trim() || (kind ? `${mealKindLabels[kind]} entry` : "Entry");
   return {
     id: meal.id,
     status: meal.status,
@@ -360,12 +356,13 @@ function mealPayload(meal: Meal, consumedAt?: number) {
 }
 
 /**
- * Build the body for an edit. It carries the items and, when the description
- * changed, the caption, so the stored source, entry type and status survive.
+ * Build the body for an edit. It carries the items, and the caption and type
+ * only when they changed, so the stored source and status survive.
  */
 function mealPatchPayload(meal: Meal, saved: Meal) {
   return {
     ...(meal.description !== saved.description ? { caption: meal.description } : {}),
+    ...(meal.kind !== saved.kind ? { mealType: meal.kind } : {}),
     items: mealPayload(meal).items,
   };
 }
@@ -1254,7 +1251,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
         ...(Object.keys(nutrientProvenance).length > 0 ? { nutrientProvenance } : {}),
       }],
       pending: "creating",
-      kind: "snack",
+      kind: mealKind(String(form.get("mealType") ?? "")),
     };
     const added = await runAction({
       kind: "meal-create",
@@ -1823,7 +1820,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
             <div className="panel-heading meal-heading"><div><p className="eyebrow">What you consumed</p><h2 id="meals-title">Entries <span>{selectedDay.meals.length}</span></h2></div>{!readOnly ? <button className="primary-button" type="button" disabled={actionInProgress} aria-busy={pendingAction?.kind === "meal-create"} onClick={() => setShowAddMeal((current) => !current)}><span aria-hidden="true">＋</span> {pendingAction?.kind === "meal-create" ? "Saving…" : "Add entry"}</button> : <span className="panel-meta">read only</span>}</div>
 
             {!readOnly && showAddMeal ? <form className={`add-meal-form${pendingAction?.kind === "meal-create" ? " is-pending" : ""}`} onSubmit={addMeal} aria-busy={pendingAction?.kind === "meal-create"}>
-              <div className="form-heading"><div><strong>Log an entry</strong><span>Use a quick estimate now. You can edit it later.</span></div><label>Time<input name="time" type="time" defaultValue={localTimeValue()} required aria-label="Entry time" disabled={actionInProgress} /></label><button className="close-button" type="button" disabled={actionInProgress} onClick={() => setShowAddMeal(false)} aria-label="Close add entry form">×</button></div>
+              <div className="form-heading"><div><strong>Log an entry</strong><span>Use a quick estimate now. You can edit it later.</span></div><label>Time<input name="time" type="time" defaultValue={localTimeValue()} required aria-label="Entry time" disabled={actionInProgress} /></label><label>Type<select name="mealType" defaultValue={mealKindForTime(localTimeValue())} aria-label="Entry type" disabled={actionInProgress}><MealKindOptions /></select></label><button className="close-button" type="button" disabled={actionInProgress} onClick={() => setShowAddMeal(false)} aria-label="Close add entry form">×</button></div>
               <label>Entry name<input name="name" placeholder="e.g. Turkey sandwich" required disabled={actionInProgress} /></label>
               <label className="wide-field">Description<input name="description" placeholder="Ingredients or a short note" disabled={actionInProgress} /></label>
               <label>Calories<input name="calories" type="number" min="0" step="any" placeholder="450" required disabled={actionInProgress} /></label>
@@ -1863,7 +1860,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
                         onError={() => markPhotoUnavailable(meal.photoUrl as string)}
                       />
                     </button> : null}
-                    <div className="meal-info"><div className="meal-name-line"><strong>{meal.name}</strong><time>{meal.time}</time>{meal.pending === "creating" ? <span className="pending-indicator" role="status">Saving…</span> : null}{meal.pending === "copying" ? <span className="pending-indicator" role="status">Copying…</span> : null}{meal.pending === "duplicating" ? <span className="pending-indicator" role="status">Duplicating…</span> : null}{pendingAction?.kind === "meal-save" && pendingAction.id === meal.id ? <span className="pending-indicator" role="status">Saving…</span> : null}{pendingAction?.kind === "meal-delete" && pendingAction.id === meal.id ? <span className="pending-indicator" role="status">Deleting…</span> : null}{pendingAction?.kind === "meal-copy" && pendingAction.id === meal.id ? <span className="pending-indicator" role="status">Copying…</span> : null}{pendingAction?.kind === "meal-duplicate" && pendingAction.id === meal.id ? <span className="pending-indicator" role="status">Duplicating…</span> : null}</div>{meal.description.trim().toLocaleLowerCase() !== meal.name.trim().toLocaleLowerCase() ? <span>{meal.description}</span> : null}</div>
+                    <div className="meal-info"><div className="meal-name-line"><strong>{meal.name}</strong><time>{meal.time}</time>{meal.kind ? <span className="meal-kind">{mealKindLabels[meal.kind]}</span> : null}{meal.pending === "creating" ? <span className="pending-indicator" role="status">Saving…</span> : null}{meal.pending === "copying" ? <span className="pending-indicator" role="status">Copying…</span> : null}{meal.pending === "duplicating" ? <span className="pending-indicator" role="status">Duplicating…</span> : null}{pendingAction?.kind === "meal-save" && pendingAction.id === meal.id ? <span className="pending-indicator" role="status">Saving…</span> : null}{pendingAction?.kind === "meal-delete" && pendingAction.id === meal.id ? <span className="pending-indicator" role="status">Deleting…</span> : null}{pendingAction?.kind === "meal-copy" && pendingAction.id === meal.id ? <span className="pending-indicator" role="status">Copying…</span> : null}{pendingAction?.kind === "meal-duplicate" && pendingAction.id === meal.id ? <span className="pending-indicator" role="status">Duplicating…</span> : null}</div>{meal.description.trim().toLocaleLowerCase() !== meal.name.trim().toLocaleLowerCase() ? <span>{meal.description}</span> : null}</div>
                     <div className="meal-macros" aria-label="Entry macros">
                       <div className="meal-stat calories-stat"><span className="meal-stat-label">Energy</span><span>{formatNumber(meal.calories)} <small>kcal</small></span></div>
                       <div className="meal-stat protein-stat"><span className="meal-stat-label">Protein</span><span>{formatNumber(meal.protein)} <small>g</small></span></div>
