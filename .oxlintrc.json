@@ -62,11 +62,11 @@
             ],
             "patterns": [
               {
-                "regex": "^(?:backend|@shadow/backend)(?!/api$)(?:/|$)",
+                "group": ["backend", "backend/*", "!backend/api"],
                 "message": "Only the public backend/api type may be imported by frontend code."
               },
               {
-                "regex": "^@shadow/backend/api$",
+                "group": ["@shadow/backend", "@shadow/backend/*"],
                 "message": "Use the explicit backend/api type export."
               },
               {
