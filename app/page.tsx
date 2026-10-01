@@ -512,6 +512,17 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     [days, trendHistory.byDate, trendRange],
   );
 
+  // Item history covers the whole trend range; the seven live days alone would under-count a 30-day view.
+  const foodContributionDays = useMemo(() => {
+    const itemsByDate = new Map<string, InsightHistory["entries"][number]["items"]>();
+    for (const entry of insightData.entries) {
+      const items = itemsByDate.get(entry.date);
+      if (items) items.push(...entry.items);
+      else itemsByDate.set(entry.date, [...entry.items]);
+    }
+    return [...itemsByDate].map(([date, items]) => ({ date, meals: [{ items }] }));
+  }, [insightData.entries]);
+
   const chartValues = useMemo(
     () => visibleTrendDays.map((day) => ({ date: day.date, label: dateLabelForTrend(day.date), value: day.calories })),
     [visibleTrendDays],
@@ -1756,7 +1767,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
             </> : <div className="chart-empty" role="status"><strong>No macro records for the past {trendRange} days</strong><span>Add protein, carbs, or fat to an entry to see the daily split.</span></div>}
           </section>
 
-          <FoodContributionChart days={days} visibleDates={visibleTrendDays.map((day) => day.date)} />
+          <FoodContributionChart days={foodContributionDays} visibleDates={visibleTrendDays.map((day) => day.date)} />
 
           <NutrientConsistencyMatrix
             days={visibleTrendDays.map((day) => ({ ...day, label: dateLabelForTrend(day.date) }))}
