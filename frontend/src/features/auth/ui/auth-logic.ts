@@ -3,6 +3,7 @@ import type { InferResponseType } from "hono/client";
 import { ApiRequestError, requireApiSuccess } from "../../../api/client.js";
 import type { App } from "../../../index.js";
 import type { FrontendLogicProps } from "../../../logic/types.js";
+import { LatestRequest } from "../../core/logic/latest-request.js";
 
 type AuthProps = FrontendLogicProps<never, "windowFocus", "me"> &
   Pick<App, "auth" | "apiAccessEvents">;
@@ -18,7 +19,7 @@ interface AuthState {
 
 /** Owned by the session provider. The protected backend profile decides access. */
 export class AuthLogic extends Logic<AuthProps, AuthState> {
-  private requestVersion = 0;
+  private readonly sessionChecks = new LatestRequest(this.signal);
   constructor(deps: AuthProps) {
     super({
       deps,
@@ -35,7 +36,7 @@ export class AuthLogic extends Logic<AuthProps, AuthState> {
   protected async onInitialize(): Promise<void> {
     this.registerCleanup(
       this.deps.apiAccessEvents.listen(() => {
-        this.requestVersion += 1;
+        this.sessionChecks.cancel();
         this.setState({
           status: "signedOut",
           user: null,
@@ -62,7 +63,7 @@ export class AuthLogic extends Logic<AuthProps, AuthState> {
   }
   async signIn(): Promise<void> {
     if (this.state.busy) return;
-    this.requestVersion += 1;
+    this.sessionChecks.cancel();
     this.setState({ busy: true, error: null });
     try {
       const result = await this.deps.auth.signIn.email({
@@ -85,7 +86,7 @@ export class AuthLogic extends Logic<AuthProps, AuthState> {
   }
   async signOut(): Promise<void> {
     if (this.state.busy) return;
-    this.requestVersion += 1;
+    this.sessionChecks.cancel();
     this.setState({ busy: true, error: null });
     try {
       const result = await this.deps.auth.signOut({
@@ -103,19 +104,19 @@ export class AuthLogic extends Logic<AuthProps, AuthState> {
     }
   }
   private async loadSession(): Promise<void> {
-    const version = ++this.requestVersion;
+    const signal = this.sessionChecks.start();
     try {
       const response = await this.deps.api.me.$get(undefined, {
-        init: { signal: this.signal },
+        init: { signal },
       });
       await requireApiSuccess(response);
       if (response.status !== 200)
         throw new Error("Unexpected session response");
       const { user } = await response.json();
-      if (version !== this.requestVersion) return;
+      if (signal.aborted) return;
       this.setState({ status: "signedIn", user, error: null });
     } catch (error) {
-      if (version !== this.requestVersion) return;
+      if (signal.aborted) return;
       const denied =
         error instanceof ApiRequestError &&
         (error.status === 401 || error.status === 403);
