@@ -151,7 +151,7 @@ export function NutrientConsistencyMatrix({ days, goals }: { days: TrendDatum[];
               const amount = aggregate?.amount;
               const progress = typeof amount === "number" && goal?.value ? (amount / goal.value) * 100 : null;
               const met = progress !== null && (goal.direction === "minimum" ? progress >= 100 : progress <= 100);
-              const intensity = progress === null ? 0 : goal?.direction === "maximum" ? Math.min(100, Math.max(12, progress)) : Math.min(100, Math.max(12, progress));
+              const intensity = progress === null ? 0 : Math.min(100, Math.max(12, progress));
               const coverage = aggregate && aggregate.totalItemCount > 0 ? aggregate.knownItemCount / aggregate.totalItemCount : 0;
               const state = progress === null ? "unknown" : met ? "met" : goal?.direction === "maximum" ? "over" : "low";
               const label = progress === null ? "unknown" : `${format(amount ?? 0)} ${nutrientUnit(key)}, ${Math.round(progress)}% of ${goal?.direction === "maximum" ? "limit" : "goal"}`;

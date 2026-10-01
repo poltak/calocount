@@ -448,10 +448,6 @@ export function calculateNutrientSourceDependence({
   };
 }
 
-export function calculateSourceDependence(args: Parameters<typeof calculateNutrientSourceDependence>[0]) {
-  return calculateNutrientSourceDependence(args);
-}
-
 /** Calculate a reversible what-if removal from recorded values only. */
 export function calculateNutrientSourceExclusion(
   result: NutrientSourceDependenceResult,
@@ -475,7 +471,4 @@ export function calculateNutrientSourceExclusion(
   };
 }
 
-export const calculateFoodChangeScenario = calculateFoodScenario;
-export const listScenarioFoodCandidates = scenarioFoodCandidates;
-export const calculateSourceExclusion = calculateNutrientSourceExclusion;
 export { OTHER_SOURCE_KEY };

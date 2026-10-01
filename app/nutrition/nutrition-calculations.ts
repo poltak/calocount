@@ -1,24 +1,10 @@
-import { nutrientKeys, parseNutrientValue, type NutrientAggregateMap, type NutrientValueMap } from "./nutrient-meta";
+import type { NutrientAggregateMap } from "./nutrient-meta";
 
 export type NutrientTrendPoint = {
   date: string;
   amount: number | null;
   label: string;
 };
-
-export function nutrientAggregateFromValueMap(values: NutrientValueMap | undefined, itemCount = 1): NutrientAggregateMap {
-  const result: NutrientAggregateMap = {};
-  for (const key of nutrientKeys) {
-    const value = parseNutrientValue(values?.[key]);
-    result[key] = {
-      amount: value,
-      knownItemCount: value === null ? 0 : 1,
-      totalItemCount: itemCount,
-      complete: value !== null && itemCount <= 1,
-    };
-  }
-  return result;
-}
 
 export function trendForNutrient(
   byDate: Array<{ date: string; nutrients: NutrientAggregateMap }>,

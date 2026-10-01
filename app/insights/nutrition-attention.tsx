@@ -164,7 +164,6 @@ function excessDayStatus(day: NutritionAttentionDayFact, threshold: number) {
 
 function referenceDescriptor(reference: NutrientReference) {
   if (reference.type === "personal-goal") return "your personal goal";
-  if (reference.type === "guideline") return `the ${reference.label.toLowerCase()}`;
   return `the ${reference.label.toLowerCase()}`;
 }
 

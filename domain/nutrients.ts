@@ -139,10 +139,6 @@ export type NutrientAggregateMap = {
   [Key in NutrientKey]: NutrientAggregate;
 };
 
-export function nutrientDbColumn(key: NutrientKey): string {
-  return key.replace(/[A-Z]/gu, (letter) => `_${letter.toLowerCase()}`);
-}
-
 export function emptyNutrientValues(): NutrientValues {
   const values = {} as NutrientValues;
   for (const key of NUTRIENT_KEYS) values[key] = null;

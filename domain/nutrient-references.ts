@@ -8,7 +8,6 @@ import type { ResolvedNutrientGoal } from "./nutrient-goals";
  * threshold.
  */
 export type NutrientReferenceType = "intake-reference" | "guideline" | "upper-limit" | "personal-goal";
-export type NutrientReferenceKind = NutrientReferenceType;
 
 /** The fields required before a published upper limit can be applied safely. */
 export type NutrientReferenceRequirement = "population" | "source" | "form" | "unit";
@@ -111,7 +110,6 @@ export const FDA_DAILY_VALUE_SOURCE_URL = "https://www.fda.gov/food/nutrition-fa
 export const FDA_DAILY_VALUE_REFERENCE_VERSION = "FDA Daily Values (2016 label rule)";
 export const FDA_CAFFEINE_REFERENCE_VERSION = "FDA adult caffeine guidance";
 export const REFERENCE_REVIEW_DATE = "2026-09-22";
-export const VITAMIN_B6_US_FNB_ADULT_PROFILE = "us-fnb-adult" as const;
 
 const NIH_B6_SOURCE_URL = "https://ods.od.nih.gov/factsheets/VitaminB6-HealthProfessional/";
 const NIH_MAGNESIUM_SOURCE_URL = "https://ods.od.nih.gov/factsheets/Magnesium-HealthProfessional/";
@@ -364,6 +362,3 @@ export function nutrientUpperLimitApplicability(
       : definition.requiredData,
   };
 }
-
-/** Alias with a getter-shaped name for callers that prefer reference wording. */
-export const getNutrientReference = nutrientReferenceForGoal;

@@ -133,8 +133,7 @@ export function parseNutrientValue(value: unknown): number | null {
 
 export function parseNutrientAggregate(value: unknown): NutrientAggregate | null {
   if (!isRecord(value)) return null;
-  const parsedAmount = value.amount === null ? null : parseNutrientValue(value.amount);
-  const amount = parsedAmount === undefined ? null : parsedAmount;
+  const amount = parseNutrientValue(value.amount);
   const knownItemCount = firstFinite(value.knownItemCount, 0);
   const totalItemCount = firstFinite(value.totalItemCount, 0);
   return {
@@ -213,16 +212,6 @@ export function aggregateNutrientValues(items: readonly NutrientValueMap[]): Nut
     };
   }
   return result;
-}
-
-export function aggregateForValue(value: NutrientValue, totalItemCount = 1): NutrientAggregate {
-  const parsed = parseNutrientValue(value);
-  return {
-    amount: parsed === undefined ? null : parsed,
-    knownItemCount: parsed === null ? 0 : 1,
-    totalItemCount,
-    complete: parsed !== null && totalItemCount <= 1,
-  };
 }
 
 export function aggregateCoverageLabel(aggregate: NutrientAggregate | null | undefined) {
