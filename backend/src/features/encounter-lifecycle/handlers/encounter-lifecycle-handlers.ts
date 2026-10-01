@@ -4,7 +4,7 @@ import type { BackendLogic } from "../../../index.js";
 import { validator } from "../../core/handlers/validator.js";
 
 const encounterParamsSchema = z.object({
-  // Temporary ID validation; see docs/agents/initial-setup-todos.md.
+  // Temporary ID validation; see docs/agents/todos/initial-setup.md.
   encounterId: z.string().trim().min(1),
 });
 

@@ -18,4 +18,4 @@
 - Handlers return **204** when a Logic method succeeds. Request bodies, the final ID format, and result contracts will be defined with the feature implementation.
 - All business endpoints require a valid session; unauthenticated requests return 401. `POST` and `DELETE /api/session` sign in and out without a session. See [authentication](authentication.md) for configuration. The server binds to localhost by default.
 
-Track temporary contracts and unfinished setup in [TODOs from initial set up](initial-setup-todos.md).
+Track temporary contracts and unfinished setup in [TODOs from initial set up](todos/initial-setup.md).

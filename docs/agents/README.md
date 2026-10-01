@@ -12,7 +12,8 @@ should read each one.
 - [Frontend setup](frontend-setup.md): read when changing frontend App composition, React hooks, or Vite configuration.
 - [Backend API](backend-api.md): read when changing server startup, routes, or backend App setup.
 - [Authentication](authentication.md): read when changing auth configuration, sessions, or account setup.
-- [TODOs from initial set up](initial-setup-todos.md): read and update while initial setup continues. Record temporary behavior and unresolved decisions with code links; close items when resolved.
+- [TODOs from initial set up](todos/initial-setup.md): read and update while initial setup continues. Record temporary behavior and unresolved decisions with code links; close items when resolved.
+- [Plan: enforce architecture rules with lint](todos/architecture-lint-rules.md): read before adding lint rules for the architecture, or when moving files between `src/` directories.
 - [Full application test plan](full-application-test-plan.md): read when changing integration tests. It records the shared UI/backend/database fixture and its remaining limits.
 - The root `AGENTS.md` has the workspace map and basic checks.
 - The workspace packages are `backend`, `frontend`, and `common`. The `common` package is a local dependency of both apps through `workspace:*`.
