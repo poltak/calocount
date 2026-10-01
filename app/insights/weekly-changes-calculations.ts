@@ -131,11 +131,11 @@ function dayMetric(day: InsightDay, key: WeeklyMetricKey) {
 }
 
 function periodContributions(period: WeeklyPeriod, metric: WeeklyMetricKey) {
-  const result = new Map<string, { label: string; calories: number; sources: ContributionSource[]; kind: WaterfallContribution["kind"] }>();
+  const result = new Map<string, { label: string; amount: number; sources: ContributionSource[]; kind: WaterfallContribution["kind"] }>();
   if (period.days.length === 0) return result;
   const add = (key: string, label: string, amount: number, source: Omit<ContributionSource, "contribution">, kind: WaterfallContribution["kind"]) => {
-    const existing = result.get(key) ?? { label, calories: 0, sources: [], kind };
-    existing.calories += amount / period.days.length;
+    const existing = result.get(key) ?? { label, amount: 0, sources: [], kind };
+    existing.amount += amount / period.days.length;
     existing.sources.push({ ...source, contribution: amount / period.days.length });
     result.set(key, existing);
   };
@@ -158,10 +158,10 @@ function periodContributions(period: WeeklyPeriod, metric: WeeklyMetricKey) {
   }
 
   const aggregateAverage = period.days.reduce((sum, day) => sum + dayMetric(day, metric), 0) / period.days.length;
-  const detailedAverage = [...result.values()].reduce((sum, value) => sum + value.calories, 0);
+  const detailedAverage = [...result.values()].reduce((sum, value) => sum + value.amount, 0);
   const unavailable = aggregateAverage - detailedAverage;
   if (Math.abs(unavailable) > 1e-9) {
-    result.set("unavailable", { label: "Entry details unavailable", calories: unavailable, sources: [], kind: "unavailable" });
+    result.set("unavailable", { label: "Entry details unavailable", amount: unavailable, sources: [], kind: "unavailable" });
   }
   return result;
 }
@@ -177,8 +177,8 @@ export function calculateWaterfall(previous: WeeklyPeriod, current: WeeklyPeriod
     const value: MutableContribution = {
       key,
       label: right?.label ?? left?.label ?? key,
-      previous: left?.calories ?? 0,
-      current: right?.calories ?? 0,
+      previous: left?.amount ?? 0,
+      current: right?.amount ?? 0,
       previousSources: left?.sources ?? [],
       currentSources: right?.sources ?? [],
       kind: right?.kind ?? left?.kind ?? "food",
