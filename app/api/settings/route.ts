@@ -1,4 +1,5 @@
-import { getSettings, isValidTimeZone, upsertSettings, type SettingsPatch } from "../../../db/repository";
+import { getSettings, upsertSettings, type SettingsPatch } from "../../../db/repository";
+import { isValidTimeZone } from "../../../domain/logical-date";
 import {
   isNutrientKey,
   parseNutrientGoalOverridesJson,

@@ -1,4 +1,5 @@
-import { getDashboardSummary, isValidTimeZone } from "../../../../db/repository";
+import { getDashboardSummary } from "../../../../db/repository";
+import { isValidTimeZone } from "../../../../domain/logical-date";
 import {
   ApiError,
   getRequestDb,

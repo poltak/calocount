@@ -3,7 +3,8 @@ import test from "node:test";
 
 import { drizzle } from "drizzle-orm/d1";
 import * as schema from "../db/schema";
-import { getDashboardSummary, isValidTimeZone } from "../db/repository";
+import { getDashboardSummary } from "../db/repository";
+import { isValidTimeZone } from "../domain/logical-date";
 
 type Row = Record<string, unknown>;
 
