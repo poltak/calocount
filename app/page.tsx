@@ -348,10 +348,21 @@ function mealPayload(meal: Meal, consumedAt?: number) {
   };
 }
 
+/**
+ * Build the body for an edit. It carries the items and, when the description
+ * changed, the caption, so the stored source, entry type and status survive.
+ */
+function mealPatchPayload(meal: Meal, saved: Meal) {
+  return {
+    ...(meal.description !== saved.description ? { caption: meal.description } : {}),
+    items: mealPayload(meal).items,
+  };
+}
+
 const mealPhotoAccept = "image/jpeg,image/png,image/webp";
 const maxDashboardMealPhotoBytes = 10 * 1024 * 1024;
 
-function mealRequestOptions(payload: ReturnType<typeof mealPayload>, photo?: File | null): Pick<RequestInit, "body" | "headers"> {
+function mealRequestOptions(payload: ReturnType<typeof mealPayload> | ReturnType<typeof mealPatchPayload>, photo?: File | null): Pick<RequestInit, "body" | "headers"> {
   if (!photo || photo.size === 0) {
     return {
       headers: { "content-type": "application/json" },
@@ -931,7 +942,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     try {
       const response = await fetch(`/api/meals/${encodeURIComponent(meal.id)}`, {
         method: "PATCH",
-        ...mealRequestOptions(mealPayload(meal), mealPhotoDrafts[mealId]),
+        ...mealRequestOptions(mealPatchPayload(meal, canonicalMeal), mealPhotoDrafts[mealId]),
       });
       const responseBody = await response.json().catch(() => null);
       if (!response.ok) {

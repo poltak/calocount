@@ -12,6 +12,6 @@ test("dashboard add and edit forms support an optional bounded meal photo", asyn
   assert.match(page, /name="photo" type="file" accept=\{mealPhotoAccept\}/);
   assert.match(page, /Replace photo \(optional\)/);
   assert.match(page, /Current photo stays unless you select a replacement/);
-  assert.match(page, /mealRequestOptions\(mealPayload\(meal\), mealPhotoDrafts\[mealId\]\)/);
+  assert.match(page, /mealRequestOptions\(mealPatchPayload\(meal, canonicalMeal\), mealPhotoDrafts\[mealId\]\)/);
   assert.match(page, /mealRequestOptions\(mealPayload\(nextMeal, consumedAt\), photo\)/);
 });
