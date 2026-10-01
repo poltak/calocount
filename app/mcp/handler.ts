@@ -477,8 +477,6 @@ const UPDATE_MEAL_TOOL = {
   },
 } as const;
 
-const READ_TOOL_NAMES = new Set<string>([GET_NUTRITION_HISTORY_TOOL.name, GET_NUTRITION_SUMMARY_TOOL.name]);
-
 const ADD_MEALS_TOOL = {
   name: "add_meals",
   title: "Add meals to Calocount",
@@ -787,11 +785,7 @@ async function createToolCall(ownerKey: string, arguments_: JsonObject, dependen
   }
 }
 
-async function createMealUpdateToolCall({ ownerKey, arguments_, dependencies }: {
-  ownerKey: string;
-  arguments_: JsonObject;
-  dependencies: McpHandlerDependencies;
-}) {
+async function createMealUpdateToolCall(ownerKey: string, arguments_: JsonObject, dependencies: McpHandlerDependencies) {
   try {
     const input = parseMcpMealUpdateInput(arguments_);
     const meal = await dependencies.updateMeal(ownerKey, input);
@@ -929,11 +923,7 @@ async function addOpenAISecuritySchemes(response: Response): Promise<Response> {
   if (!isObject(payload) || !isObject(payload.result) || !Array.isArray(payload.result.tools)) return response;
 
   const tools = payload.result.tools.map((tool) => {
-    if (!isObject(tool) || (
-      tool.name !== ADD_MEALS_TOOL.name
-      && tool.name !== UPDATE_MEAL_TOOL.name
-      && !READ_TOOL_NAMES.has(String(tool.name))
-    )) return tool;
+    if (!isObject(tool) || !TOOL_CALLS.has(String(tool.name))) return tool;
     return { ...tool, securitySchemes: SECURITY_SCHEMES };
   });
   const headers = new Headers(response.headers);
@@ -948,6 +938,17 @@ async function addOpenAISecuritySchemes(response: Response): Promise<Response> {
   });
 }
 
+// One entry per tool: listing, dispatch, and the security-scheme rewrite all read this table.
+const TOOLS = [
+  { definition: ADD_MEALS_TOOL, call: createToolCall },
+  { definition: GET_NUTRITION_HISTORY_TOOL, call: createNutritionHistoryToolCall },
+  { definition: GET_NUTRITION_SUMMARY_TOOL, call: createNutritionSummaryToolCall },
+  { definition: UPDATE_MEAL_TOOL, call: createMealUpdateToolCall },
+] as const;
+const TOOL_CALLS = new Map<string, (typeof TOOLS)[number]["call"]>(
+  TOOLS.map((tool) => [tool.definition.name, tool.call]),
+);
+
 function createServer(ownerKey: string, dependencies: McpHandlerDependencies): Server {
   const server = new Server(
     { name: "calocount", version: "0.1.0" },
@@ -958,33 +959,17 @@ function createServer(ownerKey: string, dependencies: McpHandlerDependencies): S
     },
   );
   server.setRequestHandler("tools/list", () => ({
-    tools: [
-      ADD_MEALS_TOOL as unknown as Tool,
-      GET_NUTRITION_HISTORY_TOOL as unknown as Tool,
-      GET_NUTRITION_SUMMARY_TOOL as unknown as Tool,
-      UPDATE_MEAL_TOOL as unknown as Tool,
-    ],
+    tools: TOOLS.map((tool) => tool.definition as unknown as Tool),
   }));
   server.setRequestHandler("tools/call", async (request) => {
-    if (request.params.name !== ADD_MEALS_TOOL.name
-      && request.params.name !== GET_NUTRITION_HISTORY_TOOL.name
-      && request.params.name !== GET_NUTRITION_SUMMARY_TOOL.name
-      && request.params.name !== UPDATE_MEAL_TOOL.name) {
+    const call = TOOL_CALLS.get(request.params.name);
+    if (!call) {
       throw new ProtocolError(INVALID_PARAMS, `Unknown tool: ${request.params.name}`);
     }
     if (!isObject(request.params.arguments)) {
       throw new ProtocolError(INVALID_PARAMS, "Tool arguments must be an object.");
     }
-    if (request.params.name === GET_NUTRITION_HISTORY_TOOL.name) {
-      return createNutritionHistoryToolCall(ownerKey, request.params.arguments, dependencies);
-    }
-    if (request.params.name === GET_NUTRITION_SUMMARY_TOOL.name) {
-      return createNutritionSummaryToolCall(ownerKey, request.params.arguments, dependencies);
-    }
-    if (request.params.name === UPDATE_MEAL_TOOL.name) {
-      return createMealUpdateToolCall({ ownerKey, arguments_: request.params.arguments, dependencies });
-    }
-    return createToolCall(ownerKey, request.params.arguments, dependencies);
+    return call(ownerKey, request.params.arguments, dependencies);
   });
   return server;
 }
