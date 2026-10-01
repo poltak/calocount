@@ -1079,12 +1079,29 @@ export async function createMealsForExternalRequests(
     (typeof statements)[number],
     ...(typeof statements)[number][],
   ]);
-  return Promise.all(inputs.map(async (input, index) => {
-    const meal = await findMealByExternalRequestId(db, ownerKey, input.requestId);
+  const meals: Array<typeof mealLogs.$inferSelect> = [];
+  for (let offset = 0; offset < inputs.length; offset += MEAL_ID_CHUNK_SIZE) {
+    meals.push(...await db
+      .select()
+      .from(mealLogs)
+      .where(and(
+        eq(mealLogs.ownerKey, ownerKey),
+        inArray(mealLogs.externalRequestId, inputs.slice(offset, offset + MEAL_ID_CHUNK_SIZE).map((input) => input.requestId)),
+      ))
+      .prepare()
+      .all());
+  }
+  const itemsByMeal = groupItemsByMeal(await listItemsForMeals(db, ownerKey, meals.map((meal) => meal.id)));
+  const mealsByRequestId = new Map(meals.map((meal) => [meal.externalRequestId, meal]));
+  return inputs.map((input, index) => {
+    const meal = mealsByRequestId.get(input.requestId);
     if (!meal) throw new Error("external_meal_create_failed");
     const insertedMeals = results[index * 2];
-    return { created: Array.isArray(insertedMeals) && insertedMeals.length > 0, meal };
-  }));
+    return {
+      created: Array.isArray(insertedMeals) && insertedMeals.length > 0,
+      meal: { meal, items: itemsByMeal.get(meal.id) ?? [] },
+    };
+  });
 }
 
 export async function createMealForExternalRequest(

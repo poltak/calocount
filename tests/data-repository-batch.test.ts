@@ -348,7 +348,8 @@ test("createMeal creates and retrieves four complete nutrient items within the D
 });
 
 test("external meal writes batch conflict-safe meal and item inserts", async () => {
-  const { client, db } = createRecordingDb("meal-external-request");
+  const client = new RecordingD1Database(mealRow("meal-external-request"), [], { persistInserts: true });
+  const db = drizzle(client as unknown as D1Database, { schema });
   const requestId = "c5a84680-d0c7-4af6-a4f5-89495c3923ec";
 
   await createMealForExternalRequest(db, OWNER_KEY, requestId, {
@@ -372,7 +373,8 @@ test("external meal writes batch conflict-safe meal and item inserts", async () 
 });
 
 test("external meal batches use one atomic D1 batch", async () => {
-  const { client, db } = createRecordingDb("meal-external-request");
+  const client = new RecordingD1Database(mealRow("meal-external-request"), [], { persistInserts: true });
+  const db = drizzle(client as unknown as D1Database, { schema });
   const secondRequestId = "d7e4b7f1-8f16-4d6e-9f9c-b9f4d5d4b0b6";
 
   await createMealsForExternalRequests(db, OWNER_KEY, [
