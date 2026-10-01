@@ -1,6 +1,6 @@
 import type { ApplyGlobalResponse } from "hono/client";
 import type { ApiErrorResponses } from "./features/core/handlers/error-responses.js";
-import type { createBusinessHttpApp } from "./server/http-app.js";
+import type { createApiHttpApp } from "./server/http-app.js";
 
 /**
  * Public, type-only contract for routes mounted under `/api`. No backend
@@ -8,6 +8,6 @@ import type { createBusinessHttpApp } from "./server/http-app.js";
  * shared error handler, so its error bodies are declared for every route.
  */
 export type ApiType = ApplyGlobalResponse<
-  ReturnType<typeof createBusinessHttpApp>,
+  ReturnType<typeof createApiHttpApp>,
   ApiErrorResponses
 >;

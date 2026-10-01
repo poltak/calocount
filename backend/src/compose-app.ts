@@ -1,5 +1,6 @@
 import type { Database } from "./database/database.js";
 import { AuthAccessLogic } from "./features/auth/logic/auth-access-logic.js";
+import { AuthSessionLogic } from "./features/auth/logic/auth-session-logic.js";
 import { OwnerSetupLogic } from "./features/auth/logic/owner-setup-logic.js";
 import { AuthStorage } from "./features/auth/storage/auth-storage.js";
 import { EncounterLifecycleLogic } from "./features/encounter-lifecycle/logic/encounter-lifecycle-logic.js";
@@ -30,6 +31,7 @@ export function composeApp({ db, services, ownerEmail }: ComposeAppProps): App {
 
   const logic: BackendLogic = {
     authAccess: new AuthAccessLogic({ storage: {}, services: {}, ownerEmail }),
+    authSession: new AuthSessionLogic({ storage: {}, services }),
     ownerSetup: new OwnerSetupLogic({ storage, services, ownerEmail }),
     encounterLifecycle: new EncounterLifecycleLogic({ storage, services }),
   };

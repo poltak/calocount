@@ -73,7 +73,7 @@ describe("typed API client", () => {
       };
       await backend.app.services.auth.createAccount(credentials);
       const fetch = backend.createBrowserTransport();
-      await fetch("http://shadow.test/api/auth/sign-in/email", {
+      await fetch("http://shadow.test/api/session", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(credentials),

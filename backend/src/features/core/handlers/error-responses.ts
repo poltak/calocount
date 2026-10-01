@@ -12,6 +12,7 @@ const appErrorStatuses = {
   UNAUTHENTICATED: 401,
   FORBIDDEN: 403,
   NOT_FOUND: 404,
+  RATE_LIMITED: 429,
   INTERNAL: 500,
   NOT_IMPLEMENTED: 501,
 } as const satisfies Record<AppErrorCode, ContentfulStatusCode>;

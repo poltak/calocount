@@ -5,8 +5,8 @@ import type { App } from "../../../index.js";
 import type { FrontendLogicProps } from "../../../logic/types.js";
 import { LatestRequest } from "../../core/logic/latest-request.js";
 
-type AuthProps = FrontendLogicProps<never, "windowFocus", "me"> &
-  Pick<App, "auth" | "apiAccessEvents">;
+type AuthProps = FrontendLogicProps<never, "windowFocus", "me" | "session"> &
+  Pick<App, "apiAccessEvents">;
 type User = InferResponseType<App["api"]["me"]["$get"], 200>["user"];
 interface AuthState {
   status: "loading" | "signedOut" | "signedIn" | "error";
@@ -66,13 +66,16 @@ export class AuthLogic extends Logic<AuthProps, AuthState> {
     this.sessionChecks.cancel();
     this.setState({ busy: true, error: null });
     try {
-      const result = await this.deps.auth.signIn.email({
-        email: this.state.email.trim(),
-        password: this.state.password,
-        fetchOptions: { signal: this.signal },
-      });
-      if (result.error)
-        throw new Error(result.error.message ?? "Sign-in failed");
+      const response = await this.deps.api.session.$post(
+        {
+          json: {
+            email: this.state.email.trim(),
+            password: this.state.password,
+          },
+        },
+        { init: { signal: this.signal } },
+      );
+      await requireApiSuccess(response);
       await this.loadSession();
     } catch (error) {
       this.setState({
@@ -89,11 +92,10 @@ export class AuthLogic extends Logic<AuthProps, AuthState> {
     this.sessionChecks.cancel();
     this.setState({ busy: true, error: null });
     try {
-      const result = await this.deps.auth.signOut({
-        fetchOptions: { signal: this.signal },
+      const response = await this.deps.api.session.$delete(undefined, {
+        init: { signal: this.signal },
       });
-      if (result.error)
-        throw new Error(result.error.message ?? "Sign-out failed");
+      await requireApiSuccess(response);
       this.setState({ status: "signedOut", user: null, password: "" });
     } catch (error) {
       this.setState({

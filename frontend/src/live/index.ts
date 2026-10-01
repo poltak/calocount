@@ -1,7 +1,6 @@
 import { createApiClient, type ApiClientProps } from "../api/client.js";
 import type { App, FrontendServices, FrontendStorage } from "../index.js";
 import { EventEmitter } from "@shadow/common/features/core/events/event-emitter";
-import { createFrontendAuthClient } from "../api/auth-client.js";
 import type { ApiAccessEvent } from "../api/access-events.js";
 import { LiveWindowFocusService } from "../features/window-focus/services/live-window-focus-service.js";
 
@@ -17,7 +16,6 @@ export function createApp(apiProps: ApiClientProps = {}): App {
     storage,
     services,
     apiAccessEvents,
-    auth: createFrontendAuthClient(apiProps),
     api: createApiClient({
       ...apiProps,
       onSessionRejected: () =>

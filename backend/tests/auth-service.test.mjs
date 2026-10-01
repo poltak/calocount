@@ -30,21 +30,19 @@ describe("AuthService", () => {
     const user = await auth.createAccount(credentials);
     assert.equal(user.email, credentials.email);
 
-    const signIn = await auth.handle(
-      new Request("http://shadow.test/api/auth/sign-in/email", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          origin: "http://shadow.test",
-        },
-        body: JSON.stringify({
-          email: credentials.email,
-          password: credentials.password,
-        }),
-      }),
-    );
-    assert.equal(signIn.status, 200);
-    const cookie = signIn.headers
+    const requestHeaders = new Headers({ origin: "http://shadow.test" });
+    const signIn = await auth.signInWithPassword({
+      email: credentials.email,
+      password: credentials.password,
+      requestHeaders,
+    });
+    assert.equal(signIn.ok, true);
+    assert.deepEqual(signIn.user, {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+    });
+    const cookie = signIn.responseHeaders
       .getSetCookie()
       .map((value) => value.split(";")[0])
       .join("; ");
@@ -58,45 +56,32 @@ describe("AuthService", () => {
       null,
     );
 
-    const signOut = await auth.handle(
-      new Request("http://shadow.test/api/auth/sign-out", {
-        method: "POST",
-        headers: { cookie, origin: "http://shadow.test" },
-      }),
-    );
-    assert.equal(signOut.status, 200);
+    const signOut = await auth.signOut({
+      requestHeaders: new Headers({ cookie, origin: "http://shadow.test" }),
+    });
+    assert.ok(signOut.responseHeaders.getSetCookie().length > 0);
     assert.equal(await auth.getSession({ headers }), null);
   });
 
-  it("rejects public registration and wrong passwords", async (context) => {
+  it("reports wrong passwords and untrusted origins without a session", async (context) => {
     const app = createApp();
     context.after(() => app.close());
     await app.services.auth.migrate();
     await app.services.auth.createAccount(credentials);
-    const signup = await app.services.auth.handle(
-      new Request("http://shadow.test/api/auth/sign-up/email", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          origin: "http://shadow.test",
-        },
-        body: JSON.stringify(credentials),
-      }),
-    );
-    assert.equal(signup.status, 400);
-    const invalid = await app.services.auth.handle(
-      new Request("http://shadow.test/api/auth/sign-in/email", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          origin: "http://shadow.test",
-        },
-        body: JSON.stringify({
-          email: credentials.email,
-          password: "wrong-password",
-        }),
-      }),
-    );
-    assert.equal(invalid.status, 401);
+    const wrongPassword = await app.services.auth.signInWithPassword({
+      email: credentials.email,
+      password: "wrong-password",
+      requestHeaders: new Headers({ origin: "http://shadow.test" }),
+    });
+    assert.deepEqual(wrongPassword, {
+      ok: false,
+      reason: "invalidCredentials",
+    });
+    const untrusted = await app.services.auth.signInWithPassword({
+      email: credentials.email,
+      password: credentials.password,
+      requestHeaders: new Headers({ origin: "https://other.example" }),
+    });
+    assert.deepEqual(untrusted, { ok: false, reason: "untrustedOrigin" });
   });
 });

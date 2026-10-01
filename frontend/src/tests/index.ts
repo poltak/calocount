@@ -1,7 +1,6 @@
 import { createApiClient } from "../api/client.js";
 import type { App } from "../index.js";
 import { EventEmitter } from "@shadow/common/features/core/events/event-emitter";
-import { createFrontendAuthClient } from "../api/auth-client.js";
 import type { ApiAccessEvent } from "../api/access-events.js";
 import { FakeWindowFocusService } from "../features/window-focus/services/fake-window-focus-service.js";
 
@@ -26,7 +25,6 @@ export function createApp({
     storage: {},
     services: { windowFocus: new FakeWindowFocusService() },
     apiAccessEvents,
-    auth: createFrontendAuthClient({ fetch, baseUrl }),
     api: createApiClient({
       fetch,
       baseUrl,

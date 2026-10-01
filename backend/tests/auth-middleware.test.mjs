@@ -8,7 +8,7 @@ const credentials = {
   password: "test-password-for-auth-only",
 };
 function signIn(fetch) {
-  return fetch("http://shadow.test/api/auth/sign-in/email", {
+  return fetch("http://shadow.test/api/session", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(credentials),
@@ -44,7 +44,8 @@ describe("authentication middleware", () => {
         body: JSON.stringify(credentials),
       },
     );
-    assert.equal(registration.status, 400);
+    // The auth SDK's own endpoints are not exposed.
+    assert.equal(registration.status, 401);
 
     const owner = await backend.app.services.auth.createAccount(credentials);
     assert.equal((await signIn(browser)).status, 200);
@@ -73,11 +74,20 @@ describe("authentication middleware", () => {
 
     assert.equal(
       (
-        await browser("http://shadow.test/api/auth/sign-out", {
+        await browser("http://shadow.test/api/auth/sign-up/email", {
           method: "POST",
         })
       ).status,
-      200,
+      404,
+    );
+
+    assert.equal(
+      (
+        await browser("http://shadow.test/api/session", {
+          method: "DELETE",
+        })
+      ).status,
+      204,
     );
     assert.equal((await browser("http://shadow.test/api/me")).status, 401);
   });
@@ -96,7 +106,7 @@ describe("authentication middleware", () => {
         .status,
       401,
     );
-    await first("http://shadow.test/api/auth/sign-out", { method: "POST" });
+    await first("http://shadow.test/api/session", { method: "DELETE" });
     assert.equal((await first("http://shadow.test/api/me")).status, 401);
     assert.equal((await second("http://shadow.test/api/me")).status, 200);
   });
@@ -126,13 +136,9 @@ describe("authentication middleware", () => {
     await backend.app.services.auth.createAccount(credentials);
     const browser = backend.createBrowserTransport();
     await signIn(browser);
-    const { session } = await (
-      await browser("http://shadow.test/api/auth/get-session")
-    ).json();
     await backend.app.db
       .updateTable("session")
       .set({ expiresAt: new Date(0) })
-      .where("id", "=", session.id)
       .execute();
     assert.equal((await browser("http://shadow.test/api/me")).status, 401);
   });

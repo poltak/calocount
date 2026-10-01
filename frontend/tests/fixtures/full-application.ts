@@ -15,7 +15,7 @@ export async function createFullApplication({
   try {
     await backend.app.logic.ownerSetup.createOwner(credentials);
     if (authenticated) {
-      const signIn = await fetch("http://shadow.test/api/auth/sign-in/email", {
+      const signIn = await fetch("http://shadow.test/api/session", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(credentials),

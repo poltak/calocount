@@ -6,10 +6,7 @@
     "jsx": "react-jsx",
     "noEmit": true,
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "types": ["vite/client"],
-    // SDK declarations reference other runtimes and contain upstream type errors.
-    // Application code and imported client contracts remain type-checked.
-    "skipLibCheck": true
+    "types": ["vite/client"]
   },
   "include": [
     "src/**/*.ts",

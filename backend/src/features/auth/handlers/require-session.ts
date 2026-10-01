@@ -11,19 +11,6 @@ export function requireSession({
   logic: Pick<BackendLogic, "authAccess">;
 }) {
   return createMiddleware<AuthEnvironment>(async (context, next) => {
-    // Better Auth checks origins on its own endpoints. Protect our mutations too.
-    const origin = context.req.header("origin");
-    if (
-      !["GET", "HEAD", "OPTIONS"].includes(context.req.method) &&
-      origin &&
-      !services.auth.trustedOrigins.includes(origin)
-    ) {
-      throw new AppError({
-        code: "FORBIDDEN",
-        message: "Request origin is not allowed",
-      });
-    }
-
     const auth = await services.auth.getSession({
       headers: context.req.raw.headers,
     });

@@ -9,8 +9,7 @@ function createLogic(fetch: typeof globalThis.fetch) {
   const logic = new AuthLogic({
     storage: {},
     services: app.services,
-    api: { me: app.api.me },
-    auth: app.auth,
+    api: { me: app.api.me, session: app.api.session },
     apiAccessEvents: app.apiAccessEvents,
   });
   return { app, logic };
@@ -23,9 +22,8 @@ describe("session state", () => {
       complete = resolve;
     });
     let profiles = 0;
-    const { logic } = createLogic(async (input) => {
-      if (String(input).endsWith("/sign-out"))
-        return Response.json({ success: true });
+    const { logic } = createLogic(async (_input, init) => {
+      if (init?.method === "DELETE") return new Response(null, { status: 204 });
       profiles += 1;
       return profiles === 2 ? pending : Response.json({ user });
     });

@@ -44,7 +44,7 @@ describe("single-user setup", () => {
       /already exists/,
     );
     const response = await backend.createBrowserTransport()(
-      "http://shadow.test/api/auth/sign-in/email",
+      "http://shadow.test/api/session",
       {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -67,7 +67,7 @@ describe("single-user setup", () => {
     const browser = backend.createBrowserTransport();
     assert.equal(
       (
-        await browser("http://shadow.test/api/auth/sign-in/email", {
+        await browser("http://shadow.test/api/session", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify(other),

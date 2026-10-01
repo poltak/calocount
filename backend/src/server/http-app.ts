@@ -1,6 +1,8 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { requireSession } from "../features/auth/handlers/require-session.js";
+import { requireTrustedOrigin } from "../features/auth/handlers/require-trusted-origin.js";
+import { createSessionHandlers } from "../features/auth/handlers/session-handlers.js";
 import type { AuthEnvironment } from "../features/auth/handlers/types.js";
 import {
   handleError,
@@ -13,11 +15,8 @@ interface HttpAppProps {
   app: Pick<App, "logic" | "services">;
 }
 
-/**
- * Every business route, including future routes, shares the authentication
- * gate. Paths are relative to the `/api` mount point.
- */
-export function createBusinessHttpApp({ app }: HttpAppProps) {
+/** Every business route, including future routes, shares the authentication gate. */
+function createBusinessHttpApp({ app }: HttpAppProps) {
   return new Hono<AuthEnvironment>()
     .use("*", requireSession({ services: app.services, logic: app.logic }))
     .get("/me", (context) => {
@@ -30,7 +29,17 @@ export function createBusinessHttpApp({ app }: HttpAppProps) {
     );
 }
 
-/** Auth entry points must remain reachable before a session exists. */
+/**
+ * Routes under `/api`. Session routes come first so they stay reachable
+ * without a session; every other route passes the authentication gate.
+ */
+export function createApiHttpApp({ app }: HttpAppProps) {
+  return new Hono()
+    .use("*", requireTrustedOrigin({ services: app.services }))
+    .route("/session", createSessionHandlers({ logic: app.logic }))
+    .route("/", createBusinessHttpApp({ app }));
+}
+
 export function createHttpApp({ app }: HttpAppProps) {
   return new Hono()
     .use(
@@ -40,8 +49,7 @@ export function createHttpApp({ app }: HttpAppProps) {
         credentials: true,
       }),
     )
-    .all("/api/auth/*", (context) => app.services.auth.handle(context.req.raw))
-    .route("/api", createBusinessHttpApp({ app }))
+    .route("/api", createApiHttpApp({ app }))
     .onError(handleError)
     .notFound(handleNotFound);
 }
