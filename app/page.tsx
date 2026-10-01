@@ -1,7 +1,7 @@
 "use client";
 
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
-import type { CSSProperties, FormEvent } from "react";
+import type { FormEvent } from "react";
 import { asRecord, stringOr, parseDashboardPayload, dashboardFailureMessage, parseWeightResponse, parseMealResponse, parseSavedEntriesResponse, parseTrackedEntryResponse, parseSettingsTargets, type DailyWeight, type TrendDay, type DashboardSummary, type SavedEntry, type SerializedMeal } from "./dashboard-api";
 import { mergeTrendDays, mergeTrendWeights } from "./dashboard-trend";
 import { settingsDraftForTargets, type SettingsDraft, type TargetState } from "./dashboard-settings";
@@ -235,6 +235,17 @@ function showTrendDateLabel(index: number, total: number) {
 
 function fullDateLabel(date: string) {
   return fullDateFormatter.format(new Date(`${date}T12:00:00.000Z`));
+}
+
+/** A progress ring with the percentage in its centre. */
+function MetricRing({ percent, label, className }: { percent: number; label: string; className: string }) {
+  return <div className={`metric-ring ${className}`} aria-label={label} role="img">
+    <svg viewBox="0 0 36 36" aria-hidden="true">
+      <circle className="metric-ring-track" cx="18" cy="18" r="15.5" />
+      {percent > 0 ? <circle className="metric-ring-value" cx="18" cy="18" r="15.5" pathLength={100} strokeDasharray={`${percent} 100`} /> : null}
+    </svg>
+    <strong>{percent}%</strong>
+  </div>;
 }
 
 function formatWeight(weightKg: number) {
@@ -1625,7 +1636,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
               {remainingCalories >= 0 ? `${formatNumber(Math.round(remainingCalories))} kcal left today` : `${formatNumber(Math.round(Math.abs(remainingCalories)))} kcal over target`}
             </p>
           </div>
-          <div className="metric-ring calorie-ring" style={{ "--progress": `${calculateTargetPercent(totalCalories, activeCalorieTarget)}%` } as CSSProperties} aria-label={`${calculateTargetPercent(totalCalories, activeCalorieTarget)} percent of calorie target`} role="img"><strong>{calculateTargetPercent(totalCalories, activeCalorieTarget)}%</strong></div>
+          <MetricRing className={`calorie-ring${remainingCalories < 0 ? " is-over" : ""}`} percent={calculateTargetPercent(totalCalories, activeCalorieTarget)} label={`${calculateTargetPercent(totalCalories, activeCalorieTarget)} percent of calorie target`} />
         </article>
 
         <article className="summary-card protein-card">
@@ -1641,7 +1652,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
               <p className="metric-subtitle">{remainingProteinLabel}</p>
               {proteinWeightSource ? <span className="protein-goal-hint">{proteinWeightSource}</span> : null}
             </div>
-            <div className="metric-ring protein-ring" style={{ "--progress": `${calculateTargetPercent(totalProtein, activeProteinTarget)}%` } as CSSProperties} aria-label={`${calculateTargetPercent(totalProtein, activeProteinTarget)} percent of protein target`} role="img"><strong>{calculateTargetPercent(totalProtein, activeProteinTarget)}%</strong></div>
+            <MetricRing className="protein-ring" percent={calculateTargetPercent(totalProtein, activeProteinTarget)} label={`${calculateTargetPercent(totalProtein, activeProteinTarget)} percent of protein target`} />
           </>}
         </article>
 
