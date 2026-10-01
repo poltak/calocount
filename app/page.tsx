@@ -648,7 +648,10 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     if (!isCurrentAction(action)) return;
     pendingActionRef.current = null;
     setPendingAction(null);
-    if (action.kind !== "settings-load" || dashboardRefreshDeferred.current) {
+    const changesSummary = action.kind !== "settings-load"
+      && action.kind !== "saved-entry-add"
+      && action.kind !== "saved-entry-remove";
+    if (changesSummary || dashboardRefreshDeferred.current) {
       dashboardRefreshDeferred.current = false;
       setDashboardReloadKey((current) => current + 1);
     }
