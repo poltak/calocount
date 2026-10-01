@@ -32,7 +32,9 @@ export class ApiExampleLogic extends Logic<ApiExampleProps, ApiExampleState> {
   }: {
     operation: "start" | "pause" | "stop";
   }): Promise<void> {
-    if (this.state.busy) return;
+    if (this.state.busy) {
+      return;
+    }
     this.setState({
       busy: true,
       error: null,

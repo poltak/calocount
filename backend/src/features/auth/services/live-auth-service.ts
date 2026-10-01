@@ -45,7 +45,9 @@ export class LiveAuthService implements AuthService {
   }
 
   async getSession({ headers }: { headers: Headers }) {
-    if (!headers.get("cookie")) return null;
+    if (!headers.get("cookie")) {
+      return null;
+    }
     return this.instance().api.getSession({ headers });
   }
 

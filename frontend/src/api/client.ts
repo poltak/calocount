@@ -19,7 +19,9 @@ export function createApiClient({
   const transport = fetch ?? globalThis.fetch.bind(globalThis);
   const authenticatedFetch: typeof globalThis.fetch = async (input, init) => {
     const response = await transport(input, init);
-    if (response.status === 401) onSessionRejected?.();
+    if (response.status === 401) {
+      onSessionRejected?.();
+    }
     return response;
   };
   return hc<ApiType>(`${baseUrl.replace(/\/+$/, "")}/api`, {
@@ -57,7 +59,9 @@ export class ApiRequestError extends Error {
 
 /** Common transport error handling, rather than a wrapper per feature. */
 export async function requireApiSuccess(response: Response): Promise<void> {
-  if (response.ok) return;
+  if (response.ok) {
+    return;
+  }
 
   let code: string | undefined;
   let message = `Request failed with status ${response.status}`;
@@ -66,10 +70,12 @@ export async function requireApiSuccess(response: Response): Promise<void> {
     if (body && typeof body === "object" && "error" in body) {
       const error = body.error;
       if (error && typeof error === "object") {
-        if ("code" in error && typeof error.code === "string")
+        if ("code" in error && typeof error.code === "string") {
           code = error.code;
-        if ("message" in error && typeof error.message === "string")
+        }
+        if ("message" in error && typeof error.message === "string") {
           message = error.message;
+        }
       }
     }
   } catch {

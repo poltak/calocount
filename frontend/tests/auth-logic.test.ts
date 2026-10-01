@@ -23,7 +23,9 @@ describe("session state", () => {
     });
     let profiles = 0;
     const { logic } = createLogic(async (_input, init) => {
-      if (init?.method === "DELETE") return new Response(null, { status: 204 });
+      if (init?.method === "DELETE") {
+        return new Response(null, { status: 204 });
+      }
       profiles += 1;
       return profiles === 2 ? pending : Response.json({ user });
     });
@@ -48,7 +50,9 @@ describe("session state", () => {
   it("keeps access closed after a connection failure and permits a retry", async () => {
     let offline = true;
     const { logic } = createLogic(async () => {
-      if (offline) throw new Error("Connection unavailable");
+      if (offline) {
+        throw new Error("Connection unavailable");
+      }
       return Response.json({ user });
     });
     try {

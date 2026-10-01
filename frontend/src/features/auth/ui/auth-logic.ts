@@ -20,6 +20,7 @@ interface AuthState {
 /** Owned by the session provider. The protected backend profile decides access. */
 export class AuthLogic extends Logic<AuthProps, AuthState> {
   private readonly sessionChecks = new LatestRequest(this.signal);
+
   constructor(deps: AuthProps) {
     super({
       deps,
@@ -33,6 +34,7 @@ export class AuthLogic extends Logic<AuthProps, AuthState> {
       },
     });
   }
+
   protected async onInitialize(): Promise<void> {
     this.registerCleanup(
       this.deps.apiAccessEvents.listen(() => {
@@ -52,17 +54,25 @@ export class AuthLogic extends Logic<AuthProps, AuthState> {
     );
     await this.loadSession();
   }
+
   setEmail(email: string): void {
     this.setState({ email });
   }
+
   setPassword(password: string): void {
     this.setState({ password });
   }
+
   async refresh(): Promise<void> {
-    if (!this.state.busy) await this.loadSession();
+    if (!this.state.busy) {
+      await this.loadSession();
+    }
   }
+
   async signIn(): Promise<void> {
-    if (this.state.busy) return;
+    if (this.state.busy) {
+      return;
+    }
     this.sessionChecks.cancel();
     this.setState({ busy: true, error: null });
     try {
@@ -87,8 +97,11 @@ export class AuthLogic extends Logic<AuthProps, AuthState> {
       this.setState({ busy: false, password: "" });
     }
   }
+
   async signOut(): Promise<void> {
-    if (this.state.busy) return;
+    if (this.state.busy) {
+      return;
+    }
     this.sessionChecks.cancel();
     this.setState({ busy: true, error: null });
     try {
@@ -105,6 +118,7 @@ export class AuthLogic extends Logic<AuthProps, AuthState> {
       this.setState({ busy: false });
     }
   }
+
   private async loadSession(): Promise<void> {
     const signal = this.sessionChecks.start();
     try {
@@ -112,13 +126,18 @@ export class AuthLogic extends Logic<AuthProps, AuthState> {
         init: { signal },
       });
       await requireApiSuccess(response);
-      if (response.status !== 200)
+      if (response.status !== 200) {
         throw new Error("Unexpected session response");
+      }
       const { user } = await response.json();
-      if (signal.aborted) return;
+      if (signal.aborted) {
+        return;
+      }
       this.setState({ status: "signedIn", user, error: null });
     } catch (error) {
-      if (signal.aborted) return;
+      if (signal.aborted) {
+        return;
+      }
       const denied =
         error instanceof ApiRequestError &&
         (error.status === 401 || error.status === 403);

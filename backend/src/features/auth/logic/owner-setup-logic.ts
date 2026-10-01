@@ -20,7 +20,9 @@ export class OwnerSetupLogic extends Logic<
         "An account already exists; owner setup does not replace credentials",
       );
     }
-    if (!name.trim()) throw new Error("Owner name is required");
+    if (!name.trim()) {
+      throw new Error("Owner name is required");
+    }
     // Concurrent attempts use the same configured email. The SDK's unique
     // email constraint prevents creation of a second account.
     return this.deps.services.auth.createAccount({

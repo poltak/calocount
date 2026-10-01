@@ -20,7 +20,9 @@ export async function createFullApplication({
         headers: { "content-type": "application/json" },
         body: JSON.stringify(credentials),
       });
-      if (!signIn.ok) throw new Error("Test owner sign-in failed");
+      if (!signIn.ok) {
+        throw new Error("Test owner sign-in failed");
+      }
     }
   } catch (error) {
     await backend.close();

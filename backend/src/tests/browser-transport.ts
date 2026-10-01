@@ -19,13 +19,19 @@ export function createBrowserTransport({
     if (useCookies && !headers.has("cookie")) {
       const values: string[] = [];
       for (const [name, cookie] of cookies) {
-        if (cookie.expiresAt <= Date.now()) cookies.delete(name);
-        else values.push(`${name}=${cookie.value}`);
+        if (cookie.expiresAt <= Date.now()) {
+          cookies.delete(name);
+        } else {
+          values.push(`${name}=${cookie.value}`);
+        }
       }
-      if (values.length) headers.set("cookie", values.join("; "));
+      if (values.length) {
+        headers.set("cookie", values.join("; "));
+      }
     }
-    if (!["GET", "HEAD"].includes(request.method) && !headers.has("origin"))
+    if (!["GET", "HEAD"].includes(request.method) && !headers.has("origin")) {
       headers.set("origin", origin);
+    }
     const response = await fetch(new Request(request, { headers }));
     if (useCookies) {
       for (const value of response.headers.getSetCookie()) {
@@ -36,13 +42,20 @@ export function createBrowserTransport({
         let expiresAt = Infinity;
         for (const attribute of attributes) {
           const [key, ...parts] = attribute.trim().split("=");
-          if (key.toLowerCase() === "max-age")
+          if (key.toLowerCase() === "max-age") {
             expiresAt = Date.now() + Number(parts.join("=")) * 1000;
-          else if (key.toLowerCase() === "expires" && expiresAt === Infinity)
+          } else if (
+            key.toLowerCase() === "expires" &&
+            expiresAt === Infinity
+          ) {
             expiresAt = Date.parse(parts.join("="));
+          }
         }
-        if (!content || expiresAt <= Date.now()) cookies.delete(name);
-        else cookies.set(name, { value: content, expiresAt });
+        if (!content || expiresAt <= Date.now()) {
+          cookies.delete(name);
+        } else {
+          cookies.set(name, { value: content, expiresAt });
+        }
       }
     }
     return response;

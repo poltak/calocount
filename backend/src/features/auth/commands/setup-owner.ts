@@ -11,7 +11,9 @@ async function credentials() {
   let hidden = false;
   const output = new Writable({
     write(chunk, _encoding, callback) {
-      if (!hidden) process.stdout.write(chunk);
+      if (!hidden) {
+        process.stdout.write(chunk);
+      }
       callback();
     },
   });
@@ -37,7 +39,9 @@ async function credentials() {
       signal: cancellation.signal,
     });
     process.stdout.write("\n");
-    if (password !== confirmation) throw new Error("Passwords do not match");
+    if (password !== confirmation) {
+      throw new Error("Passwords do not match");
+    }
     return { name, password };
   } finally {
     prompt.close();

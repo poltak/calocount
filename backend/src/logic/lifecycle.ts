@@ -21,6 +21,7 @@ export async function cleanupLogic({
   const errors = results.flatMap((result) =>
     result.status === "rejected" ? [result.reason] : [],
   );
-  if (errors.length)
+  if (errors.length) {
     throw new AggregateError(errors, "Backend Logic cleanup failed");
+  }
 }

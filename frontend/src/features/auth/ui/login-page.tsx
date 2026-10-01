@@ -12,7 +12,9 @@ export function LoginPage() {
     !returnTo.startsWith("/login")
       ? returnTo
       : "/";
-  if (state.status === "signedIn") return <Navigate to={destination} replace />;
+  if (state.status === "signedIn") {
+    return <Navigate to={destination} replace />;
+  }
   return (
     <section className="login-panel">
       <h1>Sign in to Shadow</h1>

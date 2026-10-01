@@ -1,11 +1,22 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "plugins": ["typescript", "unicorn", "oxc", "react", "jsx-a11y"],
+  "jsPlugins": ["@stylistic/eslint-plugin"],
   "categories": {
     "correctness": "error",
     "suspicious": "warn"
   },
   "rules": {
+    "curly": ["error", "all"],
+    "@stylistic/lines-between-class-members": [
+      "error",
+      {
+        "enforce": [
+          { "blankLine": "always", "prev": "*", "next": "method" },
+          { "blankLine": "always", "prev": "method", "next": "*" }
+        ]
+      }
+    ],
     "unicorn/require-module-specifiers": "off",
     "react/rules-of-hooks": "error",
     "react/exhaustive-deps": "warn",

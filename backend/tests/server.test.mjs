@@ -38,7 +38,9 @@ it(
       child.stdout.on("data", (chunk) => {
         stdout += chunk;
         const match = stdout.match(/Shadow API listening at (http:\/\/[^\s]+)/);
-        if (match) resolve(match[1]);
+        if (match) {
+          resolve(match[1]);
+        }
       });
       child.once("error", reject);
       child.once("exit", () => {
