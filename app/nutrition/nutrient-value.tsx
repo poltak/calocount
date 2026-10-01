@@ -1,5 +1,6 @@
 import {
   aggregateCoverageLabel,
+  goalKindFor,
   formatNutrientAmount,
   nutrientLabel,
   nutrientUnit,
@@ -25,7 +26,7 @@ export function NutrientValue({ nutrientKey, value, aggregate, goal, showLabel =
   const goalAmount = goal?.value ?? null;
   return <span className={`nutrient-value ${isPartial ? "is-partial" : ""} ${className}`.trim()}>
     <span className="nutrient-value-reading"><strong>{formatted}</strong>{formatted !== "—" ? <small>{nutrientUnit(nutrientKey)}</small> : null}</span>
-    {goalAmount !== null ? <span className="nutrient-goal-reading"><span aria-hidden="true">/</span> {formatNutrientAmount(goalAmount, nutrientKey)}{nutrientUnit(nutrientKey)}{goal?.direction === "maximum" ? " max" : ""}</span> : null}
+    {goalAmount !== null ? <span className="nutrient-goal-reading"><span aria-hidden="true">/</span> {formatNutrientAmount(goalAmount, nutrientKey)}{nutrientUnit(nutrientKey)}{goalKindFor(nutrientKey, goal) === "limit" ? " max" : ""}</span> : null}
     {showLabel && isPartial ? <em title={`${aggregate?.knownItemCount ?? 0} of ${aggregate?.totalItemCount ?? 0} items have a value`}>{coverage}</em> : null}
     {showLabel && formatted === "—" ? <em>{nutrientLabel(nutrientKey)} unknown</em> : null}
   </span>;

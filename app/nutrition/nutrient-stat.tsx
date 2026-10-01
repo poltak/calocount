@@ -1,6 +1,8 @@
 import type { CSSProperties } from "react";
 
 import {
+  goalKindFor,
+  goalKindWord,
   nutrientGoalProgress,
   nutrientLabel,
   type NutrientAggregate,
@@ -29,7 +31,8 @@ export function NutrientStat({
   value,
 }: NutrientStatProps) {
   const amount = aggregate ? aggregate.amount : value;
-  const progress = nutrientGoalProgress(amount, goal);
+  const kind = goalKindFor(nutrientKey, goal);
+  const progress = nutrientGoalProgress(amount, goal, kind);
   const partial = Boolean(aggregate && aggregate.amount !== null && !aggregate.complete);
   const classes = [
     "nutrient-stat",
@@ -44,6 +47,6 @@ export function NutrientStat({
   return <div className={classes} style={style}>
     <span className="nutrient-stat-label">{label ?? nutrientLabel(nutrientKey)}</span>
     <NutrientValue nutrientKey={nutrientKey} value={value} aggregate={aggregate} goal={goal} showLabel={showCoverage} />
-    {progress ? <span className="nutrient-goal-percent">{progress.displayPercent}% of {goal?.direction === "maximum" ? "limit" : "goal"}</span> : null}
+    {progress ? <span className="nutrient-goal-percent">{progress.displayPercent}% of {goalKindWord(kind)}</span> : null}
   </div>;
 }

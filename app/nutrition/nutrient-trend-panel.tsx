@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 
-import { formatNutrientAmount, groupedNutrientKeys, nutrientGroupLabel, nutrientLabel, nutrientUnit, nutrientKeys, type NutrientAggregateMap, type NutrientGoalMap } from "./nutrient-meta";
+import { formatNutrientAmount, goalKindFor, goalKindWord, groupedNutrientKeys, nutrientGroupLabel, nutrientLabel, nutrientUnit, nutrientKeys, type NutrientAggregateMap, type NutrientGoalMap } from "./nutrient-meta";
 import { knownAverage, trendCoverage, trendForNutrient } from "./nutrition-calculations";
 import { TrendRangeSelect, type TrendRangeDays } from "../trend-range-select";
 
@@ -24,6 +24,7 @@ export function NutrientTrendPanel({ byDate, goals, range, onRangeChange }: Nutr
   const average = knownAverage(points);
   const coverage = trendCoverage(points);
   const goal = goals?.[selectedNutrient as keyof NutrientGoalMap];
+  const goalWord = goalKindWord(goalKindFor(selectedNutrient, goal));
   const max = Math.max(1, goal?.value ?? 0, ...points.map((point) => point.amount ?? 0));
 
   return <section className="panel chart-panel nutrient-trend-panel" id="nutrient-trend" aria-labelledby="nutrient-trend-title">
@@ -41,14 +42,14 @@ export function NutrientTrendPanel({ byDate, goals, range, onRangeChange }: Nutr
     {points.length ? <>
       <div className="nutrient-trend-summary" aria-live="polite">
         <span>Known average <strong>{average === null ? "—" : `${average.toLocaleString("en-US", { maximumFractionDigits: 1 })} ${nutrientUnit(selectedNutrient)}`}</strong></span>
-        {goal?.value !== null && goal?.value !== undefined ? <span>Daily {goal.direction === "maximum" ? "limit" : "goal"} <strong>{formatNutrientAmount(goal.value, selectedNutrient)} {nutrientUnit(selectedNutrient)}</strong></span> : <span>No daily goal</span>}
+        {goal?.value !== null && goal?.value !== undefined ? <span>Daily {goalWord} <strong>{formatNutrientAmount(goal.value, selectedNutrient)} {nutrientUnit(selectedNutrient)}</strong></span> : <span>No daily goal</span>}
         <span className={coverage.complete ? "coverage-complete" : "coverage-partial"}>{coverage.knownDays} of {coverage.totalDays} days known{coverage.complete ? "" : " · Partial"}</span>
       </div>
       <div className={`nutrient-trend-chart${range === 30 ? " is-month" : ""}`} role="group" aria-label={`${nutrientLabel(selectedNutrient)} for the past ${range} days; missing days are shown as gaps`}>
         <div className="nutrient-trend-y-axis" aria-hidden="true"><span>{max.toLocaleString("en-US", { maximumFractionDigits: 1 })}</span><span>{(max / 2).toLocaleString("en-US", { maximumFractionDigits: 1 })}</span><span>0</span></div>
         <div className="nutrient-trend-plot">
           <div className="grid-line line-one" /><div className="grid-line line-two" /><div className="grid-line line-three" />
-          {goal?.value !== null && goal?.value !== undefined ? <div className={`nutrient-trend-goal-line goal-${goal.direction}`} style={{ bottom: `${Math.min(100, (goal.value / max) * 100)}%` }}><span>{goal.direction === "maximum" ? "Limit" : "Goal"}</span></div> : null}
+          {goal?.value !== null && goal?.value !== undefined ? <div className={`nutrient-trend-goal-line goal-${goalWord}`} style={{ bottom: `${Math.min(100, (goal.value / max) * 100)}%` }}><span>{goalWord[0].toUpperCase()}{goalWord.slice(1)}</span></div> : null}
           <div className="nutrient-trend-bars">{points.map((point, index) => <button className={`nutrient-trend-column${point.amount === null ? " missing" : ""}`} key={point.date} type="button" aria-label={point.amount === null ? `${dateLabel(point.date)}: unknown` : `${dateLabel(point.date)}: ${point.amount} ${nutrientUnit(selectedNutrient)}`}>
             {point.amount === null ? <span className="nutrient-trend-gap" aria-hidden="true">—</span> : <><div className="bar-value">{point.amount.toLocaleString("en-US", { maximumFractionDigits: 1 })}</div><div className="bar nutrient-trend-bar" style={{ height: `${Math.max(8, (point.amount / max) * 100)}%` }} /></>}
             <span>{points.length <= 7 || index === 0 || index === points.length - 1 || (index % 7 === 0 && index < points.length - 2) ? dateLabel(point.date) : ""}</span>

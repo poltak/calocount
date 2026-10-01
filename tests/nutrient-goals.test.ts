@@ -7,6 +7,7 @@ import {
   parseNutrientGoalOverridesJson,
   resolveNutrientGoals,
 } from "../domain/nutrient-goals";
+import { nutrientGoalKind } from "../domain/nutrient-references";
 import { NUTRIENT_KEYS } from "../domain/nutrients";
 
 test("nutrient goals cover all tracked nutrients with conservative defaults", () => {
@@ -43,4 +44,23 @@ test("progress uses different states for minimum goals and maximum limits", () =
   assert.equal(nutrientGoalProgress(250, { value: 300, direction: "maximum", source: "default" })?.status, "warning");
   assert.equal(nutrientGoalProgress(310, { value: 300, direction: "maximum", source: "default" })?.status, "exceeded");
   assert.equal(nutrientGoalProgress(null, { value: 90, direction: "minimum", source: "default" }), null);
+});
+
+test("a default maximum is a limit only when a guideline backs it", () => {
+  const goals = resolveNutrientGoals();
+  assert.equal(nutrientGoalKind("fiberG", goals.fiberG), "goal");
+  assert.equal(nutrientGoalKind("sodiumMg", goals.sodiumMg), "limit");
+  assert.equal(nutrientGoalKind("saturatedFatG", goals.saturatedFatG), "limit");
+  assert.equal(nutrientGoalKind("caffeineMg", goals.caffeineMg), "limit");
+  // The label Daily Value for cholesterol is shown as a reference amount.
+  assert.equal(nutrientGoalKind("cholesterolMg", goals.cholesterolMg), "reference");
+  assert.equal(nutrientGoalKind("totalSugarsG", goals.totalSugarsG), null);
+
+  // The owner's own maximum is always a limit.
+  const custom = resolveNutrientGoals({ cholesterolMg: 250 });
+  assert.equal(nutrientGoalKind("cholesterolMg", custom.cholesterolMg), "limit");
+
+  const reference = { value: 300, direction: "maximum", source: "default" } as const;
+  assert.equal(nutrientGoalProgress(310, reference, "reference")?.status, "reference");
+  assert.equal(nutrientGoalProgress(310, reference, "limit")?.status, "exceeded");
 });

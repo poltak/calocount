@@ -312,6 +312,26 @@ export function nutrientReferenceForGoal(
   };
 }
 
+/**
+ * How a configured goal is described to the owner: an amount to reach, a limit
+ * to stay under, or a reference amount that is shown without judgement.
+ *
+ * A maximum counts as a limit only when it is the owner's own maximum or a
+ * published reduction guideline. Other default maximums, such as the label
+ * Daily Value for cholesterol, are reference amounts.
+ */
+export type NutrientGoalKind = "goal" | "limit" | "reference";
+
+export function nutrientGoalKind(
+  nutrient: NutrientKey,
+  goal: ResolvedNutrientGoal | null | undefined,
+): NutrientGoalKind | null {
+  const reference = nutrientReferenceForGoal(nutrient, goal);
+  if (!reference || !goal) return null;
+  if (goal.direction === "minimum") return "goal";
+  return reference.type === "guideline" || reference.type === "personal-goal" ? "limit" : "reference";
+}
+
 /** Return the published UL definition without claiming that it applies. */
 export function nutrientUpperLimitDefinition(nutrient: NutrientKey): NutrientUpperLimitDefinition | null {
   return NUTRIENT_UPPER_LIMIT_DEFINITIONS[nutrient] ?? null;

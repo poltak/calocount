@@ -2787,7 +2787,7 @@ input:focus-visible {
   pointer-events: none;
 }
 
-.nutrient-trend-goal-line.goal-maximum { border-color: rgb(229 160 85 / 85%); }
+.nutrient-trend-goal-line.goal-limit { border-color: rgb(229 160 85 / 85%); }
 
 .nutrient-trend-goal-line span {
   position: absolute;

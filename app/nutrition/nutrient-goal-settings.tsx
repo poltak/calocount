@@ -3,7 +3,9 @@ import {
 } from "../../domain/nutrient-goals";
 import type { NutrientKey } from "../../domain/nutrients";
 import type { NutrientGoalDraft } from "./nutrient-goal-draft";
+import { nutrientGoalKind } from "../../domain/nutrient-references";
 import {
+  defaultNutrientGoals,
   formatNutrientAmount,
   groupedNutrientKeys,
   nutrientGroupLabel,
@@ -38,11 +40,12 @@ export function NutrientGoalSettings({ disabled = false, onChange, onReset, valu
             const definition = NUTRIENT_GOAL_DEFINITIONS[key];
             const inputStep = 10 ** -nutrientMeta(key).precision;
             const inputId = `nutrient-target-${key}`;
+            const defaultIsReference = nutrientGoalKind(key, defaultNutrientGoals[key]) === "reference";
             const defaultLabel = definition.defaultValue === null
               ? "No general default"
               : `Default ${formatNutrientAmount(definition.defaultValue, key)} ${nutrientUnit(key)}`;
             return <label aria-label={`${nutrientLabel(key)} daily goal`} className="nutrient-goal-input" htmlFor={inputId} key={key}>
-              <span><strong>{nutrientLabel(key)}</strong><small>{definition.direction === "maximum" ? "Maximum" : "At least"} · {defaultLabel}</small></span>
+              <span><strong>{nutrientLabel(key)}</strong><small>{definition.direction === "maximum" ? "Maximum" : "At least"} · {defaultLabel}{defaultIsReference ? " (shown as a reference, not a limit)" : ""}</small></span>
               <span className="nutrient-goal-input-control">
                 <input
                   id={inputId}

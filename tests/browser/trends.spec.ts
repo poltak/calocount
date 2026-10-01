@@ -49,3 +49,18 @@ test("the nutrient trend plots known days and marks unknown days as gaps", async
   await expect(panel.locator(".nutrient-trend-column.missing")).toHaveCount(7);
   await expect(panel.locator(".nutrient-trend-summary")).toContainText("0 of 7 days known");
 });
+
+test("the nutrient trend calls a guideline a limit and a plain Daily Value a reference", async ({ page }) => {
+  await mockDashboardApi(page);
+  await page.goto("/");
+  const panel = page.locator("#nutrient-trend");
+  await expect(panel.locator(".nutrient-trend-summary")).toContainText("Daily goal 28 g");
+
+  await panel.getByLabel("Show", { exact: true }).selectOption("sodiumMg");
+  await expect(panel.locator(".nutrient-trend-summary")).toContainText("Daily limit 2,300 mg");
+  await expect(panel.locator(".nutrient-trend-goal-line")).toHaveText("Limit");
+
+  await panel.getByLabel("Show", { exact: true }).selectOption("cholesterolMg");
+  await expect(panel.locator(".nutrient-trend-summary")).toContainText("Daily reference 300 mg");
+  await expect(panel.locator(".nutrient-trend-goal-line")).toHaveText("Reference");
+});

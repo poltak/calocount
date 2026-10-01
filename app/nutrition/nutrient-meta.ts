@@ -10,6 +10,7 @@ import {
   type NutrientGoalMap as SharedNutrientGoalMap,
   type ResolvedNutrientGoal,
 } from "../../domain/nutrient-goals";
+import { nutrientGoalKind, type NutrientGoalKind } from "../../domain/nutrient-references";
 
 export type NutrientValue = number | null | undefined;
 export type NutrientKey = SharedNutrientKey;
@@ -176,7 +177,21 @@ function asGoalRecord(value: unknown): Record<string, unknown> | null {
   return isRecord(value) ? value : null;
 }
 
-export function nutrientGoalProgress(amount: NutrientValue, goal: NutrientGoal | null | undefined) {
+/** The kind of a goal for display. Keys outside the catalogue have none. */
+export function goalKindFor(key: string, goal: NutrientGoal | null | undefined): NutrientGoalKind | null {
+  return catalogueMeta.has(key) ? nutrientGoalKind(key as NutrientKey, goal) : null;
+}
+
+/** The word for a goal of the given kind, as in "62% of limit". */
+export function goalKindWord(kind: NutrientGoalKind | null): string {
+  return kind === "limit" ? "limit" : kind === "reference" ? "reference" : "goal";
+}
+
+/**
+ * Progress toward a goal. A maximum is judged as a limit unless `kind` says it
+ * is only a reference amount, which gets a neutral status at any level.
+ */
+export function nutrientGoalProgress(amount: NutrientValue, goal: NutrientGoal | null | undefined, kind?: NutrientGoalKind | null) {
   const parsedAmount = parseNutrientValue(amount);
   if (parsedAmount === null || !goal || goal.value === null || goal.value <= 0) return null;
   const rawPercent = (parsedAmount / goal.value) * 100;
@@ -186,6 +201,7 @@ export function nutrientGoalProgress(amount: NutrientValue, goal: NutrientGoal |
     fillPercent: Math.min(100, Math.max(0, rawPercent)),
     status: goal.direction === "minimum"
       ? rawPercent >= 100 ? "complete" : "progress"
+      : kind === "reference" ? "reference"
       : rawPercent > 100 ? "exceeded" : rawPercent >= 75 ? "warning" : "within",
   } as const;
 }
