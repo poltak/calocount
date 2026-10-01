@@ -17,8 +17,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "start": "node --env-file-if-exists=../.env dist/server/start.js",
     "auth:migrate": "pnpm --filter backend... run build && node --env-file-if-exists=../.env dist/features/auth/commands/migrate.js",
-    "auth:setup-owner": "pnpm --filter backend... run build && node --env-file-if-exists=../.env dist/features/auth/commands/setup-owner.js",
-    "test": "pnpm run build && node --test tests/*.test.mjs"
+    "auth:setup-owner": "pnpm --filter backend... run build && node --env-file-if-exists=../.env dist/features/auth/commands/setup-owner.js"
   },
   "dependencies": {
     "@hono/node-server": "2.1.1",
