@@ -36,12 +36,15 @@ function showDate(index: number, total: number) {
 
 export function ProteinTargetChart({
   days,
+  selectedDate,
   goalByDate,
   fallbackTarget,
   range,
   onRangeChange,
 }: {
   days: TrendDatum[];
+  /** The day chosen in the dashboard, which the chart marks. */
+  selectedDate: string;
   goalByDate: ProteinGoalDay[];
   fallbackTarget: number | null;
   range: TrendRangeDays;
@@ -67,7 +70,7 @@ export function ProteinTargetChart({
     <div className={`protein-target-chart${range === 30 ? " is-month" : ""}`} role="group" aria-label={`Daily protein in grams compared with the protein target for the past ${range} days`}>
       {values.map((day, index) => {
         const targetPercent = day.target ? Math.min(100, (day.target / max) * 100) : null;
-        return <button className={`protein-target-day${day.mealCount > 0 ? "" : " missing"}`} key={day.date} type="button" aria-label={day.mealCount > 0
+        return <button className={`protein-target-day${day.mealCount > 0 ? "" : " missing"}${day.date === selectedDate ? " is-selected" : ""}`} key={day.date} type="button" aria-label={day.mealCount > 0
           ? `${day.label}: ${format(day.proteinG)} grams protein${day.target ? `, target ${format(day.target)} grams` : ""}`
           : `${day.label}: no entries recorded`}>
           <span className="protein-target-tooltip">{day.mealCount > 0 ? `${format(day.proteinG)}g${day.target ? ` / ${format(day.target)}g` : ""}` : "No meals"}</span>
@@ -131,7 +134,7 @@ export function FoodContributionChart({ days, visibleDates }: { days: LoggedDay[
 
 const matrixNutrients: NutrientKey[] = ["fiberG", "saturatedFatG", "sodiumMg", "potassiumMg", "calciumMg", "ironMg"];
 
-export function NutrientConsistencyMatrix({ days, goals }: { days: TrendDatum[]; goals: NutrientGoalMap }) {
+export function NutrientConsistencyMatrix({ days, selectedDate, goals }: { days: TrendDatum[]; selectedDate: string; goals: NutrientGoalMap }) {
   const visible = days.slice(-7);
   return <section className="panel chart-panel consistency-panel" aria-labelledby="consistency-title">
     <div className="panel-heading">
@@ -141,7 +144,7 @@ export function NutrientConsistencyMatrix({ days, goals }: { days: TrendDatum[];
     <div className="matrix-legend" aria-hidden="true"><span><i className="matrix-key low" /> Below goal</span><span><i className="matrix-key met" /> On target</span><span><i className="matrix-key over" /> Over limit</span><span><i className="matrix-key partial" /> Partial data</span></div>
     <div className="consistency-scroll">
       <div className="consistency-matrix" style={{ "--matrix-columns": visible.length } as CSSProperties}>
-        <div />{visible.map((day) => <strong className="matrix-date" key={day.date}>{day.label.replace(" ", "\n")}</strong>)}
+        <div />{visible.map((day) => <strong className={`matrix-date${day.date === selectedDate ? " is-selected" : ""}`} key={day.date}>{day.label.replace(" ", "\n")}</strong>)}
         {matrixNutrients.map((key) => {
           const goal = goals[key];
           return <div className="matrix-row" key={key}>

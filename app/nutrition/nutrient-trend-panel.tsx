@@ -8,6 +8,8 @@ import { TrendRangeSelect, type TrendRangeDays } from "../trend-range-select";
 
 type NutrientTrendPanelProps = {
   byDate: Array<{ date: string; nutrients: NutrientAggregateMap }>;
+  /** The day chosen in the dashboard, which the chart marks. */
+  selectedDate?: string;
   goals?: NutrientGoalMap;
   range: TrendRangeDays;
   onRangeChange: (value: TrendRangeDays) => void;
@@ -18,7 +20,7 @@ function dateLabel(date: string) {
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" }).format(parsed);
 }
 
-export function NutrientTrendPanel({ byDate, goals, range, onRangeChange }: NutrientTrendPanelProps) {
+export function NutrientTrendPanel({ byDate, selectedDate, goals, range, onRangeChange }: NutrientTrendPanelProps) {
   const [selectedNutrient, setSelectedNutrient] = useState<string>(nutrientKeys[0] ?? "fiberG");
   const points = useMemo(() => trendForNutrient(byDate, selectedNutrient), [byDate, selectedNutrient]);
   const average = knownAverage(points);
@@ -50,7 +52,7 @@ export function NutrientTrendPanel({ byDate, goals, range, onRangeChange }: Nutr
         <div className="nutrient-trend-plot">
           <div className="grid-line line-one" /><div className="grid-line line-two" /><div className="grid-line line-three" />
           {goal?.value !== null && goal?.value !== undefined ? <div className={`nutrient-trend-goal-line goal-${goalWord}`} style={{ bottom: `${Math.min(100, (goal.value / max) * 100)}%` }}><span>{goalWord[0].toUpperCase()}{goalWord.slice(1)}</span></div> : null}
-          <div className="nutrient-trend-bars">{points.map((point, index) => <button className={`nutrient-trend-column${point.amount === null ? " missing" : ""}`} key={point.date} type="button" aria-label={point.amount === null ? `${dateLabel(point.date)}: unknown` : `${dateLabel(point.date)}: ${point.amount} ${nutrientUnit(selectedNutrient)}`}>
+          <div className="nutrient-trend-bars">{points.map((point, index) => <button className={`nutrient-trend-column${point.amount === null ? " missing" : ""}${point.date === selectedDate ? " is-selected" : ""}`} key={point.date} type="button" aria-label={point.amount === null ? `${dateLabel(point.date)}: unknown` : `${dateLabel(point.date)}: ${point.amount} ${nutrientUnit(selectedNutrient)}`}>
             {point.amount === null ? <span className="nutrient-trend-gap" aria-hidden="true">—</span> : <><div className="bar-value">{point.amount.toLocaleString("en-US", { maximumFractionDigits: 1 })}</div><div className="bar nutrient-trend-bar" style={{ height: `${Math.max(8, (point.amount / max) * 100)}%` }} /></>}
             <span>{points.length <= 7 || index === 0 || index === points.length - 1 || (index % 7 === 0 && index < points.length - 2) ? dateLabel(point.date) : ""}</span>
           </button>)}</div>

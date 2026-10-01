@@ -195,8 +195,9 @@ test("light mode uses a coherent palette for charts and button states", async ({
     };
   });
 
-  expect(charts.calories.image).toContain("rgb(253, 183, 122)");
-  expect(charts.calories.image).toContain("rgb(245, 124, 43)");
+  // The only day with calories is the selected one, so its bar uses the emphasis gradient.
+  expect(charts.calories.image).toContain("rgb(251, 154, 76)");
+  expect(charts.calories.image).toContain("rgb(234, 100, 16)");
   expect(charts.axis.color).toBe("rgb(104, 120, 114)");
   expect(charts.target.border).toBe("rgb(113, 139, 125)");
   expect(charts.macroDonut.image).toContain("rgb(61, 132, 230)");

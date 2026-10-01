@@ -1152,12 +1152,15 @@ summary:focus-visible {
 .mini-bars span {
   flex: 1;
   min-height: 12px;
-  border-radius: 3px 3px 1px 1px;
+  border-radius: 99px;
   background: var(--chart-neutral);
-  opacity: .78;
+  opacity: .5;
 }
 
-.mini-bars span:nth-child(5) { background: var(--chart-orange); opacity: 1; }
+.mini-bars span.is-selected {
+  background: linear-gradient(180deg, var(--chart-calorie-start), var(--chart-calorie-end));
+  opacity: 1;
+}
 
 .content-grid {
   display: grid;
@@ -1373,6 +1376,39 @@ summary:focus-visible {
   cursor: pointer;
 }
 
+/* The selected day gets a soft band behind its column and a stronger date label. */
+.bar-column,
+.macro-trend-column,
+.nutrient-trend-column,
+.protein-target-day { isolation: isolate; }
+
+.bar-column.is-selected::before,
+.macro-trend-column.is-selected::before,
+.nutrient-trend-column.is-selected::before,
+.protein-target-day.is-selected::before,
+.weight-point-column.is-selected::before {
+  position: absolute;
+  z-index: -1;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: min(100% + 6px, 60px);
+  border-radius: 9px;
+  background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--foreground) 6%, transparent));
+  transform: translateX(-50%);
+  content: "";
+  pointer-events: none;
+}
+
+.bar-column.is-selected > span:last-child,
+.macro-trend-column.is-selected > span:last-child,
+.nutrient-trend-column.is-selected > span:last-child,
+.protein-target-day.is-selected > span:last-child,
+.weight-point-column.is-selected > span:last-child {
+  color: var(--foreground);
+  font-weight: 700;
+}
+
 .macro-trend-column,
 .weight-point-column { padding: 0; }
 
@@ -1380,20 +1416,27 @@ summary:focus-visible {
   height: 21px;
   padding-top: 8px;
   color: var(--chart-axis-strong);
-  font-size: 9px;
+  font-size: 10px;
   white-space: nowrap;
 }
 
 .bar {
-  width: min(26px, 65%);
+  width: min(28px, 66%);
   min-height: 12px;
-  border-radius: 4px 4px 2px 2px;
+  border-radius: 7px 7px 3px 3px;
   background: linear-gradient(180deg, var(--chart-calorie-start) 0%, var(--chart-calorie-end) 100%);
   box-shadow: 0 4px 12px var(--chart-bar-shadow);
+  opacity: .92;
+  transition: opacity 150ms ease, filter 150ms ease;
 }
 
-.bar-column:nth-child(5) .bar {
+.bar-column:hover .bar,
+.bar-column:focus-visible .bar { filter: brightness(1.08); opacity: 1; }
+
+.bar-column.is-selected .bar {
   background: linear-gradient(180deg, var(--chart-calorie-emphasis-start) 0%, var(--chart-calorie-emphasis-end) 100%);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--chart-orange) 30%, transparent);
+  opacity: 1;
 }
 .bar.bar-empty { min-height: 0; background: transparent; box-shadow: none; }
 
@@ -1461,12 +1504,18 @@ summary:focus-visible {
   overflow: hidden;
   flex-direction: column;
   justify-content: flex-end;
-  border-radius: 5px 5px 2px 2px;
+  border-radius: 7px 7px 3px 3px;
   background: var(--chart-base);
   box-shadow: 0 4px 12px var(--chart-stack-shadow);
+  opacity: .9;
+  transition: opacity 150ms ease;
 }
 
+.macro-trend-column:hover .macro-stack,
+.macro-trend-column.is-selected .macro-stack { opacity: 1; }
+
 .macro-segment { display: block; width: 100%; min-height: 1px; }
+.macro-segment + .macro-segment { border-top: 2px solid var(--surface); }
 .macro-segment.carbs { background: var(--chart-blue); }
 .macro-segment.protein { background: var(--chart-green); }
 .macro-segment.fat { background: var(--chart-orange); }
@@ -1577,25 +1626,10 @@ summary:focus-visible {
 
 .macro-trend-chart.is-month .macro-stack {
   width: min(9px, 78%);
-  border-radius: 2px 2px 1px 1px;
+  border-radius: 3px 3px 1px 1px;
 }
 
-.weight-bar {
-  min-height: 8px;
-  background: linear-gradient(180deg, var(--chart-weight-start) 0%, var(--chart-weight-end) 100%);
-  box-shadow: 0 4px 12px var(--chart-weight-shadow);
-}
-
-.weight-column:nth-child(5) .weight-bar {
-  background: linear-gradient(180deg, var(--chart-weight-emphasis-start) 0%, var(--chart-weight-emphasis-end) 100%);
-}
-
-.weight-gap {
-  height: 21px;
-  padding-top: 8px;
-  color: var(--chart-gap);
-  font-size: 10px;
-}
+.macro-trend-chart.is-month .macro-segment + .macro-segment { border-top-width: 1px; }
 
 .weight-line {
   position: absolute;
@@ -1675,7 +1709,13 @@ summary:focus-visible {
   min-height: 2px;
   border-radius: inherit;
   background: linear-gradient(180deg, var(--chart-weight-start), var(--chart-weight-end));
+  box-shadow: 0 4px 12px var(--chart-weight-shadow);
+  opacity: .88;
+  transition: opacity 150ms ease, filter 150ms ease;
 }
+
+.protein-target-day:hover .protein-target-fill,
+.protein-target-day.is-selected .protein-target-fill { filter: brightness(1.05); opacity: 1; }
 
 .protein-target-marker {
   position: absolute;
@@ -1788,13 +1828,19 @@ summary:focus-visible {
 .weight-point {
   position: absolute;
   left: 50%;
-  width: 8px;
-  height: 8px;
+  width: 9px;
+  height: 9px;
   border: 2px solid var(--surface);
   border-radius: 50%;
   background: var(--chart-green);
-  box-shadow: 0 0 0 1px var(--chart-green);
+  box-shadow: 0 0 0 1.5px var(--chart-green);
   transform: translate(-50%, 50%);
+  transition: box-shadow 150ms ease;
+}
+
+.weight-point-column:hover .weight-point,
+.weight-point-column.is-selected .weight-point {
+  box-shadow: 0 0 0 1.5px var(--chart-green), 0 0 0 6px color-mix(in srgb, var(--chart-green) 22%, transparent);
 }
 
 .weight-point-column > span:last-child {
