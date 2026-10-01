@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { createTestBackend } from "../dist/tests/api.js";
+import { createTestBackend } from "../dist/features/core/tests/api.js";
 
 describe("in-memory backend transport", () => {
   it("initializes Logic and runs handlers without network fetch", async (context) => {

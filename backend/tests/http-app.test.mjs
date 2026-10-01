@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { createHttpApp } from "../dist/server/http-app.js";
-import { createApp } from "../dist/tests/index.js";
+import { createApp } from "../dist/features/core/tests/index.js";
 
 function createFixture(context) {
   const app = createApp();

@@ -1,6 +1,6 @@
 import { createInterface } from "node:readline/promises";
 import { Writable } from "node:stream";
-import { createApp } from "../../../live/index.js";
+import { createApp } from "../../core/live/index.js";
 
 async function credentials() {
   if (!process.stdin.isTTY || !process.stdout.isTTY) {

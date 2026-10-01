@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { createApp } from "../dist/tests/index.js";
+import { createApp } from "../dist/features/core/tests/index.js";
 import { authConfigurationSchema } from "../dist/features/auth/services/configuration.js";
-import { readLiveConfig } from "../dist/live/config.js";
+import { readLiveConfig } from "../dist/features/core/live/config.js";
 
 const credentials = {
   email: "owner@example.test",

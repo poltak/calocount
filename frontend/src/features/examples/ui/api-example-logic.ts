@@ -1,5 +1,8 @@
 import { Logic } from "@shadow/common/features/core/logic/logic";
-import { encodeApiParam, requireApiSuccess } from "../../../api/client.js";
+import {
+  encodeApiParam,
+  requireApiSuccess,
+} from "../../api/client/api-client.js";
 import type { FrontendLogicProps } from "../../../logic/types.js";
 
 type ApiExampleProps = FrontendLogicProps<never, never, "encounters"> & {

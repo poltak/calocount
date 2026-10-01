@@ -1,9 +1,9 @@
 import { z } from "zod";
-import { ownerEmailSchema } from "../features/auth/logic/configuration.js";
+import { ownerEmailSchema } from "../../auth/logic/configuration.js";
 import {
   authConfigurationSchema,
   type AuthConfiguration,
-} from "../features/auth/services/configuration.js";
+} from "../../auth/services/configuration.js";
 
 const environmentSchema = z.object({
   DATABASE_URL: z.string().trim().min(1),

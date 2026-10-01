@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { createTestBackend } from "../dist/tests/api.js";
+import { createTestBackend } from "../dist/features/core/tests/api.js";
 import { ownerEmailSchema } from "../dist/features/auth/logic/configuration.js";
-import { readLiveConfig } from "../dist/live/config.js";
+import { readLiveConfig } from "../dist/features/core/live/config.js";
 
 const credentials = { name: "Owner", password: "test-password-for-auth-only" };
 

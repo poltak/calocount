@@ -1,7 +1,7 @@
-import { createHttpApp } from "../server/http-app.js";
+import { createHttpApp } from "../../../server/http-app.js";
 import { createApp } from "./index.js";
 import { createBrowserTransport } from "./browser-transport.js";
-import { initializeLogic } from "../logic/lifecycle.js";
+import { initializeLogic } from "../../../logic/lifecycle.js";
 
 /** Node-only fixture: real handlers and validation, with no listening socket. */
 export async function createTestBackend({

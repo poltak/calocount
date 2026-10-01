@@ -11,9 +11,9 @@ import { FakePatientRecordsService } from "../dist/features/patient-records/serv
 import { LivePatientRecordsService } from "../dist/features/patient-records/services/live-patient-records-service.js";
 import { FakeTranscriptionService } from "../dist/features/transcription/services/fake-transcription-service.js";
 import { LiveTranscriptionService } from "../dist/features/transcription/services/live-transcription-service.js";
-import { readLiveConfig } from "../dist/live/config.js";
-import { createApp as createLiveApp } from "../dist/live/index.js";
-import { createApp as createTestApp } from "../dist/tests/index.js";
+import { readLiveConfig } from "../dist/features/core/live/config.js";
+import { createApp as createLiveApp } from "../dist/features/core/live/index.js";
+import { createApp as createTestApp } from "../dist/features/core/tests/index.js";
 
 describe("createApp", () => {
   it("requires a database URL for the live app", () => {

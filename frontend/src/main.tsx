@@ -4,7 +4,7 @@ import { BrowserRouter } from "react-router";
 import { FrontendAppProvider } from "./app/frontend-app-context.js";
 import { AppRoutes } from "./app/routes.js";
 import "./app/app.css";
-import { createApp } from "./live/index.js";
+import { createApp } from "./features/core/live/index.js";
 
 const rootElement = document.getElementById("root");
 if (!rootElement) {

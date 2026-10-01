@@ -1,4 +1,4 @@
-import { createApp } from "../../../live/index.js";
+import { createApp } from "../../core/live/index.js";
 
 try {
   const app = createApp();

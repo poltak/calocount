@@ -1,6 +1,9 @@
 import { Logic } from "@shadow/common/features/core/logic/logic";
 import type { InferResponseType } from "hono/client";
-import { ApiRequestError, requireApiSuccess } from "../../../api/client.js";
+import {
+  ApiRequestError,
+  requireApiSuccess,
+} from "../../api/client/api-client.js";
 import type { App } from "../../../index.js";
 import type { FrontendLogicProps } from "../../../logic/types.js";
 import { LatestRequest } from "../../core/logic/latest-request.js";

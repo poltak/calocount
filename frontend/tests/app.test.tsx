@@ -5,7 +5,7 @@ import {
   FrontendAppProvider,
   useFrontendApp,
 } from "../src/app/frontend-app-context.js";
-import { createApp } from "../src/tests/index.js";
+import { createApp } from "../src/features/core/tests/index.js";
 
 function ApiAvailable() {
   const app = useFrontendApp();

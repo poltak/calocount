@@ -8,8 +8,8 @@
       "types": "./dist/api.d.ts"
     },
     "./testing": {
-      "types": "./dist/tests/api.d.ts",
-      "default": "./dist/tests/api.js"
+      "types": "./dist/features/core/tests/api.d.ts",
+      "default": "./dist/features/core/tests/api.js"
     }
   },
   "scripts": {

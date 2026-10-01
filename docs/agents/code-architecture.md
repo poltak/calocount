@@ -36,7 +36,7 @@ This list is not exhaustive. Put other feature-local files in the directory that
 best matches their responsibility.
 
 - `src/features/<feature>/services/`: Service classes related to feature X
-- `src/features/<feature>/logic/`: Backend Logic classes and their LogicPlugins related to feature X
+- `src/features/<feature>/logic/`: Backend Logic classes and their LogicPlugins related to feature X. In the frontend, only `features/core/logic/` uses this directory, for hooks and helpers that UI Logic classes in every feature share; a feature's own UI Logic lives in `ui/`
 - `src/features/<feature>/storage/`: Storage classes related to feature X
 - `src/features/<feature>/ui/`: UI components, UI Logic classes, and their LogicPlugins related to feature X
 - `src/features/<feature>/utils/`: re-usable utility functions that might be used by multiple other parts of the feature X
@@ -48,6 +48,29 @@ extract shared utility functions instead of sharing a stateful LogicPlugin acros
 those layers.
 
 Utility functions shared by features in one workspace belong in that workspace's `src/utils/`. Code shared by workspaces belongs in `common`.
+
+### Layout of `src/`
+
+Put code in a feature directory when it belongs to one. Add a new top-level
+directory in `src/` only for code that belongs to no feature.
+
+- `features/core/`: infrastructure that every feature builds on.
+  - `live/` and `tests/`: the live and test composition roots. They are the only
+    modules that construct Storage, Service, and Logic instances across
+    features. `src/features/core/tests/` holds test setup code; test files live
+    in the workspace's top-level `tests/` directory.
+  - Backend `errors/` and `handlers/`: the shared error type and handler helpers.
+  - Frontend `logic/`: hooks and helpers shared by UI Logic classes.
+- `features/api/` (frontend): the typed first-party API client and its events.
+
+These top-level entries remain while their placement is under review:
+
+- Backend: `index.ts` (App and collection types), `compose-app.ts` (wiring shared
+  by both roots), `api.ts` (the type-only API contract), `server/` (HTTP app and
+  startup), `database/`, and `logic/` and `storage/` (shared props types and
+  lifecycle helpers).
+- Frontend: `index.ts` (App types), `main.tsx`, `app/` (routes, provider, and
+  styles), and `logic/` (the shared props type).
 
 `common` exposes modules that other workspaces may import. Its features live in
 `common/src/features/<feature>/` and follow the same feature directory layout.

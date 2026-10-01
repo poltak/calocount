@@ -10,7 +10,7 @@ import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it } from "vitest";
 import { FrontendAppProvider } from "../src/app/frontend-app-context.js";
 import { AppRoutes } from "../src/app/routes.js";
-import { createApp } from "../src/tests/index.js";
+import { createApp } from "../src/features/core/tests/index.js";
 
 const fetch: typeof globalThis.fetch = async (input) =>
   String(input).endsWith("/api/me")
