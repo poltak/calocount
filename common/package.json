@@ -4,10 +4,6 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
-    },
     "./features/core/events/event-emitter": {
       "types": "./dist/features/core/events/event-emitter.d.ts",
       "default": "./dist/features/core/events/event-emitter.js"
