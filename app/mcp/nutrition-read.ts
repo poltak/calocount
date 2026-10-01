@@ -81,13 +81,8 @@ function fromBase64Url(value: string): Uint8Array {
   return Uint8Array.from(binary, (character) => character.charCodeAt(0));
 }
 
-async function cursorKey(ownerKey: string, usage: "encrypt" | "decrypt"): Promise<CryptoKey> {
-  const keyBytes = await crypto.subtle.digest("SHA-256", encoder.encode(ownerKey));
-  return crypto.subtle.importKey("raw", keyBytes, { name: "AES-GCM" }, false, [usage]);
-}
-
 type CursorPayload = {
-  version: 1;
+  version: 2;
   startDate: string;
   endDate: string;
   pageSize: number;
@@ -95,45 +90,32 @@ type CursorPayload = {
   id: string;
 };
 
-export async function encodeNutritionHistoryCursor(ownerKey: string, input: NutritionHistoryInput, cursor: NutritionHistoryCursor): Promise<string> {
+/**
+ * Encode the position after the last meal of a page. The cursor is opaque to
+ * the model but not secret: it only tells the owner-scoped query where to
+ * continue, and it is checked against the dates and page size it was made for.
+ */
+export function encodeNutritionHistoryCursor(input: NutritionHistoryInput, cursor: NutritionHistoryCursor): string {
   const payload: CursorPayload = {
-    version: 1,
+    version: 2,
     startDate: input.startDate,
     endDate: input.endDate,
     pageSize: input.pageSize,
     consumedAt: cursor.consumedAt,
     id: cursor.id,
   };
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  const encrypted = new Uint8Array(await crypto.subtle.encrypt(
-    { name: "AES-GCM", iv },
-    await cursorKey(ownerKey, "encrypt"),
-    encoder.encode(JSON.stringify(payload)),
-  ));
-  const token = new Uint8Array(iv.length + encrypted.length);
-  token.set(iv);
-  token.set(encrypted, iv.length);
-  return toBase64Url(token);
+  return toBase64Url(encoder.encode(JSON.stringify(payload)));
 }
 
-async function decodeNutritionHistoryCursor(ownerKey: string, value: string): Promise<unknown> {
+function decodeNutritionHistoryCursor(value: string): unknown {
   if (!value || value.length > MAX_CURSOR_LENGTH) throw new Error("invalid_cursor");
-  const bytes = fromBase64Url(value);
-  if (bytes.length < 29) throw new Error("invalid_cursor");
-  const iv = bytes.slice(0, 12);
-  const encrypted = bytes.slice(12);
-  const decoded = await crypto.subtle.decrypt(
-    { name: "AES-GCM", iv },
-    await cursorKey(ownerKey, "decrypt"),
-    encrypted,
-  );
-  return JSON.parse(decoder.decode(decoded)) as unknown;
+  return JSON.parse(decoder.decode(fromBase64Url(value))) as unknown;
 }
 
 function isCursorPayload(value: unknown): value is CursorPayload {
   return isObject(value)
     && hasOnlyKeys(value, ["version", "startDate", "endDate", "pageSize", "consumedAt", "id"])
-    && value.version === 1
+    && value.version === 2
     && typeof value.startDate === "string"
     && typeof value.endDate === "string"
     && typeof value.pageSize === "number"
@@ -145,7 +127,7 @@ function isCursorPayload(value: unknown): value is CursorPayload {
     && value.id.length <= 200;
 }
 
-export async function parseNutritionHistoryInput(ownerKey: string, value: unknown): Promise<NutritionHistoryInput> {
+export function parseNutritionHistoryInput(value: unknown): NutritionHistoryInput {
   if (!isObject(value) || !hasOnlyKeys(value, ["start_date", "end_date", "page_size", "cursor"])) {
     throw new NutritionReadInputError("invalid_arguments", "Provide start_date and end_date, with optional page_size and cursor.");
   }
@@ -161,7 +143,7 @@ export async function parseNutritionHistoryInput(ownerKey: string, value: unknow
       throw new NutritionReadInputError("invalid_cursor", "cursor must be an opaque cursor returned by get_nutrition_history.");
     }
     try {
-      const decoded = await decodeNutritionHistoryCursor(ownerKey, value.cursor);
+      const decoded = decodeNutritionHistoryCursor(value.cursor);
       if (!isCursorPayload(decoded)
         || decoded.startDate !== range.startDate
         || decoded.endDate !== range.endDate

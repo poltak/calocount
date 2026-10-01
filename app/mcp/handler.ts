@@ -47,7 +47,7 @@ export type McpHandlerDependencies = {
   authorize: (request: Request) => Promise<McpIdentity>;
   addMeals: (ownerKey: string, body: JsonObject) => Promise<Response>;
   updateMeal: (ownerKey: string, input: McpMealUpdateInput) => Promise<MealWithItems | null>;
-  getNutritionHistory: (ownerKey: string, input: Awaited<ReturnType<typeof parseNutritionHistoryInput>>) => Promise<NutritionHistoryPage>;
+  getNutritionHistory: (ownerKey: string, input: ReturnType<typeof parseNutritionHistoryInput>) => Promise<NutritionHistoryPage>;
   getNutritionSummary: (ownerKey: string, input: ReturnType<typeof parseNutritionSummaryInput>) => Promise<NutritionSummaryReport>;
 };
 
@@ -801,11 +801,11 @@ function safeNutritionReadError(error: unknown): { code: string; message: string
 
 async function createNutritionHistoryToolCall(ownerKey: string, arguments_: JsonObject, dependencies: McpHandlerDependencies) {
   try {
-    const input = await parseNutritionHistoryInput(ownerKey, arguments_);
+    const input = parseNutritionHistoryInput(arguments_);
     const page = await dependencies.getNutritionHistory(ownerKey, input);
     const lastMeal = page.meals.at(-1);
     const nextCursor = page.hasMore && lastMeal
-      ? await encodeNutritionHistoryCursor(ownerKey, input, { consumedAt: lastMeal.consumedAt, id: lastMeal.id })
+      ? encodeNutritionHistoryCursor(input, { consumedAt: lastMeal.consumedAt, id: lastMeal.id })
       : null;
     const meals = page.meals.map((meal) => ({
       date: new Date(meal.consumedAt).toISOString().slice(0, 10),

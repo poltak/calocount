@@ -214,8 +214,12 @@ test("history is owner-scoped, paged in stable tie order, and returns safe compl
     page_size: 1,
     cursor,
   }, 22);
-  assert.equal(otherOwnerCursor.isError, true);
-  assert.match(otherOwnerCursor.content[0]?.text ?? "", /invalid_cursor/u);
+  // The cursor is only a position. Another account that sends it still reads only its own meals.
+  assert.equal(otherOwnerCursor.isError, false);
+  const otherOwnerJson = JSON.stringify(otherOwnerCursor.structuredContent);
+  for (const privateText of ["First food", "Second food", "Older food", "item-private-id", "item-y-private", "item-a-private"]) {
+    assert.equal(otherOwnerJson.includes(privateText), false);
+  }
   const second = await callTool(route, "get_nutrition_history", {
     start_date: "2026-09-01",
     end_date: "2026-09-02",
