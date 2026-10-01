@@ -94,14 +94,10 @@ function publicSettings(value: Awaited<ReturnType<typeof getSettings>>) {
   if (!value) return null;
   const {
     nutrientTargetsJson,
-    telegramUserId: _telegramUserId,
-    telegramChatId: _telegramChatId,
     activeAiProfileId: _activeAiProfileId,
     photoRetentionDays: _photoRetentionDays,
     ...settings
   } = withoutOwnerKey(value);
-  void _telegramUserId;
-  void _telegramChatId;
   void _activeAiProfileId;
   void _photoRetentionDays;
   const nutrientTargetOverrides = parseNutrientGoalOverridesJson(nutrientTargetsJson);

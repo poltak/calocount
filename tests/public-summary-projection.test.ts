@@ -22,7 +22,7 @@ test("public summary projection keeps dashboard data and strips private fields",
         id: "meal-1",
         ownerKey: "owner-secret",
         consumedAt: Date.parse("2026-08-25T12:00:00Z"),
-        source: "telegram",
+        source: "chatgpt",
         caption: "private caption",
         mealType: "lunch",
         status: "complete",
@@ -62,7 +62,7 @@ test("public summary projection keeps dashboard data and strips private fields",
         id: "meal-pending",
         ownerKey: "owner-secret",
         consumedAt: Date.parse("2026-08-25T13:00:00Z"),
-        source: "telegram",
+        source: "chatgpt",
         caption: "pending caption",
         mealType: "dinner",
         status: "pending",
@@ -140,7 +140,7 @@ test("public summary projection keeps dashboard data and strips private fields",
   const serialised = JSON.stringify(projection);
   for (const field of [
     "ownerKey", "createdAt", "updatedAt", "photoKey", "caption", "notes",
-    "assumptions", "confidence", "source", "provider", "telegram", "export", "rawUsage", "photoMimeType",
+    "assumptions", "confidence", "source", "provider", "chatgpt", "export", "rawUsage", "photoMimeType",
   ]) assert.doesNotMatch(serialised, new RegExp(field, "i"));
 });
 

@@ -45,7 +45,7 @@ function mealRow({
     id,
     owner_key: ownerKey,
     consumed_at: 1_700_000_000_000,
-    source: "telegram",
+    source: "chatgpt",
     caption: "Chicken and rice",
     meal_type: "lunch",
     status: "complete",
@@ -86,7 +86,7 @@ function itemRow({ id, mealId, name, calories, proteinG, carbsG, fatG }: {
     carbs_g: carbsG,
     fat_g: fatG,
     confidence: 0.8,
-    source: "telegram",
+    source: "chatgpt",
     created_at: 1_700_000_000_000,
     updated_at: 1_700_000_000_000,
   };

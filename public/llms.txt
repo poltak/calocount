@@ -35,8 +35,8 @@ When an entry has `hasPhoto: true`, its public image is available at the legacy
 
 The public projection omits private fields and systems, including owner
 identifiers and keys, captions, notes, assumptions, confidence, photo storage
-keys and MIME metadata, AI/provider data, Telegram data, private settings,
-exports, and API credentials.
+keys and MIME metadata, AI/provider data, private settings, exports, and API
+credentials.
 
 This file contains no live dashboard data. Fetch `/api/public/summary` for
 current values.

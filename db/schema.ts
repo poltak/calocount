@@ -19,14 +19,12 @@ const updatedAt = () => ({
     .default(sql`(unixepoch() * 1000)`),
 });
 
-/** Per-owner targets and Telegram configuration. The app uses one row per owner. */
+/** Per-owner targets. The app uses one row per owner. */
 export const settings = sqliteTable(
   "settings",
   {
     id: text("id").primaryKey(),
     ownerKey: text("owner_key").notNull(),
-    telegramUserId: text("telegram_user_id"),
-    telegramChatId: text("telegram_chat_id"),
     timezone: text("timezone").notNull().default("UTC"),
     dailyCalorieTarget: integer("daily_calorie_target"),
     dailyProteinTargetG: real("daily_protein_target_g"),
@@ -256,25 +254,6 @@ export const aiRuns = sqliteTable(
   ],
 );
 
-export const telegramUpdates = sqliteTable(
-  "telegram_updates",
-  {
-    id: text("id").primaryKey(),
-    ownerKey: text("owner_key").notNull(),
-    updateId: integer("update_id").notNull(),
-    chatId: text("chat_id"),
-    telegramUserId: text("telegram_user_id"),
-    mealId: text("meal_id"),
-    payloadJson: text("payload_json").notNull(),
-    processedAt: integer("processed_at", { mode: "number" }),
-    ...createdAt(),
-  },
-  (table) => [
-    uniqueIndex("telegram_updates_owner_update_idx").on(table.ownerKey, table.updateId),
-    index("telegram_updates_owner_created_idx").on(table.ownerKey, table.createdAt),
-  ],
-);
-
 /** Share links expose a read-only projection without storing the raw token. */
 export const shareLinks = sqliteTable(
   "share_links",
@@ -301,5 +280,4 @@ export type AnalysisJob = typeof analysisJobs.$inferSelect;
 export type MealRevision = typeof mealRevisions.$inferSelect;
 export type AiProfile = typeof aiProfiles.$inferSelect;
 export type AiRun = typeof aiRuns.$inferSelect;
-export type TelegramUpdate = typeof telegramUpdates.$inferSelect;
 export type ShareLink = typeof shareLinks.$inferSelect;

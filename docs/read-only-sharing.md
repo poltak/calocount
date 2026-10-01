@@ -42,8 +42,8 @@ projection contains only the fields required by the dashboard:
 - recent weights.
 
 It does not contain owner keys, captions, notes, assumptions, confidence,
-photo storage keys or MIME metadata, AI/provider data, Telegram data, private
-settings, exports, or API credentials.
+photo storage keys or MIME metadata, AI/provider data, private settings,
+exports, or API credentials.
 `app/api/_lib/public-summary-projection.ts` implements the projection. Keep the
 field list explicit when changing the public response.
 

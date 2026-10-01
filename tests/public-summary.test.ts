@@ -78,7 +78,7 @@ test("public summary returns a no-store projection without private fields", asyn
         id: "meal-1",
         ownerKey: "owner-secret",
         consumedAt: Date.parse("2026-08-25T12:00:00Z"),
-        source: "telegram",
+        source: "chatgpt",
         caption: "private caption",
         mealType: "lunch",
         status: "complete",
@@ -144,7 +144,7 @@ test("public summary returns a no-store projection without private fields", asyn
   const serialised = JSON.stringify(body);
   for (const field of [
     "ownerKey", "caption", "notes", "photoKey", "photoMimeType", "assumptions",
-    "confidence", "source", "provider", "telegram", "export", "rawUsage", "referenceSettings", "vitaminB6UsFnbAdultUl",
+    "confidence", "source", "provider", "chatgpt", "export", "rawUsage", "referenceSettings", "vitaminB6UsFnbAdultUl",
     "preformedVitaminAMcgRae", "supplementalMagnesiumMg", "folicAcidMcg", "supplementalVitaminEMg", "nutrientProvenance",
   ]) assert.doesNotMatch(serialised, new RegExp(field, "i"));
   assert.equal((body.targets as Record<string, unknown>).calories, 2_100);

@@ -66,8 +66,6 @@ function settingsRow(
   return {
     id: `settings_${ownerKey}`,
     owner_key: ownerKey,
-    telegram_user_id: null,
-    telegram_chat_id: null,
     timezone,
     daily_calorie_target: 2_000,
     daily_protein_target_g: 150,

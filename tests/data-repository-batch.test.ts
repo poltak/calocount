@@ -42,7 +42,7 @@ function mealRow(id: string, ownerKey = OWNER_KEY): Row {
     id,
     owner_key: ownerKey,
     consumed_at: 1_700_000_000_000,
-    source: "telegram",
+    source: "chatgpt",
     caption: "Chicken and rice",
     meal_type: "lunch",
     status: "complete",
@@ -75,7 +75,7 @@ function itemRow(id: string, mealId: string, ownerKey = OWNER_KEY): Row {
     carbs_g: 40,
     fat_g: 10,
     confidence: 0.8,
-    source: "telegram",
+    source: "chatgpt",
     created_at: 1_700_000_000_000,
     updated_at: 1_700_000_000_000,
   };
@@ -233,7 +233,6 @@ function assertBatchTables(
       if (/delete from ["`]analysis_jobs["`]/i.test(sql)) return "analysis_jobs delete";
       if (/delete from ["`]meal_revisions["`]/i.test(sql)) return "meal_revisions delete";
       if (/delete from ["`]ai_runs["`]/i.test(sql)) return "ai_runs delete";
-      if (/delete from ["`]telegram_updates["`]/i.test(sql)) return "telegram_updates delete";
       if (/delete from ["`]meal_logs["`]/i.test(sql)) return "meal_logs delete";
       if (/insert into ["`]meal_items["`]/i.test(sql)) return "meal_items insert";
       if (/insert into ["`]meal_revisions["`]/i.test(sql)) return "meal_revisions insert";
@@ -596,7 +595,6 @@ test("deleteMeal batches dependent rows before the meal and returns its snapshot
     "analysis_jobs delete",
     "meal_revisions delete",
     "ai_runs delete",
-    "telegram_updates delete",
     "meal_logs delete",
   ]);
   const batch = client.batches[0] ?? [];

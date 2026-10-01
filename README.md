@@ -185,7 +185,7 @@ This repository does not set up Cloudflare resources or secrets. That setup need
 - The public root may stream photos for completed meals in its current seven-day projection through `/meal-photos/*`; raw R2 keys are not exposed.
 - The Worker downloads photos from temporary ChatGPT image links immediately and never stores the links.
 - The public root exposes only the selected dashboard projection: targets, meal and macro totals, seven-day trend, recent weights, recent meal-item nutrition, and photo availability.
-- The public projection does not expose photo storage keys, captions, notes, assumptions, confidence, AI/provider data, Telegram data, or private settings.
+- The public projection does not expose photo storage keys, captions, notes, assumptions, confidence, AI/provider data, or private settings.
 - Normal logs do not include captions, images, signed URLs, or full provider payloads.
 - Nutrition values are estimates, not medical measurements.
 

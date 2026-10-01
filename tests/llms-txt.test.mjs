@@ -32,7 +32,6 @@ test("llms.txt documents the canonical public dashboard projection", async () =>
     "notes",
     "photo storage keys and MIME metadata",
     "AI/provider data",
-    "Telegram data",
     "private settings",
     "exports",
     "API credentials",

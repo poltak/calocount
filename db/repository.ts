@@ -46,7 +46,6 @@ import {
   mealRevisions,
   savedEntries,
   settings,
-  telegramUpdates,
 } from "./schema";
 
 export type AppDb = ReturnType<typeof getDb>;
@@ -1177,7 +1176,6 @@ export async function deleteMeal(
     db.delete(analysisJobs).where(and(eq(analysisJobs.ownerKey, ownerKey), eq(analysisJobs.mealId, mealId))),
     db.delete(mealRevisions).where(and(eq(mealRevisions.ownerKey, ownerKey), eq(mealRevisions.mealId, mealId))),
     db.delete(aiRuns).where(and(eq(aiRuns.ownerKey, ownerKey), eq(aiRuns.mealId, mealId))),
-    db.delete(telegramUpdates).where(and(eq(telegramUpdates.ownerKey, ownerKey), eq(telegramUpdates.mealId, mealId))),
     db.delete(mealLogs).where(and(eq(mealLogs.ownerKey, ownerKey), eq(mealLogs.id, mealId))),
   ]);
 
