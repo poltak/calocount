@@ -20,9 +20,9 @@ interface AuthState {
 export class AuthLogic extends Logic<AuthProps, AuthState> {
   private requestVersion = 0;
   private closed = false;
-  constructor(props: AuthProps) {
+  constructor(deps: AuthProps) {
     super({
-      deps: props,
+      deps,
       initialState: {
         status: "loading",
         user: null,

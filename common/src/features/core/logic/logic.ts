@@ -36,6 +36,7 @@ export abstract class Logic<
   readonly events = new EventEmitter<Event>();
   readonly plugins: Readonly<Plugins>;
 
+  protected readonly deps: Deps;
   private currentState: State;
   private readonly stateListeners = new Set<() => void>();
   private readonly cleanupCallbacks = new Set<Unsubscribe>();
@@ -49,8 +50,6 @@ export abstract class Logic<
     this.currentState = { ...options.initialState };
     this.plugins = this.createPluginInstances(options.plugins, options.deps);
   }
-
-  readonly deps: Deps;
 
   get state(): Readonly<State> {
     return this.currentState;

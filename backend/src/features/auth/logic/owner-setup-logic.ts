@@ -10,8 +10,8 @@ export class OwnerSetupLogic extends Logic<
   OwnerSetupProps,
   Record<string, never>
 > {
-  constructor(props: OwnerSetupProps) {
-    super({ deps: props, initialState: {} });
+  constructor(deps: OwnerSetupProps) {
+    super({ deps, initialState: {} });
   }
 
   async createOwner({ name, password }: { name: string; password: string }) {

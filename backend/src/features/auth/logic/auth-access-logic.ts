@@ -9,8 +9,8 @@ export class AuthAccessLogic extends Logic<
   AuthAccessProps,
   Record<string, never>
 > {
-  constructor(props: AuthAccessProps) {
-    super({ deps: props, initialState: {} });
+  constructor(deps: AuthAccessProps) {
+    super({ deps, initialState: {} });
   }
 
   isAllowed({ user }: { user: AuthUser }): boolean {

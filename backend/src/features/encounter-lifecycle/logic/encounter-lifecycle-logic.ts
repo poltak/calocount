@@ -23,8 +23,8 @@ export class EncounterLifecycleLogic extends Logic<
   EncounterLifecycleLogicProps,
   Record<string, never>
 > {
-  constructor(readonly props: EncounterLifecycleLogicProps) {
-    super({ deps: props, initialState: {} });
+  constructor(deps: EncounterLifecycleLogicProps) {
+    super({ deps, initialState: {} });
   }
 
   async start(_params: EncounterLifecycleParams): Promise<void> {

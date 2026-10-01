@@ -37,7 +37,7 @@ describe("createApp", () => {
       assert.ok(
         app.storage.encounterLifecycle instanceof EncounterLifecycleStorage,
       );
-      assert.ok(app.storage.encounterLifecycle.props.db instanceof Kysely);
+      assert.ok(app.storage.encounterLifecycle.deps.db instanceof Kysely);
       assert.ok(app.services.ai instanceof LiveAIService);
       assert.ok(app.services.transcription instanceof LiveTranscriptionService);
       assert.ok(
@@ -48,16 +48,12 @@ describe("createApp", () => {
       );
       assert.ok(app.logic.encounterLifecycle instanceof Logic);
       assert.strictEqual(
-        app.logic.encounterLifecycle.props.storage.encounterLifecycle,
+        app.logic.encounterLifecycle.deps.storage.encounterLifecycle,
         app.storage.encounterLifecycle,
       );
       assert.strictEqual(
-        app.logic.encounterLifecycle.props.services,
+        app.logic.encounterLifecycle.deps.services,
         app.services,
-      );
-      assert.strictEqual(
-        app.logic.encounterLifecycle.deps,
-        app.logic.encounterLifecycle.props,
       );
     } finally {
       await app.close();
@@ -84,16 +80,12 @@ describe("createApp", () => {
         first.logic.encounterLifecycle instanceof EncounterLifecycleLogic,
       );
       assert.strictEqual(
-        first.logic.encounterLifecycle.props.storage.encounterLifecycle,
+        first.logic.encounterLifecycle.deps.storage.encounterLifecycle,
         first.storage.encounterLifecycle,
       );
       assert.strictEqual(
-        first.logic.encounterLifecycle.props.services,
+        first.logic.encounterLifecycle.deps.services,
         first.services,
-      );
-      assert.strictEqual(
-        first.logic.encounterLifecycle.deps,
-        first.logic.encounterLifecycle.props,
       );
       assert.notStrictEqual(
         first.logic.encounterLifecycle,

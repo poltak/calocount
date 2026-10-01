@@ -4,7 +4,7 @@ import type { Database } from "../../../database/database.js";
 import type { AuthConfiguration } from "./configuration.js";
 import type { AuthService, AuthUser } from "./types.js";
 
-interface AuthServiceProps extends AuthConfiguration {
+interface BetterAuthServiceDeps extends AuthConfiguration {
   db: Database;
 }
 
@@ -13,18 +13,18 @@ export class BetterAuthService implements AuthService {
   private auth?: ReturnType<BetterAuthService["createInstance"]>;
   readonly trustedOrigins: readonly string[];
 
-  constructor(private readonly props: AuthServiceProps) {
+  constructor(private readonly deps: BetterAuthServiceDeps) {
     this.trustedOrigins = Array.from(
-      new Set([new URL(props.baseUrl).origin, ...props.trustedOrigins]),
+      new Set([new URL(deps.baseUrl).origin, ...deps.trustedOrigins]),
     );
   }
 
   private options() {
     return {
       appName: "Shadow",
-      database: { db: this.props.db, type: "postgres" as const },
-      secret: this.props.secret,
-      baseURL: this.props.baseUrl,
+      database: { db: this.deps.db, type: "postgres" as const },
+      secret: this.deps.secret,
+      baseURL: this.deps.baseUrl,
       trustedOrigins: [...this.trustedOrigins],
       emailAndPassword: { enabled: true, disableSignUp: true },
     };

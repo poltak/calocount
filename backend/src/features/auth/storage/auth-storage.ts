@@ -2,10 +2,10 @@ import type { BackendStorageProps } from "../../../storage/types.js";
 
 /** Read-only setup queries over the SDK's user table. SDK writes stay in its adapter. */
 export class AuthStorage {
-  constructor(readonly props: BackendStorageProps) {}
+  constructor(private readonly deps: BackendStorageProps) {}
 
   async getUserCount(): Promise<number> {
-    const db = this.props.db.withTables<{
+    const db = this.deps.db.withTables<{
       user: { id: string; email: string };
     }>();
     const result = await db
