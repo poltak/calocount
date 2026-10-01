@@ -1,3 +1,4 @@
+import { isValidTimeZone } from "../domain/logical-date";
 import { isProteinGoalMode, isValidProteinPerKg, type ProteinGoalDay, type ProteinGoalSummary } from "../domain/protein-goals";
 import { hasNutrientProvenance, parseNutrientProvenance, type NutrientProvenanceMap } from "../domain/nutrient-provenance";
 import type { NutritionItem } from "./nutrition/meal-nutrition-details";
@@ -72,6 +73,8 @@ export type TrendDay = {
 
 export type DashboardSummary = {
   date: string;
+  /** The timezone that sets the day boundaries of the summary, when the server reports one. */
+  timezone: string | null;
   targets: { calories: number | null; proteinG: number | null; nutrients: NutrientGoalMap };
   referenceSettings?: NutritionReferenceSettings;
   proteinGoal: ProteinGoalSummary;
@@ -344,6 +347,7 @@ export function parseDashboardPayload(value: unknown): DashboardSummary | null {
   } : undefined;
   return {
     date: record.date,
+    timezone: isValidTimeZone(record.timezone) ? record.timezone : null,
     targets: parsedTargets,
     referenceSettings,
     proteinGoal: parseProteinGoal(record.proteinGoal, parsedTargets.proteinG),

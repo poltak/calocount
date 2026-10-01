@@ -8,7 +8,7 @@ JSON endpoint is the canonical source for the public dashboard projection.
 
 The summary includes:
 
-- the public date and calorie, protein, and nutrient targets;
+- the public date, its timezone, and calorie, protein, and nutrient targets;
 - today's calories, protein, carbohydrate, fat, and entry-count totals;
 - seven-day totals, averages, and daily trend points;
 - nutrition totals;
@@ -19,7 +19,7 @@ The summary includes:
   30 days, including item amounts and nutrition for historical comparisons.
 
 An insight entry is a logging occasion, such as food, a snack, or a beverage.
-Its `date` uses the same UTC day boundary as the public summary. Unknown nutrient
+Its `date` uses the same day boundary as the public summary. Unknown nutrient
 amounts remain `null`; a day with entries is not proof of complete food logging.
 
 `proteinGoal` identifies whether the protein target is fixed grams or grams per
@@ -27,8 +27,10 @@ kilogram. In grams-per-kilogram mode it includes the effective target and the
 selected day's weight, or the most recent earlier weight; if no earlier weight
 exists, the effective target is `null`.
 
-Dates use the public dashboard's UTC day boundary. Treat `date` and trend dates
-as UTC calendar dates.
+Dates use the owner's saved timezone, which the summary returns as `timezone`.
+Treat `date`, trend dates, and insight dates as calendar dates in that
+timezone. The timezone is `UTC` until the owner sets one. Timestamps such as
+`consumedAt` are Unix milliseconds.
 
 When an entry has `hasPhoto: true`, its public image is available at the legacy
 `/meal-photos/{mealId}` route, using that entry's `id` for `{mealId}`.

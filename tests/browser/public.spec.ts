@@ -45,3 +45,22 @@ test("a failed load says so in each view's own words and never shows made-up dat
   await expect(page.locator(".summary-grid")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Add entry" })).toHaveCount(0);
 });
+
+test.describe("a viewer in another timezone", () => {
+  test.use({ timezoneId: "America/New_York" });
+
+  test("the public view shows days and times in the owner's saved timezone", async ({ page }) => {
+    // 12:00 on 12 September in Ho Chi Minh City; 01:00 the same day in New York.
+    await page.clock.setSystemTime(new Date("2026-09-12T05:00:00Z"));
+    const state = await mockDashboardApi(page);
+    state.settings.timezone = "Asia/Ho_Chi_Minh";
+    // Breakfast at 06:30 in Ho Chi Minh City, which is still 11 September in UTC and in New York.
+    state.meals[0].consumedAt = Date.parse("2026-09-11T23:30:00Z");
+
+    await page.goto("/?public");
+    await expect(page.locator("#today")).toHaveText("Saturday, September 12, 2026");
+    await expect(page.locator(".calories-card .metric-value")).toContainText("500");
+    await expect(page.locator(".meal-row time")).toHaveText("06:30");
+    await expect(page.getByText("Days and times are shown in Asia/Ho Chi Minh time.")).toBeVisible();
+  });
+});

@@ -34,12 +34,16 @@ The public summary endpoint resolves the stable configured owner key. It fails
 closed when that key is absent and returns `Cache-Control: no-store`. The
 projection contains only the fields required by the dashboard:
 
-- date and calorie/protein targets, including the selected protein-goal mode and
-  weight-derived protein target when configured;
+- date, the owner's saved timezone, and calorie/protein targets, including the
+  selected protein-goal mode and weight-derived protein target when configured;
 - today totals;
 - seven-day totals, averages, and trend points;
 - recent completed meal totals, item nutrition, and whether a public photo is available; and
 - recent weights.
+
+The public summary counts days in the owner's saved timezone, and the public
+dashboard shows days and meal times in that timezone for every viewer. The
+timezone is UTC until the owner sets one in settings.
 
 It does not contain owner keys, captions, notes, assumptions, confidence,
 photo storage keys or MIME metadata, AI/provider data, private settings,
@@ -49,7 +53,8 @@ field list explicit when changing the public response.
 
 The anonymous `/meal-photos/<mealId>` route intentionally makes the image for a
 projected completed meal public to site viewers. It resolves the configured
-owner, reuses the current seven-day summary as its allowlist, accepts only JPEG,
+owner, serves only completed meals from the last seven days in the owner's saved
+timezone, accepts only JPEG,
 PNG, and WebP objects, and streams the private R2 object without revealing its
 storage key. ETags allow efficient browser reuse, but every request must
 revalidate the projection so removed or expired access is not cached. Pending,

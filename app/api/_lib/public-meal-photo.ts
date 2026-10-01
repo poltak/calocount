@@ -1,10 +1,14 @@
 import type { MealWithItems } from "../../../db/repository";
+import { resolveTimeZone, zonedCalendar } from "../../../domain/logical-date";
 import { isPublicPhotoMimeType, isWithinPublicDateRange } from "./public-photo-policy";
 import { PublicSummaryConfigError } from "./public-summary";
 
 export type PublicPhotoMeal = Pick<MealWithItems["meal"],
   "id" | "ownerKey" | "consumedAt" | "status" | "photoKey" | "photoMimeType"
->;
+> & {
+  /** The owner's saved timezone, which sets the seven-day public window. */
+  timezone?: string | null;
+};
 
 type PublicPhotoObject = {
   body: BodyInit | null;
@@ -35,7 +39,8 @@ export function isPublicMealId(value: string): boolean {
 }
 
 /**
- * Stream one photo already included in the anonymous seven-day projection.
+ * Stream one photo already included in the anonymous seven-day projection,
+ * which covers the last seven days in the owner's saved timezone.
  * The public URL uses the meal ID so the private R2 key never crosses the API.
  */
 export async function buildPublicMealPhotoResponse({
@@ -54,10 +59,12 @@ export async function buildPublicMealPhotoResponse({
 
   const meal = await loadMeal({ ownerKey: configuredOwnerKey, mealId: requestedMealId });
   if (!meal || meal.ownerKey !== configuredOwnerKey || meal.id !== requestedMealId
-    || meal.status !== "complete" || !meal.photoKey || !isPublicPhotoMimeType(meal.photoMimeType)
-    || !isWithinPublicDateRange({ consumedAt: meal.consumedAt, summaryDate: now.toISOString().slice(0, 10) })) {
+    || meal.status !== "complete" || !meal.photoKey || !isPublicPhotoMimeType(meal.photoMimeType)) {
     return notFoundResponse();
   }
+  const timeZone = resolveTimeZone(meal.timezone);
+  const summaryDate = zonedCalendar(timeZone).dateKey(now.getTime());
+  if (!isWithinPublicDateRange({ consumedAt: meal.consumedAt, summaryDate, timeZone })) return notFoundResponse();
 
   const object = await loadPhoto(meal.photoKey);
   if (!object) return notFoundResponse();

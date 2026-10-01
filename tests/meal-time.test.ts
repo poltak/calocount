@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { dateKeyFromTimestamp, localTimeValue, mealDateTimestamp } from "../app/page";
+import { dateKeyInTimeZone, localTimeValue, mealDateTimestamp } from "../app/page";
 
 const timezone = "Asia/Ho_Chi_Minh";
 
@@ -36,8 +36,8 @@ test("direct meals stay on their local calendar date across a UTC boundary", () 
   withTimezone(() => {
     const consumedAt = mealDateTimestamp({ date: "2026-08-26", time: "06:30" });
     assert.equal(consumedAt, Date.parse("2026-08-25T23:30:00.000Z"));
-    assert.equal(dateKeyFromTimestamp(consumedAt ?? Number.NaN, { mode: "local" }), "2026-08-26");
-    assert.equal(dateKeyFromTimestamp(consumedAt ?? Number.NaN, { mode: "utc" }), "2026-08-25");
+    assert.equal(dateKeyInTimeZone(consumedAt ?? Number.NaN, timezone), "2026-08-26");
+    assert.equal(dateKeyInTimeZone(consumedAt ?? Number.NaN, "UTC"), "2026-08-25");
   });
 });
 

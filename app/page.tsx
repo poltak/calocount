@@ -6,6 +6,7 @@ import { asRecord, stringOr, parseDashboardPayload, dashboardFailureMessage, par
 import { mergeTrendDays, mergeTrendWeights } from "./dashboard-trend";
 import { settingsDraftForTargets, type SettingsDraft, type TargetState } from "./dashboard-settings";
 
+import { zonedCalendar, type ZonedCalendar } from "../domain/logical-date";
 import { resolveNutrientGoals } from "../domain/nutrient-goals";
 import type { NutrientKey } from "../domain/nutrients";
 import {
@@ -106,7 +107,6 @@ type Day = {
 
 type DataMode = "loading" | "live" | "error";
 type DashboardSection = "today" | "meals" | "trend" | "macros" | "nutrition";
-type DateKeyMode = "local" | "utc";
 type PendingActionKind =
   | "meal-create"
   | "meal-save"
@@ -168,8 +168,6 @@ const dayLabels: Record<DayKey, string> = {
 
 const numberFormatter = new Intl.NumberFormat("en-US");
 const weightFormatter = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
-const mealTimeFormatter = new Intl.DateTimeFormat("en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
-const recordedTimeFormatter = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" });
 const weekdayFormatter = new Intl.DateTimeFormat("en-US", { weekday: "long", timeZone: "UTC" });
 const trendDateFormatter = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 const fullDateFormatter = new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
@@ -184,10 +182,33 @@ function formatChartTick(value: number) {
 
 const orderedDayKeys: DayKey[] = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
 
-export function dateKeyFromTimestamp(timestamp: number, { mode }: { mode: DateKeyMode }) {
-  const date = new Date(timestamp);
-  if (mode === "utc") return date.toISOString().slice(0, 10);
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+const calendars = new Map<string, ZonedCalendar>();
+
+/** The calendar date a moment falls on in a timezone. */
+export function dateKeyInTimeZone(timestamp: number, timeZone: string) {
+  let calendar = calendars.get(timeZone);
+  if (!calendar) {
+    calendar = zonedCalendar(timeZone);
+    calendars.set(timeZone, calendar);
+  }
+  return calendar.dateKey(timestamp);
+}
+
+const clockFormatters = new Map<string, Intl.DateTimeFormat>();
+
+function clockFormatter(timeZone: string, options: Intl.DateTimeFormatOptions) {
+  const key = `${timeZone}:${JSON.stringify(options)}`;
+  let formatter = clockFormatters.get(key);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat("en-US", { ...options, timeZone });
+    clockFormatters.set(key, formatter);
+  }
+  return formatter;
+}
+
+/** A 24-hour HH:MM time in a timezone, as shown on entry rows. */
+function formatMealTime(timestamp: number, timeZone: string) {
+  return clockFormatter(timeZone, { hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(timestamp));
 }
 
 function dayKeyForDate(date: string): DayKey {
@@ -220,8 +241,8 @@ function formatWeight(weightKg: number) {
   return weightFormatter.format(weightKg);
 }
 
-function formatRecordedTime(recordedAt: number) {
-  return recordedTimeFormatter.format(new Date(recordedAt));
+function formatRecordedTime(recordedAt: number, timeZone: string) {
+  return clockFormatter(timeZone, { hour: "numeric", minute: "2-digit" }).format(new Date(recordedAt));
 }
 
 function dayWithMeals(day: Day, meals: Meal[]): Day {
@@ -257,7 +278,7 @@ function apiErrorMessage(body: unknown, fallback: string): string {
   return stringOr(asRecord(asRecord(body)?.error)?.message, fallback);
 }
 
-function mapRemoteMeal(meal: SerializedMeal, { publicView = false }: { publicView?: boolean } = {}): Meal {
+function mapRemoteMeal(meal: SerializedMeal, { publicView, timeZone }: { publicView: boolean; timeZone: string }): Meal {
   const kind = mealKind(meal.mealType);
   const itemNames = meal.items.map((item) => item.name).filter(Boolean);
   const name = itemNames[0] || meal.caption.split(",")[0]?.trim() || (kind ? `${mealKindLabels[kind]} entry` : "Entry");
@@ -266,7 +287,7 @@ function mapRemoteMeal(meal: SerializedMeal, { publicView = false }: { publicVie
     status: meal.status,
     savedEntryId: meal.savedEntryId,
     consumedAt: meal.consumedAt,
-    time: mealTimeFormatter.format(new Date(meal.consumedAt)),
+    time: formatMealTime(meal.consumedAt, timeZone),
     name,
     description: meal.caption || itemNames.join(", ") || "Logged from dashboard",
     calories: meal.totalCalories,
@@ -283,7 +304,7 @@ function mapRemoteMeal(meal: SerializedMeal, { publicView = false }: { publicVie
   };
 }
 
-function buildLiveDays(summary: DashboardSummary, { mode, publicView }: { mode: DateKeyMode; publicView: boolean }): Day[] {
+function buildLiveDays(summary: DashboardSummary, { timeZone, publicView }: { timeZone: string; publicView: boolean }): Day[] {
   const summaryDate = new Date(`${summary.date}T12:00:00.000Z`);
   const mealsByDate = new Map<string, Meal[]>();
   const weightsByDate = new Map(
@@ -293,9 +314,9 @@ function buildLiveDays(summary: DashboardSummary, { mode, publicView }: { mode: 
     (summary.nutrition?.byDate ?? []).map((entry) => [entry.date, entry.nutrients]),
   );
   for (const serializedMeal of summary.recentMeals) {
-    const key = dateKeyFromTimestamp(serializedMeal.consumedAt, { mode });
+    const key = dateKeyInTimeZone(serializedMeal.consumedAt, timeZone);
     const meals = mealsByDate.get(key) ?? [];
-    meals.push(mapRemoteMeal(serializedMeal, { publicView }));
+    meals.push(mapRemoteMeal(serializedMeal, { publicView, timeZone }));
     mealsByDate.set(key, meals);
   }
   return Array.from({ length: 7 }, (_, index) => {
@@ -457,7 +478,12 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
   const historicalMealRequest = useRef(0);
   const [failedPhotoUrls, setFailedPhotoUrls] = useState<Set<string>>(() => new Set());
   const [clockNow, setClockNow] = useState(() => new Date());
-  const dashboardDate = dateKeyFromTimestamp(clockNow.getTime(), { mode: publicView ? "utc" : "local" });
+  const [summaryTimeZone, setSummaryTimeZone] = useState<string | null>(null);
+  const browserZone = useMemo(() => browserTimeZone(), []);
+  // The owner sees days in this device's timezone. The public view uses the owner's saved timezone,
+  // which arrives with the summary, so every viewer sees the same days and times.
+  const displayTimeZone = publicView ? summaryTimeZone ?? "UTC" : browserZone;
+  const dashboardDate = dateKeyInTimeZone(clockNow.getTime(), displayTimeZone);
   const previewCloseRef = useRef<HTMLButtonElement>(null);
   const actionInProgress = pendingAction !== null;
   const pendingLabel = pendingAction ? pendingActionLabel(pendingAction) : null;
@@ -614,9 +640,9 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
       days: sevenDayChartValues,
       currentDate: sevenDayChartValues[sevenDayChartValues.length - 1]?.date ?? "",
       now: clockNow,
-      timeZone: publicView ? "UTC" : browserTimeZone(),
+      timeZone: displayTimeZone,
     }),
-    [sevenDayChartValues, clockNow, publicView],
+    [sevenDayChartValues, clockNow, displayTimeZone],
   );
 
   const averageComparison = useMemo(
@@ -776,10 +802,11 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
         const parsed = parseDashboardPayload(await response.json());
         if (!parsed) throw new Error("invalid_dashboard_summary");
         if (cancelled || dashboardLoadVersion.current !== requestVersion) return;
-        const liveDays = buildLiveDays(parsed, { mode: publicView ? "utc" : "local", publicView });
+        const liveDays = buildLiveDays(parsed, { timeZone: publicView ? parsed.timezone ?? "UTC" : browserTimeZone(), publicView });
         const parsedSavedEntries = await savedEntriesRequest;
         if (cancelled || dashboardLoadVersion.current !== requestVersion) return;
         if (parsedSavedEntries) setSavedEntries(parsedSavedEntries);
+        setSummaryTimeZone(parsed.timezone);
         setProteinGoal(parsed.proteinGoal);
         setVitaminB6UsFnbAdultUlEnabled(parsed.referenceSettings?.vitaminB6UsFnbAdultUlEnabled === true);
         setUsFnbAdultUlEnabled(parsed.referenceSettings?.usFnbAdultUlEnabled === true);
@@ -965,8 +992,8 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
   }
 
   function replaceRemoteMeal(remoteMeal: SerializedMeal) {
-    const nextMeal = mapRemoteMeal(remoteMeal, { publicView });
-    const date = dateKeyFromTimestamp(remoteMeal.consumedAt, { mode: publicView ? "utc" : "local" });
+    const nextMeal = mapRemoteMeal(remoteMeal, { publicView, timeZone: displayTimeZone });
+    const date = dateKeyInTimeZone(remoteMeal.consumedAt, displayTimeZone);
     if (historicalMeal?.id === nextMeal.id) setHistoricalMeal(nextMeal);
     setDays((currentDays) => currentDays.map((day) => {
       if (day.date !== date) return day;
@@ -984,8 +1011,8 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
   }
 
   function reconcileMeal(optimisticId: string, remoteMeal: SerializedMeal) {
-    const nextMeal = mapRemoteMeal(remoteMeal, { publicView });
-    const date = dateKeyFromTimestamp(remoteMeal.consumedAt, { mode: publicView ? "utc" : "local" });
+    const nextMeal = mapRemoteMeal(remoteMeal, { publicView, timeZone: displayTimeZone });
+    const date = dateKeyInTimeZone(remoteMeal.consumedAt, displayTimeZone);
     setDays((currentDays) => currentDays.map((day) => {
       const withoutOptimistic = day.meals.filter((meal) => meal.id !== optimisticId && meal.id !== nextMeal.id);
       if (day.date !== date) {
@@ -1099,7 +1126,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
           ...meal,
           id: optimisticId(action),
           consumedAt,
-          time: mealTimeFormatter.format(new Date(consumedAt)),
+          time: formatMealTime(consumedAt, displayTimeZone),
           pending: toToday ? "copying" : "duplicating",
         });
         return () => removeMealFromDays(optimisticId(action));
@@ -1472,8 +1499,8 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
       }
       const parsedMeal = parseMealResponse(responseBody);
       if (!parsedMeal) throw new Error("The historical entry response was invalid.");
-      const mappedMeal = mapRemoteMeal(parsedMeal, { publicView: false });
-      const mappedDate = dateKeyFromTimestamp(mappedMeal.consumedAt, { mode: "local" });
+      const mappedMeal = mapRemoteMeal(parsedMeal, { publicView: false, timeZone: displayTimeZone });
+      const mappedDate = dateKeyInTimeZone(mappedMeal.consumedAt, displayTimeZone);
       if (mappedDate !== date) throw new Error("The historical entry date no longer matches the insight.");
       if (historicalMealRequest.current !== requestId) return;
       setHistoricalMeal(mappedMeal);
@@ -1534,7 +1561,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
       </Suspense> : null}
 
       {dataMessage ? <div className={`data-banner ${dataMode}`} role="status"><span aria-hidden="true">{dataMode === "live" ? "✓" : dataMode === "loading" ? "…" : "i"}</span>{dataMessage}</div> : null}
-      {readOnly && dataMode === "live" ? <div className="data-banner public" role="status"><span aria-hidden="true">✓</span>Public read-only view — changes are disabled.</div> : null}
+      {readOnly && dataMode === "live" ? <div className="data-banner public" role="status"><span aria-hidden="true">✓</span>Public read-only view — changes are disabled.{summaryTimeZone && summaryTimeZone !== browserZone ? ` Days and times are shown in ${summaryTimeZone.replaceAll("_", " ")} time.` : ""}</div> : null}
       {pendingLabel || actionStatus || actionError ? <div className={`action-feedback ${actionError ? "error" : ""}`} role={actionError ? "alert" : "status"} aria-live="polite" aria-busy={actionInProgress}>{actionError ?? pendingLabel ?? actionStatus}</div> : null}
 
       {dataMode !== "live" ? <section className="dashboard-state" aria-live="polite">
@@ -1747,7 +1774,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
               {selectedWeight ? <>
                 <strong>{formatWeight(selectedWeight.weightKg)} <small>kg</small></strong>
                 <time dateTime={new Date(selectedWeight.recordedAt).toISOString()}>
-                  Saved at {formatRecordedTime(selectedWeight.recordedAt)}
+                  Saved at {formatRecordedTime(selectedWeight.recordedAt, displayTimeZone)}
                 </time>
                 {weightActionPending ? <span className="pending-indicator" role="status">Saving…</span> : null}
               </> : <>
@@ -1954,7 +1981,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
           </section> : null}
 
           {!readOnly && historicalMeal && historicalMealDraft ? <section className="panel historical-meal-editor" id="historical-meal-editor" aria-labelledby="historical-meal-editor-title">
-            <div className="panel-heading historical-meal-editor__heading"><div><p className="eyebrow">Entry inspection</p><h2 id="historical-meal-editor-title">Edit historical entry</h2><span className="historical-meal-editor__date">{fullDateLabel(dateKeyFromTimestamp(historicalMeal.consumedAt, { mode: "local" }))} · {historicalMeal.name}</span></div><button className="close-button" type="button" disabled={actionInProgress} onClick={() => cancelMealEditor(historicalMeal.id)} aria-label="Close historical entry editor">×</button></div>
+            <div className="panel-heading historical-meal-editor__heading"><div><p className="eyebrow">Entry inspection</p><h2 id="historical-meal-editor-title">Edit historical entry</h2><span className="historical-meal-editor__date">{fullDateLabel(dateKeyInTimeZone(historicalMeal.consumedAt, displayTimeZone))} · {historicalMeal.name}</span></div><button className="close-button" type="button" disabled={actionInProgress} onClick={() => cancelMealEditor(historicalMeal.id)} aria-label="Close historical entry editor">×</button></div>
             <p className="historical-meal-editor__message">This entry is outside the seven-day dashboard editor. It was loaded from your owner history; changes use the same saved meal endpoint and recalculate the insight after refresh.</p>
             <MealEditor
               meal={historicalMealDraft}

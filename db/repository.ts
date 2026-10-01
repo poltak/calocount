@@ -171,6 +171,8 @@ export type DashboardSummaryOptions = {
   now?: Date;
   /** The timezone that sets the day boundaries. Defaults to UTC. */
   timezone?: string;
+  /** Use the owner's saved timezone instead of `timezone`. The public view does. */
+  useSavedTimezone?: boolean;
 };
 
 function finiteNumber(value: unknown, fallback = 0): number {
@@ -1191,7 +1193,8 @@ export async function upsertSettings(db: AppDb, ownerKey: string, patch: Setting
 }
 
 export async function getDashboardSummary(db: AppDb, ownerKey: string, options: DashboardSummaryOptions = {}) {
-  const calendar = zonedCalendar(resolveTimeZone(options.timezone));
+  const savedSettings = options.useSavedTimezone ? await getSettings(db, ownerKey) : undefined;
+  const calendar = zonedCalendar(resolveTimeZone(options.useSavedTimezone ? savedSettings?.timezone : options.timezone));
   const now = options.now ?? new Date();
   const logicalDate = calendar.dateKey(now.getTime());
   const weekStartDate = shiftDateKey(logicalDate, -6);
@@ -1202,7 +1205,7 @@ export async function getDashboardSummary(db: AppDb, ownerKey: string, options: 
   const weekStartMs = calendar.firstInstant(weekStartDate);
   const insightStartMs = calendar.firstInstant(insightStartDate);
   const [settingsRow, trendMeals, trendWeights, weightBeforeTrend] = await Promise.all([
-    getSettings(db, ownerKey),
+    options.useSavedTimezone ? savedSettings : getSettings(db, ownerKey),
     listMealsInRange({ db, ownerKey, from: insightStartMs, to: endMs }),
     listDailyWeights({ db, ownerKey, from: insightStartDate, to: logicalDate }),
     getLatestDailyWeightBefore({ db, ownerKey, logicalDate: insightStartDate }),
@@ -1255,6 +1258,7 @@ export async function getDashboardSummary(db: AppDb, ownerKey: string, options: 
   );
   return {
     date: logicalDate,
+    timezone: calendar.timeZone,
     targets: {
       calories: settingsRow?.dailyCalorieTarget ?? null,
       proteinG: proteinGoal.targetG,
@@ -1334,7 +1338,10 @@ export async function findMealPhoto({ db, ownerKey, mealId }: { db: AppDb; owner
     status: mealLogs.status,
     photoKey: mealLogs.photoKey,
     photoMimeType: mealLogs.photoMimeType,
-  }).from(mealLogs).where(and(eq(mealLogs.ownerKey, ownerKey), eq(mealLogs.id, mealId))).limit(1).prepare().get();
+    timezone: settings.timezone,
+  }).from(mealLogs)
+    .leftJoin(settings, eq(settings.ownerKey, mealLogs.ownerKey))
+    .where(and(eq(mealLogs.ownerKey, ownerKey), eq(mealLogs.id, mealId))).limit(1).prepare().get();
 }
 
 export async function findMealByPhotoKey(db: AppDb, ownerKey: string, photoKey: string) {

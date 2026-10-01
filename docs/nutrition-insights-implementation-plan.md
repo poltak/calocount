@@ -81,7 +81,7 @@ Sources for these distinctions are linked at the end. Recheck the selected refer
 - An entry with meal status `complete` is not confirmation that the day's diet is fully recorded.
 - A day with no logs is unobserved, not a zero-intake day. Explicit fasting, if supported later, needs its own status.
 - Exclude the current day from persistent-pattern summaries. A separate current-day excess observation can still appear if the recorded sum already crosses a threshold.
-- Use the established owner logical-date/timezone rules. Public calculations use the public UTC date boundary. Display the range and timezone context.
+- Use the established owner logical-date/timezone rules. Public calculations use day boundaries in the owner's saved timezone. Display the range and timezone context.
 - Coverage counts describe missing fields, not accuracy. Do not turn an AI confidence field or item coverage percentage into a probability that an intake conclusion is correct.
 - Do not scale partial nutrient totals upward by dividing by item coverage. Missing items have unequal nutrient contributions.
 - Label averages with their denominator. A mean over 12 eligible days must say so, rather than appearing to cover all 28 days.

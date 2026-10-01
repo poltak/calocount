@@ -208,3 +208,30 @@ test("public summary keeps the selected protein-goal resolution", () => {
     byDate: [{ date: "2026-08-25", targetG: 120, weightKg: 75, weightDate: "2026-08-24" }],
   });
 });
+
+test("public summary reports its timezone and places each meal on its day there", () => {
+  const meal = (id: string, consumedAt: string, totalCalories: number) => ({
+    meal: { id, consumedAt: Date.parse(consumedAt), mealType: null, status: "complete", photoKey: null, photoMimeType: null, totalCalories, totalProteinG: 0, totalCarbsG: 0, totalFatG: 0 },
+    items: [],
+  });
+  const projection = projectPublicDashboardSummary({
+    date: "2026-09-12",
+    timezone: "Asia/Ho_Chi_Minh",
+    targets: { calories: 2_100, proteinG: 150, nutrients: resolveNutrientGoals() },
+    today: { calories: 400, proteinG: 0, carbsG: 0, fatG: 0, mealCount: 1 },
+    sevenDay: { calories: 1_100, proteinG: 0, averageCalories: 0, averageProteinG: 0, daysWithMeals: 2 },
+    recentMeals: [
+      // 06:30 on 12 September in Ho Chi Minh City.
+      meal("breakfast", "2026-09-11T23:30:00Z", 400),
+      meal("dinner-before", "2026-09-11T12:00:00Z", 700),
+      // 23:00 on 5 September there, one hour before the seven-day window starts.
+      meal("too-old", "2026-09-05T16:00:00Z", 900),
+    ],
+    recentWeights: [],
+    nutrition: { today: {}, byDate: [] },
+  } as never);
+
+  assert.equal(projection.timezone, "Asia/Ho_Chi_Minh");
+  assert.deepEqual(projection.recentMeals.map((entry) => entry.id), ["breakfast", "dinner-before"]);
+  assert.deepEqual(projection.sevenDay.trend.slice(-2).map((day) => [day.date, day.calories]), [["2026-09-11", 700], ["2026-09-12", 400]]);
+});

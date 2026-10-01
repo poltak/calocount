@@ -1,5 +1,6 @@
 import type { getDashboardSummary } from "../../../db/repository";
 import { resolveNutrientGoals } from "../../../domain/nutrient-goals";
+import { resolveTimeZone, shiftDateKey, zonedCalendar, type ZonedCalendar } from "../../../domain/logical-date";
 import { NUTRIENT_KEYS, nullableNutrientValue, type NutrientAggregateMap, type NutrientValues } from "../../../domain/nutrients";
 import { isPublicPhotoMimeType, isWithinPublicDateRange } from "./public-photo-policy";
 
@@ -42,15 +43,6 @@ type PublicWeight = {
   weightKg: number;
   recordedAt: number;
 };
-
-function dateKeyFromTimestamp(timestamp: number): string {
-  return new Date(timestamp).toISOString().slice(0, 10);
-}
-
-function dateKeyDaysBefore(date: string, days: number): string {
-  const timestamp = new Date(`${date}T12:00:00.000Z`).getTime() - days * 86_400_000;
-  return new Date(timestamp).toISOString().slice(0, 10);
-}
 
 function publicMeal(entry: DashboardSummary["recentMeals"][number]): PublicMeal {
   return {
@@ -99,16 +91,16 @@ function publicNutrientAggregates(source: NutrientAggregateMap | undefined): Nut
   })) as NutrientAggregateMap;
 }
 
-function publicTrend(summary: DashboardSummary): PublicTrendDay[] {
+function publicTrend(summary: DashboardSummary, calendar: ZonedCalendar): PublicTrendDay[] {
   const byDate = new Map<string, PublicTrendDay>();
   for (let daysBefore = 6; daysBefore >= 0; daysBefore -= 1) {
-    const date = dateKeyDaysBefore(summary.date, daysBefore);
+    const date = shiftDateKey(summary.date, -daysBefore);
     byDate.set(date, { date, calories: 0, proteinG: 0, carbsG: 0, fatG: 0, mealCount: 0 });
   }
 
   for (const entry of summary.recentMeals) {
     if (entry.meal.status !== "complete") continue;
-    const day = byDate.get(dateKeyFromTimestamp(entry.meal.consumedAt));
+    const day = byDate.get(calendar.dateKey(entry.meal.consumedAt));
     if (!day) continue;
     day.calories += entry.meal.totalCalories;
     day.proteinG += entry.meal.totalProteinG;
@@ -168,15 +160,15 @@ function publicProteinGoal(summary: DashboardSummary) {
   };
 }
 
-function publicInsights(summary: DashboardSummary) {
+function publicInsights(summary: DashboardSummary, calendar: ZonedCalendar) {
   if (!summary.insights) return undefined;
-  const fromDate = dateKeyDaysBefore(summary.date, 30);
+  const fromDate = shiftDateKey(summary.date, -30);
   return {
     fromDate,
     toDate: summary.date,
     entries: summary.insights.entries.filter((entry) => (
       entry.date >= fromDate && entry.date <= summary.date
-      && dateKeyFromTimestamp(entry.consumedAt) === entry.date
+      && calendar.dateKey(entry.consumedAt) === entry.date
     )).map((entry) => ({
       id: entry.id,
       date: entry.date,
@@ -200,8 +192,11 @@ function publicInsights(summary: DashboardSummary) {
  * Keep this explicit: private database fields must not cross this boundary.
  */
 export function projectPublicDashboardSummary(summary: DashboardSummary) {
+  const calendar = zonedCalendar(resolveTimeZone(summary.timezone));
   return {
     date: summary.date,
+    // The timezone that sets the day boundaries of every date in this response.
+    timezone: calendar.timeZone,
     targets: {
       calories: summary.targets.calories,
       proteinG: summary.targets.proteinG,
@@ -221,10 +216,10 @@ export function projectPublicDashboardSummary(summary: DashboardSummary) {
       averageCalories: summary.sevenDay.averageCalories,
       averageProteinG: summary.sevenDay.averageProteinG,
       daysWithMeals: summary.sevenDay.daysWithMeals,
-      trend: publicTrend(summary),
+      trend: publicTrend(summary, calendar),
     },
     trend: {
-      byDate: (summary.trend?.byDate ?? publicTrend(summary).map((day) => ({ ...day, nutrients: {} }))).map((day) => ({
+      byDate: (summary.trend?.byDate ?? publicTrend(summary, calendar).map((day) => ({ ...day, nutrients: {} }))).map((day) => ({
         date: day.date,
         calories: day.calories,
         proteinG: day.proteinG,
@@ -243,10 +238,10 @@ export function projectPublicDashboardSummary(summary: DashboardSummary) {
         nutrients: publicNutrientAggregates(day.nutrients),
       })),
     },
-    insights: publicInsights(summary),
+    insights: publicInsights(summary, calendar),
     recentMeals: summary.recentMeals.filter((entry) => (
       entry.meal.status === "complete"
-      && isWithinPublicDateRange({ consumedAt: entry.meal.consumedAt, summaryDate: summary.date })
+      && isWithinPublicDateRange({ consumedAt: entry.meal.consumedAt, summaryDate: summary.date, timeZone: calendar.timeZone })
     )).map(publicMeal),
     recentWeights: summary.recentWeights.map(publicWeight),
   };

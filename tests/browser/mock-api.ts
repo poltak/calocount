@@ -72,7 +72,7 @@ export async function mockDashboardApi(page: Page) {
     date,
     meals: [structuredClone(initialMeal)],
     weights: [{ logicalDate: "2026-09-11", weightKg: 70, recordedAt: Date.parse(`${date}T12:00:00Z`) }],
-    settings: { dailyCalorieTarget: 2400, dailyProteinTargetG: 160, proteinGoalMode: "grams" as ProteinGoalMode, dailyProteinTargetPerKg: 1.6, nutrientTargets: null, vitaminB6UsFnbAdultUlEnabled: false, usFnbAdultUlEnabled: false },
+    settings: { timezone: "UTC", dailyCalorieTarget: 2400, dailyProteinTargetG: 160, proteinGoalMode: "grams" as ProteinGoalMode, dailyProteinTargetPerKg: 1.6, nutrientTargets: null, vitaminB6UsFnbAdultUlEnabled: false, usFnbAdultUlEnabled: false },
     savedEntries: [] as SavedEntry[],
     /** Every request the page made to the API, in order. */
     requests: [] as RecordedRequest[],
@@ -86,10 +86,13 @@ export async function mockDashboardApi(page: Page) {
     holdWrite: null as Promise<void> | null,
     failWrite: false,
   };
-  function summary() {
+  /** Build the summary with days counted in the given timezone, as the server does. */
+  function summary(timezone: string) {
+    const dayFormatter = new Intl.DateTimeFormat("en-CA", { timeZone: timezone });
+    const dayOf = (timestamp: number) => dayFormatter.format(new Date(timestamp));
     const byDate = Array.from({ length: 30 }, (_, index) => {
       const day = new Date(Date.parse(state.date) - (29 - index) * dayMs).toISOString().slice(0, 10);
-      const meals = state.meals.filter((meal) => new Date(meal.consumedAt).toISOString().startsWith(day));
+      const meals = state.meals.filter((meal) => dayOf(meal.consumedAt) === day);
       return {
         date: day, calories: meals.reduce((n, m) => n + m.totalCalories, 0),
         proteinG: meals.reduce((n, m) => n + m.totalProteinG, 0),
@@ -105,6 +108,7 @@ export async function mockDashboardApi(page: Page) {
     });
     return {
       date: state.date,
+      timezone,
       referenceSettings: { vitaminB6UsFnbAdultUlEnabled: state.settings.vitaminB6UsFnbAdultUlEnabled, usFnbAdultUlEnabled: state.settings.usFnbAdultUlEnabled },
       targets: { calories: state.settings.dailyCalorieTarget, proteinG: proteinGoal.targetG, nutrients: resolveNutrientGoals() },
       proteinGoal, today: byDate[29], sevenDay: { calories: 500, proteinG: 30, averageCalories: 0, averageProteinG: 0, daysWithMeals: 1 },
@@ -113,7 +117,7 @@ export async function mockDashboardApi(page: Page) {
         fromDate: new Date(Date.parse(state.date) - 30 * dayMs).toISOString().slice(0, 10),
         toDate: state.date,
         entries: state.meals.map((meal) => ({
-          id: meal.id, date: new Date(meal.consumedAt).toISOString().slice(0, 10), consumedAt: meal.consumedAt,
+          id: meal.id, date: dayOf(meal.consumedAt), consumedAt: meal.consumedAt,
           calories: meal.totalCalories, proteinG: meal.totalProteinG,
           items: meal.items.map((item) => ({
             name: item.name, quantity: item.quantity, unit: item.unit, calories: item.calories, proteinG: item.proteinG,
@@ -154,7 +158,9 @@ export async function mockDashboardApi(page: Page) {
         await route.fulfill({ status: 500, json: { error: { code: "internal_error", message: "Test summary failed." } } });
         return;
       }
-      const fullBody = state.invalidSummary ? { date, today: {}, sevenDay: {} } : summary();
+      // The public summary uses the owner's saved timezone; the owner summary uses the one the page asks for.
+      const timezone = pathname === "/api/public/summary" ? state.settings.timezone : url.searchParams.get("timezone") ?? "UTC";
+      const fullBody = state.invalidSummary ? { date, today: {}, sevenDay: {} } : summary(timezone);
       const body = pathname === "/api/public/summary" && "referenceSettings" in fullBody
         ? Object.fromEntries(Object.entries(fullBody).filter(([key]) => key !== "referenceSettings"))
         : fullBody;

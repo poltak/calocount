@@ -8,7 +8,8 @@ export async function GET(): Promise<Response> {
     try {
       return await buildPublicSummaryResponse({
         ownerKey: getEnvValue("CALOCOUNT_OWNER_KEY"),
-        loadSummary: (ownerKey) => getDashboardSummary(getRequestDb(), ownerKey),
+        // The public view groups meals into days in the owner's saved timezone.
+        loadSummary: (ownerKey) => getDashboardSummary(getRequestDb(), ownerKey, { useSavedTimezone: true }),
       });
     } catch (error) {
       if (error instanceof PublicSummaryConfigError) {

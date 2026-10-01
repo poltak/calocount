@@ -32,6 +32,7 @@ test("public summary returns a no-store projection without private fields", asyn
   const nutrientAggregates = aggregateNutrients([itemNutrients]);
   const summary = {
     date,
+    timezone: "UTC",
     referenceSettings: { vitaminB6UsFnbAdultUlEnabled: true, usFnbAdultUlEnabled: true },
     targets: {
       calories: 2_100,

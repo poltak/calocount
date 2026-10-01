@@ -52,3 +52,30 @@ test("dashboard grouping converts each meal date once", async () => {
     fixture.sqlite.close();
   }
 });
+
+test("the public summary groups meals into days in the owner's saved timezone", async () => {
+  const fixture = createSqliteTestDb();
+  try {
+    fixture.sqlite.exec("INSERT INTO settings (id, owner_key, timezone) VALUES ('settings', 'owner', 'Asia/Ho_Chi_Minh')");
+    const insertMeal = fixture.sqlite.prepare("INSERT INTO meal_logs (id, owner_key, consumed_at, status, total_calories) VALUES (?, ?, ?, 'complete', ?)");
+    // 06:30 on 12 September in Ho Chi Minh City is 23:30 on 11 September in UTC.
+    insertMeal.run("breakfast", "owner", Date.parse("2026-09-11T23:30:00Z"), 400);
+    insertMeal.run("dinner-before", "owner", Date.parse("2026-09-11T12:00:00Z"), 700);
+    const now = new Date("2026-09-12T05:00:00Z");
+
+    const saved = await getDashboardSummary(fixture.db, "owner", { now, useSavedTimezone: true });
+    assert.equal(saved.timezone, "Asia/Ho_Chi_Minh");
+    assert.equal(saved.date, "2026-09-12");
+    assert.equal(saved.today.calories, 400);
+    assert.deepEqual(saved.trend.byDate.slice(-2).map((day) => [day.date, day.calories]), [["2026-09-11", 700], ["2026-09-12", 400]]);
+    // Reading the saved timezone reuses the settings row; the query count stays at five.
+    assert.equal(fixture.queries.length, 5);
+
+    const utc = await getDashboardSummary(fixture.db, "owner", { now });
+    assert.equal(utc.timezone, "UTC");
+    assert.equal(utc.today.calories, 0);
+    assert.equal(utc.trend.byDate.at(-2)?.calories, 1_100);
+  } finally {
+    fixture.sqlite.close();
+  }
+});

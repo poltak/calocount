@@ -22,7 +22,7 @@ test("llms.txt documents the canonical public dashboard projection", async () =>
     "recent completed entries",
     "recent weights",
   ]) assert.match(content, phrasePattern(category));
-  assert.match(content, /Dates use the public dashboard's UTC day boundary\./);
+  assert.match(content, /Dates use the owner's saved timezone, which the summary returns as `timezone`\./);
   assert.match(content, /`hasPhoto: true`[\s\S]*`\/meal-photos\/\{mealId\}`/);
   assert.match(content, /using that entry's `id` for `\{mealId\}`/);
   assert.match(content, /omits private fields and systems/);

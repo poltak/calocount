@@ -79,6 +79,26 @@ test("public photos reject another owner, missing photos, incomplete meals, and 
   }
 });
 
+test("the seven-day photo window follows the owner's saved timezone", async () => {
+  // At noon UTC on 29 August it is 19:00 in Ho Chi Minh City, so the window starts at 00:00 on 23 August there.
+  const windowStart = Date.parse("2026-08-22T17:00:00Z");
+  for (const [consumedAt, timezone, expectedStatus] of [
+    [windowStart, "Asia/Ho_Chi_Minh", 200],
+    [windowStart - 1, "Asia/Ho_Chi_Minh", 404],
+    // The same moment is outside the window when the owner's timezone is UTC or unknown.
+    [windowStart, "UTC", 404],
+    [windowStart, null, 404],
+    [windowStart, "Not/A_Timezone", 404],
+  ] as const) {
+    const response = await buildPublicMealPhotoResponse({
+      ownerKey: "owner-1", mealId: meal.id, now,
+      loadMeal: async () => ({ ...meal, consumedAt, timezone }),
+      loadPhoto: async () => photo,
+    });
+    assert.equal(response.status, expectedStatus, `${new Date(consumedAt).toISOString()} in ${timezone}`);
+  }
+});
+
 test("public photos include the exact start of the seven-day window and handle missing R2 objects", async () => {
   let loads = 0;
   const response = await buildPublicMealPhotoResponse({
@@ -94,8 +114,12 @@ test("photo metadata uses one SQL query without loading items and enforces owner
   const fixture = createSqliteTestDb();
   try {
     fixture.sqlite.prepare("INSERT INTO meal_logs (id, owner_key, consumed_at) VALUES (?, ?, ?)").run(meal.id, meal.ownerKey, meal.consumedAt);
-    assert.equal((await findMealPhoto({ db: fixture.db, ownerKey: meal.ownerKey, mealId: meal.id }))?.id, meal.id);
+    const withoutSettings = await findMealPhoto({ db: fixture.db, ownerKey: meal.ownerKey, mealId: meal.id });
+    assert.equal(withoutSettings?.id, meal.id);
+    assert.equal(withoutSettings?.timezone, null);
     assert.equal(fixture.queries.length, 1);
+    fixture.sqlite.exec("INSERT INTO settings (id, owner_key, timezone) VALUES ('settings', 'owner-1', 'Asia/Ho_Chi_Minh')");
+    assert.equal((await findMealPhoto({ db: fixture.db, ownerKey: meal.ownerKey, mealId: meal.id }))?.timezone, "Asia/Ho_Chi_Minh");
     assert.equal(await findMealPhoto({ db: fixture.db, ownerKey: "other-owner", mealId: meal.id }), undefined);
   } finally {
     fixture.sqlite.close();
