@@ -251,6 +251,11 @@ function pendingActionLabel(action: PendingAction): string {
   }
 }
 
+/** The error message from an API response body, or the fallback when it has none. */
+function apiErrorMessage(body: unknown, fallback: string): string {
+  return stringOr(asRecord(asRecord(body)?.error)?.message, fallback);
+}
+
 function mealKind(value: string | null): Meal["kind"] {
   if (value === "breakfast" || value === "lunch" || value === "dinner") return value;
   return "snack";
@@ -676,6 +681,53 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     }
   }
 
+  /**
+   * Run one owner action: take the single action slot, send the request, and
+   * apply or roll back the result. Returns true when the action succeeded.
+   * A result is ignored when a newer action has replaced this one.
+   */
+  async function runAction<T>({ kind, id, begin, request, parse, failure, invalid, success }: {
+    kind: PendingActionKind;
+    id?: string;
+    /** Apply an optimistic change. Return a function that undoes it. */
+    begin?: (action: PendingAction) => (() => void) | void;
+    request: () => Promise<Response>;
+    /** Read the response body. Null means the response was not usable. */
+    parse: (body: unknown) => T | null;
+    /** The message shown when the server gives none. */
+    failure: string;
+    /** The message for a successful response that could not be read. */
+    invalid?: string;
+    success: (result: T, action: PendingAction) => void;
+  }): Promise<boolean> {
+    const action = beginAction(kind, id);
+    if (!action) return false;
+    setActionError(null);
+    const rollback = begin?.(action);
+    try {
+      const response = await request();
+      const body = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(apiErrorMessage(body, failure));
+      const result = parse(body);
+      if (result === null) throw new Error(invalid ?? failure);
+      if (!isCurrentAction(action)) return false;
+      success(result, action);
+      return true;
+    } catch (error) {
+      if (!isCurrentAction(action)) return false;
+      rollback?.();
+      setActionError(error instanceof Error ? error.message : failure);
+      setActionStatus(null);
+      return false;
+    } finally {
+      finishAction(action);
+    }
+  }
+
+  function findLoadedMeal(mealId: string): Meal | undefined {
+    return days.flatMap((day) => day.meals).find((entry) => entry.id === mealId);
+  }
+
   function retryDashboard() {
     if (dashboardLoadInFlight.current) return;
     dashboardLoadInFlight.current = true;
@@ -956,42 +1008,31 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
 
   async function saveMeal(mealId: string) {
     if (readOnly || dataMode !== "live" || pendingActionRef.current) return;
-    const canonicalMeal = days.flatMap((day) => day.meals).find((entry) => entry.id === mealId)
-      ?? (historicalMeal?.id === mealId ? historicalMeal : undefined);
+    const canonicalMeal = findLoadedMeal(mealId) ?? (historicalMeal?.id === mealId ? historicalMeal : undefined);
     const meal = mealEditState.drafts[mealId];
     if (!canonicalMeal || !meal) return;
-    const action = beginAction("meal-save", mealId);
-    if (!action) return;
-    setActionError(null);
-    try {
-      const response = await fetch(`/api/meals/${encodeURIComponent(meal.id)}`, {
+    await runAction({
+      kind: "meal-save",
+      id: mealId,
+      request: () => fetch(`/api/meals/${encodeURIComponent(meal.id)}`, {
         method: "PATCH",
         ...mealRequestOptions(mealPatchPayload(meal, canonicalMeal), mealPhotoDrafts[mealId]),
-      });
-      const responseBody = await response.json().catch(() => null);
-      if (!response.ok) {
-        const errorRecord = asRecord(asRecord(responseBody)?.error);
-        throw new Error(stringOr(errorRecord?.message, "The entry could not be saved."));
-      }
-      const parsedMeal = parseMealResponse(responseBody);
-      if (!parsedMeal) throw new Error("The saved entry response was invalid.");
-      if (!isCurrentAction(action)) return;
-      replaceRemoteMeal(parsedMeal);
-      if (historicalMeal?.id === mealId) setHistoricalMeal(null);
-      setMealEditState((current) => commitMealEdit(current, mealId));
-      setMealPhotoDrafts((current) => {
-        const next = { ...current };
-        delete next[mealId];
-        return next;
-      });
-      setActionStatus("Entry saved.");
-    } catch (error) {
-      if (!isCurrentAction(action)) return;
-      setActionError(error instanceof Error ? error.message : "The entry could not be saved.");
-      setActionStatus(null);
-    } finally {
-      finishAction(action);
-    }
+      }),
+      parse: parseMealResponse,
+      failure: "The entry could not be saved.",
+      invalid: "The saved entry response was invalid.",
+      success: (parsedMeal) => {
+        replaceRemoteMeal(parsedMeal);
+        if (historicalMeal?.id === mealId) setHistoricalMeal(null);
+        setMealEditState((current) => commitMealEdit(current, mealId));
+        setMealPhotoDrafts((current) => {
+          const next = { ...current };
+          delete next[mealId];
+          return next;
+        });
+        setActionStatus("Entry saved.");
+      },
+    });
   }
 
   function openMealEditor(meal: Meal) {
@@ -1021,212 +1062,141 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
   }
 
   async function deleteMeal(mealId: string) {
-    if (readOnly || dataMode !== "live") return;
-    if (pendingActionRef.current) return;
-    const meal = days.flatMap((day) => day.meals).find((entry) => entry.id === mealId);
+    if (readOnly || dataMode !== "live" || pendingActionRef.current) return;
+    const meal = findLoadedMeal(mealId);
     if (!meal) return;
     if (!window.confirm(`Delete "${meal.name}"? This removes the entry and its analysis data. This cannot be undone.`)) return;
-
-    const action = beginAction("meal-delete", mealId);
-    if (!action) return;
-    setActionError(null);
-    try {
-      const response = await fetch(`/api/meals/${encodeURIComponent(mealId)}`, { method: "DELETE" });
-      const responseBody = await response.json().catch(() => null);
-      if (!response.ok) {
-        const errorRecord = asRecord(asRecord(responseBody)?.error);
-        throw new Error(stringOr(errorRecord?.message, "The entry could not be deleted."));
-      }
-      if (!isCurrentAction(action)) return;
-      removeMealFromDays(mealId);
-      setMealEditState(emptyMealEditState<Meal>());
-      setMealPhotoDrafts({});
-      const result = asRecord(responseBody);
-      setActionStatus(result?.photoDeleted === false
-        ? "Entry deleted. Its photo could not be removed."
-        : "Entry deleted.");
-    } catch (error) {
-      if (!isCurrentAction(action)) return;
-      setActionError(error instanceof Error ? error.message : "The entry could not be deleted.");
-      setActionStatus(null);
-    } finally {
-      finishAction(action);
-    }
+    await runAction({
+      kind: "meal-delete",
+      id: mealId,
+      request: () => fetch(`/api/meals/${encodeURIComponent(mealId)}`, { method: "DELETE" }),
+      parse: (body) => asRecord(body) ?? {},
+      failure: "The entry could not be deleted.",
+      success: (result) => {
+        removeMealFromDays(mealId);
+        setMealEditState(emptyMealEditState<Meal>());
+        setMealPhotoDrafts({});
+        setActionStatus(result.photoDeleted === false
+          ? "Entry deleted. Its photo could not be removed."
+          : "Entry deleted.");
+      },
+    });
   }
 
-  async function copyMealToToday(mealId: string) {
+  /** Copy an entry to today, or duplicate it at its own time on the selected day. */
+  async function copyMeal(mealId: string, { toToday }: { toToday: boolean }) {
     if (readOnly || dataMode !== "live" || pendingActionRef.current) return;
-    const meal = days.flatMap((day) => day.meals).find((entry) => entry.id === mealId);
+    const meal = findLoadedMeal(mealId);
     const today = days.at(-1);
-    if (!meal || !today || selectedDay.date === today.date) return;
-
-    const action = beginAction("meal-copy", mealId);
-    if (!action) return;
-    setActionError(null);
-    const consumedAt = mealDateTimestamp({ date: today.date, time: localTimeValue() }) ?? clockNow.getTime();
-    const optimisticMeal: Meal = {
-      ...meal,
-      id: `optimistic-copy-${action.token}`,
-      consumedAt,
-      time: mealTimeFormatter.format(new Date(consumedAt)),
-      pending: "copying",
-    };
-    addMealToDate(today.date, optimisticMeal);
-    try {
-      const response = await fetch(`/api/meals/${encodeURIComponent(mealId)}/copy`, {
+    if (!meal || !today || (toToday && selectedDay.date === today.date)) return;
+    const targetDate = toToday ? today.date : selectedDay.date;
+    const consumedAt = toToday
+      ? mealDateTimestamp({ date: today.date, time: localTimeValue() }) ?? clockNow.getTime()
+      : meal.consumedAt;
+    const optimisticId = (action: PendingAction) => `optimistic-${toToday ? "copy" : "duplicate"}-${action.token}`;
+    await runAction({
+      kind: toToday ? "meal-copy" : "meal-duplicate",
+      id: mealId,
+      begin: (action) => {
+        addMealToDate(targetDate, {
+          ...meal,
+          id: optimisticId(action),
+          consumedAt,
+          time: mealTimeFormatter.format(new Date(consumedAt)),
+          pending: toToday ? "copying" : "duplicating",
+        });
+        return () => removeMealFromDays(optimisticId(action));
+      },
+      request: () => fetch(`/api/meals/${encodeURIComponent(mealId)}/copy`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ consumedAt }),
-      });
-      const responseBody = await response.json().catch(() => null);
-      if (!response.ok) {
-        const errorRecord = asRecord(asRecord(responseBody)?.error);
-        throw new Error(stringOr(errorRecord?.message, "The entry could not be copied."));
-      }
-      const parsedMeal = parseMealResponse(responseBody);
-      if (!parsedMeal) throw new Error("The copied entry response was invalid.");
-      if (!isCurrentAction(action)) return;
-      reconcileMeal(optimisticMeal.id, parsedMeal);
-      setActionStatus(`Copied “${meal.name}” to today.`);
-    } catch (error) {
-      if (!isCurrentAction(action)) return;
-      removeMealFromDays(optimisticMeal.id);
-      setActionError(error instanceof Error ? error.message : "The entry could not be copied.");
-      setActionStatus(null);
-    } finally {
-      finishAction(action);
-    }
-  }
-
-  async function duplicateMeal(mealId: string) {
-    if (readOnly || dataMode !== "live" || pendingActionRef.current) return;
-    const meal = days.flatMap((day) => day.meals).find((entry) => entry.id === mealId);
-    if (!meal) return;
-
-    const action = beginAction("meal-duplicate", mealId);
-    if (!action) return;
-    setActionError(null);
-    const optimisticMeal: Meal = {
-      ...meal,
-      id: `optimistic-duplicate-${action.token}`,
-      pending: "duplicating",
-    };
-    addMealToDate(selectedDay.date, optimisticMeal);
-    try {
-      const response = await fetch(`/api/meals/${encodeURIComponent(mealId)}/copy`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ consumedAt: meal.consumedAt }),
-      });
-      const responseBody = await response.json().catch(() => null);
-      if (!response.ok) {
-        const errorRecord = asRecord(asRecord(responseBody)?.error);
-        throw new Error(stringOr(errorRecord?.message, "The entry could not be duplicated."));
-      }
-      const parsedMeal = parseMealResponse(responseBody);
-      if (!parsedMeal) throw new Error("The duplicated entry response was invalid.");
-      if (!isCurrentAction(action)) return;
-      reconcileMeal(optimisticMeal.id, parsedMeal);
-      setActionStatus(`Duplicated “${meal.name}”.`);
-    } catch (error) {
-      if (!isCurrentAction(action)) return;
-      removeMealFromDays(optimisticMeal.id);
-      setActionError(error instanceof Error ? error.message : "The entry could not be duplicated.");
-      setActionStatus(null);
-    } finally {
-      finishAction(action);
-    }
+      }),
+      parse: parseMealResponse,
+      failure: toToday ? "The entry could not be copied." : "The entry could not be duplicated.",
+      invalid: toToday ? "The copied entry response was invalid." : "The duplicated entry response was invalid.",
+      success: (parsedMeal, action) => {
+        reconcileMeal(optimisticId(action), parsedMeal);
+        setActionStatus(toToday ? `Copied “${meal.name}” to today.` : `Duplicated “${meal.name}”.`);
+      },
+    });
   }
 
   async function addToSavedEntries(mealId: string) {
     if (readOnly || dataMode !== "live" || pendingActionRef.current) return;
-    const action = beginAction("saved-entry-add", mealId);
-    if (!action) return;
-    setActionError(null);
-    try {
-      const response = await fetch("/api/saved-entries", {
+    await runAction({
+      kind: "saved-entry-add",
+      id: mealId,
+      request: () => fetch("/api/saved-entries", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ sourceEntryId: mealId }),
-      });
-      const body = await response.json().catch(() => null);
-      const parsed = parseSavedEntriesResponse({ entries: [asRecord(body)?.entry] })?.[0];
-      if (!response.ok || !parsed) throw new Error(stringOr(asRecord(asRecord(body)?.error)?.message, "The entry could not be saved."));
-      if (!isCurrentAction(action)) return;
-      setSavedEntries((current) => [parsed, ...current.filter((entry) => entry.id !== parsed.id && entry.sourceEntryId !== parsed.sourceEntryId)]);
-      setActionStatus("Added to saved entries.");
-    } catch (error) {
-      if (isCurrentAction(action)) setActionError(error instanceof Error ? error.message : "The entry could not be saved.");
-    } finally {
-      finishAction(action);
-    }
+      }),
+      parse: (body) => parseSavedEntriesResponse({ entries: [asRecord(body)?.entry] })?.[0] ?? null,
+      failure: "The entry could not be saved.",
+      success: (saved) => {
+        setSavedEntries((current) => [saved, ...current.filter((entry) => entry.id !== saved.id && entry.sourceEntryId !== saved.sourceEntryId)]);
+        setActionStatus("Added to saved entries.");
+      },
+    });
   }
 
   async function removeFromSavedEntries(savedEntryId: string) {
-    if (readOnly || pendingActionRef.current) return;
-    const action = beginAction("saved-entry-remove", savedEntryId);
-    if (!action) return;
-    setActionError(null);
-    try {
-      const response = await fetch(`/api/saved-entries/${encodeURIComponent(savedEntryId)}`, { method: "DELETE" });
-      const body = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(stringOr(asRecord(asRecord(body)?.error)?.message, "The saved entry could not be removed."));
-      if (!isCurrentAction(action)) return;
-      setSavedEntries((current) => current.filter((entry) => entry.id !== savedEntryId));
-      setActionStatus("Removed from saved entries.");
-    } catch (error) {
-      if (isCurrentAction(action)) setActionError(error instanceof Error ? error.message : "The saved entry could not be removed.");
-    } finally {
-      finishAction(action);
-    }
+    if (readOnly || dataMode !== "live" || pendingActionRef.current) return;
+    await runAction({
+      kind: "saved-entry-remove",
+      id: savedEntryId,
+      request: () => fetch(`/api/saved-entries/${encodeURIComponent(savedEntryId)}`, { method: "DELETE" }),
+      parse: () => true,
+      failure: "The saved entry could not be removed.",
+      success: () => {
+        setSavedEntries((current) => current.filter((entry) => entry.id !== savedEntryId));
+        setActionStatus("Removed from saved entries.");
+      },
+    });
   }
 
   async function trackSavedEntryNow(savedEntry: SavedEntry) {
     if (readOnly || dataMode !== "live" || pendingActionRef.current) return;
     const today = days.at(-1);
     if (!today) return;
-    const action = beginAction("saved-entry-track", savedEntry.id);
-    if (!action) return;
-    setActionError(null);
     const consumedAt = mealDateTimestamp({ date: today.date, time: localTimeValue() }) ?? clockNow.getTime();
-    const kind = mealKind(savedEntry.entryType);
     const itemNames = savedEntry.items.map((item) => item.name).filter(Boolean);
-    const optimistic: Meal = {
-      id: `optimistic-saved-${action.token}`,
-      consumedAt,
-      time: localTimeValue(),
-      name: itemNames[0] ?? (savedEntry.caption || "Saved entry"),
-      description: savedEntry.caption || itemNames.join(", ") || "Tracked from saved entries",
-      calories: savedEntry.totalCalories,
-      protein: savedEntry.totalProteinG,
-      carbs: savedEntry.totalCarbsG,
-      fat: savedEntry.totalFatG,
-      items: savedEntry.items,
-      pending: "copying",
-      kind,
-    };
-    addMealToDate(today.date, optimistic);
-    try {
-      const response = await fetch(`/api/saved-entries/${encodeURIComponent(savedEntry.id)}/track`, {
+    const name = itemNames[0] ?? (savedEntry.caption || "Saved entry");
+    const optimisticId = (action: PendingAction) => `optimistic-saved-${action.token}`;
+    await runAction({
+      kind: "saved-entry-track",
+      id: savedEntry.id,
+      begin: (action) => {
+        addMealToDate(today.date, {
+          id: optimisticId(action),
+          consumedAt,
+          time: localTimeValue(),
+          name,
+          description: savedEntry.caption || itemNames.join(", ") || "Tracked from saved entries",
+          calories: savedEntry.totalCalories,
+          protein: savedEntry.totalProteinG,
+          carbs: savedEntry.totalCarbsG,
+          fat: savedEntry.totalFatG,
+          items: savedEntry.items,
+          pending: "copying",
+          kind: mealKind(savedEntry.entryType),
+        });
+        return () => removeMealFromDays(optimisticId(action));
+      },
+      request: () => fetch(`/api/saved-entries/${encodeURIComponent(savedEntry.id)}/track`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ consumedAt }),
-      });
-      const body = await response.json().catch(() => null);
-      const parsed = parseTrackedEntryResponse(body);
-      if (!response.ok || !parsed) throw new Error(stringOr(asRecord(asRecord(body)?.error)?.message, "The saved entry could not be tracked."));
-      if (!isCurrentAction(action)) return;
-      reconcileMeal(optimistic.id, parsed);
-      setSelectedDayKey(dayKeyForDate(today.date));
-      setActionStatus(`Tracked “${optimistic.name}”.`);
-    } catch (error) {
-      if (isCurrentAction(action)) {
-        removeMealFromDays(optimistic.id);
-        setActionError(error instanceof Error ? error.message : "The saved entry could not be tracked.");
-      }
-    } finally {
-      finishAction(action);
-    }
+      }),
+      parse: parseTrackedEntryResponse,
+      failure: "The saved entry could not be tracked.",
+      success: (parsed, action) => {
+        reconcileMeal(optimisticId(action), parsed);
+        setSelectedDayKey(dayKeyForDate(today.date));
+        setActionStatus(`Tracked “${name}”.`);
+      },
+    });
   }
 
   async function addMeal(event: FormEvent<HTMLFormElement>) {
@@ -1260,10 +1230,9 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
       setActionStatus(null);
       return;
     }
-    const action = beginAction("meal-create");
-    if (!action) return;
+    const optimisticId = (action: PendingAction) => `optimistic-meal-${action.token}`;
     const nextMeal: Meal = {
-      id: `optimistic-meal-${action.token}`,
+      id: "",
       consumedAt,
       time,
       name,
@@ -1287,34 +1256,25 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
       pending: "creating",
       kind: "snack",
     };
-
-    setActionError(null);
-    addMealToDate(selectedDay.date, nextMeal);
-    try {
-      const response = await fetch("/api/meals", {
+    const added = await runAction({
+      kind: "meal-create",
+      begin: (action) => {
+        addMealToDate(selectedDay.date, { ...nextMeal, id: optimisticId(action) });
+        return () => removeMealFromDays(optimisticId(action));
+      },
+      request: () => fetch("/api/meals", {
         method: "POST",
         ...mealRequestOptions(mealPayload(nextMeal, consumedAt), photo),
-      });
-      const responseBody = await response.json().catch(() => null);
-      if (!response.ok) {
-        const errorRecord = asRecord(asRecord(responseBody)?.error);
-        throw new Error(stringOr(errorRecord?.message, "The entry could not be added."));
-      }
-      const parsedMeal = parseMealResponse(responseBody);
-      if (!parsedMeal) throw new Error("The added entry response was invalid.");
-      if (!isCurrentAction(action)) return;
-      reconcileMeal(nextMeal.id, parsedMeal);
-      setActionStatus("Entry added.");
-    } catch (error) {
-      if (!isCurrentAction(action)) return;
-      removeMealFromDays(nextMeal.id);
-      setActionError(error instanceof Error ? error.message : "The entry could not be added.");
-      setActionStatus(null);
-      return;
-    } finally {
-      finishAction(action);
-    }
-
+      }),
+      parse: parseMealResponse,
+      failure: "The entry could not be added.",
+      invalid: "The added entry response was invalid.",
+      success: (parsedMeal, action) => {
+        reconcileMeal(optimisticId(action), parsedMeal);
+        setActionStatus("Entry added.");
+      },
+    });
+    if (!added) return;
     setShowAddMeal(false);
     formElement.reset();
   }
@@ -1334,8 +1294,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
 
   async function saveWeight(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (readOnly || dataMode !== "live") return;
-    if (pendingActionRef.current) return;
+    if (readOnly || dataMode !== "live" || pendingActionRef.current) return;
     const weightKg = Number(weightDraft);
     if (!Number.isFinite(weightKg) || weightKg < 1 || weightKg > 1_000) {
       setActionError("Enter a weight between 1 and 1,000 kg.");
@@ -1344,39 +1303,28 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
 
     const logicalDate = selectedDay.date;
     const previousWeight = selectedWeight;
-    const optimisticWeight = { logicalDate, weightKg, recordedAt: clockNow.getTime() };
-    const action = beginAction("weight-save", logicalDate);
-    if (!action) return;
-    setActionError(null);
-    setWeightForDate(logicalDate, optimisticWeight);
-
-    try {
-      const response = await fetch("/api/weights", {
+    await runAction({
+      kind: "weight-save",
+      id: logicalDate,
+      begin: () => {
+        setWeightForDate(logicalDate, { logicalDate, weightKg, recordedAt: clockNow.getTime() });
+        return () => setWeightForDate(logicalDate, previousWeight);
+      },
+      request: () => fetch("/api/weights", {
         method: "PUT",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ logicalDate, weightKg }),
-      });
-      const responseBody = await response.json().catch(() => null);
-      if (!response.ok) {
-        const errorRecord = asRecord(asRecord(responseBody)?.error);
-        throw new Error(stringOr(errorRecord?.message, "The weight could not be saved."));
-      }
-      const savedWeight = parseWeightResponse(responseBody);
-      if (!savedWeight) throw new Error("The saved weight response was invalid.");
-      if (!isCurrentAction(action)) return;
-
-      setWeightForDate(logicalDate, savedWeight);
-      setWeightDraft(String(savedWeight.weightKg));
-      setShowWeightForm(false);
-      setActionStatus("Weight saved.");
-    } catch (error) {
-      if (!isCurrentAction(action)) return;
-      setWeightForDate(logicalDate, previousWeight);
-      setActionError(error instanceof Error ? error.message : "The weight could not be saved.");
-      setActionStatus(null);
-    } finally {
-      finishAction(action);
-    }
+      }),
+      parse: parseWeightResponse,
+      failure: "The weight could not be saved.",
+      invalid: "The saved weight response was invalid.",
+      success: (savedWeight) => {
+        setWeightForDate(logicalDate, savedWeight);
+        setWeightDraft(String(savedWeight.weightKg));
+        setShowWeightForm(false);
+        setActionStatus("Weight saved.");
+      },
+    });
   }
 
   async function openSettings() {
@@ -1452,56 +1400,49 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     const nutrientTargetOverrides = nutrientGoalOverridesFromDraft(settingsDraft.nutrients);
     const nutrientTargets = resolveNutrientGoals(nutrientTargetOverrides);
 
-    const action = beginAction("settings-save");
-    if (!action) return;
     const previousTargets = targets;
     const previousVitaminB6UsFnbAdultUlEnabled = vitaminB6UsFnbAdultUlEnabled;
     const previousUsFnbAdultUlEnabled = usFnbAdultUlEnabled;
-    setActionError(null);
-    setTargets({ calories, proteinG: Number.isFinite(proteinG) && proteinG > 0 ? proteinG : targets.proteinG, nutrients: nutrientTargets });
-    setVitaminB6UsFnbAdultUlEnabled(settingsDraft.vitaminB6UsFnbAdultUlEnabled);
-    setUsFnbAdultUlEnabled(settingsDraft.usFnbAdultUlEnabled);
-    try {
-      let nextTargets = { calories, proteinG: Number.isFinite(proteinG) && proteinG > 0 ? proteinG : targets.proteinG, nutrients: nutrientTargets };
-      const response = await fetch("/api/settings", {
+    const fixedProteinG = Number.isFinite(proteinG) && proteinG > 0 ? proteinG : null;
+    const draftTargets = { calories, proteinG: fixedProteinG ?? targets.proteinG, nutrients: nutrientTargets };
+    await runAction({
+      kind: "settings-save",
+      begin: () => {
+        setTargets(draftTargets);
+        setVitaminB6UsFnbAdultUlEnabled(settingsDraft.vitaminB6UsFnbAdultUlEnabled);
+        setUsFnbAdultUlEnabled(settingsDraft.usFnbAdultUlEnabled);
+        return () => {
+          setTargets(previousTargets);
+          setVitaminB6UsFnbAdultUlEnabled(previousVitaminB6UsFnbAdultUlEnabled);
+          setUsFnbAdultUlEnabled(previousUsFnbAdultUlEnabled);
+        };
+      },
+      request: () => fetch("/api/settings", {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           dailyCalorieTarget: calories,
-          dailyProteinTargetG: Number.isFinite(proteinG) && proteinG > 0 ? proteinG : null,
+          dailyProteinTargetG: fixedProteinG,
           proteinGoalMode: settingsDraft.proteinGoalMode,
           dailyProteinTargetPerKg: isValidProteinPerKg(proteinPerKg) ? proteinPerKg : null,
           nutrientTargets: nutrientTargetOverrides,
           vitaminB6UsFnbAdultUlEnabled: settingsDraft.vitaminB6UsFnbAdultUlEnabled,
           usFnbAdultUlEnabled: settingsDraft.usFnbAdultUlEnabled,
         }),
-      });
-      const responseBody = await response.json().catch(() => null);
-      if (!response.ok) {
-        const errorRecord = asRecord(asRecord(responseBody)?.error);
-        throw new Error(stringOr(errorRecord?.message, "The targets could not be saved."));
-      }
-      const parsed = parseSettingsTargets(responseBody);
-      if (parsed && Number.isFinite(parsed.calories)) {
-        const savedProteinG = Number.isFinite(parsed.proteinG) ? parsed.proteinG : nextTargets.proteinG;
-        nextTargets = { calories: parsed.calories, proteinG: savedProteinG, nutrients: parsed.nutrients };
-      }
-      if (!isCurrentAction(action)) return;
-      setTargets(nextTargets);
-      setVitaminB6UsFnbAdultUlEnabled(parsed?.vitaminB6UsFnbAdultUlEnabled ?? settingsDraft.vitaminB6UsFnbAdultUlEnabled);
-      setUsFnbAdultUlEnabled(parsed?.usFnbAdultUlEnabled ?? settingsDraft.usFnbAdultUlEnabled);
-      setShowSettings(false);
-      setActionStatus("Targets saved.");
-    } catch (error) {
-      if (!isCurrentAction(action)) return;
-      setTargets(previousTargets);
-      setVitaminB6UsFnbAdultUlEnabled(previousVitaminB6UsFnbAdultUlEnabled);
-      setUsFnbAdultUlEnabled(previousUsFnbAdultUlEnabled);
-      setActionError(error instanceof Error ? error.message : "The targets could not be saved.");
-      setActionStatus(null);
-    } finally {
-      finishAction(action);
-    }
+      }),
+      // A response without readable settings still counts as saved; the draft values stay.
+      parse: (body) => ({ saved: parseSettingsTargets(body) }),
+      failure: "The targets could not be saved.",
+      success: ({ saved }) => {
+        setTargets(saved && Number.isFinite(saved.calories)
+          ? { calories: saved.calories, proteinG: Number.isFinite(saved.proteinG) ? saved.proteinG : draftTargets.proteinG, nutrients: saved.nutrients }
+          : draftTargets);
+        setVitaminB6UsFnbAdultUlEnabled(saved?.vitaminB6UsFnbAdultUlEnabled ?? settingsDraft.vitaminB6UsFnbAdultUlEnabled);
+        setUsFnbAdultUlEnabled(saved?.usFnbAdultUlEnabled ?? settingsDraft.usFnbAdultUlEnabled);
+        setShowSettings(false);
+        setActionStatus("Targets saved.");
+      },
+    });
   }
 
   function selectDay(key: DayKey) {
@@ -1530,8 +1471,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
       const response = await fetch(`/api/meals/${encodeURIComponent(entryId)}`, { cache: "no-store" });
       const responseBody = await response.json().catch(() => null);
       if (!response.ok) {
-        const errorRecord = asRecord(asRecord(responseBody)?.error);
-        throw new Error(stringOr(errorRecord?.message, "The historical entry could not be loaded."));
+        throw new Error(apiErrorMessage(responseBody, "The historical entry could not be loaded."));
       }
       const parsedMeal = parseMealResponse(responseBody);
       if (!parsedMeal) throw new Error("The historical entry response was invalid.");
@@ -1935,8 +1875,8 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
                     <MealNutritionDetails meal={meal} readOnly={readOnly} />
                     {!readOnly ? <div className="meal-actions" id={`meal-actions-${meal.id}`}>
                       <button className="save-entry-button" type="button" disabled={actionInProgress || savedEntries.some((entry) => entry.sourceEntryId === meal.id || entry.id === meal.savedEntryId)} onClick={() => void addToSavedEntries(meal.id)} aria-label={`Add ${meal.name} to saved entries`}>{savedEntries.some((entry) => entry.sourceEntryId === meal.id || entry.id === meal.savedEntryId) ? "Saved" : "Add to saved entries"}</button>
-                      {selectedDay.date !== days.at(-1)?.date ? <button className="copy-button" type="button" disabled={actionInProgress || deletingMealId !== null || copyingMealId !== null} onClick={() => void copyMealToToday(meal.id)} aria-label={`Copy ${meal.name} to today`} aria-busy={copyingMealId === meal.id}>{copyingMealId === meal.id ? "Copying…" : "Copy to today"}</button> : null}
-                      <button className="duplicate-button" type="button" disabled={actionInProgress || deletingMealId !== null || copyingMealId !== null || duplicatingMealId !== null} onClick={() => void duplicateMeal(meal.id)} aria-label={`Duplicate ${meal.name}`} aria-busy={duplicatingMealId === meal.id}>{duplicatingMealId === meal.id ? "Duplicating…" : "Duplicate"}</button>
+                      {selectedDay.date !== days.at(-1)?.date ? <button className="copy-button" type="button" disabled={actionInProgress || deletingMealId !== null || copyingMealId !== null} onClick={() => void copyMeal(meal.id, { toToday: true })} aria-label={`Copy ${meal.name} to today`} aria-busy={copyingMealId === meal.id}>{copyingMealId === meal.id ? "Copying…" : "Copy to today"}</button> : null}
+                      <button className="duplicate-button" type="button" disabled={actionInProgress || deletingMealId !== null || copyingMealId !== null || duplicatingMealId !== null} onClick={() => void copyMeal(meal.id, { toToday: false })} aria-label={`Duplicate ${meal.name}`} aria-busy={duplicatingMealId === meal.id}>{duplicatingMealId === meal.id ? "Duplicating…" : "Duplicate"}</button>
                       <button className="edit-button" type="button" disabled={actionInProgress || deletingMealId !== null || copyingMealId !== null || duplicatingMealId !== null} onClick={() => {
                         const isClosing = editingMealId === meal.id;
                         if (isClosing) cancelMealEditor(meal.id);
