@@ -1,5 +1,5 @@
 .frequency-portion {
-  padding: 22px;
+  padding: 20px;
   container-name: frequency-portion;
   container-type: inline-size;
 }
@@ -22,6 +22,12 @@
 .frequency-portion__details h3,
 .frequency-portion__details h4 {
   margin: 0;
+}
+
+.frequency-portion__heading h2 {
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -.035em;
 }
 
 .frequency-portion__controls {
@@ -75,7 +81,8 @@
 .frequency-portion__explanation {
   max-width: 760px;
   margin: 15px 0 4px;
-  color: var(--muted-strong);
+  color: var(--muted);
+  font-size: 12px;
   line-height: 1.55;
 }
 

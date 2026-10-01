@@ -229,7 +229,7 @@
   min-width: 64px;
   margin-top: 3px;
   color: var(--muted);
-  font-size: 8px;
+  font-size: 9px;
   font-weight: 500;
   text-align: left;
 }
@@ -274,7 +274,7 @@
 .nutrient-food-scenarios__scenario-table tbody th small {
   margin-top: 2px;
   color: var(--muted);
-  font-size: 8px;
+  font-size: 9px;
   font-weight: 500;
 }
 
@@ -348,7 +348,7 @@
 
 .nutrient-food-scenarios__source-summary small {
   color: var(--muted);
-  font-size: 8px;
+  font-size: 9px;
 }
 
 .nutrient-food-scenarios__source-summary strong {
@@ -450,7 +450,7 @@
   margin-top: 2px;
   overflow: hidden;
   color: var(--muted);
-  font-size: 8px;
+  font-size: 9px;
   font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -524,7 +524,7 @@
 
 .nutrient-food-scenarios__source-stats small {
   color: var(--muted);
-  font-size: 8px;
+  font-size: 9px;
 }
 
 .nutrient-food-scenarios__source-stats strong {
@@ -569,7 +569,7 @@
 
 .nutrient-food-scenarios__source-entries li > span small {
   color: var(--muted);
-  font-size: 8px;
+  font-size: 9px;
 }
 
 .nutrient-food-scenarios__source-entries strong {
@@ -670,14 +670,14 @@
   .nutrient-food-scenarios__scenario-table tbody td::before {
     color: var(--muted);
     content: attr(data-label);
-    font-size: 7px;
+    font-size: 9px;
     font-weight: 650;
     letter-spacing: .02em;
     text-align: left;
   }
 
   .nutrient-food-scenarios__scenario-table tbody th small {
-    font-size: 7px;
+    font-size: 9px;
     line-height: 1.25;
   }
 
