@@ -239,6 +239,19 @@ Request and Response objects, without starting a server. Keep validation, error
 mapping, and handler delegation in that path. Direct backend Logic calls belong
 in Logic unit tests, rather than replacing the API path in application tests.
 
+## Errors
+
+Logic classes and handlers report expected failures by throwing `AppError` with
+a code from one central `AppErrorCode` list. The HTTP layer alone maps each code
+to a status and returns one JSON error body, so Logic never deals with HTTP and
+clients handle one known set of codes.
+
+The single list is a deliberate choice for simplicity. Codes are broad
+categories such as `NOT_FOUND` or `CONFLICT`, not one code per feature failure,
+so the list should grow slowly. It may still become unwieldy in a large app.
+When a client needs to tell specific feature failures apart, consider a
+feature-specific reason alongside the category code before adding many codes.
+
 ## Practical check before shipping
 
 Before you hand off a structural change, check:
