@@ -30,9 +30,21 @@ export async function GET(request: Request, context: RouteContext): Promise<Resp
     }
     const meal = await findMealByPhotoKey(getRequestDb(), identity.ownerKey, key);
     if (!meal) return jsonResponse({ error: { code: "not_found", message: "Photo not found." } }, { status: 404 });
-    const object = await getPhotosBucket().get(key);
+    const bucket = getPhotosBucket();
+    const ifNoneMatch = request.headers.get("if-none-match");
+    if (ifNoneMatch) {
+      // A revalidation that still matches needs only the metadata.
+      const metadata = await bucket.head(key);
+      if (!metadata) return jsonResponse({ error: { code: "not_found", message: "Photo not found." } }, { status: 404 });
+      if (metadata.httpEtag === ifNoneMatch) {
+        return new Response(null, {
+          status: 304,
+          headers: { "cache-control": "private, max-age=300", etag: metadata.httpEtag },
+        });
+      }
+    }
+    const object = await bucket.get(key);
     if (!object) return jsonResponse({ error: { code: "not_found", message: "Photo not found." } }, { status: 404 });
-    if (request.headers.get("if-none-match") === object.httpEtag) return new Response(null, { status: 304 });
     const metadata = object.httpMetadata ?? {};
     return new Response(object.body, {
       headers: {

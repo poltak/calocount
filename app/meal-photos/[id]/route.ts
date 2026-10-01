@@ -16,6 +16,15 @@ export async function GET(request: Request, context: RouteContext): Promise<Resp
         ifNoneMatch: request.headers.get("if-none-match"),
         loadMeal: (input) => findMealPhoto({ db: getRequestDb(), ...input }),
         loadPhoto: async (photoKey) => {
+          const ifNoneMatch = request.headers.get("if-none-match");
+          if (ifNoneMatch) {
+            // A revalidation that still matches needs only the metadata.
+            const metadata = await getPhotosBucket().head(photoKey);
+            if (!metadata) return null;
+            if (metadata.httpEtag === ifNoneMatch) {
+              return { body: null, httpEtag: metadata.httpEtag, size: metadata.size };
+            }
+          }
           const object = await getPhotosBucket().get(photoKey);
           return object
             ? { body: object.body, httpEtag: object.httpEtag, size: object.size }
