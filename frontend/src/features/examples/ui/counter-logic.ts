@@ -3,8 +3,8 @@ import type { FrontendLogicProps } from "../../core/logic/types.js";
 
 /** Local state example. It has no API or persistence operations. */
 export class CounterLogic extends Logic<FrontendLogicProps, { count: number }> {
-  constructor(props: FrontendLogicProps) {
-    super({ deps: props, initialState: { count: 0 } });
+  constructor(deps: FrontendLogicProps) {
+    super({ deps, initialState: { count: 0 } });
   }
 
   increment(): void {

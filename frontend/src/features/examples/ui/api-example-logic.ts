@@ -18,9 +18,9 @@ interface ApiExampleState {
 
 /** A UI-only example. Backend encounter behavior remains a stub. */
 export class ApiExampleLogic extends Logic<ApiExampleProps, ApiExampleState> {
-  constructor(props: ApiExampleProps) {
+  constructor(deps: ApiExampleProps) {
     super({
-      deps: props,
+      deps,
       initialState: {
         busy: false,
         completed: 0,
