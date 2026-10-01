@@ -10,8 +10,8 @@
         "src/features/core/live/index.ts",
         "src/features/core/tests/index.ts",
         "src/features/core/server/start.ts",
-        "src/features/auth/commands/migrate.ts",
-        "src/features/auth/commands/setup-owner.ts",
+        "src/features/auth/scripts/migrate.ts",
+        "src/features/auth/scripts/setup-owner.ts",
       ],
     },
     "frontend": {
