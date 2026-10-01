@@ -632,66 +632,13 @@ export async function handleAuthorizedAddMealRequest(
     }
   }
 
-  if (!parsed.batch) {
-    const input = inputs[0];
-    if (!input) throw new AddMealRequestError(400, "invalid_field", "A meal is required.");
-    const alreadyStored = existing.get(input.requestId);
-    if (alreadyStored) {
-      return responseForMeal(
-        "already_exists",
-        alreadyStored,
-        input.requestId,
-        undefined,
-        await getDailyTotals(options, ownerKey, now),
-      );
-    }
-
-    let uploaded: StoredAddMealPhoto | null = null;
-    let photoDownloadFailed = false;
-    try {
-      if (input.imageRef) {
-        if (!options.fetchImage || !options.uploadPhoto) {
-          throw new AddMealRequestError(503, "photos_unavailable", "Photo storage is not configured.");
-        }
-        let photo: MealPhotoUpload | null = null;
-        try {
-          photo = await downloadOpenAIPhoto({
-            ref: input.imageRef,
-            fetchImage: options.fetchImage,
-            convertHeicToJpeg: options.convertHeicToJpeg,
-          });
-        } catch (error) {
-          if (!(error instanceof AddMealRequestError) || error.code !== "image_download_failed") throw error;
-          photoDownloadFailed = true;
-        }
-        if (photo) uploaded = await options.uploadPhoto(ownerKey, input.requestId, photo);
-      }
-
-      const result = await options.createMeal(ownerKey, input, uploaded);
-      if (!result.created) {
-        await cleanupPhoto(uploaded, options.deletePhoto);
-        uploaded = null;
-      } else {
-        uploaded = null;
-      }
-      const responsePhotoStatus = photoDownloadFailed && !result.meal.meal.photoKey
-        ? "download_failed"
-        : undefined;
-      return responseForMeal(
-        result.created ? "created" : "already_exists",
-        result.meal,
-        input.requestId,
-        responsePhotoStatus,
-        await getDailyTotals(options, ownerKey, now),
-      );
-    } catch (error) {
-      await cleanupPhoto(uploaded, options.deletePhoto);
-      throw error;
-    }
-  }
-
+  // A single meal runs through the same steps as a batch of one. Only the response shape differs.
+  const createMeal = options.createMeal;
+  const createPending: AddMealHandlerOptions["createMeals"] = parsed.batch
+    ? options.createMeals
+    : (owner, requests) => Promise.all(requests.map(({ request, photo }) => createMeal(owner, request, photo)));
   const pending = inputs.filter((input) => !existing.has(input.requestId));
-  if (pending.length > 0 && !options.createMeals) {
+  if (pending.length > 0 && !createPending) {
     throw new AddMealRequestError(503, "batch_unavailable", "Batch meal creation is not configured.");
   }
 
@@ -718,7 +665,7 @@ export async function handleAuthorizedAddMealRequest(
     }
 
     const createdResults = pending.length > 0
-      ? await options.createMeals?.(ownerKey, pending.map((input) => ({
+      ? await createPending?.(ownerKey, pending.map((input) => ({
         request: input,
         photo: uploaded.get(input.requestId) ?? null,
       })))
@@ -741,17 +688,35 @@ export async function handleAuthorizedAddMealRequest(
     }
 
     const dailyTotals = await getDailyTotals(options, ownerKey, now);
-    const meals = inputs.map((input) => {
+    const resultFor = (input: AddMealRequest) => {
       const result = results.get(input.requestId);
       if (!result) throw new Error("external_meal_batch_create_failed");
-      const responsePhotoStatus = photoDownloadFailed.has(input.requestId) && !result.meal.meal.photoKey
-        ? "download_failed"
+      const photoStatus = photoDownloadFailed.has(input.requestId) && !result.meal.meal.photoKey
+        ? "download_failed" as const
         : undefined;
+      return { result, photoStatus };
+    };
+
+    if (!parsed.batch) {
+      const input = inputs[0];
+      if (!input) throw new AddMealRequestError(400, "invalid_field", "A meal is required.");
+      const { result, photoStatus } = resultFor(input);
+      return responseForMeal(
+        result.created ? "created" : "already_exists",
+        result.meal,
+        input.requestId,
+        photoStatus,
+        dailyTotals,
+      );
+    }
+
+    const meals = inputs.map((input) => {
+      const { result, photoStatus } = resultFor(input);
       return mealResponsePayload(
         result.created ? "created" : "already_exists",
         result.meal,
         input.requestId,
-        responsePhotoStatus,
+        photoStatus,
       );
     });
     const createdCount = createdResults.filter((result) => result.created).length;
