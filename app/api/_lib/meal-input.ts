@@ -131,9 +131,6 @@ export function parseMealInput(body: Record<string, unknown>, partial = false): 
     }
     input.status = status;
   }
-  if (body.photoKey !== undefined) input.photoKey = body.photoKey == null ? null : optionalString(body.photoKey, "photoKey", 500) ?? null;
-  if (body.photoMimeType !== undefined) input.photoMimeType = body.photoMimeType == null ? null : optionalString(body.photoMimeType, "photoMimeType", 100) ?? null;
-  if (body.photoSizeBytes !== undefined) input.photoSizeBytes = body.photoSizeBytes == null ? null : optionalNumber(body.photoSizeBytes, "photoSizeBytes", { min: 0, max: 50_000_000 }) ?? null;
   if (body.confidence !== undefined) input.confidence = body.confidence == null ? null : optionalNumber(body.confidence, "confidence", { min: 0, max: 1 }) ?? null;
   if (body.assumptions !== undefined) {
     if (!Array.isArray(body.assumptions)) throw new ApiError(400, "invalid_field", "assumptions must be an array.");
