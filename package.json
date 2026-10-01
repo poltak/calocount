@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "check": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run build && pnpm run test && pnpm run unused:check",
+    "check": "pnpm run node-version:check && pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run build && pnpm run test && pnpm run unused:check",
+    "node-version:check": "node scripts/check-node-version.mjs",
     "build": "pnpm -r --if-present run build",
     "lint": "oxlint --deny-warnings backend frontend common",
     "unused:check": "knip",
@@ -21,6 +22,11 @@
     "packageManager": {
       "name": "pnpm",
       "version": "12.6.0",
+      "onFail": "download"
+    },
+    "runtime": {
+      "name": "node",
+      "version": "26.10.0",
       "onFail": "download"
     }
   },
