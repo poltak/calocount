@@ -12,8 +12,10 @@ test("seedExampleMeals inserts missing fixture IDs and skips existing IDs", asyn
     const url = new URL(input instanceof Request ? input.url : input);
     if (!init?.method || init.method === "GET") {
       assert.equal(url.hostname, "localhost");
-      assert.equal(url.searchParams.get("limit"), "500");
-      return Response.json({ meals: [...storedIds].map((id) => ({ id })) });
+      const id = decodeURIComponent(url.pathname.replace("/api/meals/", ""));
+      return storedIds.has(id)
+        ? Response.json({ meal: { id } })
+        : Response.json({ error: { code: "not_found" } }, { status: 404 });
     }
     assert.equal(init.method, "POST");
     const meal = JSON.parse(String(init.body)) as { id: string };

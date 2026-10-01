@@ -1,4 +1,4 @@
-import { createMeal, listMeals } from "../../../db/repository";
+import { createMeal } from "../../../db/repository";
 import {
   ApiError,
   getRequestDb,
@@ -17,27 +17,7 @@ import {
   type MealPhotoBucket,
   type ParsedMultipartMeal,
 } from "../_lib/meal-photo";
-import { serialiseMeals, serialiseMeal } from "../_lib/serialise";
-
-function queryNumber(value: string | null, field: string): number | undefined {
-  if (value == null || value === "") return undefined;
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) throw new ApiError(400, "invalid_query", `${field} must be a number.`);
-  return parsed;
-}
-export async function GET(request: Request): Promise<Response> {
-  return withApiErrors(async () => {
-    const identity = await requireApiIdentity(request);
-    const url = new URL(request.url);
-    const entries = await listMeals(getRequestDb(), identity.ownerKey, {
-      from: queryNumber(url.searchParams.get("from"), "from"),
-      to: queryNumber(url.searchParams.get("to"), "to"),
-      limit: queryNumber(url.searchParams.get("limit"), "limit"),
-      offset: queryNumber(url.searchParams.get("offset"), "offset"),
-    });
-    return jsonResponse({ meals: serialiseMeals(entries) });
-  });
-}
+import { serialiseMeal } from "../_lib/serialise";
 
 export async function POST(request: Request): Promise<Response> {
   return withApiErrors(async () => {

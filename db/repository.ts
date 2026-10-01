@@ -386,33 +386,7 @@ function groupItemsByMeal(items: readonly MealItemRow[]): Map<string, MealItemRo
   return itemsByMeal;
 }
 
-export async function listMeals(
-  db: AppDb,
-  ownerKey: string,
-  options: { from?: number; to?: number; limit?: number; offset?: number } = {},
-) {
-  const limit = Math.min(Math.max(options.limit ?? 100, 1), 500);
-  const conditions = [eq(mealLogs.ownerKey, ownerKey)];
-  if (options.from != null) conditions.push(gte(mealLogs.consumedAt, options.from));
-  if (options.to != null) conditions.push(lt(mealLogs.consumedAt, options.to));
-
-  const meals = await db
-    .select()
-    .from(mealLogs)
-    .where(and(...conditions))
-    .orderBy(desc(mealLogs.consumedAt))
-    .limit(limit)
-    .offset(Math.max(options.offset ?? 0, 0))
-    .prepare()
-    .all();
-
-  if (meals.length === 0) return [];
-
-  const itemsByMeal = groupItemsByMeal(await listItemsForMeals(db, ownerKey, meals.map((meal) => meal.id)));
-  return meals.map((meal) => ({ meal, items: itemsByMeal.get(meal.id) ?? [] }));
-}
-
-/** Read a complete date range in two queries, without the meal-list page limit. */
+/** Read a complete date range in two queries. */
 export async function listMealsInRange({ db, ownerKey, from, to }: {
   db: AppDb; ownerKey: string; from?: number; to?: number;
 }): Promise<MealWithItems[]> {

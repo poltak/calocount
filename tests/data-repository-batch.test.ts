@@ -11,7 +11,6 @@ import {
   deleteMeal,
   findMeal,
   getCurrentDayMealTotals,
-  listMeals,
   listNutritionHistoryPage,
   updateMeal,
   upsertSettings,
@@ -440,23 +439,6 @@ test("current external meal totals use the saved timezone logical day", async ()
   } finally {
     fixture.sqlite.close();
   }
-});
-
-test("listMeals retrieves 500 meals and their owned items within the D1 binding limit", async () => {
-  const meals = Array.from({ length: 500 }, (_, index) => mealRow(`meal-list-${index}`));
-  const items = meals.map((meal, index) => itemRow(`item-list-${index}`, String(meal.id)));
-  const client = new RecordingD1Database(meals[0]!, [
-    ...items,
-    itemRow("other-owner-item", String(meals[0]!.id), "other-owner"),
-  ], { maxBindings: 100, meals });
-  const db = drizzle(client as unknown as D1Database, { schema });
-
-  const listed = await listMeals(db, OWNER_KEY, { limit: 500 });
-
-  assert.equal(listed.length, 500);
-  assert.deepEqual(listed.map(({ items: mealItems }) => mealItems.map((item) => item.id)),
-    items.map((item) => [item.id]));
-  assert.equal(client.preparedSql.filter((sql) => sql.includes('from "meal_items"')).length, 6);
 });
 
 test("nutrition history reads a full 100-meal page within the D1 binding limit", async () => {

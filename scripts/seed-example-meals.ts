@@ -47,25 +47,17 @@ export async function seedExampleMeals({
 }: SeedExampleMealsOptions): Promise<SeedExampleMealsResult> {
   const origin = localBaseUrl(baseUrl);
   const fixtures = buildCompleteMealFixtures({ anchorDate, timezone });
-  const timestamps = fixtures.map((meal) => meal.consumedAt);
-  const listUrl = new URL("/api/meals", origin);
-  listUrl.searchParams.set("from", String(Math.min(...timestamps)));
-  listUrl.searchParams.set("to", String(Math.max(...timestamps) + 1));
-  listUrl.searchParams.set("limit", "500");
-
-  const existingResponse = await fetchImpl(listUrl);
-  if (!existingResponse.ok) {
-    throw new Error(`Could not list local meals: ${existingResponse.status} ${await existingResponse.text()}`);
-  }
-  const existingBody = await existingResponse.json() as { meals?: Array<{ id?: string }> };
-  const existingIds = new Set((existingBody.meals ?? []).map((meal) => meal.id).filter(Boolean));
   let inserted = 0;
   let skipped = 0;
 
   for (const meal of fixtures) {
-    if (existingIds.has(meal.id)) {
+    const existing = await fetchImpl(new URL(`/api/meals/${encodeURIComponent(meal.id)}`, origin));
+    if (existing.ok) {
       skipped += 1;
       continue;
+    }
+    if (existing.status !== 404) {
+      throw new Error(`Could not check ${meal.id}: ${existing.status} ${await existing.text()}`);
     }
     const response = await fetchImpl(new URL("/api/meals", origin), {
       method: "POST",
