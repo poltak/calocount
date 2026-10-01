@@ -83,6 +83,21 @@ test("saving an edit sends one PATCH with the items and keeps the stored source 
   expect(second.body?.caption).toBe("Lunch at the audit");
 });
 
+test("a total can be cleared and retyped in the editor", async ({ page }) => {
+  const state = await mockDashboardApi(page);
+  await page.goto("/");
+  await page.getByRole("button", { name: "Edit Audit lunch", exact: true }).click();
+  const calories = page.locator(".inline-editor").getByLabel("Calories", { exact: true });
+  await calories.fill("");
+  // The field stays empty while typing instead of snapping back to 0.
+  await expect(calories).toHaveValue("");
+  await calories.pressSequentially("250");
+  await expect(calories).toHaveValue("250");
+  await page.locator(".inline-editor").getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect(page.locator(".calories-card .metric-value")).toHaveText("250 / 2,400");
+  expect(state.requests.find((request) => request.method === "PATCH")?.body).toMatchObject({ items: [{ calories: 250 }] });
+});
+
 test("editing the total of a multi-item entry keeps every item", async ({ page }) => {
   const state = await mockDashboardApi(page);
   state.meals[0].items = [

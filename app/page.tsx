@@ -42,6 +42,7 @@ import {
   type MealEditState,
 } from "./dashboard-edit";
 import { scheduleDashboardClock } from "./dashboard-clock";
+import { MealEditor, mealPhotoAccept, mealPhotoError } from "./meal-editor";
 import { photoUrlForKey, publicPhotoUrlForMealId } from "./photo-url";
 import { readThemePreference, subscribeToTheme, writeThemePreference, type ThemePreference } from "./theme";
 import {
@@ -364,9 +365,6 @@ function mealPatchPayload(meal: Meal, saved: Meal) {
   };
 }
 
-const mealPhotoAccept = "image/jpeg,image/png,image/webp";
-const maxDashboardMealPhotoBytes = 10 * 1024 * 1024;
-
 function mealRequestOptions(payload: ReturnType<typeof mealPayload> | ReturnType<typeof mealPatchPayload>, photo?: File | null): Pick<RequestInit, "body" | "headers"> {
   if (!photo || photo.size === 0) {
     return {
@@ -379,12 +377,6 @@ function mealRequestOptions(payload: ReturnType<typeof mealPayload> | ReturnType
   form.set("payload", JSON.stringify(payload));
   form.set("photo", photo, photo.name);
   return { body: form };
-}
-
-function mealPhotoError(photo: File): string | null {
-  if (!mealPhotoAccept.split(",").includes(photo.type)) return "Select a JPEG, PNG, or WebP image.";
-  if (photo.size > maxDashboardMealPhotoBytes) return "Select an image that is 10 MB or smaller.";
-  return null;
 }
 
 export function localTimeValue(date = new Date()) {
@@ -1954,51 +1946,21 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
                     </div> : null}
                   </div>
                 </div>
-                {!readOnly && editingMealId === meal.id ? <div className="inline-editor">
-                  <label>Name<input value={mealDraft.name} disabled={actionInProgress} onChange={(event) => updateMeal(meal.id, { name: event.target.value })} /></label>
-                  <label className="editor-description-field">Description<input value={mealDraft.description} disabled={actionInProgress} onChange={(event) => updateMeal(meal.id, { description: event.target.value })} /></label>
-                  <label>Calories<input type="number" min="0" step="any" value={mealDraft.calories} disabled={actionInProgress} onChange={(event) => updateMeal(meal.id, { calories: Number(event.target.value) })} /></label>
-                  <label>Protein<input type="number" min="0" step="any" value={mealDraft.protein} disabled={actionInProgress} onChange={(event) => updateMeal(meal.id, { protein: Number(event.target.value) })} /></label>
-                  <label>Carbs<input type="number" min="0" step="any" value={mealDraft.carbs ?? 0} disabled={actionInProgress} onChange={(event) => updateMeal(meal.id, { carbs: Number(event.target.value) })} /></label>
-                  <label>Fat<input type="number" min="0" step="any" value={mealDraft.fat ?? 0} disabled={actionInProgress} onChange={(event) => updateMeal(meal.id, { fat: Number(event.target.value) })} /></label>
-                  <label className="editor-photo-field">{mealDraft.photoKey ? "Replace photo (optional)" : "Photo (optional)"}<input
-                    type="file"
-                    accept={mealPhotoAccept}
-                    disabled={actionInProgress}
-                    onChange={(event) => {
-                      const photo = event.target.files?.[0] ?? null;
-                      if (photo) {
-                        const photoError = mealPhotoError(photo);
-                        if (photoError) {
-                          event.target.value = "";
-                          setActionError(photoError);
-                          return;
-                        }
-                      }
-                      setActionError(null);
-                      setMealPhotoDrafts((current) => ({ ...current, [meal.id]: photo }));
-                    }}
-                  /><small>{mealPhotoDrafts[meal.id]?.name ?? (mealDraft.photoKey ? "Current photo stays unless you select a replacement." : "JPEG, PNG, or WebP · up to 10 MB")}</small></label>
-                  <div className="meal-item-editors">
-                    <div className="meal-item-editors-heading"><strong>Food item nutrition</strong><span>Values stay with each item in this meal.</span></div>
-                    {mealDraft.items.map((item, index) => <div className="meal-item-editor" key={item.id ?? `${meal.id}-item-${index}`}>
-                      <div className="meal-item-editor-heading"><strong>{item.name}</strong><span>{item.quantity ?? 1}{item.unit ? ` ${item.unit}` : " serving"}</span></div>
-                      <MealNutritionEditor
-                        values={item.nutrients ?? {}}
-                        provenance={item.nutrientProvenance}
-                        onChange={(key, value) => updateMealItem(meal.id, item.id, index, key, value)}
-                        onProvenanceChange={(key, origin) => updateMealItemProvenance(meal.id, item.id, index, key, origin)}
-                        idPrefix={`edit-${meal.id}-${item.id ?? index}-`}
-                        namePrefix={`edit-${meal.id}-${item.id ?? index}-`}
-                        disabled={actionInProgress}
-                      />
-                    </div>)}
-                  </div>
-                  <div className="editor-actions">
-                    <button className="cancel-button" type="button" disabled={actionInProgress} onClick={() => cancelMealEditor(meal.id)}>Cancel</button>
-                    <button className="done-button" type="button" disabled={actionInProgress} aria-busy={pendingAction?.kind === "meal-save" && pendingAction.id === meal.id} onClick={() => void saveMeal(meal.id)}>{pendingAction?.kind === "meal-save" && pendingAction.id === meal.id ? "Saving…" : "Save changes"}</button>
-                  </div>
-                </div> : null}
+                {!readOnly && editingMealId === meal.id ? <MealEditor
+                  meal={mealDraft}
+                  idPrefix="edit-"
+                  itemsHint="Values stay with each item in this meal."
+                  photoName={mealPhotoDrafts[meal.id]?.name ?? null}
+                  disabled={actionInProgress}
+                  saving={pendingAction?.kind === "meal-save" && pendingAction.id === meal.id}
+                  onChange={(changes) => updateMeal(meal.id, changes)}
+                  onItemChange={(itemId, index, key, value) => updateMealItem(meal.id, itemId, index, key, value)}
+                  onItemProvenanceChange={(itemId, index, key, origin) => updateMealItemProvenance(meal.id, itemId, index, key, origin)}
+                  onPhotoChange={(photo) => setMealPhotoDrafts((current) => ({ ...current, [meal.id]: photo }))}
+                  onPhotoError={setActionError}
+                  onCancel={() => cancelMealEditor(meal.id)}
+                  onSave={() => void saveMeal(meal.id)}
+                /> : null}
               </div>;
               })}
             </div> : <div className="empty-meals"><span className="empty-icon" aria-hidden="true">{readOnly ? "·" : "＋"}</span><strong>No entries logged for {selectedDay.weekday}</strong><span>{readOnly ? "No entries were logged for this day." : "Tap “Add entry” to record what you consumed."}</span></div>}
@@ -2057,51 +2019,22 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
           {!readOnly && historicalMeal && historicalMealDraft ? <section className="panel historical-meal-editor" id="historical-meal-editor" aria-labelledby="historical-meal-editor-title">
             <div className="panel-heading historical-meal-editor__heading"><div><p className="eyebrow">Entry inspection</p><h2 id="historical-meal-editor-title">Edit historical entry</h2><span className="historical-meal-editor__date">{fullDateLabel(dateKeyFromTimestamp(historicalMeal.consumedAt, { mode: "local" }))} · {historicalMeal.name}</span></div><button className="close-button" type="button" disabled={actionInProgress} onClick={() => cancelMealEditor(historicalMeal.id)} aria-label="Close historical entry editor">×</button></div>
             <p className="historical-meal-editor__message">This entry is outside the seven-day dashboard editor. It was loaded from your owner history; changes use the same saved meal endpoint and recalculate the insight after refresh.</p>
-            <div className="inline-editor historical-meal-editor__form">
-              <label>Name<input value={historicalMealDraft.name} disabled={actionInProgress} onChange={(event) => updateMeal(historicalMeal.id, { name: event.target.value })} /></label>
-              <label className="editor-description-field">Description<input value={historicalMealDraft.description} disabled={actionInProgress} onChange={(event) => updateMeal(historicalMeal.id, { description: event.target.value })} /></label>
-              <label>Calories<input type="number" min="0" step="any" value={historicalMealDraft.calories} disabled={actionInProgress} onChange={(event) => updateMeal(historicalMeal.id, { calories: Number(event.target.value) })} /></label>
-              <label>Protein<input type="number" min="0" step="any" value={historicalMealDraft.protein} disabled={actionInProgress} onChange={(event) => updateMeal(historicalMeal.id, { protein: Number(event.target.value) })} /></label>
-              <label>Carbs<input type="number" min="0" step="any" value={historicalMealDraft.carbs ?? 0} disabled={actionInProgress} onChange={(event) => updateMeal(historicalMeal.id, { carbs: Number(event.target.value) })} /></label>
-              <label>Fat<input type="number" min="0" step="any" value={historicalMealDraft.fat ?? 0} disabled={actionInProgress} onChange={(event) => updateMeal(historicalMeal.id, { fat: Number(event.target.value) })} /></label>
-              <label className="editor-photo-field">{historicalMealDraft.photoKey ? "Replace photo (optional)" : "Photo (optional)"}<input
-                type="file"
-                accept={mealPhotoAccept}
-                disabled={actionInProgress}
-                onChange={(event) => {
-                  const photo = event.target.files?.[0] ?? null;
-                  if (photo) {
-                    const photoError = mealPhotoError(photo);
-                    if (photoError) {
-                      event.target.value = "";
-                      setActionError(photoError);
-                      return;
-                    }
-                  }
-                  setActionError(null);
-                  setMealPhotoDrafts((current) => ({ ...current, [historicalMeal.id]: photo }));
-                }}
-              /><small>{mealPhotoDrafts[historicalMeal.id]?.name ?? (historicalMealDraft.photoKey ? "Current photo stays unless you select a replacement." : "JPEG, PNG, or WebP · up to 10 MB")}</small></label>
-              <div className="meal-item-editors">
-                <div className="meal-item-editors-heading"><strong>Food item nutrition</strong><span>Values stay with each item in this historical entry.</span></div>
-                {historicalMealDraft.items.map((item, index) => <div className="meal-item-editor" key={item.id ?? `${historicalMeal.id}-item-${index}`}>
-                  <div className="meal-item-editor-heading"><strong>{item.name}</strong><span>{item.quantity ?? 1}{item.unit ? ` ${item.unit}` : " serving"}</span></div>
-                  <MealNutritionEditor
-                    values={item.nutrients ?? {}}
-                    provenance={item.nutrientProvenance}
-                    onChange={(key, value) => updateMealItem(historicalMeal.id, item.id, index, key, value)}
-                    onProvenanceChange={(key, origin) => updateMealItemProvenance(historicalMeal.id, item.id, index, key, origin)}
-                    idPrefix={`historical-edit-${historicalMeal.id}-${item.id ?? index}-`}
-                    namePrefix={`historical-edit-${historicalMeal.id}-${item.id ?? index}-`}
-                    disabled={actionInProgress}
-                  />
-                </div>)}
-              </div>
-              <div className="editor-actions">
-                <button className="cancel-button" type="button" disabled={actionInProgress} onClick={() => cancelMealEditor(historicalMeal.id)}>Cancel</button>
-                <button className="done-button" type="button" disabled={actionInProgress} aria-busy={pendingAction?.kind === "meal-save" && pendingAction.id === historicalMeal.id} onClick={() => void saveMeal(historicalMeal.id)}>{pendingAction?.kind === "meal-save" && pendingAction.id === historicalMeal.id ? "Saving…" : "Save changes"}</button>
-              </div>
-            </div>
+            <MealEditor
+              meal={historicalMealDraft}
+              className="inline-editor historical-meal-editor__form"
+              idPrefix="historical-edit-"
+              itemsHint="Values stay with each item in this historical entry."
+              photoName={mealPhotoDrafts[historicalMeal.id]?.name ?? null}
+              disabled={actionInProgress}
+              saving={pendingAction?.kind === "meal-save" && pendingAction.id === historicalMeal.id}
+              onChange={(changes) => updateMeal(historicalMeal.id, changes)}
+              onItemChange={(itemId, index, key, value) => updateMealItem(historicalMeal.id, itemId, index, key, value)}
+              onItemProvenanceChange={(itemId, index, key, origin) => updateMealItemProvenance(historicalMeal.id, itemId, index, key, origin)}
+              onPhotoChange={(photo) => setMealPhotoDrafts((current) => ({ ...current, [historicalMeal.id]: photo }))}
+              onPhotoError={setActionError}
+              onCancel={() => cancelMealEditor(historicalMeal.id)}
+              onSave={() => void saveMeal(historicalMeal.id)}
+            />
           </section> : null}
 
         </div>
