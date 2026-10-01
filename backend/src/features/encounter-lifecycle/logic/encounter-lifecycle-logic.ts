@@ -1,4 +1,5 @@
 import { Logic } from "@shadow/common/features/core/logic/logic";
+import { AppError } from "../../core/errors/app-error.js";
 import type { BackendLogicProps } from "../../../logic/types.js";
 
 export type EncounterLifecycleLogicProps = BackendLogicProps<
@@ -10,11 +11,11 @@ export interface EncounterLifecycleParams {
   encounterId: string;
 }
 
-export class EncounterLifecycleNotImplementedError extends Error {
-  constructor() {
-    super("Encounter lifecycle operations are not implemented yet");
-    this.name = "EncounterLifecycleNotImplementedError";
-  }
+function notImplemented(): AppError {
+  return new AppError({
+    code: "NOT_IMPLEMENTED",
+    message: "Encounter lifecycle operations are not implemented yet",
+  });
 }
 
 /** Backend lifecycle boundary. No encounter state or operations exist yet. */
@@ -27,14 +28,14 @@ export class EncounterLifecycleLogic extends Logic<
   }
 
   async start(_params: EncounterLifecycleParams): Promise<void> {
-    throw new EncounterLifecycleNotImplementedError();
+    throw notImplemented();
   }
 
   async pause(_params: EncounterLifecycleParams): Promise<void> {
-    throw new EncounterLifecycleNotImplementedError();
+    throw notImplemented();
   }
 
   async stop(_params: EncounterLifecycleParams): Promise<void> {
-    throw new EncounterLifecycleNotImplementedError();
+    throw notImplemented();
   }
 }

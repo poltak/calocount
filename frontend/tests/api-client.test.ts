@@ -18,7 +18,11 @@ describe("typed API client", () => {
       encounterId: string;
     }>();
     expectTypeOf<InferResponseType<Start, 501>>().toEqualTypeOf<{
-      error: { code: "NOT_IMPLEMENTED"; message: string };
+      error: {
+        code: "NOT_IMPLEMENTED";
+        message: string;
+        issues?: { path: string; message: string }[];
+      };
     }>();
   });
 
@@ -102,7 +106,10 @@ describe("typed API client", () => {
       ].start.$post({
         param: { encounterId: " " },
       });
-      expect(invalid.status).toBe(400);
+      await expect(requireApiSuccess(invalid)).rejects.toMatchObject({
+        status: 400,
+        code: "INVALID_REQUEST",
+      } satisfies Partial<ApiRequestError>);
       expect(start).toHaveBeenCalledTimes(2);
       const stub = await authenticatedApi.encounters[":encounterId"].stop.$post(
         {
