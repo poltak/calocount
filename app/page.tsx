@@ -452,7 +452,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
   const [insightsCollapsed, setInsightsCollapsed] = useState(false);
   const [focusedInsightNutrient, setFocusedInsightNutrient] = useState<NutrientKey | null>(null);
   const [proteinGoal, setProteinGoal] = useState<ProteinGoalSummary>(defaultProteinGoal);
-  const [settingsDraft, setSettingsDraft] = useState<SettingsDraft>(() => settingsDraftForTargets(initialTargets, defaultProteinGoal));
+  const [settingsDraft, setSettingsDraft] = useState<SettingsDraft>(() => settingsDraftForTargets({ targets: initialTargets, proteinGoal: defaultProteinGoal, timezone: "UTC" }));
   const [dataMode, setDataMode] = useState<DataMode>("loading");
   const [targets, setTargets] = useState<TargetState>(initialTargets);
   const [vitaminB6UsFnbAdultUlEnabled, setVitaminB6UsFnbAdultUlEnabled] = useState(false);
@@ -1355,7 +1355,8 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     if (readOnly || dataMode !== "live" || pendingActionRef.current) return;
     const action = beginAction("settings-load");
     if (!action) return;
-    setSettingsDraft(settingsDraftForTargets(targets, proteinGoal, vitaminB6UsFnbAdultUlEnabled, usFnbAdultUlEnabled));
+    // Until the saved settings arrive, suggest this device's timezone.
+    setSettingsDraft(settingsDraftForTargets({ targets, proteinGoal, timezone: browserZone, vitaminB6UsFnbAdultUlEnabled, usFnbAdultUlEnabled }));
     setShowSettings(true);
     setActionError(null);
     setActionStatus(null);
@@ -1385,7 +1386,13 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
       setProteinGoal(nextProteinGoal);
       setVitaminB6UsFnbAdultUlEnabled(parsed.vitaminB6UsFnbAdultUlEnabled);
       setUsFnbAdultUlEnabled(parsed.usFnbAdultUlEnabled);
-      setSettingsDraft(settingsDraftForTargets(nextTargets, nextProteinGoal, parsed.vitaminB6UsFnbAdultUlEnabled, parsed.usFnbAdultUlEnabled));
+      setSettingsDraft(settingsDraftForTargets({
+        targets: nextTargets,
+        proteinGoal: nextProteinGoal,
+        timezone: parsed.timezone ?? browserZone,
+        vitaminB6UsFnbAdultUlEnabled: parsed.vitaminB6UsFnbAdultUlEnabled,
+        usFnbAdultUlEnabled: parsed.usFnbAdultUlEnabled,
+      }));
     } catch (error) {
       if (!isCurrentAction(action)) return;
       setActionError(error instanceof Error ? error.message : "The current targets could not be loaded.");
@@ -1445,6 +1452,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
+          timezone: settingsDraft.timezone,
           dailyCalorieTarget: calories,
           dailyProteinTargetG: fixedProteinG,
           proteinGoalMode: settingsDraft.proteinGoalMode,
@@ -1557,7 +1565,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
       </header>
 
       {!readOnly && dataMode === "live" && showSettings ? <Suspense fallback={<p role="status">Loading settings…</p>}>
-        <SettingsPanel draft={settingsDraft} setDraft={setSettingsDraft} onSave={saveSettings} onClose={() => setShowSettings(false)} loading={settingsLoadPending} saving={settingsSavePending} themePreference={themePreference} onThemeChange={changeThemePreference} />
+        <SettingsPanel draft={settingsDraft} setDraft={setSettingsDraft} onSave={saveSettings} onClose={() => setShowSettings(false)} loading={settingsLoadPending} saving={settingsSavePending} themePreference={themePreference} onThemeChange={changeThemePreference} deviceTimeZone={browserZone} />
       </Suspense> : null}
 
       {dataMessage ? <div className={`data-banner ${dataMode}`} role="status"><span aria-hidden="true">{dataMode === "live" ? "✓" : dataMode === "loading" ? "…" : "i"}</span>{dataMessage}</div> : null}

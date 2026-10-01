@@ -512,7 +512,27 @@ input:focus-visible {
   font-size: 11px;
 }
 
-.settings-form input:focus { border-color: var(--orange); }
+.settings-form input:focus,
+.timezone-setting select:focus { border-color: var(--orange); }
+
+.timezone-setting {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 10px;
+}
+
+.timezone-setting select {
+  min-width: 220px;
+  min-height: 34px;
+  padding: 6px 9px;
+  border: 1px solid var(--form-control-border);
+  border-radius: 6px;
+  outline: 0;
+  background: var(--form-control-background);
+  color: var(--foreground);
+  font-size: 12px;
+}
 
 .settings-form .reference-setting input[type="checkbox"] {
   flex: none;
@@ -3296,6 +3316,7 @@ input:focus-visible {
 }
 
 :root[data-theme="light"] .settings-form input,
+:root[data-theme="light"] .timezone-setting select,
 :root[data-theme="light"] .weight-form input,
 :root[data-theme="light"] .inline-editor input,
 :root[data-theme="light"] .inline-editor select,

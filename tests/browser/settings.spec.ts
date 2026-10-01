@@ -55,3 +55,33 @@ test("an invalid nutrition goal is refused before any request", async ({ page })
   await expect(dialog).toBeVisible();
   expect(state.requests.some((request) => request.method === "PATCH")).toBe(false);
 });
+
+test("the saved timezone is shown and kept when this device is in the same one", async ({ page }) => {
+  const state = await mockDashboardApi(page);
+  await page.goto("/");
+  await page.getByRole("button", { name: "Open settings" }).click();
+  const dialog = page.getByRole("dialog", { name: "Daily targets" });
+  await expect(dialog.getByRole("combobox", { name: "Timezone" })).toHaveValue("UTC");
+  await expect(dialog.getByRole("button", { name: /Use this device's timezone/ })).toHaveCount(0);
+  await dialog.getByRole("button", { name: "Save targets", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  expect(state.requests.find((request) => request.method === "PATCH" && request.path === "/api/settings")?.body?.timezone).toBe("UTC");
+});
+
+test.describe("on a device in another timezone", () => {
+  test.use({ timezoneId: "Europe/Berlin" });
+
+  test("the owner can switch the saved timezone to this device's", async ({ page }) => {
+    const state = await mockDashboardApi(page);
+    await page.goto("/");
+    await page.getByRole("button", { name: "Open settings" }).click();
+    const dialog = page.getByRole("dialog", { name: "Daily targets" });
+    const timezone = dialog.getByRole("combobox", { name: "Timezone" });
+    await expect(timezone).toHaveValue("UTC");
+    await dialog.getByRole("button", { name: "Use this device's timezone (Europe/Berlin)" }).click();
+    await expect(timezone).toHaveValue("Europe/Berlin");
+    await dialog.getByRole("button", { name: "Save targets", exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+    expect(state.settings.timezone).toBe("Europe/Berlin");
+  });
+});

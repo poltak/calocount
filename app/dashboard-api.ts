@@ -443,6 +443,7 @@ export function parseSettingsTargets(value: unknown) {
     proteinGoalMode,
     proteinPerKg: isValidProteinPerKg(proteinPerKg) ? proteinPerKg : null,
     nutrients: parseNutrientGoalMap(settings.nutrientTargets),
+    timezone: isValidTimeZone(settings.timezone) ? settings.timezone : null,
     vitaminB6UsFnbAdultUlEnabled: settings.vitaminB6UsFnbAdultUlEnabled === true,
     usFnbAdultUlEnabled: settings.usFnbAdultUlEnabled === true,
   };

@@ -15,9 +15,17 @@ type SettingsPanelProps = {
   saving: boolean;
   themePreference: ThemePreference;
   onThemeChange: (preference: ThemePreference) => void;
+  /** The timezone of the device showing the panel. */
+  deviceTimeZone: string;
 };
 
-export default function SettingsPanel({ draft, setDraft, onSave, onClose, loading, saving, themePreference, onThemeChange }: SettingsPanelProps) {
+/** Every timezone the browser knows, plus the given ones in case it does not list them. */
+function timeZoneOptions(...always: string[]): string[] {
+  const supported = typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("timeZone") : [];
+  return [...new Set(["UTC", ...always, ...supported])].sort((left, right) => left.localeCompare(right));
+}
+
+export default function SettingsPanel({ draft, setDraft, onSave, onClose, loading, saving, themePreference, onThemeChange, deviceTimeZone }: SettingsPanelProps) {
   return <section className={`settings-panel${loading || saving ? " is-pending" : ""}`} id="settings-panel" role="dialog" aria-labelledby="settings-title" aria-busy={loading || saving}>
     <div className="settings-heading"><div><p className="eyebrow">Personal targets</p><h2 id="settings-title">Daily targets</h2></div><button className="close-button" type="button" disabled={loading || saving} onClick={onClose} aria-label="Close settings">×</button></div>
     <form className="settings-form" onSubmit={(event) => { event.preventDefault(); void onSave(); }}>
@@ -53,6 +61,15 @@ export default function SettingsPanel({ draft, setDraft, onSave, onClose, loadin
             </div>
             {draft.proteinGoalMode === "grams" ? <label>Protein (g)<input name="daily-protein-target" type="number" min="1" max="10000" step="1" value={draft.proteinG} onChange={(event) => setDraft((current) => ({ ...current, proteinG: event.target.value }))} disabled={loading || saving} required /></label> : <label>Protein (g/kg)<input name="daily-protein-target-per-kg" type="number" min={PROTEIN_PER_KG_MIN} max={PROTEIN_PER_KG_MAX} step={PROTEIN_PER_KG_STEP} value={draft.proteinPerKg} onChange={(event) => setDraft((current) => ({ ...current, proteinPerKg: event.target.value }))} disabled={loading || saving} required /></label>}
           </fieldset>
+        </div>
+      </section>
+      <section className="settings-section timezone-settings" aria-labelledby="timezone-title">
+        <div className="settings-section-heading"><div><strong id="timezone-title">Timezone</strong><span>Sets where each day starts on the public dashboard and in the daily totals reported to ChatGPT</span></div></div>
+        <div className="timezone-setting">
+          <label>Timezone<select name="timezone" aria-label="Timezone" value={draft.timezone} onChange={(event) => setDraft((current) => ({ ...current, timezone: event.target.value }))} disabled={loading || saving}>
+            {timeZoneOptions(draft.timezone, deviceTimeZone).map((zone) => <option value={zone} key={zone}>{zone.replaceAll("_", " ")}</option>)}
+          </select></label>
+          {draft.timezone !== deviceTimeZone ? <button className="secondary-button" type="button" disabled={loading || saving} onClick={() => setDraft((current) => ({ ...current, timezone: deviceTimeZone }))}>Use this device&apos;s timezone ({deviceTimeZone.replaceAll("_", " ")})</button> : null}
         </div>
       </section>
       <section className="settings-section appearance-settings" aria-labelledby="appearance-title">
