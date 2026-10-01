@@ -50,13 +50,10 @@ These stay as written rules, checked in review:
 
 ## Open work
 
-- [ ] **Confirm the composition files.** The live and test roots are the
-      composition roots. Four other `core` files also import across features
-      and are listed with them in `.oxlintrc.json`: `compose-app.ts` (wiring
-      shared by both roots), `types.ts` (the App type names every feature's
-      classes), `server/http-app.ts` (registers every feature's handlers), and
-      the frontend's `ui/routes.tsx` (the route table). Decide whether to keep
-      them listed or restructure them.
+- [x] **Confirm the composition files.** Decided: the live and test roots, plus
+      four `core` files that assemble every feature, may import across features.
+      They are `compose-app.ts`, `types.ts`, `server/http-app.ts`, and the
+      frontend's `ui/routes.tsx`, listed in `.oxlintrc.json`.
 - [ ] **Handlers reach Services directly.** `requireSession` and
       `requireTrustedOrigin` call the auth Service, while the dependency rules
       say handlers call Logic. No rule checks this yet. Decide how auth should
