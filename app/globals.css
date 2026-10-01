@@ -45,7 +45,6 @@
   --chart-grid: rgb(120 136 156 / 14%);
   --chart-target: #7f93a0;
   --chart-target-label: #9aa8b3;
-  --chart-value: #c3ccd6;
   --chart-neutral: #7f97b3;
   --chart-legend-line: #798894;
   --chart-bar-shadow: rgb(245 162 93 / 16%);
@@ -61,8 +60,6 @@
   --chart-calorie-emphasis-end: #f5a25d;
   --chart-weight-start: #b4e6c6;
   --chart-weight-end: #62b389;
-  --chart-weight-emphasis-start: #c8f0d6;
-  --chart-weight-emphasis-end: #7cc79f;
   --chart-base: #202b37;
   --chart-gap: #65717e;
   --chart-empty-border: #354150;
@@ -126,7 +123,6 @@
   --chart-grid: rgb(56 77 67 / 13%);
   --chart-target: #718b7d;
   --chart-target-label: #55665f;
-  --chart-value: #33433e;
   --chart-neutral: #9db6c2;
   --chart-legend-line: #71817b;
   --chart-bar-shadow: rgb(245 124 43 / 20%);
@@ -142,8 +138,6 @@
   --chart-calorie-emphasis-end: #ea6410;
   --chart-weight-start: #5fd492;
   --chart-weight-end: #22a05c;
-  --chart-weight-emphasis-start: #86e3ae;
-  --chart-weight-emphasis-end: #2bb56b;
   --chart-base: #e6eeea;
   --chart-gap: #64756d;
   --chart-empty-border: #c5d2ca;
@@ -204,7 +198,6 @@
     --chart-grid: rgb(56 77 67 / 13%);
     --chart-target: #718b7d;
     --chart-target-label: #55665f;
-    --chart-value: #33433e;
     --chart-neutral: #9db6c2;
     --chart-legend-line: #71817b;
     --chart-bar-shadow: rgb(245 124 43 / 20%);
@@ -220,8 +213,6 @@
     --chart-calorie-emphasis-end: #ea6410;
     --chart-weight-start: #5fd492;
     --chart-weight-end: #22a05c;
-    --chart-weight-emphasis-start: #86e3ae;
-    --chart-weight-emphasis-end: #2bb56b;
     --chart-base: #e6eeea;
     --chart-gap: #64756d;
     --chart-empty-border: #c5d2ca;
