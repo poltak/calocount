@@ -9,6 +9,10 @@ import { NUTRIENT_META, NUTRIENT_UPPER_LIMIT_META } from "../../domain/nutrients
 import type { MealWithItems, NutritionHistoryPage, NutritionSummaryReport } from "../../db/repository";
 import {
   AddMealRequestError,
+  MAX_BATCH_MEALS,
+  MAX_KCAL,
+  MAX_MACRO,
+  MAX_NAME_LENGTH,
   normalizeExternalMealPhotoType,
 } from "../api/_lib/add-meal";
 import {
@@ -27,6 +31,7 @@ import {
   parseMcpMealUpdateInput,
   type McpMealUpdateInput,
 } from "./meal-update";
+import { hasOnlyKeys, isObject, type JsonObject } from "./objects";
 
 export const MCP_PROTOCOL_VERSION = "2025-11-25";
 
@@ -34,7 +39,6 @@ const SUPPORTED_PROTOCOL_VERSIONS = [MCP_PROTOCOL_VERSION, "2025-03-26"];
 const MAX_BODY_BYTES = 1_000_000;
 const SECURITY_SCHEMES = [{ type: "oauth2", scopes: [] }] as const;
 const SERVER_INSTRUCTIONS = "Dates are inclusive UTC. Use get_nutrition_summary for totals and get_nutrition_history for request_id and item IDs. Estimate macros before logging. Call add_meals only when asked to log a meal; use a new UUID v4 per meal, reuse only for exact add retries. Call update_meal only when asked to edit; keep the saved request_id. Pass supplied photo values unchanged in photos with photo_meal_indices. Never invent file IDs or URLs. Photos: JPEG, PNG, WebP, HEIC. Report photos only when has_image is true.";
-type JsonObject = Record<string, unknown>;
 type McpIdentity = { ownerKey: string };
 
 export type McpHandlerDependencies = {
@@ -64,13 +68,13 @@ const mealProperties = {
   name: {
     type: "string",
     minLength: 1,
-    maxLength: 200,
+    maxLength: MAX_NAME_LENGTH,
     description: "A short name for the meal.",
   },
-  kcal: { type: "number", minimum: 0, maximum: 100_000, description: "Calories in kilocalories." },
-  protein: { type: "number", minimum: 0, maximum: 10_000, description: "Protein in grams." },
-  carbs: { type: "number", minimum: 0, maximum: 10_000, description: "Carbohydrate in grams." },
-  fat: { type: "number", minimum: 0, maximum: 10_000, description: "Fat in grams." },
+  kcal: { type: "number", minimum: 0, maximum: MAX_KCAL, description: "Calories in kilocalories." },
+  protein: { type: "number", minimum: 0, maximum: MAX_MACRO, description: "Protein in grams." },
+  carbs: { type: "number", minimum: 0, maximum: MAX_MACRO, description: "Carbohydrate in grams." },
+  fat: { type: "number", minimum: 0, maximum: MAX_MACRO, description: "Fat in grams." },
   eaten_at: {
     type: "string",
     format: "date-time",
@@ -369,12 +373,12 @@ const UPDATE_MEAL_TOOL = {
       patch: {
         type: "object",
         properties: {
-          name: { type: "string", minLength: 1, maxLength: 200, description: "New meal name." },
+          name: { type: "string", minLength: 1, maxLength: MAX_NAME_LENGTH, description: "New meal name." },
           eaten_at: { type: "string", format: "date-time", description: "New meal time as a valid ISO-8601 date and time with a timezone." },
-          kcal: { type: "number", minimum: 0, maximum: 100_000, description: "New meal calorie total." },
-          protein: { type: "number", minimum: 0, maximum: 10_000, description: "New meal protein total in grams." },
-          carbs: { type: "number", minimum: 0, maximum: 10_000, description: "New meal carbohydrate total in grams." },
-          fat: { type: "number", minimum: 0, maximum: 10_000, description: "New meal fat total in grams." },
+          kcal: { type: "number", minimum: 0, maximum: MAX_KCAL, description: "New meal calorie total." },
+          protein: { type: "number", minimum: 0, maximum: MAX_MACRO, description: "New meal protein total in grams." },
+          carbs: { type: "number", minimum: 0, maximum: MAX_MACRO, description: "New meal carbohydrate total in grams." },
+          fat: { type: "number", minimum: 0, maximum: MAX_MACRO, description: "New meal fat total in grams." },
           nutrients: {
             type: "object",
             properties: updateNutrientProperties,
@@ -391,11 +395,11 @@ const UPDATE_MEAL_TOOL = {
               type: "object",
               properties: {
                 id: { type: "string", minLength: 1, maxLength: 120, description: "Existing item ID from get_nutrition_history." },
-                name: { type: "string", minLength: 1, maxLength: 200 },
-                kcal: { type: "number", minimum: 0, maximum: 100_000 },
-                protein: { type: "number", minimum: 0, maximum: 10_000 },
-                carbs: { type: "number", minimum: 0, maximum: 10_000 },
-                fat: { type: "number", minimum: 0, maximum: 10_000 },
+                name: { type: "string", minLength: 1, maxLength: MAX_NAME_LENGTH },
+                kcal: { type: "number", minimum: 0, maximum: MAX_KCAL },
+                protein: { type: "number", minimum: 0, maximum: MAX_MACRO },
+                carbs: { type: "number", minimum: 0, maximum: MAX_MACRO },
+                fat: { type: "number", minimum: 0, maximum: MAX_MACRO },
                 nutrients: {
                   type: "object",
                   properties: updateNutrientProperties,
@@ -537,14 +541,6 @@ const ADD_MEALS_TOOL = {
   },
 } as const;
 
-function isObject(value: unknown): value is JsonObject {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
-
-function hasOnlyKeys(value: JsonObject, allowedKeys: string[]): boolean {
-  return Object.keys(value).every((key) => allowedKeys.includes(key));
-}
-
 function isOriginAllowed(request: Request): boolean {
   const origin = request.headers.get("origin");
   if (origin === null) return true;
@@ -643,8 +639,8 @@ function mappedMealBody(arguments_: JsonObject): JsonObject {
   if (!Array.isArray(photos) || !Array.isArray(indices)) {
     throw new AddMealRequestError(400, "invalid_field", "photos and photo_meal_indices must be arrays.");
   }
-  if (photos.length > 20 || indices.length > 20) {
-    throw new AddMealRequestError(400, "invalid_field", "photos and photo_meal_indices must contain at most 20 entries.");
+  if (photos.length > MAX_BATCH_MEALS || indices.length > MAX_BATCH_MEALS) {
+    throw new AddMealRequestError(400, "invalid_field", `photos and photo_meal_indices must contain at most ${MAX_BATCH_MEALS} entries.`);
   }
   if (photos.length !== indices.length) {
     throw new AddMealRequestError(400, "invalid_field", "photos and photo_meal_indices must have the same number of entries.");

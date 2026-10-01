@@ -17,11 +17,11 @@ import {
   type SupportedMealPhotoType,
 } from "./meal-photo";
 
-const MAX_NAME_LENGTH = 200;
-const MAX_KCAL = 100_000;
-const MAX_MACRO = 10_000;
+export const MAX_NAME_LENGTH = 200;
+export const MAX_KCAL = 100_000;
+export const MAX_MACRO = 10_000;
 const MAX_OPENAI_FILE_REFS = 20;
-const MAX_BATCH_MEALS = 20;
+export const MAX_BATCH_MEALS = 20;
 const ISO_DATETIME = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,9}))?(Z|[+-](\d{2}):(\d{2}))$/u;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
 const OPENAI_FILE_BASE_DOMAIN = "oaiusercontent.com";

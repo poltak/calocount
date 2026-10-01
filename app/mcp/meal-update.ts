@@ -16,10 +16,14 @@ import {
   type MealWithItems,
 } from "../../db/repository";
 import { updateMealItemTotals } from "../meal-item-totals";
-import { parseExternalMealRequestId, parseIsoDatetime } from "../api/_lib/add-meal";
+import { MAX_KCAL, MAX_MACRO, MAX_NAME_LENGTH, parseExternalMealRequestId, parseIsoDatetime } from "../api/_lib/add-meal";
+import { hasOnlyKeys, isObject } from "./objects";
 
 const TRACKED_NUTRIENT_KEYS = [...NUTRIENT_KEYS, ...NUTRIENT_UPPER_LIMIT_KEYS] as const;
 type TrackedNutrientKey = NutrientKey | NutrientUpperLimitKey;
+const NUTRIENT_MAXIMA = new Map<string, number>(
+  [...NUTRIENT_META, ...NUTRIENT_UPPER_LIMIT_META].map(({ key, maximum }) => [key, maximum]),
+);
 type NutrientChanges = Partial<Record<TrackedNutrientKey, number | null>>;
 type ItemCorrection = {
   id: string;
@@ -52,21 +56,13 @@ export class MealUpdateInputError extends Error {
   }
 }
 
-function isObject(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
-
 function fail(message: string): never {
   throw new MealUpdateInputError("invalid_arguments", message);
 }
 
-function hasOnlyKeys(value: Record<string, unknown>, allowed: readonly string[]): boolean {
-  return Object.keys(value).every((key) => allowed.includes(key));
-}
-
 function parseName(value: unknown, field: string): string {
-  if (typeof value !== "string" || !value.trim() || value.trim().length > 200) {
-    return fail(field + " must be a non-empty string of at most 200 characters.");
+  if (typeof value !== "string" || !value.trim() || value.trim().length > MAX_NAME_LENGTH) {
+    return fail(field + " must be a non-empty string of at most " + MAX_NAME_LENGTH + " characters.");
   }
   return value.trim();
 }
@@ -89,12 +85,9 @@ function parseNutrients(value: unknown, field: string): NutrientChanges {
   if (!hasOnlyKeys(value, TRACKED_NUTRIENT_KEYS)) {
     return fail(field + " contains an unsupported nutrient.");
   }
-  const maxima = new Map<string, number>(
-    [...NUTRIENT_META, ...NUTRIENT_UPPER_LIMIT_META].map(({ key, maximum }) => [key, maximum]),
-  );
   const result: NutrientChanges = {};
   for (const [key, amount] of Object.entries(value)) {
-    if (amount !== null) result[key as TrackedNutrientKey] = parseNumber({ value: amount, field: field + "." + key, maximum: maxima.get(key) ?? 0 });
+    if (amount !== null) result[key as TrackedNutrientKey] = parseNumber({ value: amount, field: field + "." + key, maximum: NUTRIENT_MAXIMA.get(key) ?? 0 });
     else result[key as TrackedNutrientKey] = null;
   }
   return result;
@@ -110,10 +103,10 @@ function parseItemCorrection(value: unknown, index: number): ItemCorrection {
   if (Object.keys(value).length === 1) return fail(field + " must contain a correction as well as id.");
   const correction: ItemCorrection = { id };
   if (value.name !== undefined) correction.name = parseName(value.name, field + ".name");
-  if (value.kcal !== undefined) correction.kcal = parseNumber({ value: value.kcal, field: field + ".kcal", maximum: 100_000 });
-  if (value.protein !== undefined) correction.protein = parseNumber({ value: value.protein, field: field + ".protein", maximum: 10_000 });
-  if (value.carbs !== undefined) correction.carbs = parseNumber({ value: value.carbs, field: field + ".carbs", maximum: 10_000 });
-  if (value.fat !== undefined) correction.fat = parseNumber({ value: value.fat, field: field + ".fat", maximum: 10_000 });
+  if (value.kcal !== undefined) correction.kcal = parseNumber({ value: value.kcal, field: field + ".kcal", maximum: MAX_KCAL });
+  if (value.protein !== undefined) correction.protein = parseNumber({ value: value.protein, field: field + ".protein", maximum: MAX_MACRO });
+  if (value.carbs !== undefined) correction.carbs = parseNumber({ value: value.carbs, field: field + ".carbs", maximum: MAX_MACRO });
+  if (value.fat !== undefined) correction.fat = parseNumber({ value: value.fat, field: field + ".fat", maximum: MAX_MACRO });
   if (value.nutrients !== undefined) correction.nutrients = parseNutrients(value.nutrients, field + ".nutrients");
   return correction;
 }
@@ -146,10 +139,10 @@ export function parseMcpMealUpdateInput(value: unknown): McpMealUpdateInput {
       return fail("patch.eaten_at must be a valid ISO date and time with a timezone.");
     }
   }
-  if (valuePatch.kcal !== undefined) patch.kcal = parseNumber({ value: valuePatch.kcal, field: "patch.kcal", maximum: 100_000 });
-  if (valuePatch.protein !== undefined) patch.protein = parseNumber({ value: valuePatch.protein, field: "patch.protein", maximum: 10_000 });
-  if (valuePatch.carbs !== undefined) patch.carbs = parseNumber({ value: valuePatch.carbs, field: "patch.carbs", maximum: 10_000 });
-  if (valuePatch.fat !== undefined) patch.fat = parseNumber({ value: valuePatch.fat, field: "patch.fat", maximum: 10_000 });
+  if (valuePatch.kcal !== undefined) patch.kcal = parseNumber({ value: valuePatch.kcal, field: "patch.kcal", maximum: MAX_KCAL });
+  if (valuePatch.protein !== undefined) patch.protein = parseNumber({ value: valuePatch.protein, field: "patch.protein", maximum: MAX_MACRO });
+  if (valuePatch.carbs !== undefined) patch.carbs = parseNumber({ value: valuePatch.carbs, field: "patch.carbs", maximum: MAX_MACRO });
+  if (valuePatch.fat !== undefined) patch.fat = parseNumber({ value: valuePatch.fat, field: "patch.fat", maximum: MAX_MACRO });
   if (valuePatch.nutrients !== undefined) patch.nutrients = parseNutrients(valuePatch.nutrients, "patch.nutrients");
   if (valuePatch.items !== undefined) {
     if (!Array.isArray(valuePatch.items) || valuePatch.items.length === 0 || valuePatch.items.length > 100) {
@@ -178,8 +171,7 @@ export function parseMcpMealUpdateInput(value: unknown): McpMealUpdateInput {
 }
 
 function rowNutrientValues(item: MealWithItems["items"][number]): Record<TrackedNutrientKey, number | null> {
-  const row = item as unknown as Record<string, number | null>;
-  return Object.fromEntries(TRACKED_NUTRIENT_KEYS.map((key) => [key, row[key] ?? null])) as Record<TrackedNutrientKey, number | null>;
+  return Object.fromEntries(TRACKED_NUTRIENT_KEYS.map((key) => [key, item[key] ?? null])) as Record<TrackedNutrientKey, number | null>;
 }
 
 function rowProvenance(item: MealWithItems["items"][number], nutrients: Record<TrackedNutrientKey, number | null>) {
@@ -299,20 +291,17 @@ export function mcpUpdatedMealPayload(meal: MealWithItems, requestId: string) {
     fat: meal.meal.totalFatG,
     eaten_at: new Date(meal.meal.consumedAt).toISOString(),
     has_image: Boolean(meal.meal.photoKey),
-    items: meal.items.map((item) => {
-      const row = item as unknown as Record<string, number | null>;
-      return {
-        id: item.id,
-        name: item.name,
-        quantity: item.quantity,
-        unit: item.unit,
-        kcal: item.calories,
-        protein: item.proteinG,
-        carbs: item.carbsG,
-        fat: item.fatG,
-        nutrients: Object.fromEntries(NUTRIENT_KEYS.map((key) => [key, row[key] ?? null])),
-        sourceFormAmounts: Object.fromEntries(NUTRIENT_UPPER_LIMIT_KEYS.map((key) => [key, row[key] ?? null])),
-      };
-    }),
+    items: meal.items.map((item) => ({
+      id: item.id,
+      name: item.name,
+      quantity: item.quantity,
+      unit: item.unit,
+      kcal: item.calories,
+      protein: item.proteinG,
+      carbs: item.carbsG,
+      fat: item.fatG,
+      nutrients: Object.fromEntries(NUTRIENT_KEYS.map((key) => [key, item[key] ?? null])),
+      sourceFormAmounts: Object.fromEntries(NUTRIENT_UPPER_LIMIT_KEYS.map((key) => [key, item[key] ?? null])),
+    })),
   };
 }

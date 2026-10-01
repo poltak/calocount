@@ -1,4 +1,5 @@
 import { NUTRIENT_UPPER_LIMIT_KEYS } from "../../domain/nutrients";
+import { hasOnlyKeys, isObject } from "./objects";
 
 export const MAX_NUTRITION_RANGE_DAYS = 366;
 export const DEFAULT_NUTRITION_PAGE_SIZE = 50;
@@ -33,14 +34,6 @@ export type NutritionHistoryInput = NutritionDateRange & {
   pageSize: number;
   cursor: NutritionHistoryCursor | null;
 };
-
-function isObject(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
-
-function hasOnlyKeys(value: Record<string, unknown>, allowedKeys: string[]): boolean {
-  return Object.keys(value).every((key) => allowedKeys.includes(key));
-}
 
 function parseDate(value: unknown, field: string): { date: string; timestamp: number } {
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/u.test(value)) {
