@@ -1,6 +1,6 @@
 # Deprecated: Calocount Custom GPT setup
 
-This directory is retained for existing Custom GPT Action setups. Do not use these templates for a new ChatGPT connection. Use the private MCP app at `/mcp` instead; see the [MCP setup guide](../plugin/README.md). The token-based `POST /api/add-meal` route remains available for existing clients.
+This directory remains for existing Custom GPT Action setups. Do not use these templates for a new ChatGPT connection. Use the private MCP app at `/mcp` instead; see the [MCP setup guide](../plugin/README.md). The token-based `POST /api/add-meal` route remains available for existing clients.
 
 The files below document the deprecated setup for maintenance and compatibility testing:
 

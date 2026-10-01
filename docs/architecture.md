@@ -84,7 +84,7 @@ a photo immediately, and does not store the temporary link.
 
 - R2 is private.
 - Dashboard photo requests require the same server-side allowlist as other private API routes.
-- Temporary ChatGPT photo references are downloaded immediately; temporary links are not stored.
+- The Worker downloads temporary ChatGPT photo references immediately and does not store the temporary links.
 - Secrets are Worker secrets. They are not D1 records or configuration values.
 - Normal logs do not contain captions, photo URLs, or full request payloads.
 - The scheduled cleanup removes only unlinked photos older than the 24-hour grace period; linked meal photos stay with their structured nutrition data.

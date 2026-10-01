@@ -22,10 +22,10 @@ All confirmed findings below are fixed and committed. The audit started at `4565
 
 These are local CPU and SQLite results, not production response times. The summary benchmark uses Node 22.22.3, an in-memory database built from the real migrations, one food item per meal, meals spread over 30 days, and the `Asia/Ho_Chi_Minh` timezone. Each measurement has three warm-up runs and 15 timed runs. There is no network latency.
 
-| Summary input | Median before | Median after | Date conversions before → after | Queries before → after |
+| Summary input | Median before | Median after | Date conversions, before to after | Queries, before to after |
 | --- | ---: | ---: | ---: | ---: |
-| 90 meals | 12.12 ms | 2.42 ms | 3,015 → 185 | 6 → 5 |
-| 500 meals | 59.75 ms | 7.57 ms | 16,197 → 595 | 11 → 5 |
+| 90 meals | 12.12 ms | 2.42 ms | 3,015 to 185 | 6 to 5 |
+| 500 meals | 59.75 ms | 7.57 ms | 16,197 to 595 | 11 to 5 |
 
 The 500-meal case is about eight times faster. A final run of the saved benchmark returned 2.51 ms and 7.45 ms, with the same date-conversion and query counts. Re-run it from the repository root:
 

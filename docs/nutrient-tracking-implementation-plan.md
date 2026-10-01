@@ -1,6 +1,6 @@
-# Nutrient Tracking Implementation Plan
+# Nutrient tracking implementation plan
 
-Historical plan: references to the ChatGPT Action describe the deprecated Custom GPT integration. Current ChatGPT meal logging uses the private `/mcp` app. The `POST /api/add-meal` route remains available for existing clients.
+This is a historical plan. References to the ChatGPT Action describe the deprecated Custom GPT integration. Current ChatGPT meal logging uses the private `/mcp` app. The `POST /api/add-meal` route remains available for existing clients.
 
 ## Goal
 
@@ -240,7 +240,7 @@ This is a prerequisite. Without it, a nutrient edit can destroy valid AI item da
 
 #### 1. Daily nutrition overview
 
-Add a `Nutrition overview` panel for the selected day. Use a small row of high-signal values:
+Add a `Nutrition overview` panel for the selected day. Use a small row of six values:
 
 - Fibre
 - Total sugars

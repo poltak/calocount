@@ -9,7 +9,7 @@ The application backend uses Cloudflare Workers, D1, R2, Cron Triggers, Static A
 - Caltrack-inspired dark dashboard with today and seven-day views
 - calories, protein, carbohydrates, and fat
 - meal detail, additions, edits, and correction history
-- live API data with a clear fail-closed unavailable state
+- live API data, and an unavailable state when the API is not ready
 - private R2 storage with scoped owner and public photo delivery
 - manual meal entry and a private ChatGPT MCP integration
 - idempotent structured meal and nutrient validation
@@ -17,7 +17,7 @@ The application backend uses Cloudflare Workers, D1, R2, Cron Triggers, Static A
 - JSON and CSV export
 - Cloudflare Access JWT authorization with an owner allowlist
 
-WHOOP, Apple Health, body-fat, sleep, recovery, and step integrations are intentionally not included.
+Calocount does not include WHOOP, Apple Health, body-fat, sleep, recovery, or step integrations.
 
 ## Repository layout
 
@@ -75,7 +75,7 @@ pnpm exec wrangler secret put CALOCOUNT_CHATGPT_MEAL_TOKEN
 
 Do not put this token in `wrangler.jsonc` or in application links. The endpoint is `POST /api/add-meal`. Send the token only in an `Authorization: Bearer <token>` header and send a JSON body with `request_id`, `name`, `kcal`, `protein`, `carbs`, `fat`, and ISO-8601 `eaten_at` values. An optional `nutrients` object accepts the 24 item nutrient fields used by the dashboard; each value is a non-negative number or `null` when unknown. For this external request, `request_id` is a UUID idempotency key: repeating it returns the original meal without creating another entry.
 
-Existing GPT image actions may also send `openaiFileIdRefs` as an array of file reference objects. Shared external photo handling accepts the first valid HTTPS JPEG, PNG, WebP, or HEIC reference from an approved OpenAI file host or a public Azure Blob account host (`<account>.blob.core.windows.net` or `<account>-secondary.blob.core.windows.net`, where the account has 3–24 lowercase letters or digits). Azure storage accounts can belong to other tenants; this rule is not an OpenAI ownership check. HEIC photos are converted to JPEG through Cloudflare Images before storage. Photos are downloaded immediately, redirects are rejected, and temporary links are never stored. A photo is limited to 10 MiB.
+Existing GPT image actions may also send `openaiFileIdRefs` as an array of file reference objects. Shared external photo handling accepts the first valid HTTPS JPEG, PNG, WebP, or HEIC reference from an approved OpenAI file host or a public Azure Blob account host (`<account>.blob.core.windows.net` or `<account>-secondary.blob.core.windows.net`, where the account has 3–24 lowercase letters or digits). Azure storage accounts can belong to other tenants; this rule is not an OpenAI ownership check. Cloudflare Images converts HEIC photos to JPEG before storage. The Worker downloads each photo immediately, rejects redirects, and never stores the temporary link. A photo can be at most 10 MiB.
 
 For a local smoke test, use a new UUID and the token from `.dev.vars`:
 
@@ -106,8 +106,8 @@ and R2 bindings. It does not accept Telegram webhook or AI-media requests,
 create analysis jobs, or consume Queue messages. `/telegram/webhook` and
 `/ai-media/*` return `404`.
 
-No bot, AI-provider, or Queue setup is required for this Worker. Run the
-focused local commands:
+This Worker needs no bot, AI-provider, or Queue setup. Run its local
+commands:
 
 ```bash
 pnpm run ingest:types
@@ -158,7 +158,7 @@ Encrypted plaintext email bindings remain for compatibility with older or local 
 pnpm exec wrangler secret put CALOCOUNT_OWNER_EMAIL
 ```
 
-`CALOCOUNT_ALLOWED_EMAIL` is retained only as a fallback for older or local configurations. Keep `CALOCOUNT_ALLOWED_USER_ID` if you use the Access user ID allowlist instead of an email. If several allowlists are configured, all of them must match; a malformed email hash fails closed.
+`CALOCOUNT_ALLOWED_EMAIL` remains only as a fallback for older or local configurations. Keep `CALOCOUNT_ALLOWED_USER_ID` if you use the Access user ID allowlist instead of an email. If several allowlists are configured, all of them must match; a malformed email hash fails closed.
 
 Build and deploy the private app:
 
@@ -200,16 +200,16 @@ For the public/owner route split, follow [docs/read-only-sharing.md](docs/read-o
 
 Do not add a broad `/*`, `/_next/*`, or `/api/*` bypass. Do not make owner APIs public.
 
-Future route rule: for the public-root/private-owner layout, treat routes as public by default unless a private Cloudflare Access destination covers them. Any new page outside `/owner`, any new public API exception, or any new server route outside `/api` requires explicit privacy and Access review before deployment. Verify the anonymous and owner behavior from deployed requests, including the Access path list.
+For future changes to the public-root/private-owner layout, treat routes as public by default unless a private Cloudflare Access destination covers them. Any new page outside `/owner`, any new public API exception, or any new server route outside `/api` requires explicit privacy and Access review before deployment. Verify the anonymous and owner behavior from deployed requests, including the Access path list.
 
-Cloudflare resource and secret setup are not done automatically by this repository because they require your account, resource IDs, and secrets.
+This repository does not set up Cloudflare resources or secrets. That setup needs your account, resource IDs, and secrets.
 
 ## Privacy
 
 - Meal photos stay in a private R2 bucket.
 - The owner dashboard streams photos through an authenticated API route.
 - The public root may stream photos for completed meals in its current seven-day projection through `/meal-photos/*`; raw R2 keys are not exposed.
-- Temporary ChatGPT image links are downloaded immediately and are never stored as temporary links.
+- The Worker downloads photos from temporary ChatGPT image links immediately and never stores the links.
 - The public root exposes only the selected dashboard projection: targets, meal and macro totals, seven-day trend, recent weights, recent meal-item nutrition, and photo availability.
 - The public projection does not expose photo storage keys, captions, notes, assumptions, confidence, AI/provider data, Telegram data, or private settings.
 - Normal logs do not include captions, images, signed URLs, or full provider payloads.

@@ -2,8 +2,8 @@
 
 Calocount has two dashboard entry points:
 
-- `/` is public and read-only. It loads the configured owner's deliberately
-  limited dashboard projection.
+- `/` is public and read-only. It loads the configured owner's limited
+  dashboard projection.
 - `/owner` is private and read-write. It loads the normal owner dashboard and
   may call the private data APIs.
 
@@ -47,9 +47,9 @@ projection contains only the fields required by the dashboard:
 
 It does not contain owner keys, captions, notes, assumptions, confidence,
 photo storage keys or MIME metadata, AI/provider data, Telegram data, private
-settings, exports, or API credentials. The projection is implemented in
-`app/api/_lib/public-summary-projection.ts`. Keep the field list explicit when
-changing the public response.
+settings, exports, or API credentials.
+`app/api/_lib/public-summary-projection.ts` implements the projection. Keep the
+field list explicit when changing the public response.
 
 The anonymous `/meal-photos/<mealId>` route intentionally makes the image for a
 projected completed meal public to site viewers. It resolves the configured

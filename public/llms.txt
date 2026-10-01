@@ -13,7 +13,7 @@ The summary includes:
 - seven-day totals, averages, and daily trend points;
 - nutrition totals;
 - recent completed entries, their item nutrition, entry types, timestamps, and
-  photo availability; and
+  photo availability;
 - recent weights; and
 - `insights`, with date-bounded food and drink entries for today and the prior
   30 days, including item amounts and nutrition for historical comparisons.

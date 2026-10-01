@@ -1,8 +1,8 @@
-# Code audit — 5 September 2026
+# Code audit: 5 September 2026
 
 This audit covered the dashboard, nutrition calculations, API routes, database repository and migrations, ingest Worker, photo lifecycle, service worker, tests, build settings, and deployment workflow. Three reviewers used GPT-6 Astra with Medium reasoning. The main agent reviewed their changes and ran the final checks.
 
-The changes address confirmed defects. They do not add dependencies or change the database schema. The existing untracked `gpt-action.md` and `gpt-instruction.md` files were preserved. The audit and fixes did not push, deploy, or change production data. Commits were created later at the user’s request.
+The changes address confirmed defects. They do not add dependencies or change the database schema. The existing untracked `gpt-action.md` and `gpt-instruction.md` files were preserved. The audit and fixes did not push, deploy, or change production data. Commits were created later at the user's request.
 
 ## Fixed defects
 
@@ -56,4 +56,4 @@ Browser interaction checks used the actual Dashboard component in an isolated lo
 - A successful retry commits the server result, updates the totals to 100, and closes the editor.
 - Advancing the clock past 21:00 changes the displayed average from 1,200 to 1,043 without reloading meal data.
 
-No browser runtime errors were recorded. Automated tests cover draft item isolation, editor switching, clock cleanup and midnight, streamed upload limits, and cleanup across runs, including deletion and cursor-write failures. Device and production end-to-end tests were not run. Passing checks reduce regression risk; they do not prove that every production flow is free of defects.
+No browser runtime errors were recorded. Automated tests cover draft item isolation, editor switching, clock cleanup and midnight, streamed upload limits, and cleanup across runs, including deletion and cursor-write failures. Device and production end-to-end tests were not run.
