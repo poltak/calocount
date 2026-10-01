@@ -85,3 +85,9 @@ entry to the choice, the reason, and any rule that follows from it.
   and pre-commit hooks set up. Main reason is for consistently formatted code for ease of reading.
 - **oxlint chosen for linting.** One blank-line rule comes from the stylistic ESLint
   plugin, loaded through oxlint's JS plugin support.
+- **Architecture rules are a local lint plugin, not a separate tool.** The rules
+  in `lint/` use the standard ESLint rule API, so one mechanism covers imports,
+  naming, and layout, each error cites the architecture document, and ESLint
+  could run the same rules. Rules about technology choices sit in their own
+  plugin, apart from rules about the architecture's shape. oxlint marks its JS
+  plugin support as alpha, so recheck these rules when upgrading oxlint.

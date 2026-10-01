@@ -22,6 +22,10 @@ Service and Storage classes may hold injected clients and technical handles need
 for their boundary. They must not own application or product state. Logic and
 LogicPlugin classes own that state.
 
+Name each role class's file after the class: `FooLogic` in `foo-logic.ts`,
+`FooPlugin` (a LogicPlugin) in `foo-plugin.ts`, `FooStorage` in
+`foo-storage.ts`, and each Service implementation in `<name>-service.ts`.
+
 Implement Logic, LogicPlugin, Service, and Storage boundaries as classes. UI
 components and shared utility functions do not need to be classes. Expose
 interfaces where implementations must be replaceable.
@@ -41,6 +45,7 @@ best matches their responsibility.
 - `src/features/<feature>/ui/`: UI components, UI Logic classes, and their LogicPlugins related to feature X
 - `src/features/<feature>/utils/`: re-usable utility functions that might be used by multiple other parts of the feature X
 - `src/features/<feature>/handlers/`: backend transport handlers related to feature X, when needed
+- `src/features/<feature>/scripts/`: command-line entry points related to feature X
 
 A LogicPlugin lives in the same layer directory as the Logic classes that consume
 it. If Logic classes in different runtime layers need the same stateless behavior,

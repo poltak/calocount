@@ -14,9 +14,9 @@ instructions.
 - [Setup and commands](setup.md): read to run, configure, or check the project.
 - [TODOs from initial setup](todos/initial-setup.md): unfinished work and
   temporary behavior. Read and update while initial setup continues.
-- [Plan: enforce architecture rules with lint](todos/architecture-lint-rules.md):
-  read before adding lint rules for the architecture, or when moving files
-  between `src/` directories.
+- [Architecture lint rules](todos/architecture-lint-rules.md): which
+  architecture rules lint enforces, and what is still open. Read before changing
+  a rule in `lint/`, or when a lint error cites the architecture.
 
 ## Where to start reading the code
 

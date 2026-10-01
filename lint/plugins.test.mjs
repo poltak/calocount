@@ -1,0 +1,228 @@
+import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import test from "node:test";
+import { fileURLToPath } from "node:url";
+
+const lintDirectory = path.dirname(fileURLToPath(import.meta.url));
+const repoRoot = path.resolve(lintDirectory, "..");
+const oxlint = path.join(repoRoot, "node_modules/.bin/oxlint");
+
+/** The repository's own rule options, so the tests cover the real configuration. */
+async function projectRules() {
+  const config = JSON.parse(
+    await readFile(path.join(repoRoot, ".oxlintrc.json"), "utf8"),
+  );
+  return Object.fromEntries(
+    Object.entries(config.rules).filter(
+      ([name]) => name.startsWith("architecture/") || name.startsWith("stack/"),
+    ),
+  );
+}
+
+/**
+ * Lint fixture files with the project's architecture and stack rules.
+ * Returns "<file>: <rule>" for every problem found.
+ */
+async function lint(context, files) {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "lint-rules-"));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+
+  for (const [file, content] of Object.entries(files)) {
+    const target = path.join(directory, file);
+    await mkdir(path.dirname(target), { recursive: true });
+    await writeFile(target, content);
+  }
+  const configPath = path.join(directory, "oxlintrc.json");
+  await writeFile(
+    configPath,
+    JSON.stringify({
+      plugins: ["typescript"],
+      categories: {},
+      jsPlugins: [
+        path.join(lintDirectory, "architecture-plugin.mjs"),
+        path.join(lintDirectory, "stack-plugin.mjs"),
+      ],
+      rules: await projectRules(),
+    }),
+  );
+
+  let output;
+  try {
+    output = execFileSync(oxlint, ["-c", configPath, "-f", "json", "."], {
+      cwd: directory,
+      encoding: "utf8",
+    });
+  } catch (error) {
+    output = error.stdout;
+  }
+  return JSON.parse(output)
+    .diagnostics.filter((problem) =>
+      /^(?:architecture|stack)\(/.test(problem.code),
+    )
+    .map(
+      (problem) =>
+        `${path.relative(directory, path.resolve(directory, problem.filename))}: ${problem.code}`,
+    )
+    .sort();
+}
+
+const feature = (name) => `backend/src/features/${name}`;
+
+/** Stand-ins for the shared Logic base class and props type, as core provides them. */
+const coreFiles = (workspace) => ({
+  [`${workspace}/src/features/core/logic/logic.ts`]:
+    "export class Logic<T = unknown> {\n  constructor(readonly options?: T) {}\n}\n",
+  [`${workspace}/src/features/core/logic/types.ts`]:
+    "export type BackendLogicProps<S, T> = { s: S; t: T };\n",
+});
+const importLogic = 'import { Logic } from "../../core/logic/logic.js";\n';
+const importProps =
+  'import type { BackendLogicProps } from "../../core/logic/types.js";\n';
+
+test("accepts a feature that follows the architecture", async (context) => {
+  const problems = await lint(context, {
+    ...coreFiles("backend"),
+    ...coreFiles("frontend"),
+    [`${feature("notes")}/services/types.ts`]:
+      "export interface MailServiceInterface {}\n",
+    [`${feature("notes")}/services/smtp-mail-service.ts`]:
+      'import type { MailServiceInterface } from "./types.js";\nexport class SmtpMailService implements MailServiceInterface {\n  constructor(private readonly deps: { host: string }) {}\n}\n',
+    [`${feature("notes")}/storage/notes-storage.ts`]:
+      "export class NotesStorage {\n  constructor(private readonly deps: { db: unknown }) {}\n}\n",
+    [`${feature("notes")}/logic/notes-logic.ts`]:
+      importLogic +
+      importProps +
+      'import { AppError } from "../../core/errors/app-error.js";\nimport type { OtherThing } from "../../other/types.js";\nexport class NotesLogic extends Logic<unknown> {\n  constructor(deps: BackendLogicProps<"notes" | "notesArchive", "mail">) {\n    super(deps);\n  }\n  fail(thing: OtherThing) { throw new AppError(thing); }\n}\n',
+    [`${feature("core")}/live/index.ts`]:
+      'import { SmtpMailService } from "../../notes/services/smtp-mail-service.js";\nimport { NotesStorage } from "../../notes/storage/notes-storage.js";\nexport const app = [new SmtpMailService({ host: "" }), new NotesStorage({ db: 1 })];\n',
+    [`${feature("notes")}/logic/notes-logic.test.ts`]:
+      'import { SmtpMailService } from "../services/smtp-mail-service.js";\nexport const service = new SmtpMailService({ host: "" });\n',
+  });
+
+  assert.deepEqual(problems, []);
+});
+
+test("keeps features out of each other's private files", async (context) => {
+  const problems = await lint(context, {
+    ...coreFiles("backend"),
+    ...coreFiles("frontend"),
+    [`${feature("notes")}/logic/notes-logic.ts`]:
+      importLogic +
+      'import { helper } from "../../other/utils/helper.js";\nimport type { Shared } from "../../other/types.js";\nexport class NotesLogic extends Logic {\n  run(value: Shared) { return helper(value); }\n}\n',
+    [`${feature("core")}/handlers/validator.ts`]:
+      'import { helper } from "../../other/utils/helper.js";\nexport const validator = helper;\n',
+  });
+
+  assert.deepEqual(problems, [
+    "backend/src/features/core/handlers/validator.ts: architecture(feature-boundaries)",
+    "backend/src/features/notes/logic/notes-logic.ts: architecture(feature-boundaries)",
+  ]);
+});
+
+test("keeps Storage and Services independent of other layers", async (context) => {
+  const problems = await lint(context, {
+    ...coreFiles("backend"),
+    ...coreFiles("frontend"),
+    [`${feature("notes")}/storage/notes-storage.ts`]:
+      'import { NotesLogic } from "../logic/notes-logic.js";\nimport type { App } from "../../core/types.js";\nexport class NotesStorage {\n  logic?: NotesLogic;\n  app?: App;\n}\n',
+    [`${feature("notes")}/services/smtp-mail-service.ts`]:
+      'import { NotesStorage } from "../storage/notes-storage.js";\nimport type { MailServiceInterface } from "./types.js";\nexport class SmtpMailService implements MailServiceInterface {\n  storage?: NotesStorage;\n}\n',
+    [`${feature("notes")}/logic/notes-logic.ts`]:
+      importLogic +
+      'import { ArchiveLogic } from "./archive-logic.js";\nimport { SmtpMailService } from "../services/smtp-mail-service.js";\nexport class NotesLogic extends Logic {\n  other?: ArchiveLogic;\n  mail = new SmtpMailService();\n}\n',
+  });
+
+  assert.deepEqual(problems, [
+    "backend/src/features/notes/logic/notes-logic.ts: architecture(layer-imports)",
+    "backend/src/features/notes/logic/notes-logic.ts: architecture(no-construction)",
+    "backend/src/features/notes/logic/notes-logic.ts: architecture(service-implementations)",
+    "backend/src/features/notes/services/smtp-mail-service.ts: architecture(layer-imports)",
+    "backend/src/features/notes/storage/notes-storage.ts: architecture(layer-imports)",
+    "backend/src/features/notes/storage/notes-storage.ts: architecture(layer-imports)",
+  ]);
+});
+
+test("lets Logic use only its own feature's Storage", async (context) => {
+  const problems = await lint(context, {
+    ...coreFiles("backend"),
+    ...coreFiles("frontend"),
+    [`${feature("notes")}/logic/notes-logic.ts`]:
+      importLogic +
+      importProps +
+      'export class NotesLogic extends Logic<unknown> {\n  constructor(deps: BackendLogicProps<"auth", "mail">) {\n    super(deps);\n  }\n}\n',
+  });
+
+  assert.deepEqual(problems, [
+    "backend/src/features/notes/logic/notes-logic.ts: architecture(own-storage)",
+  ]);
+});
+
+test("enforces role names and constructor shape", async (context) => {
+  const problems = await lint(context, {
+    ...coreFiles("backend"),
+    ...coreFiles("frontend"),
+    [`${feature("notes")}/services/mailer.ts`]: "export const mailer = 1;\n",
+    [`${feature("notes")}/services/smtp-mail-service.ts`]:
+      "export class Mailer {\n  constructor(host: string, port: number) {}\n}\n",
+    [`${feature("notes")}/storage/notes-storage.ts`]:
+      "export class NotesStorage {\n  constructor(readonly deps: { db: unknown }) {}\n}\n",
+    [`${feature("notes")}/logic/notes-logic.ts`]:
+      "export class NotesLogic {\n  constructor(props: unknown) {}\n}\n",
+  });
+
+  assert.deepEqual(problems, [
+    "backend/src/features/notes/logic/notes-logic.ts: architecture(constructor-deps)",
+    "backend/src/features/notes/logic/notes-logic.ts: architecture(role-naming)",
+    "backend/src/features/notes/services/mailer.ts: architecture(role-naming)",
+    "backend/src/features/notes/services/smtp-mail-service.ts: architecture(constructor-deps)",
+    "backend/src/features/notes/services/smtp-mail-service.ts: architecture(role-naming)",
+    "backend/src/features/notes/services/smtp-mail-service.ts: architecture(role-naming)",
+    "backend/src/features/notes/storage/notes-storage.ts: architecture(constructor-deps)",
+  ]);
+});
+
+test("requires every source file to sit in a known role directory", async (context) => {
+  const problems = await lint(context, {
+    ...coreFiles("backend"),
+    ...coreFiles("frontend"),
+    "backend/src/helpers.ts": "export const helper = 1;\n",
+    [`${feature("notes")}/notes.ts`]: "export const notes = 1;\n",
+    [`${feature("notes")}/misc/thing.ts`]: "export const thing = 1;\n",
+    [`${feature("notes")}/types.ts`]: "export type Note = string;\n",
+    [`${feature("notes")}/scripts/import-notes.ts`]: "export const run = 1;\n",
+    "frontend/src/main.tsx": "export const main = 1;\n",
+  });
+
+  assert.deepEqual(problems, [
+    "backend/src/features/notes/misc/thing.ts: architecture(file-layout)",
+    "backend/src/features/notes/notes.ts: architecture(file-layout)",
+    "backend/src/helpers.ts: architecture(file-layout)",
+  ]);
+});
+
+test("confines vendor packages to the layer that wraps them", async (context) => {
+  const problems = await lint(context, {
+    ...coreFiles("backend"),
+    ...coreFiles("frontend"),
+    [`${feature("notes")}/logic/notes-logic.ts`]:
+      importLogic +
+      'import { betterAuth } from "better-auth";\nimport { Kysely } from "kysely";\nexport class NotesLogic extends Logic {\n  uses = [betterAuth, Kysely];\n}\n',
+    [`${feature("notes")}/storage/notes-storage.ts`]:
+      'import type { Kysely } from "kysely";\nexport class NotesStorage {\n  constructor(private readonly deps: { db: Kysely<unknown> }) {}\n}\n',
+    "frontend/src/features/notes/ui/notes-logic.ts":
+      importLogic +
+      'import { useState } from "react";\nimport type { InferResponseType } from "hono/client";\nexport class NotesLogic extends Logic {\n  uses?: [typeof useState, InferResponseType<never>];\n}\n',
+    "frontend/src/features/notes/ui/notes-page.tsx":
+      'import { useState } from "react";\nexport const NotesPage = () => useState(0);\n',
+  });
+
+  assert.deepEqual(problems, [
+    "backend/src/features/notes/logic/notes-logic.ts: stack(vendor-imports)",
+    "backend/src/features/notes/logic/notes-logic.ts: stack(vendor-imports)",
+    "frontend/src/features/notes/ui/notes-logic.ts: stack(vendor-imports)",
+    "frontend/src/features/notes/ui/notes-logic.ts: stack(vendor-imports)",
+  ]);
+});

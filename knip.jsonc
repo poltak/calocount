@@ -3,7 +3,7 @@
   "workspaces": {
     ".": {
       "entry": [".agents/hooks/format-edited-files.mjs"],
-      "project": [".agents/hooks/**/*.mjs"],
+      "project": [".agents/hooks/**/*.mjs", "lint/**/*.mjs"],
     },
     "backend": {
       "entry": [

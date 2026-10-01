@@ -1,7 +1,19 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["typescript", "unicorn", "oxc", "react", "jsx-a11y"],
-  "jsPlugins": ["@stylistic/eslint-plugin"],
+  "plugins": [
+    "typescript",
+    "unicorn",
+    "oxc",
+    "react",
+    "jsx-a11y",
+    "import",
+    "node"
+  ],
+  "jsPlugins": [
+    "@stylistic/eslint-plugin",
+    "./lint/architecture-plugin.mjs",
+    "./lint/stack-plugin.mjs"
+  ],
   "categories": {
     "correctness": "error",
     "suspicious": "warn"
@@ -12,15 +24,178 @@
       "error",
       {
         "enforce": [
-          { "blankLine": "always", "prev": "*", "next": "method" },
-          { "blankLine": "always", "prev": "method", "next": "*" }
+          {
+            "blankLine": "always",
+            "prev": "*",
+            "next": "method"
+          },
+          {
+            "blankLine": "always",
+            "prev": "method",
+            "next": "*"
+          }
         ]
       }
     ],
     "unicorn/require-module-specifiers": "off",
     "react/rules-of-hooks": "error",
     "react/exhaustive-deps": "warn",
-    "react/react-in-jsx-scope": "off"
+    "react/react-in-jsx-scope": "off",
+    "import/no-cycle": "error",
+    "oxc/no-barrel-file": [
+      "error",
+      {
+        "threshold": 0
+      }
+    ],
+    "node/no-process-env": "error",
+    "architecture/feature-boundaries": [
+      "error",
+      {
+        "sharedFeatures": ["core", "api"],
+        "compositionFiles": [
+          "features/core/live/index.ts",
+          "features/core/tests/index.ts",
+          "features/core/compose-app.ts",
+          "features/core/types.ts",
+          "features/core/server/http-app.ts",
+          "features/core/ui/routes.tsx"
+        ]
+      }
+    ],
+    "architecture/layer-imports": [
+      "error",
+      {
+        "collectionTypeFiles": ["features/core/types.ts"]
+      }
+    ],
+    "architecture/service-implementations": [
+      "error",
+      {
+        "compositionFiles": [
+          "features/core/live/index.ts",
+          "features/core/tests/index.ts",
+          "features/core/compose-app.ts",
+          "features/core/types.ts",
+          "features/core/server/http-app.ts",
+          "features/core/ui/routes.tsx"
+        ]
+      }
+    ],
+    "architecture/no-construction": [
+      "error",
+      {
+        "compositionFiles": [
+          "features/core/live/index.ts",
+          "features/core/tests/index.ts",
+          "features/core/compose-app.ts",
+          "features/core/types.ts",
+          "features/core/server/http-app.ts",
+          "features/core/ui/routes.tsx"
+        ]
+      }
+    ],
+    "architecture/own-storage": [
+      "error",
+      {
+        "propsTypes": ["BackendLogicProps", "FrontendLogicProps"],
+        "exemptFeatures": ["core"]
+      }
+    ],
+    "architecture/role-naming": [
+      "error",
+      {
+        "exemptFeatures": ["core"]
+      }
+    ],
+    "architecture/constructor-deps": [
+      "error",
+      {
+        "exemptFeatures": ["core"]
+      }
+    ],
+    "architecture/file-layout": [
+      "error",
+      {
+        "srcRootFiles": ["main.tsx"],
+        "featureRootFiles": ["types"],
+        "featureRootFilesByFeature": {
+          "core": ["compose-app"]
+        },
+        "roles": [
+          "services",
+          "logic",
+          "storage",
+          "ui",
+          "handlers",
+          "utils",
+          "scripts"
+        ],
+        "rolesByFeature": {
+          "core": [
+            "live",
+            "tests",
+            "server",
+            "database",
+            "errors",
+            "events",
+            "types"
+          ],
+          "api": ["client"]
+        }
+      }
+    ],
+    "stack/vendor-imports": [
+      "error",
+      {
+        "vendors": [
+          {
+            "packages": ["better-auth"],
+            "allowedIn": ["^features/[^/]+/services/"],
+            "where": "a Service implementation"
+          },
+          {
+            "packages": ["kysely", "pg", "@electric-sql/pglite"],
+            "allowedIn": [
+              "^features/[^/]+/storage/",
+              "^features/core/database/"
+            ],
+            "where": "Storage classes and core/database"
+          },
+          {
+            "workspace": "backend",
+            "packages": ["hono", "@hono/node-server", "@hono/zod-validator"],
+            "allowedIn": [
+              "^features/[^/]+/handlers/",
+              "^features/core/server/",
+              "^features/core/tests/"
+            ],
+            "where": "handlers and core/server"
+          },
+          {
+            "workspace": "frontend",
+            "packages": ["hono"],
+            "allowedIn": ["^features/api/"],
+            "where": "the API client"
+          },
+          {
+            "packages": ["react", "react-dom", "react-router"],
+            "allowedIn": [
+              "^features/[^/]+/ui/.*\\.tsx$",
+              "^features/core/logic/",
+              "^main\\.tsx$"
+            ],
+            "where": "UI components, core/logic hooks, and main.tsx"
+          }
+        ]
+      }
+    ],
+    "import/no-unassigned-import": [
+      "warn",
+      {
+        "allow": ["**/*.css"]
+      }
+    ]
   },
   "overrides": [
     {
@@ -113,6 +288,56 @@
             ]
           }
         ]
+      }
+    },
+    {
+      "files": ["backend/src/features/core/live/config.ts"],
+      "rules": {
+        "node/no-process-env": "off"
+      }
+    },
+    {
+      "files": ["frontend/src/**"],
+      "rules": {
+        "no-restricted-globals": [
+          "error",
+          {
+            "name": "window",
+            "message": "Browser capabilities belong behind a Service or the API client. See docs/agents/code-architecture.md (Where code belongs)."
+          },
+          {
+            "name": "document",
+            "message": "Browser capabilities belong behind a Service or the API client. See docs/agents/code-architecture.md (Where code belongs)."
+          },
+          {
+            "name": "localStorage",
+            "message": "Browser capabilities belong behind a Service or the API client. See docs/agents/code-architecture.md (Where code belongs)."
+          },
+          {
+            "name": "sessionStorage",
+            "message": "Browser capabilities belong behind a Service or the API client. See docs/agents/code-architecture.md (Where code belongs)."
+          },
+          {
+            "name": "navigator",
+            "message": "Browser capabilities belong behind a Service or the API client. See docs/agents/code-architecture.md (Where code belongs)."
+          },
+          {
+            "name": "fetch",
+            "message": "Browser capabilities belong behind a Service or the API client. See docs/agents/code-architecture.md (Where code belongs)."
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "frontend/src/features/*/services/**",
+        "frontend/src/features/api/**",
+        "frontend/src/main.tsx",
+        "frontend/src/**/*.test.ts",
+        "frontend/src/**/*.test.tsx"
+      ],
+      "rules": {
+        "no-restricted-globals": "off"
       }
     }
   ],

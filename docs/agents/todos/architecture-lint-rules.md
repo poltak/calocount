@@ -1,83 +1,42 @@
-# Plan: enforce architecture rules with lint
+# Architecture lint rules: status and open work
 
-Status: planned, not started.
+Most rules in [code architecture](../code-architecture.md) are now checked by
+`pnpm run lint`. This document lists what is enforced, what is deliberately left
+to judgment, and what remains to decide.
 
-## Goal
+## How it is built
 
-Check as many rules from [code architecture](../code-architecture.md) as
-possible with deterministic tooling in `pnpm run check`. An agent then learns of
-a violation from a failing check, with a message that names the rule, instead of
-relying on having read and applied the document correctly.
+- The rules are a local plugin in `lint/`, written to the standard ESLint rule
+  API. oxlint loads it through `jsPlugins`; ESLint could load the same files.
+- `lint/architecture-plugin.mjs` holds rules about the architecture's shape.
+  `lint/stack-plugin.mjs` holds rules tied to this project's technology
+  choices. Keep that separation: a project with the same architecture and a
+  different stack would change only the stack rules.
+- Rule options, such as the list of role directories, live in `.oxlintrc.json`.
+- `lint/plugins.test.mjs` runs each rule against small fixtures using the
+  options from `.oxlintrc.json`.
+- oxlint marks `jsPlugins` as alpha. Recheck these rules when upgrading oxlint.
 
-Mark each rule in the architecture document as enforced by lint or left to
-judgment, so readers know which rules are verified automatically.
+## Enforced
 
-## Before starting
+| Rule                                   | What it checks                                                                                                                     |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `architecture/feature-boundaries`      | A feature imports another feature only through its `types.ts`. `core` and the frontend `api` feature are shared. Tests are exempt. |
+| `architecture/layer-imports`           | Storage and Service files import no other layer and none of the App collections. A Logic file imports no other Logic file.         |
+| `architecture/service-implementations` | Only composition files and tests import a Service implementation.                                                                  |
+| `architecture/no-construction`         | Only composition files and tests construct a Service, Storage, or Logic class.                                                     |
+| `architecture/own-storage`             | A Logic class may select any Service, but only Storage whose key starts with its own feature's name.                               |
+| `architecture/role-naming`             | File and class names in `services/`, `storage/`, and `logic/`, and for `*-logic.ts` and `*-plugin.ts` files anywhere.              |
+| `architecture/constructor-deps`        | Service, Storage, and Logic constructors take one `deps` parameter.                                                                |
+| `architecture/file-layout`             | Every source file sits in a known role directory of a feature.                                                                     |
+| `stack/vendor-imports`                 | Each vendor package is imported only in the layer that wraps it.                                                                   |
+| `import/no-cycle`                      | No import cycles.                                                                                                                  |
+| `oxc/no-barrel-file`                   | No barrel files.                                                                                                                   |
+| `node/no-process-env`                  | Only the live config module reads the environment.                                                                                 |
+| `no-restricted-globals`                | Frontend browser globals appear only in Services, the API client, and `main.tsx`.                                                  |
+| `no-restricted-imports`                | Workspace boundaries: the frontend imports only the type from `backend/api`, and tests may load `backend/testing`.                 |
 
-- [x] **Finish the `src/` layout review.** Done: every source file is in a
-      feature directory, apart from the frontend's `src/main.tsx`.
-- [x] **Define a feature's public surface.** Done: `types.ts` files are public,
-      `core` (and the frontend `api` feature) may be imported by any feature,
-      and composition roots may import anything.
-- [ ] **Decide the handler-to-Service case.** `requireSession` calls
-      `services.auth.getSession` directly, while the dependency rules say
-      handlers call Logic. Either route it through auth Logic or record
-      transport-level authentication as an allowed exception.
-- [ ] **Choose the tools.** See the options below.
-
-## Tools
-
-- **Import boundaries:** [dependency-cruiser](https://github.com/sverweij/dependency-cruiser)
-  is the proposed tool. Its rules match importer and imported paths by pattern,
-  it can tell type-only imports apart, it detects circular dependencies, and
-  each rule carries a custom message. The alternative is more `overrides` with
-  `no-restricted-imports` in `.oxlintrc.json`, which already enforces the
-  workspace boundaries but becomes verbose for many path pairs.
-- **Naming and shape:** small custom rules loaded through oxlint's `jsPlugins`.
-  That support is alpha; it already loads the stylistic plugin in this
-  repository. A standalone script is the fallback for checks on the file tree.
-
-## Rules
-
-Each rule's failure message should name the rule and link to its section of the
-architecture document.
-
-### 1. Import boundaries
-
-These depend only on file paths and import types.
-
-| Rule                                                                                                                                            | Source in the architecture document |
-| ----------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
-| A feature imports another feature only through its `types.ts` files. Exceptions: `core`, the frontend `api` feature, and the composition roots. | Dependency flow                     |
-| Files in `storage/` import nothing from `services/`, `logic/`, `ui/`, or `handlers/`.                                                           | Dependency flow                     |
-| Files in `services/` import nothing from `storage/`, `logic/`, `ui/`, or `handlers/`, and no other Service implementation.                      | Dependency flow                     |
-| A Logic file imports no other Logic class. LogicPlugins and types are allowed.                                                                  | Dependency flow                     |
-| UI components import nothing from `storage/` or `services/`.                                                                                    | Dependency flow                     |
-| Handlers import no Storage or Service implementation.                                                                                           | Backend handlers                    |
-| `fake-*` files are imported only by the test root and test files. `live-*` files are imported only by composition roots.                        | Application setup                   |
-| Only the live config module reads `process.env`.                                                                                                | Application setup                   |
-| The frontend imports no vendor auth SDK.                                                                                                        | Where code belongs                  |
-| No circular dependencies.                                                                                                                       | Dependency flow                     |
-| No barrel files that re-export other modules.                                                                                                   | File organization                   |
-| Workspace boundaries: the frontend imports only types from `backend/api`; `common` imports no Node built-ins. Already enforced by oxlint; keep. | File organization                   |
-
-### 2. Naming and shape
-
-These need custom rules or a script.
-
-- A class in `services/` is named `*Service`. `live-x-service.ts` exports
-  `LiveXService`, `fake-x-service.ts` exports `FakeXService`, and both implement
-  the interface in the sibling `types.ts`.
-- A class in `storage/` is named `*Storage`.
-- A `*-logic.ts` file exports one class named `*Logic` that extends `Logic` or
-  `LogicPlugin`. The Logic import rule above relies on this naming.
-- Logic, Service, and Storage constructors take one `deps` parameter. Service
-  and Storage classes declare it `private readonly`.
-- A feature directory contains only known role directories.
-- Every file under `src/` is inside a feature directory or on a short allow-list
-  of top-level entries.
-
-### 3. Left to judgment
+## Left to judgment
 
 These stay as written rules, checked in review:
 
@@ -86,12 +45,25 @@ These stay as written rules, checked in review:
 - Service and Storage classes stay thin and hold no application state.
 - Backend Logic holds no per-request or per-user state.
 - Use events, not direct calls, when one Logic reacts to another.
+- Components pass Services into a Logic's `deps` but never call them.
+- Keep call stacks shallow.
 
-## Steps
+## Open work
 
-1. Complete the items under "Before starting".
-2. Add the import-boundary rules as warnings. List the existing violations.
-3. Fix each violation or record it as a named exception in the rule.
-4. Turn the rules into errors and add them to `pnpm run check`.
-5. Mark the enforced rules in the architecture document.
-6. Add the naming and shape rules the same way.
+- [ ] **Confirm the composition files.** The live and test roots are the
+      composition roots. Four other `core` files also import across features
+      and are listed with them in `.oxlintrc.json`: `compose-app.ts` (wiring
+      shared by both roots), `types.ts` (the App type names every feature's
+      classes), `server/http-app.ts` (registers every feature's handlers), and
+      the frontend's `ui/routes.tsx` (the route table). Decide whether to keep
+      them listed or restructure them.
+- [ ] **Handlers reach Services directly.** `requireSession` and
+      `requireTrustedOrigin` call the auth Service, while the dependency rules
+      say handlers call Logic. No rule checks this yet. Decide how auth should
+      work in handlers, then add a rule that handler files use only the Logic
+      collection.
+- [ ] **Simplify the architecture document.** Mark each rule as enforced or
+      left to judgment, and cut prose that only restates an enforced rule.
+- [ ] **ESLint configuration.** Not needed while oxlint is the linter. To run
+      the same rules in ESLint, add a flat config that loads the two plugins
+      with the options from `.oxlintrc.json`.
