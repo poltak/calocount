@@ -87,7 +87,6 @@ function parseSettingsPatch(body: Record<string, unknown>): SettingsPatch {
     }
     patch.usFnbAdultUlEnabled = body.usFnbAdultUlEnabled;
   }
-  if (body.photoRetentionDays !== undefined) patch.photoRetentionDays = Math.round(optionalNumber(body.photoRetentionDays, "photoRetentionDays", { min: 0, max: 3650 }) ?? 30);
   return patch;
 }
 
@@ -98,11 +97,13 @@ function publicSettings(value: Awaited<ReturnType<typeof getSettings>>) {
     telegramUserId: _telegramUserId,
     telegramChatId: _telegramChatId,
     activeAiProfileId: _activeAiProfileId,
+    photoRetentionDays: _photoRetentionDays,
     ...settings
   } = withoutOwnerKey(value);
   void _telegramUserId;
   void _telegramChatId;
   void _activeAiProfileId;
+  void _photoRetentionDays;
   const nutrientTargetOverrides = parseNutrientGoalOverridesJson(nutrientTargetsJson);
   return {
     ...settings,

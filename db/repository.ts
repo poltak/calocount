@@ -147,7 +147,6 @@ export type SettingsPatch = Partial<{
   nutrientTargets: NutrientGoalOverrides | null;
   vitaminB6UsFnbAdultUlEnabled: boolean;
   usFnbAdultUlEnabled: boolean;
-  photoRetentionDays: number;
 }>;
 
 export function createId(prefix: string): string {
@@ -1288,7 +1287,6 @@ export async function upsertSettings(db: AppDb, ownerKey: string, patch: Setting
       vitaminB6UsFnbAdultUlConfirmedAt,
       usFnbAdultUlEnabled,
       usFnbAdultUlConfirmedAt,
-      photoRetentionDays: patch.photoRetentionDays ?? existing.photoRetentionDays,
       updatedAt: timestamp,
     }).where(and(eq(settings.id, id), eq(settings.ownerKey, ownerKey))).prepare().run();
   } else {
@@ -1305,7 +1303,6 @@ export async function upsertSettings(db: AppDb, ownerKey: string, patch: Setting
       vitaminB6UsFnbAdultUlConfirmedAt,
       usFnbAdultUlEnabled,
       usFnbAdultUlConfirmedAt,
-      photoRetentionDays: patch.photoRetentionDays ?? 30,
       createdAt: timestamp,
       updatedAt: timestamp,
     }).prepare().run();
