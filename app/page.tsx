@@ -679,6 +679,12 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     async function loadDashboard() {
       try {
         const endpoint = publicView ? "/api/public/summary" : `/api/dashboard/summary?timezone=${encodeURIComponent(browserTimeZone())}`;
+        // Saved entries load beside the summary. Their failure must not hide a loaded summary.
+        const savedEntriesRequest = readOnly
+          ? null
+          : fetch("/api/saved-entries", { cache: "no-store", signal: controller.signal })
+            .then(async (savedResponse) => savedResponse.ok ? parseSavedEntriesResponse(await savedResponse.json()) : null)
+            .catch(() => null);
         const response = await fetch(endpoint, { cache: "no-store", signal: controller.signal });
         if (!response.ok) {
           if (!cancelled && dashboardLoadVersion.current === requestVersion) {
@@ -700,13 +706,9 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
         if (!parsed) throw new Error("invalid_dashboard_summary");
         if (cancelled || dashboardLoadVersion.current !== requestVersion) return;
         const liveDays = buildLiveDays(parsed, { mode: publicView ? "utc" : "local", publicView });
-        if (!readOnly) {
-          const savedResponse = await fetch("/api/saved-entries", { cache: "no-store", signal: controller.signal });
-          if (savedResponse.ok) {
-            const parsedSavedEntries = parseSavedEntriesResponse(await savedResponse.json());
-            if (parsedSavedEntries) setSavedEntries(parsedSavedEntries);
-          }
-        }
+        const parsedSavedEntries = await savedEntriesRequest;
+        if (cancelled || dashboardLoadVersion.current !== requestVersion) return;
+        if (parsedSavedEntries) setSavedEntries(parsedSavedEntries);
         setProteinGoal(parsed.proteinGoal);
         setVitaminB6UsFnbAdultUlEnabled(parsed.referenceSettings?.vitaminB6UsFnbAdultUlEnabled === true);
         setUsFnbAdultUlEnabled(parsed.referenceSettings?.usFnbAdultUlEnabled === true);
