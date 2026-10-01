@@ -66,9 +66,9 @@ export default function SettingsPanel({ draft, setDraft, onSave, onClose, loadin
       <section className="settings-section timezone-settings" aria-labelledby="timezone-title">
         <div className="settings-section-heading"><div><strong id="timezone-title">Timezone</strong><span>Sets where each day starts on the public dashboard and in the daily totals reported to ChatGPT</span></div></div>
         <div className="timezone-setting">
-          <label>Timezone<select name="timezone" aria-label="Timezone" value={draft.timezone} onChange={(event) => setDraft((current) => ({ ...current, timezone: event.target.value }))} disabled={loading || saving}>
+          <select name="timezone" aria-label="Timezone" value={draft.timezone} onChange={(event) => setDraft((current) => ({ ...current, timezone: event.target.value }))} disabled={loading || saving}>
             {timeZoneOptions(draft.timezone, deviceTimeZone).map((zone) => <option value={zone} key={zone}>{zone.replaceAll("_", " ")}</option>)}
-          </select></label>
+          </select>
           {draft.timezone !== deviceTimeZone ? <button className="secondary-button" type="button" disabled={loading || saving} onClick={() => setDraft((current) => ({ ...current, timezone: deviceTimeZone }))}>Use this device&apos;s timezone ({deviceTimeZone.replaceAll("_", " ")})</button> : null}
         </div>
       </section>

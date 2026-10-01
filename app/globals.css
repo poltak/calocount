@@ -445,11 +445,11 @@ summary:focus-visible {
 .settings-section,
 .nutrient-goal-settings {
   border: 1px solid var(--line-soft);
-  border-radius: 8px;
+  border-radius: var(--radius-tile);
   background: var(--surface-soft);
 }
 
-.settings-section { padding: 14px; }
+.settings-section { padding: 15px 16px; }
 
 .reference-setting {
   display: flex;
@@ -461,57 +461,73 @@ summary:focus-visible {
 }
 
 .reference-setting input { flex: none; margin: 2px 0 0; accent-color: var(--orange); }
-.reference-setting label { display: block; font-size: 11px; font-weight: 650; cursor: pointer; }
-.reference-setting small { display: block; margin-top: 4px; color: var(--muted); font-size: 9px; line-height: 1.5; }
+.reference-setting label { display: block; font-size: 12px; font-weight: 650; cursor: pointer; }
+.reference-setting small { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; line-height: 1.5; }
 
 .settings-section-heading strong,
 .nutrient-goal-settings summary strong {
   display: block;
-  color: var(--muted-strong);
-  font-size: 11px;
-  font-weight: 700;
+  color: var(--foreground);
+  font-size: 13px;
+  font-weight: 680;
 }
 
 .settings-section-heading span,
 .nutrient-goal-settings summary small {
   display: block;
-  margin-top: 2px;
+  margin-top: 3px;
   color: var(--muted);
-  font-size: 9px;
+  font-size: 11px;
 }
 
 .primary-goal-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 9px;
+  align-items: start;
+  gap: 12px;
   margin-top: 12px;
 }
 
 .protein-goal-fieldset {
   min-width: 0;
   margin: 0;
-  padding: 9px;
-  border: 1px solid var(--line-soft);
-  border-radius: 7px;
+  padding: 0;
+  border: 0;
 }
 
 .protein-goal-fieldset legend {
-  padding: 0 4px;
+  margin-bottom: 5px;
+  padding: 0;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .protein-goal-mode-options {
   display: grid;
-  gap: 7px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
 }
 
-.protein-goal-mode-options label {
+.theme-options { margin-top: 12px; }
+
+/* Each choice is a small card, and the chosen one is outlined. */
+.settings-form .protein-goal-mode-options label {
   display: flex;
-  grid-template-columns: auto 1fr;
   align-items: flex-start;
-  gap: 7px;
+  gap: 8px;
+  padding: 10px 11px;
+  border: 1px solid var(--form-control-border);
+  border-radius: var(--radius-control);
+  background: var(--form-control-background);
   cursor: pointer;
+  transition: border-color 150ms ease, background-color 150ms ease;
+}
+
+.settings-form .protein-goal-mode-options label:hover { border-color: var(--muted); }
+
+.settings-form .protein-goal-mode-options label:has(input:checked) {
+  border-color: var(--orange);
+  background: color-mix(in srgb, var(--orange) 8%, var(--form-control-background));
 }
 
 .settings-form .protein-goal-mode-options input[type="radio"] {
@@ -527,58 +543,65 @@ summary:focus-visible {
 }
 
 .protein-goal-mode-options strong {
-  color: var(--muted-strong);
-  font-size: 10px;
+  color: var(--foreground);
+  font-size: 12px;
   font-weight: 650;
 }
 
 .protein-goal-mode-options small {
   color: var(--muted);
-  font-size: 9px;
+  font-size: 11px;
   line-height: 1.35;
 }
 
-.protein-goal-fieldset > label { margin-top: 9px; }
+.protein-goal-fieldset > label { margin-top: 10px; }
 
 .settings-form label {
   display: grid;
   gap: 5px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .settings-form input {
   width: 100%;
-  min-height: 31px;
-  padding: 5px 8px;
+  min-height: 36px;
+  padding: 6px 10px;
   border: 1px solid var(--form-control-border);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   outline: 0;
   background: var(--form-control-background);
   color: var(--foreground);
-  font-size: 11px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
 }
 
 .settings-form input:focus,
-.timezone-setting select:focus { border-color: var(--orange); }
+.timezone-setting select:focus {
+  border-color: var(--orange);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--orange) 22%, transparent);
+}
 
 .timezone-setting {
   display: flex;
   flex-wrap: wrap;
-  align-items: end;
+  align-items: center;
   gap: 10px;
+  margin-top: 12px;
 }
 
 .timezone-setting select {
-  min-width: 220px;
-  min-height: 34px;
-  padding: 6px 9px;
+  min-width: 240px;
+  min-height: 36px;
+  padding: 6px 10px;
   border: 1px solid var(--form-control-border);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   outline: 0;
   background: var(--form-control-background);
   color: var(--foreground);
-  font-size: 12px;
+  font-size: 13px;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
 }
 
 .settings-form .reference-setting input[type="checkbox"] {
@@ -687,13 +710,13 @@ summary:focus-visible {
 .nutrient-goal-input > span strong {
   overflow: hidden;
   color: var(--muted-strong);
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 650;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.nutrient-goal-input > span small { color: #7e8b98; font-size: 8px; }
+.nutrient-goal-input > span small { color: var(--muted); font-size: 10px; }
 
 .nutrient-goal-input-control {
   display: grid;
@@ -702,14 +725,14 @@ summary:focus-visible {
   gap: 6px;
 }
 
-.nutrient-goal-input-control > span { color: var(--muted); font-size: 8px; }
+.nutrient-goal-input-control > span { color: var(--muted); font-size: 10px; }
 
 .settings-save-button { grid-column: 1; justify-self: end; }
 
 .settings-help {
   margin: 10px 0 0;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .dashboard-state {
@@ -791,9 +814,12 @@ summary:focus-visible {
   width: 32px;
   height: 32px;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   font-size: 15px;
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
 }
+
+.icon-button svg { display: block; }
 
 .icon-button:hover,
 .more-button:hover {
@@ -3594,31 +3620,6 @@ summary:focus-visible {
   background: #d5ebdc;
   color: var(--green);
 }
-
-:root[data-theme="light"] .settings-form input,
-:root[data-theme="light"] .timezone-setting select,
-:root[data-theme="light"] .weight-form input,
-:root[data-theme="light"] .inline-editor input,
-:root[data-theme="light"] .inline-editor select,
-:root[data-theme="light"] .add-meal-form input,
-:root[data-theme="light"] .add-meal-form select,
-:root[data-theme="light"] .advanced-nutrition-grid input,
-:root[data-theme="light"] .advanced-nutrition-grid select,
-:root[data-theme="light"] .nutrient-trend-controls select {
-  border-color: #bdcbc3;
-  background: var(--surface-raised);
-  color: var(--foreground);
-}
-
-:root[data-theme="light"] .secondary-button,
-:root[data-theme="light"] .nutrition-section-toggle,
-:root[data-theme="light"] .chart-range-select {
-  border-color: var(--button-secondary-border);
-  background: var(--button-secondary-background);
-  color: var(--muted-strong);
-}
-
-:root[data-theme="light"] .dashboard-state-mark { border-color: #9db8aa; }
 
 :root[data-theme="light"] .action-feedback.error {
   border-color: #e3b8ae;

@@ -1570,7 +1570,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
           <span className="sync-status"><span className="status-dot" aria-hidden="true" /> {readOnly ? "Public read-only" : dataMode === "live" ? "Live data" : dataMode === "loading" ? "Loading" : "Unavailable"}</span>
           {readOnly ? <a className="secondary-button owner-link" href="/owner">Open owner view</a> : null}
           {!readOnly && dataMode === "live" ? <>
-            <button className="icon-button" type="button" onClick={() => void openSettings()} disabled={actionInProgress} aria-label="Open settings" aria-expanded={showSettings} aria-controls="settings-panel" aria-busy={settingsLoadPending}><span aria-hidden="true">{settingsLoadPending ? "…" : "⚙"}</span></button>
+            <button className="icon-button" type="button" onClick={() => void openSettings()} disabled={actionInProgress} aria-label="Open settings" aria-expanded={showSettings} aria-controls="settings-panel" aria-busy={settingsLoadPending}>{settingsLoadPending ? <span aria-hidden="true">…</span> : <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true"><path d="M2 4.5h6.5M13 4.5h1M2 11.5h1M7.5 11.5H14" /><circle cx="10.75" cy="4.5" r="2" /><circle cx="5.25" cy="11.5" r="2" /></svg>}</button>
           </> : null}
           <span className="avatar" aria-label={readOnly ? "Public read-only view" : "Account"}><span aria-hidden="true">{readOnly ? "↗" : "M"}</span></span>
         </div>
