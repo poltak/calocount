@@ -2060,19 +2060,23 @@ summary:focus-visible {
 
 .macro-legend div {
   display: grid;
-  grid-template-columns: 9px 1fr auto;
+  grid-template-columns: 9px 1fr auto 38px;
   align-items: center;
-  gap: 7px;
-  color: var(--muted);
-  font-size: 11px;
+  gap: 8px;
+  padding-bottom: 9px;
+  border-bottom: 1px solid var(--line-soft);
+  color: var(--muted-strong);
+  font-size: 12px;
 }
 
-.macro-legend strong { color: var(--muted-strong); font-weight: 650; }
+.macro-legend div:last-child { padding-bottom: 0; border-bottom: 0; }
+.macro-legend strong { color: var(--foreground); font-variant-numeric: tabular-nums; font-weight: 650; text-align: right; }
+.macro-legend small { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
 
 .macro-key {
-  width: 7px;
-  height: 7px;
-  border-radius: 2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 3px;
 }
 
 .macro-key.carbs { background: var(--chart-blue); }

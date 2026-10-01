@@ -1845,7 +1845,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
           <section className="panel macro-panel compact-dashboard-panel" aria-labelledby="macros">
             <div className="panel-heading compact-heading"><div><p className="eyebrow">Daily split</p><h2 id="macros">Macros</h2></div><span className="panel-meta">per day</span></div>
             <div className="macro-donut" style={{ background: macroValues.gradient }} role="img" aria-label={`Estimated daily macro split: ${macroValues.carbs} percent carbohydrates, ${macroValues.protein} percent protein, ${macroValues.fat} percent fat`}><div><strong>{formatNumber(Math.round(totalCalories))}</strong><span>kcal</span></div></div>
-            <div className="macro-legend"><div><span className="macro-key carbs" /><span>Carbs</span><strong>{macroValues.carbs}%</strong></div><div><span className="macro-key protein" /><span>Protein</span><strong>{macroValues.protein}%</strong></div><div><span className="macro-key fat" /><span>Fat</span><strong>{macroValues.fat}%</strong></div></div>
+            <div className="macro-legend"><div><span className="macro-key carbs" /><span>Carbs</span><small>{formatNumber(Math.round(selectedDay.carbs ?? 0))} g</small><strong>{macroValues.carbs}%</strong></div><div><span className="macro-key protein" /><span>Protein</span><small>{formatNumber(Math.round(totalProtein))} g</small><strong>{macroValues.protein}%</strong></div><div><span className="macro-key fat" /><span>Fat</span><small>{formatNumber(Math.round(selectedDay.fat ?? 0))} g</small><strong>{macroValues.fat}%</strong></div></div>
           </section>
 
           <section className="panel history-panel compact-dashboard-panel" aria-labelledby="history-title">
