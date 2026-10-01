@@ -1,14 +1,13 @@
 import { z } from "zod";
-import { ownerEmailSchema } from "../../auth/logic/configuration.js";
-import {
-  authConfigurationSchema,
-  type AuthConfiguration,
-} from "../../auth/services/configuration.js";
+import type { AuthConfiguration } from "../../auth/services/types.js";
 
 const environmentSchema = z.object({
   DATABASE_URL: z.string().trim().min(1),
-  BETTER_AUTH_SECRET: authConfigurationSchema.shape.secret,
-  BETTER_AUTH_URL: authConfigurationSchema.shape.baseUrl,
+  BETTER_AUTH_SECRET: z.string().min(32),
+  BETTER_AUTH_URL: z.url().refine((value) => {
+    const url = new URL(value);
+    return ["http:", "https:"].includes(url.protocol) && url.pathname === "/";
+  }, "Auth URL must be an HTTP(S) origin without a path"),
   SHADOW_TRUSTED_ORIGINS: z
     .string()
     .optional()
@@ -20,8 +19,9 @@ const environmentSchema = z.object({
             .filter(Boolean)
         : [],
     )
-    .pipe(authConfigurationSchema.shape.trustedOrigins.unwrap()),
-  SHADOW_OWNER_EMAIL: ownerEmailSchema,
+    .pipe(z.array(z.url())),
+  // The single admitted account. Compared case-insensitively.
+  SHADOW_OWNER_EMAIL: z.string().trim().toLowerCase().pipe(z.email()),
   HOST: z.string().trim().min(1).default("127.0.0.1"),
   PORT: z.coerce.number().int().min(0).max(65535).default(3000),
 });

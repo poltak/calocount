@@ -9,6 +9,15 @@ export interface AuthSession {
   session: { id: string; userId: string; expiresAt: Date };
 }
 
+/** Settings the auth implementation needs. The live root reads them from the environment. */
+export interface AuthConfiguration {
+  /** Session secret, at least 32 characters. */
+  secret: string;
+  /** The server's HTTP(S) origin, without a path. */
+  baseUrl: string;
+  trustedOrigins: string[];
+}
+
 /** A session change, with headers (such as cookies) the HTTP response must carry. */
 export interface SessionChange {
   responseHeaders: Headers;
