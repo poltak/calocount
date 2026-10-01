@@ -7,16 +7,16 @@ import {
   readOwnerEmail,
 } from "../features/auth/logic/configuration.js";
 import { cleanupLogic } from "../logic/lifecycle.js";
-import { AIService } from "../features/ai/services/ai-service.js";
-import { AuthService } from "../features/auth/services/auth-service.js";
+import { LiveAIService } from "../features/ai/services/live-ai-service.js";
+import { BetterAuthService } from "../features/auth/services/better-auth-service.js";
 import {
   readAuthConfiguration,
   type AuthConfiguration,
 } from "../features/auth/services/configuration.js";
 import { EncounterLifecycleLogic } from "../features/encounter-lifecycle/logic/encounter-lifecycle-logic.js";
 import { EncounterLifecycleStorage } from "../features/encounter-lifecycle/storage/encounter-lifecycle-storage.js";
-import { PatientRecordsService } from "../features/patient-records/services/patient-records-service.js";
-import { TranscriptionService } from "../features/transcription/services/transcription-service.js";
+import { LivePatientRecordsService } from "../features/patient-records/services/live-patient-records-service.js";
+import { LiveTranscriptionService } from "../features/transcription/services/live-transcription-service.js";
 import type {
   App,
   BackendLogic,
@@ -50,10 +50,10 @@ export function createApp({
     encounterLifecycle: new EncounterLifecycleStorage({ db }),
   };
   const services: BackendServices = {
-    auth: new AuthService({ db, ...authConfiguration }),
-    ai: new AIService(),
-    transcription: new TranscriptionService(),
-    patientRecords: new PatientRecordsService(),
+    auth: new BetterAuthService({ db, ...authConfiguration }),
+    ai: new LiveAIService(),
+    transcription: new LiveTranscriptionService(),
+    patientRecords: new LivePatientRecordsService(),
   };
 
   const logic: BackendLogic = {

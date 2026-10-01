@@ -1,15 +1,15 @@
 import { createDatabase } from "../database/pglite-database.js";
 import { randomBytes } from "node:crypto";
-import { AuthService } from "../features/auth/services/auth-service.js";
+import { BetterAuthService } from "../features/auth/services/better-auth-service.js";
 import { AuthStorage } from "../features/auth/storage/auth-storage.js";
 import { AuthAccessLogic } from "../features/auth/logic/auth-access-logic.js";
 import { OwnerSetupLogic } from "../features/auth/logic/owner-setup-logic.js";
 import { cleanupLogic } from "../logic/lifecycle.js";
-import { AIService } from "../features/ai/services/fake-ai-service.js";
+import { FakeAIService } from "../features/ai/services/fake-ai-service.js";
 import { EncounterLifecycleLogic } from "../features/encounter-lifecycle/logic/encounter-lifecycle-logic.js";
 import { EncounterLifecycleStorage } from "../features/encounter-lifecycle/storage/encounter-lifecycle-storage.js";
-import { PatientRecordsService } from "../features/patient-records/services/fake-patient-records-service.js";
-import { TranscriptionService } from "../features/transcription/services/fake-transcription-service.js";
+import { FakePatientRecordsService } from "../features/patient-records/services/fake-patient-records-service.js";
+import { FakeTranscriptionService } from "../features/transcription/services/fake-transcription-service.js";
 import type {
   App,
   BackendLogic,
@@ -28,15 +28,15 @@ export function createApp({
     encounterLifecycle: new EncounterLifecycleStorage({ db }),
   };
   const services: BackendServices = {
-    auth: new AuthService({
+    auth: new BetterAuthService({
       db,
       secret: randomBytes(32).toString("base64"),
       baseUrl: authBaseUrl,
       trustedOrigins,
     }),
-    ai: new AIService(),
-    transcription: new TranscriptionService(),
-    patientRecords: new PatientRecordsService(),
+    ai: new FakeAIService(),
+    transcription: new FakeTranscriptionService(),
+    patientRecords: new FakePatientRecordsService(),
   };
 
   const logic: BackendLogic = {

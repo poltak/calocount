@@ -2,15 +2,15 @@ import { betterAuth } from "better-auth";
 import { getMigrations } from "better-auth/db/migration";
 import type { Database } from "../../../database/database.js";
 import type { AuthConfiguration } from "./configuration.js";
-import type { AuthService as AuthServiceContract, AuthUser } from "./types.js";
+import type { AuthService, AuthUser } from "./types.js";
 
 interface AuthServiceProps extends AuthConfiguration {
   db: Database;
 }
 
 /** Embedded authentication SDK; Better Auth owns its auth-table persistence. */
-export class AuthService implements AuthServiceContract {
-  private auth?: ReturnType<AuthService["createInstance"]>;
+export class BetterAuthService implements AuthService {
+  private auth?: ReturnType<BetterAuthService["createInstance"]>;
   readonly trustedOrigins: readonly string[];
 
   constructor(private readonly props: AuthServiceProps) {

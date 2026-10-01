@@ -3,14 +3,14 @@ import { describe, it } from "node:test";
 import { Kysely, sql } from "kysely";
 import { Logic } from "@shadow/common/features/core/logic/logic";
 
-import { AIService as FakeAIService } from "../dist/features/ai/services/fake-ai-service.js";
-import { AIService as LiveAIService } from "../dist/features/ai/services/ai-service.js";
+import { FakeAIService } from "../dist/features/ai/services/fake-ai-service.js";
+import { LiveAIService } from "../dist/features/ai/services/live-ai-service.js";
 import { EncounterLifecycleLogic } from "../dist/features/encounter-lifecycle/logic/encounter-lifecycle-logic.js";
 import { EncounterLifecycleStorage } from "../dist/features/encounter-lifecycle/storage/encounter-lifecycle-storage.js";
-import { PatientRecordsService as FakePatientRecordsService } from "../dist/features/patient-records/services/fake-patient-records-service.js";
-import { PatientRecordsService as LivePatientRecordsService } from "../dist/features/patient-records/services/patient-records-service.js";
-import { TranscriptionService as FakeTranscriptionService } from "../dist/features/transcription/services/fake-transcription-service.js";
-import { TranscriptionService as LiveTranscriptionService } from "../dist/features/transcription/services/transcription-service.js";
+import { FakePatientRecordsService } from "../dist/features/patient-records/services/fake-patient-records-service.js";
+import { LivePatientRecordsService } from "../dist/features/patient-records/services/live-patient-records-service.js";
+import { FakeTranscriptionService } from "../dist/features/transcription/services/fake-transcription-service.js";
+import { LiveTranscriptionService } from "../dist/features/transcription/services/live-transcription-service.js";
 import { createApp as createLiveApp } from "../dist/live/index.js";
 import { createApp as createTestApp } from "../dist/tests/index.js";
 
