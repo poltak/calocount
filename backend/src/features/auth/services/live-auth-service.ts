@@ -4,16 +4,16 @@ import type { Database } from "../../../database/database.js";
 import type { AuthConfiguration } from "./configuration.js";
 import type { AuthService, AuthUser } from "./types.js";
 
-interface BetterAuthServiceDeps extends AuthConfiguration {
+interface LiveAuthServiceDeps extends AuthConfiguration {
   db: Database;
 }
 
-/** Embedded authentication SDK; Better Auth owns its auth-table persistence. */
-export class BetterAuthService implements AuthService {
-  private auth?: ReturnType<BetterAuthService["createInstance"]>;
+/** Embedded authentication. Better Auth owns its auth-table persistence. */
+export class LiveAuthService implements AuthService {
+  private auth?: ReturnType<LiveAuthService["createInstance"]>;
   readonly trustedOrigins: readonly string[];
 
-  constructor(private readonly deps: BetterAuthServiceDeps) {
+  constructor(private readonly deps: LiveAuthServiceDeps) {
     this.trustedOrigins = Array.from(
       new Set([new URL(deps.baseUrl).origin, ...deps.trustedOrigins]),
     );

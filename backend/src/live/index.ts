@@ -1,7 +1,7 @@
 import { composeApp } from "../compose-app.js";
 import { createDatabase } from "../database/postgres-database.js";
 import { LiveAIService } from "../features/ai/services/live-ai-service.js";
-import { BetterAuthService } from "../features/auth/services/better-auth-service.js";
+import { LiveAuthService } from "../features/auth/services/live-auth-service.js";
 import { LivePatientRecordsService } from "../features/patient-records/services/live-patient-records-service.js";
 import { LiveTranscriptionService } from "../features/transcription/services/live-transcription-service.js";
 import type { App } from "../index.js";
@@ -16,7 +16,7 @@ export function createApp({
     db,
     ownerEmail: config.ownerEmail,
     services: {
-      auth: new BetterAuthService({ db, ...config.auth }),
+      auth: new LiveAuthService({ db, ...config.auth }),
       ai: new LiveAIService(),
       transcription: new LiveTranscriptionService(),
       patientRecords: new LivePatientRecordsService(),

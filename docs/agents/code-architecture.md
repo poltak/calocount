@@ -6,7 +6,7 @@ Use this guide when you are changing existing code, writing new code, moving fil
 
 Use class names to signal responsibility clearly:
 
-- Service class (e.g., `FooService`): thin wrapper around a stateful or I/O-based external service, API, SDK, or platform capability. Pure utility packages do not need Service wrappers.
+- Service class (e.g., `FooService`): thin wrapper around a stateful or I/O-based external service, API, SDK, or platform capability. Pure utility packages do not need Service wrappers. Name a Service after the capability it provides, not the vendor behind it (`AuthService`, not `BetterAuthService`). Keep vendor types and details inside the implementation, so another vendor can replace it behind the same interface.
 - Storage class (e.g., `FooStorage`): thin persistence abstraction with query and data-mapping logic only. Persistence includes databases, database RPCs, object storage, browser storage, IndexedDB, AsyncStorage, secure storage, caches, cookies, and local files used as application data.
 - UI Logic class (e.g., `FooLogic`): frontend state, UI behavior, and business logic. A Logic class may be stateless; state features are available but not required.
 - Backend Logic class (e.g., `FooLogic`): backend business logic.
@@ -177,9 +177,12 @@ method parameters contain operation data; they do not supply Storage or Service
 instances.
 
 Use separate live and test roots with the same application interface. Tests must
-not load live integration modules. Keep each live Service and its fake in
-separate files at the same feature-local `services/` depth, with their shared
-interface in `types.ts`. Storage classes can share an implementation when the
+not load live integration modules, apart from the embedded-framework exception
+above. Keep each live Service and its fake in separate files at the same
+feature-local `services/` depth, with their shared interface in `types.ts`. The
+interface keeps the plain name (`FooService`); implementations are
+`LiveFooService` in `live-foo-service.ts` and `FakeFooService` in
+`fake-foo-service.ts`. Storage classes can share an implementation when the
 database client is injected. Give each test application isolated dependencies.
 
 For a long-running server, construct one application at startup and initialize
