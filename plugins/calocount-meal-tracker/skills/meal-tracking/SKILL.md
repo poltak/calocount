@@ -1,11 +1,11 @@
 ---
 name: meal-tracking
-description: Answer questions about recorded nutrition, estimate meal nutrition, and log meals to the user's Calocount tracker when they clearly ask to save, add, track, or record a meal.
+description: Answer questions about recorded nutrition, estimate meal nutrition, log new meals, and edit saved meals when the user clearly asks.
 ---
 
 # Calocount meal tracking
 
-Use this skill to estimate meal nutrition and to log meals in Calocount. Use the `add_meals` MCP tool only when the user clearly asks to log a meal.
+Use this skill to estimate meal nutrition, log new meals, and edit saved meals in Calocount. Use `add_meals` only when the user clearly asks to log a new meal. Use `update_meal` only when the user clearly asks to change a saved meal.
 
 ## Answer nutrition questions
 
@@ -13,9 +13,27 @@ For questions about recorded food, nutrients, or trends, use the read tools. Do 
 
 - Use `get_nutrition_summary` for daily calories, macros, nutrient totals, and data coverage.
 - Use `get_nutrition_history` for the meals and food items behind those totals. It returns completed meals and paged item details.
+- History includes the meal's `request_id` when one exists, and the existing IDs for its food items. Use these IDs to identify a meal or item for an update. A meal with `request_id: null` cannot be edited with `update_meal`.
 - Give both tools an inclusive UTC date range. The range can include at most 366 days. For another history page, pass the returned `next_cursor` with the same dates and `page_size`.
 - Treat `null` as unknown. In a summary, `recordedAmount` is null when no item has a value. `knownItemCount` and `totalItemCount` show coverage; `complete` is true only when every item has a value. A recorded zero is different from null. Use `status` to tell an unlogged date from a logged date with zero totals.
 - `currentTargets.scope` is `current_settings_only`. These targets describe current settings, not past dates.
+
+## Edit a saved meal
+
+When the user clearly asks to correct or change a saved meal, use `get_nutrition_history` to find the right meal. If more than one meal matches, ask which one they mean. Copy the meal's existing `request_id` exactly. Do not create a new ID and do not call `add_meals` for an edit. If history returns `request_id: null`, this tool cannot edit that meal.
+
+Call `update_meal` with one argument object. Use a nonempty `patch` and include only the fields that the user wants to change. For example, replace the placeholder with the ID from history:
+
+```json
+{
+  "request_id": "<existing request_id from history>",
+  "patch": { "name": "Chicken rice, corrected" }
+}
+```
+
+The patch can change `name`, `eaten_at`, `kcal`, `protein`, `carbs`, `fat`, or nutrient values. Omitted meal values, photos, and the original `request_id` stay unchanged. Item patches keep the full item list and preserve other items. Meal macro changes can adjust stored item macros so their sum matches the new meal total. For a correction to a specific food item, use an item patch with its existing `id`. Do not combine meal macros and item macros in one patch. A meal-level nutrient patch is supported only for a meal with one item; use item patches for a meal with more than one item. A missing or wrong ID does not create a meal.
+
+If an edit includes `eaten_at`, use a real ISO-8601 datetime with a timezone. Do not change the same nutrient at both meal and item level in one patch. Confirm the saved result from the update response before you report success.
 
 ## Estimate nutrition
 
@@ -55,6 +73,8 @@ Words such as `log`, `save`, `add`, `track`, and `record` in the original meal r
 
 For an estimate-only request, an ambiguous request, or a photo by itself, do not call the tool. If intent is unclear, give the estimate and ask whether the user wants to log it. A later `yes`, `log it`, or `do it` is clear intent. Do not ask whether to log an estimate unless logging seems relevant.
 
+When the user clearly asks to change a saved meal, use `update_meal`. Do not log another meal for an edit. Find the correct meal and use its existing `request_id`.
+
 ## Call `add_meals`
 
 Show the estimate before the tool call. Then call `add_meals` with one argument object. Include a `meals` array. Add `photos` and `photo_meal_indices` only when ChatGPT provides file values for user photos that should be stored with these meals.
@@ -80,6 +100,7 @@ The batch write is all or nothing: all new rows are stored, or none are stored. 
 - For `batch_processed`, use `created_count` and `already_exists_count` to explain the result. Do not say a duplicate was created for an `already_exists` meal.
 - For a meal with a submitted photo, say that Calocount stored the photo only when that meal's result has `has_image: true`. If this field is false or missing, do not claim that the photo was stored. Explain that photo storage was not confirmed when this matters.
 - If the result includes `daily_totals`, report `daily_totals.kcal` and `daily_totals.protein` for the current logical day. Include the date when it helps. For a batch, describe each meal result, then report the daily total once.
+- For `update_meal`, say that Calocount updated the meal only when the result contains the updated meal. If the call fails or the result is unclear, say that the update failed or is uncertain. If you retry, use the same `request_id` and the same patch.
 - If the call fails or the result does not show whether the meal was stored, say that logging failed or is uncertain. Do not claim success. If you retry, use the same UUIDs and the same confirmed nutrition values.
 
 In the final reply, show the estimate before the logging result. Follow any confirmation that ChatGPT itself requires for a write action.

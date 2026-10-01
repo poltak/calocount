@@ -61,7 +61,7 @@ The owner dashboard waits for live API data and fails closed when local D1 or ow
 
 ## ChatGPT meal logging
 
-Use the private MCP app at `/mcp` for ChatGPT meal logging. It provides `add_meals`, `get_nutrition_summary`, and `get_nutrition_history`. See the [MCP setup guide](./docs/plugin/README.md).
+Use the private MCP app at `/mcp` for ChatGPT meal logging and updates. It provides `add_meals`, `update_meal`, `get_nutrition_summary`, and `get_nutrition_history`. Use `update_meal` to edit a completed meal with the same `request_id` returned by `get_nutrition_history`. See the [MCP setup guide](./docs/plugin/README.md).
 
 ### Deprecated Custom GPT Action
 

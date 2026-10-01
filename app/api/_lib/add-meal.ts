@@ -183,7 +183,7 @@ function isLeapYear(year: number): boolean {
   return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
 }
 
-function parseIsoDatetime(value: string): number {
+export function parseIsoDatetime(value: string): number {
   const match = ISO_DATETIME.exec(value);
   if (!match) invalidField("eaten_at", "must be a strict ISO-8601 datetime with a timezone");
 
@@ -310,10 +310,14 @@ function parseImageRef(body: Record<string, unknown>): OpenAIFileRef | undefined
   throw new AddMealRequestError(400, "invalid_image_refs", `openaiFileIdRefs contains no usable image. Reasons: ${[...reasons].join(", ")}.`);
 }
 
-export function parseAddMealRequest(body: Record<string, unknown>, now = Date.now()): AddMealRequest {
-  const requestIdValue = requiredString(body, "request_id");
+export function parseExternalMealRequestId(value: unknown): string {
+  const requestIdValue = requiredString({ request_id: value }, "request_id");
   if (!UUID.test(requestIdValue)) invalidField("request_id", "must be a valid UUID");
-  const requestId = requestIdValue.toLowerCase();
+  return requestIdValue.toLowerCase();
+}
+
+export function parseAddMealRequest(body: Record<string, unknown>, now = Date.now()): AddMealRequest {
+  const requestId = parseExternalMealRequestId(body.request_id);
   const name = requiredString(body, "name");
   if (name.length > MAX_NAME_LENGTH) invalidField("name", `must be at most ${MAX_NAME_LENGTH} characters`);
   if (!("eaten_at" in body)) {

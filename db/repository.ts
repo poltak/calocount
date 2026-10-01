@@ -423,6 +423,7 @@ export async function listMealsInRange({ db, ownerKey, from, to }: {
 }
 
 export type NutritionReadItem = {
+  id: string;
   name: string;
   quantity: number;
   unit: string;
@@ -437,6 +438,7 @@ export type NutritionReadItem = {
 export type NutritionHistoryMeal = {
   /** Internal key for the encrypted continuation cursor. Never return this field to a client. */
   id: string;
+  requestId: string | null;
   consumedAt: number;
   mealType: string | null;
   caloriesKcal: number;
@@ -506,6 +508,7 @@ export async function listNutritionHistoryPage({ db, ownerKey, from, to, limit, 
 
   const meals = await db.select({
     id: mealLogs.id,
+    requestId: mealLogs.externalRequestId,
     consumedAt: mealLogs.consumedAt,
     mealType: mealLogs.mealType,
     caloriesKcal: mealLogs.totalCalories,
@@ -542,6 +545,7 @@ export async function listNutritionHistoryPage({ db, ownerKey, from, to, limit, 
     meals: pageMeals.map((meal) => ({
       ...meal,
       items: (itemsByMeal.get(meal.id) ?? []).map((item) => ({
+        id: item.id,
         name: item.name,
         quantity: item.quantity,
         unit: item.unit,

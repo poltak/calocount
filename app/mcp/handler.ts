@@ -5,8 +5,8 @@ import {
   WebStandardStreamableHTTPServerTransport,
   type Tool,
 } from "@modelcontextprotocol/server";
-import { NUTRIENT_META } from "../../domain/nutrients";
-import type { NutritionHistoryPage, NutritionSummaryReport } from "../../db/repository";
+import { NUTRIENT_META, NUTRIENT_UPPER_LIMIT_META } from "../../domain/nutrients";
+import type { MealWithItems, NutritionHistoryPage, NutritionSummaryReport } from "../../db/repository";
 import {
   AddMealRequestError,
   normalizeExternalMealPhotoType,
@@ -21,19 +21,26 @@ import {
   parseNutritionSummaryInput,
   SOURCE_FORM_OUTPUT_KEYS,
 } from "./nutrition-read";
+import {
+  MealUpdateInputError,
+  mcpUpdatedMealPayload,
+  parseMcpMealUpdateInput,
+  type McpMealUpdateInput,
+} from "./meal-update";
 
 export const MCP_PROTOCOL_VERSION = "2025-11-25";
 
 const SUPPORTED_PROTOCOL_VERSIONS = [MCP_PROTOCOL_VERSION, "2025-03-26"];
 const MAX_BODY_BYTES = 1_000_000;
 const SECURITY_SCHEMES = [{ type: "oauth2", scopes: [] }] as const;
-const SERVER_INSTRUCTIONS = "Use get_nutrition_summary for totals and get_nutrition_history for items; dates are inclusive UTC. Estimate calories, protein, carbs, and fat before logging. Call add_meals only when the user clearly asks to log, save, add, track, or record a meal. Pass ChatGPT-supplied photo values unchanged in photos; use photo_meal_indices. Never invent file IDs or download URLs. Photos: JPEG, PNG, WebP, and HEIC. Use a new UUID per meal; reuse only for exact retries. Report a photo only if has_image is true.";
+const SERVER_INSTRUCTIONS = "Dates are inclusive UTC. Use get_nutrition_summary for totals and get_nutrition_history for request_id and item IDs. Estimate macros before logging. Call add_meals only when asked to log a meal; use a new UUID v4 per meal, reuse only for exact add retries. Call update_meal only when asked to edit; keep the saved request_id. Pass supplied photo values unchanged in photos with photo_meal_indices. Never invent file IDs or URLs. Photos: JPEG, PNG, WebP, HEIC. Report photos only when has_image is true.";
 type JsonObject = Record<string, unknown>;
 type McpIdentity = { ownerKey: string };
 
 export type McpHandlerDependencies = {
   authorize: (request: Request) => Promise<McpIdentity>;
   addMeals: (ownerKey: string, body: JsonObject) => Promise<Response>;
+  updateMeal: (ownerKey: string, input: McpMealUpdateInput) => Promise<MealWithItems | null>;
   getNutritionHistory: (ownerKey: string, input: Awaited<ReturnType<typeof parseNutritionHistoryInput>>) => Promise<NutritionHistoryPage>;
   getNutritionSummary: (ownerKey: string, input: ReturnType<typeof parseNutritionSummaryInput>) => Promise<NutritionSummaryReport>;
 };
@@ -204,6 +211,7 @@ const GET_NUTRITION_HISTORY_TOOL = {
           properties: {
             date: { type: "string", format: "date" },
             eaten_at: { type: "string", format: "date-time" },
+            request_id: { type: ["string", "null"], format: "uuid" },
             meal_type: { type: ["string", "null"] },
             totals: dailyMacroSchema,
             items: {
@@ -211,6 +219,7 @@ const GET_NUTRITION_HISTORY_TOOL = {
               items: {
                 type: "object",
                 properties: {
+                  id: { type: "string" },
                   name: { type: "string" },
                   quantity: { type: "number" },
                   unit: { type: "string" },
@@ -226,12 +235,12 @@ const GET_NUTRITION_HISTORY_TOOL = {
                     additionalProperties: false,
                   },
                 },
-                required: ["name", "quantity", "unit", "caloriesKcal", "proteinG", "carbsG", "fatG", "nutrients", "sourceFormAmounts"],
+                required: ["id", "name", "quantity", "unit", "caloriesKcal", "proteinG", "carbsG", "fatG", "nutrients", "sourceFormAmounts"],
                 additionalProperties: false,
               },
             },
           },
-          required: ["date", "eaten_at", "meal_type", "totals", "items"],
+          required: ["date", "eaten_at", "request_id", "meal_type", "totals", "items"],
           additionalProperties: false,
         },
       },
@@ -331,6 +340,135 @@ const GET_NUTRITION_SUMMARY_TOOL = {
   securitySchemes: SECURITY_SCHEMES,
   _meta: { securitySchemes: SECURITY_SCHEMES },
   annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false, idempotentHint: true },
+} as const;
+
+const updateNutrientProperties = Object.fromEntries(
+  [...NUTRIENT_META, ...NUTRIENT_UPPER_LIMIT_META].map((nutrient) => [
+    nutrient.key,
+    {
+      type: ["number", "null"],
+      minimum: 0,
+      maximum: nutrient.maximum,
+      description: nutrient.label + " in " + nutrient.unit + ". Use null when the value is unknown.",
+    },
+  ]),
+);
+
+const UPDATE_MEAL_TOOL = {
+  name: "update_meal",
+  title: "Edit a saved Calocount meal",
+  description: "Correct a completed meal by its existing request_id. Use item IDs from get_nutrition_history for item-level corrections. This does not create a meal or change its request_id.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      request_id: {
+        type: "string",
+        format: "uuid",
+        description: "The original UUID request_id of the saved meal. Get it from get_nutrition_history; do not generate a new ID.",
+      },
+      patch: {
+        type: "object",
+        properties: {
+          name: { type: "string", minLength: 1, maxLength: 200, description: "New meal name." },
+          eaten_at: { type: "string", format: "date-time", description: "New meal time as a valid ISO-8601 date and time with a timezone." },
+          kcal: { type: "number", minimum: 0, maximum: 100_000, description: "New meal calorie total." },
+          protein: { type: "number", minimum: 0, maximum: 10_000, description: "New meal protein total in grams." },
+          carbs: { type: "number", minimum: 0, maximum: 10_000, description: "New meal carbohydrate total in grams." },
+          fat: { type: "number", minimum: 0, maximum: 10_000, description: "New meal fat total in grams." },
+          nutrients: {
+            type: "object",
+            properties: updateNutrientProperties,
+            minProperties: 1,
+            additionalProperties: false,
+            description: "Partial nutrient correction for a single-item meal. Omit unchanged fields or use null when unknown.",
+          },
+          items: {
+            type: "array",
+            minItems: 1,
+            maxItems: 100,
+            description: "Partial corrections for existing items only. Each item needs its existing id and at least one field to change.",
+            items: {
+              type: "object",
+              properties: {
+                id: { type: "string", minLength: 1, maxLength: 120, description: "Existing item ID from get_nutrition_history." },
+                name: { type: "string", minLength: 1, maxLength: 200 },
+                kcal: { type: "number", minimum: 0, maximum: 100_000 },
+                protein: { type: "number", minimum: 0, maximum: 10_000 },
+                carbs: { type: "number", minimum: 0, maximum: 10_000 },
+                fat: { type: "number", minimum: 0, maximum: 10_000 },
+                nutrients: {
+                  type: "object",
+                  properties: updateNutrientProperties,
+                  minProperties: 1,
+                  additionalProperties: false,
+                },
+              },
+              required: ["id"],
+              minProperties: 2,
+              additionalProperties: false,
+            },
+          },
+        },
+        minProperties: 1,
+        additionalProperties: false,
+      },
+    },
+    required: ["request_id", "patch"],
+    additionalProperties: false,
+  },
+  outputSchema: {
+    type: "object",
+    oneOf: [{
+      type: "object",
+      properties: {
+        status: { type: "string", const: "updated" },
+        meal_id: { type: "string" },
+        request_id: { type: "string", format: "uuid" },
+        name: { type: "string" },
+        kcal: { type: "number" },
+        protein: { type: "number" },
+        carbs: { type: "number" },
+        fat: { type: "number" },
+        eaten_at: { type: "string", format: "date-time" },
+        has_image: { type: "boolean" },
+        items: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              id: { type: "string" },
+              name: { type: "string" },
+              quantity: { type: "number" },
+              unit: { type: "string" },
+              kcal: { type: "number" },
+              protein: { type: "number" },
+              carbs: { type: "number" },
+              fat: { type: "number" },
+              nutrients: nutrientValueOutputSchema,
+              sourceFormAmounts: {
+                type: "object",
+                properties: Object.fromEntries(SOURCE_FORM_OUTPUT_KEYS.map((key) => [key, nullableNumberSchema])),
+                required: [...SOURCE_FORM_OUTPUT_KEYS],
+                additionalProperties: false,
+              },
+            },
+            required: ["id", "name", "quantity", "unit", "kcal", "protein", "carbs", "fat", "nutrients", "sourceFormAmounts"],
+            additionalProperties: false,
+          },
+        },
+      },
+      required: ["status", "meal_id", "request_id", "name", "kcal", "protein", "carbs", "fat", "eaten_at", "has_image", "items"],
+      additionalProperties: false,
+    }, toolErrorOutput],
+  },
+  securitySchemes: SECURITY_SCHEMES,
+  _meta: { securitySchemes: SECURITY_SCHEMES },
+  annotations: {
+    readOnlyHint: false,
+    destructiveHint: true,
+    openWorldHint: false,
+    idempotentHint: false,
+  },
 } as const;
 
 const READ_TOOL_NAMES = new Set<string>([GET_NUTRITION_HISTORY_TOOL.name, GET_NUTRITION_SUMMARY_TOOL.name]);
@@ -458,6 +596,9 @@ function safeHttpError(error: unknown): Response {
 }
 
 function safeToolError(error: unknown): { code: string; message: string } {
+  if (error instanceof MealUpdateInputError) {
+    return { code: error.code, message: error.message };
+  }
   if (error instanceof AddMealRequestError) {
     return { code: error.code, message: error.message };
   }
@@ -649,6 +790,27 @@ async function createToolCall(ownerKey: string, arguments_: JsonObject, dependen
   }
 }
 
+async function createMealUpdateToolCall({ ownerKey, arguments_, dependencies }: {
+  ownerKey: string;
+  arguments_: JsonObject;
+  dependencies: McpHandlerDependencies;
+}) {
+  try {
+    const input = parseMcpMealUpdateInput(arguments_);
+    const meal = await dependencies.updateMeal(ownerKey, input);
+    if (!meal) return toolErrorResult("not_found", "A completed meal with this request_id was not found.");
+    const payload = mcpUpdatedMealPayload(meal, input.requestId);
+    return {
+      content: [{ type: "text" as const, text: "Updated the saved meal. See the structured data for its current values." }],
+      structuredContent: payload,
+      isError: false,
+    };
+  } catch (error) {
+    const safe = safeToolError(error);
+    return toolErrorResult(safe.code, safe.message);
+  }
+}
+
 function safeNutritionReadError(error: unknown): { code: string; message: string } {
   if (error instanceof NutritionReadInputError) return { code: error.code, message: error.message };
   return { code: "nutrition_read_failed", message: "Calocount could not read the requested nutrition data." };
@@ -665,6 +827,7 @@ async function createNutritionHistoryToolCall(ownerKey: string, arguments_: Json
     const meals = page.meals.map((meal) => ({
       date: new Date(meal.consumedAt).toISOString().slice(0, 10),
       eaten_at: new Date(meal.consumedAt).toISOString(),
+      request_id: meal.requestId,
       meal_type: meal.mealType,
       totals: {
         caloriesKcal: meal.caloriesKcal,
@@ -673,6 +836,7 @@ async function createNutritionHistoryToolCall(ownerKey: string, arguments_: Json
         fatG: meal.fatG,
       },
       items: meal.items.map((item) => ({
+        id: item.id,
         name: item.name,
         quantity: item.quantity,
         unit: item.unit,
@@ -773,7 +937,11 @@ async function addOpenAISecuritySchemes(response: Response): Promise<Response> {
   if (!isObject(payload) || !isObject(payload.result) || !Array.isArray(payload.result.tools)) return response;
 
   const tools = payload.result.tools.map((tool) => {
-    if (!isObject(tool) || (tool.name !== ADD_MEALS_TOOL.name && !READ_TOOL_NAMES.has(String(tool.name)))) return tool;
+    if (!isObject(tool) || (
+      tool.name !== ADD_MEALS_TOOL.name
+      && tool.name !== UPDATE_MEAL_TOOL.name
+      && !READ_TOOL_NAMES.has(String(tool.name))
+    )) return tool;
     return { ...tool, securitySchemes: SECURITY_SCHEMES };
   });
   const headers = new Headers(response.headers);
@@ -802,12 +970,14 @@ function createServer(ownerKey: string, dependencies: McpHandlerDependencies): S
       ADD_MEALS_TOOL as unknown as Tool,
       GET_NUTRITION_HISTORY_TOOL as unknown as Tool,
       GET_NUTRITION_SUMMARY_TOOL as unknown as Tool,
+      UPDATE_MEAL_TOOL as unknown as Tool,
     ],
   }));
   server.setRequestHandler("tools/call", async (request) => {
     if (request.params.name !== ADD_MEALS_TOOL.name
       && request.params.name !== GET_NUTRITION_HISTORY_TOOL.name
-      && request.params.name !== GET_NUTRITION_SUMMARY_TOOL.name) {
+      && request.params.name !== GET_NUTRITION_SUMMARY_TOOL.name
+      && request.params.name !== UPDATE_MEAL_TOOL.name) {
       throw new ProtocolError(INVALID_PARAMS, `Unknown tool: ${request.params.name}`);
     }
     if (!isObject(request.params.arguments)) {
@@ -818,6 +988,9 @@ function createServer(ownerKey: string, dependencies: McpHandlerDependencies): S
     }
     if (request.params.name === GET_NUTRITION_SUMMARY_TOOL.name) {
       return createNutritionSummaryToolCall(ownerKey, request.params.arguments, dependencies);
+    }
+    if (request.params.name === UPDATE_MEAL_TOOL.name) {
+      return createMealUpdateToolCall({ ownerKey, arguments_: request.params.arguments, dependencies });
     }
     return createToolCall(ownerKey, request.params.arguments, dependencies);
   });

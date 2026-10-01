@@ -4,6 +4,7 @@ import { handleAuthorizedAddMealRequest } from "../api/_lib/add-meal";
 import { createAddMealRuntimeOptions } from "../api/_lib/add-meal-runtime";
 import { requireApiIdentity } from "../api/_lib/http";
 import { createMcpHandler } from "./handler";
+import { updateMcpMealByRequestId } from "./meal-update";
 
 const handler = createMcpHandler({
   authorize: (request) => requireApiIdentity(request, {
@@ -14,6 +15,11 @@ const handler = createMcpHandler({
     body,
     createAddMealRuntimeOptions(),
   ),
+  updateMeal: (ownerKey, input) => updateMcpMealByRequestId({
+    db: getDb(),
+    ownerKey,
+    input,
+  }),
   getNutritionHistory: (ownerKey, input) => listNutritionHistoryPage({
     db: getDb(),
     ownerKey,

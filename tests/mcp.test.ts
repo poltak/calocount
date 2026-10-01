@@ -135,6 +135,7 @@ function handler(overrides: Partial<McpHandlerDependencies> = {}) {
   return createMcpHandler({
     authorize: async () => OWNER,
     addMeals: async () => new Response("{}", { status: 201 }),
+    updateMeal: async () => null,
     getNutritionHistory: async () => ({ meals: [], hasMore: false }),
     getNutritionSummary: async (_ownerKey, input) => ({
       startDate: input.startDate,
@@ -181,13 +182,14 @@ test("initializes and lists the meal write tool and both nutrition read tools wi
     serverInfo: { name: "calocount", version: "0.1.0" },
   });
   assert.ok(instructions.length <= 512);
-  assert.match(instructions, /Estimate calories, protein, carbs, and fat before logging/u);
-  assert.match(instructions, /only when the user clearly asks to log/u);
-  assert.match(instructions, /save.*add.*track.*record/u);
-  assert.match(instructions, /ChatGPT-supplied photo values unchanged.*photo_meal_indices/u);
-  assert.match(instructions, /Never invent file IDs or download URLs/u);
+  assert.match(instructions, /Estimate macros before logging/u);
+  assert.match(instructions, /add_meals only when asked to log a meal/u);
+  assert.match(instructions, /get_nutrition_history for request_id and item IDs/u);
+  assert.match(instructions, /update_meal only when asked to edit; keep the saved request_id/u);
+  assert.match(instructions, /photo values unchanged.*photo_meal_indices/u);
+  assert.match(instructions, /Never invent file IDs or URLs/u);
   assert.match(instructions, /JPEG.*PNG.*WebP.*HEIC/u);
-  assert.match(instructions, /new UUID per meal.*reuse only for exact retries/u);
+  assert.match(instructions, /new UUID v4 per meal.*reuse only for exact add retries/u);
   assert.match(instructions, /has_image is true/u);
 
   const list = await route.POST(request({ jsonrpc: "2.0", id: 2, method: "tools/list" }));
@@ -198,8 +200,9 @@ test("initializes and lists the meal write tool and both nutrition read tools wi
     "add_meals",
     "get_nutrition_history",
     "get_nutrition_summary",
+    "update_meal",
   ]);
-  assert.equal(listPayload.result.tools.length, 3);
+  assert.equal(listPayload.result.tools.length, 4);
   const [tool] = listPayload.result.tools;
   assert.equal(tool?.name, "add_meals");
   assert.match(tool?.description as string, /generate a UUID v4 request_id.*code tool when available/u);
@@ -219,7 +222,7 @@ test("initializes and lists the meal write tool and both nutrition read tools wi
     openWorldHint: false,
     idempotentHint: true,
   });
-  for (const readTool of listPayload.result.tools.slice(1)) {
+  for (const readTool of listPayload.result.tools.slice(1, 3)) {
     assert.deepEqual(readTool?.securitySchemes, [{ type: "oauth2", scopes: [] }]);
     assert.deepEqual(readTool?.annotations, {
       readOnlyHint: true,
@@ -237,6 +240,23 @@ test("initializes and lists the meal write tool and both nutrition read tools wi
   assert.equal(historySchema.properties.page_size.maximum, 100);
   assert.deepEqual(historySchema.required, ["start_date", "end_date"]);
   assert.equal(historySchema.additionalProperties, false);
+  const updateTool = listPayload.result.tools[3];
+  assert.equal(updateTool?.name, "update_meal");
+  assert.deepEqual(updateTool?.annotations, {
+    readOnlyHint: false,
+    destructiveHint: true,
+    openWorldHint: false,
+    idempotentHint: false,
+  });
+  assert.deepEqual(updateTool?.securitySchemes, [{ type: "oauth2", scopes: [] }]);
+  const updateSchema = updateTool?.inputSchema as {
+    properties: { request_id: unknown; patch: { minProperties: number; additionalProperties: boolean } };
+    required: string[];
+    additionalProperties: boolean;
+  };
+  assert.deepEqual(updateSchema.required, ["request_id", "patch"]);
+  assert.equal(updateSchema.properties.patch.minProperties, 1);
+  assert.equal(updateSchema.properties.patch.additionalProperties, false);
   const inputSchema = tool?.inputSchema as {
     properties: {
       meals: { minItems: number; maxItems: number };

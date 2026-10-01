@@ -25,6 +25,7 @@ function routeFor(fixture: ReturnType<typeof createSqliteTestDb>, ownerKey = OWN
   return createMcpHandler({
     authorize: async () => ({ ownerKey }),
     addMeals: async () => Response.json({}),
+    updateMeal: async () => null,
     getNutritionHistory: (_ownerKey, input) => listNutritionHistoryPage({
       db: fixture.db,
       ownerKey: _ownerKey,
@@ -123,6 +124,8 @@ test("history is owner-scoped, paged in stable tie order, and returns safe compl
   const fixture = createSqliteTestDb();
   const tiedTime = "2026-09-02T08:00:00.000Z";
   insertMeal(fixture, { id: "meal-z-private", eatenAt: tiedTime, mealType: "breakfast", calories: 400, protein: 20, carbs: 30, fat: 10 });
+  fixture.sqlite.prepare("UPDATE meal_logs SET external_request_id = ? WHERE id = ?")
+    .run("f23434d2-c92a-4ef4-97d2-608786b1f410", "meal-z-private");
   insertMeal(fixture, { id: "meal-y-private", eatenAt: tiedTime, mealType: "lunch", calories: 300 });
   insertMeal(fixture, { id: "meal-a-private", eatenAt: "2026-09-01T10:00:00.000Z", calories: 200 });
   insertMeal(fixture, { id: "meal-pending-private", eatenAt: "2026-09-03T10:00:00.000Z", status: "pending" });
@@ -160,16 +163,20 @@ test("history is owner-scoped, paged in stable tie order, and returns safe compl
   assert.equal(typeof firstData.next_cursor, "string");
   const firstMeal = firstData.meals[0] as {
     eaten_at: string;
+    request_id: string | null;
     meal_type: string;
     items: Array<Record<string, unknown>>;
   };
   assert.equal(firstMeal.eaten_at, tiedTime);
+  assert.equal(firstMeal.request_id, "f23434d2-c92a-4ef4-97d2-608786b1f410");
   assert.equal(firstMeal.meal_type, "breakfast");
-  assert.deepEqual(Object.keys(firstData.meals[0] ?? {}).sort(), ["date", "eaten_at", "items", "meal_type", "totals"]);
+  assert.deepEqual(Object.keys(firstData.meals[0] ?? {}).sort(), ["date", "eaten_at", "items", "meal_type", "request_id", "totals"]);
   const firstItem = firstMeal.items[0] as {
+    id: string;
     nutrients: Record<string, number | null>;
     sourceFormAmounts: Record<string, number | null>;
   };
+  assert.equal(firstItem.id, "item-private-id");
   assert.equal(firstItem.nutrients.magnesiumMg, 0);
   assert.equal(firstItem.nutrients.fiberG, 3);
   assert.equal(firstItem.nutrients.zincMg, null);
@@ -178,7 +185,7 @@ test("history is owner-scoped, paged in stable tie order, and returns safe compl
   assert.equal(firstItem.sourceFormAmounts.folicAcidMcg, null);
   assert.deepEqual(Object.keys(firstItem.sourceFormAmounts).sort(), [...NUTRIENT_UPPER_LIMIT_KEYS].sort());
   const firstJson = JSON.stringify(firstData);
-  for (const secret of ["meal-z-private", "item-private-id", "owner-a", "private caption", "private note", "private/photo-key", "private-source", "confidence", "nutrientProvenanceJson"]) {
+  for (const secret of ["meal-z-private", "owner-a", "private caption", "private note", "private/photo-key", "private-source", "confidence", "nutrientProvenanceJson"]) {
     assert.equal(firstJson.includes(secret), false);
   }
 
