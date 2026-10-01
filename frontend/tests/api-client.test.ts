@@ -41,9 +41,9 @@ describe("typed API client", () => {
     await endpoint.pause.$post({ param: { encounterId: "enc-1" } });
     await endpoint.stop.$post({ param: { encounterId: "enc-1" } });
     expect(fetch.mock.calls.map(([input]) => String(input))).toEqual([
-      "https://api.example.test/encounters/enc-1/start",
-      "https://api.example.test/encounters/enc-1/pause",
-      "https://api.example.test/encounters/enc-1/stop",
+      "https://api.example.test/api/encounters/enc-1/start",
+      "https://api.example.test/api/encounters/enc-1/pause",
+      "https://api.example.test/api/encounters/enc-1/stop",
     ]);
     expect(fetch.mock.calls.map(([, init]) => init?.method)).toEqual([
       "POST",
@@ -82,7 +82,7 @@ describe("typed API client", () => {
         baseUrl: "http://shadow.test",
         fetch,
       });
-      expect((await api.api.me.$get()).status).toBe(401);
+      expect((await api.me.$get()).status).toBe(401);
       const start = vi
         .spyOn(backend.app.logic.encounterLifecycle, "start")
         .mockResolvedValue(undefined);

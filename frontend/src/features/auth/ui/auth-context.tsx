@@ -19,7 +19,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       storage: {},
       services: {},
-      api: { api: app.api.api },
+      api: { me: app.api.me },
       auth: app.auth,
       apiAccessEvents: app.apiAccessEvents,
     }),

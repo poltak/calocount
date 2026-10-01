@@ -82,7 +82,7 @@ describe("single-user setup", () => {
     assert.equal((await browser("http://shadow.test/api/me")).status, 403);
     assert.equal(
       (
-        await browser("http://shadow.test/encounters/enc-1/start", {
+        await browser("http://shadow.test/api/encounters/enc-1/start", {
           method: "POST",
         })
       ).status,

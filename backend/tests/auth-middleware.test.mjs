@@ -26,9 +26,9 @@ describe("authentication middleware", () => {
     );
     const browser = backend.createBrowserTransport();
     for (const path of [
-      "/encounters/enc-1/start",
+      "/api/encounters/enc-1/start",
       "/api/me",
-      "/unknown-business-route",
+      "/api/unknown-business-route",
     ]) {
       const response = await browser(`http://shadow.test${path}`, {
         method: path.includes("start") ? "POST" : "GET",
@@ -50,7 +50,7 @@ describe("authentication middleware", () => {
     assert.equal((await signIn(browser)).status, 200);
     assert.equal(
       (
-        await browser("http://shadow.test/encounters/enc-1/start", {
+        await browser("http://shadow.test/api/encounters/enc-1/start", {
           method: "POST",
         })
       ).status,
@@ -61,10 +61,13 @@ describe("authentication middleware", () => {
     assert.deepEqual(await me.json(), {
       user: { id: owner.id, email: owner.email, name: owner.name },
     });
-    const csrf = await browser("http://shadow.test/encounters/enc-1/start", {
-      method: "POST",
-      headers: { origin: "https://other.example" },
-    });
+    const csrf = await browser(
+      "http://shadow.test/api/encounters/enc-1/start",
+      {
+        method: "POST",
+        headers: { origin: "https://other.example" },
+      },
+    );
     assert.equal(csrf.status, 403);
     assert.equal(start.mock.callCount(), 1);
 
@@ -102,7 +105,7 @@ describe("authentication middleware", () => {
     const backend = await createTestBackend();
     context.after(() => backend.close());
     const preflight = await backend.fetch(
-      "http://shadow.test/encounters/enc-1/start",
+      "http://shadow.test/api/encounters/enc-1/start",
       {
         method: "OPTIONS",
         headers: {

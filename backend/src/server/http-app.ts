@@ -13,11 +13,14 @@ interface HttpAppProps {
   app: Pick<App, "logic" | "services">;
 }
 
-/** Every business route, including future routes, shares the authentication gate. */
+/**
+ * Every business route, including future routes, shares the authentication
+ * gate. Paths are relative to the `/api` mount point.
+ */
 export function createBusinessHttpApp({ app }: HttpAppProps) {
   return new Hono<AuthEnvironment>()
     .use("*", requireSession({ services: app.services, logic: app.logic }))
-    .get("/api/me", (context) => {
+    .get("/me", (context) => {
       const { id, email, name } = context.get("auth").user;
       return context.json({ user: { id, email, name } });
     })
@@ -38,7 +41,7 @@ export function createHttpApp({ app }: HttpAppProps) {
       }),
     )
     .all("/api/auth/*", (context) => app.services.auth.handle(context.req.raw))
-    .route("/", createBusinessHttpApp({ app }))
+    .route("/api", createBusinessHttpApp({ app }))
     .onError(handleError)
     .notFound(handleNotFound);
 }

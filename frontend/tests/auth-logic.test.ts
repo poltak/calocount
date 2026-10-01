@@ -8,7 +8,7 @@ function createLogic(fetch: typeof globalThis.fetch) {
   return new AuthLogic({
     storage: {},
     services: {},
-    api: { api: app.api.api },
+    api: { me: app.api.me },
     auth: app.auth,
     apiAccessEvents: app.apiAccessEvents,
   });

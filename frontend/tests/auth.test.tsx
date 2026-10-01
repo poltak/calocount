@@ -71,10 +71,10 @@ describe("authentication UI with the real backend", () => {
       enterCredentials(fixture.credentials);
       await screen.findByRole("button", { name: "Start" });
       expect(screen.getByText("enc-42")).toBeTruthy();
-      expect((await fixture.frontend.api.api.me.$get()).status).toBe(200);
+      expect((await fixture.frontend.api.me.$get()).status).toBe(200);
       fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
       await screen.findByRole("heading", { name: "Sign in to Shadow" });
-      expect((await fixture.frontend.api.api.me.$get()).status).toBe(401);
+      expect((await fixture.frontend.api.me.$get()).status).toBe(401);
       expect(network).not.toHaveBeenCalled();
       view.unmount();
     } finally {
@@ -128,7 +128,7 @@ describe("authentication UI with the real backend", () => {
         ),
       );
       expect(screen.queryByRole("button", { name: "Start" })).toBeNull();
-      expect((await fixture.frontend.api.api.me.$get()).status).toBe(403);
+      expect((await fixture.frontend.api.me.$get()).status).toBe(403);
     } finally {
       cleanup();
       await Promise.resolve();

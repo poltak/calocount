@@ -7,7 +7,10 @@ export interface ApiClientProps {
   onSessionRejected?: () => void;
 }
 
-/** First-party client; its endpoint and request types come from Hono routes. */
+/**
+ * First-party client for routes under `/api`. Its endpoint and request types
+ * come from the Hono routes.
+ */
 export function createApiClient({
   baseUrl = "",
   fetch,
@@ -19,7 +22,7 @@ export function createApiClient({
     if (response.status === 401) onSessionRejected?.();
     return response;
   };
-  return hc<ApiType>(baseUrl.replace(/\/+$/, ""), {
+  return hc<ApiType>(`${baseUrl.replace(/\/+$/, "")}/api`, {
     init: { credentials: "include" },
     fetch: authenticatedFetch,
   });

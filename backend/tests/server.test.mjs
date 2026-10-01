@@ -47,9 +47,12 @@ it(
     });
 
     for (const operation of ["start", "pause", "stop"]) {
-      const response = await fetch(`${address}/encounters/enc-1/${operation}`, {
-        method: "POST",
-      });
+      const response = await fetch(
+        `${address}/api/encounters/enc-1/${operation}`,
+        {
+          method: "POST",
+        },
+      );
       assert.equal(response.status, 401);
       assert.equal((await response.json()).error.code, "UNAUTHENTICATED");
     }

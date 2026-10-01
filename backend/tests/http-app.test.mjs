@@ -31,12 +31,18 @@ describe("encounter lifecycle HTTP handlers", () => {
         },
       );
 
-      const first = await httpApp.request(`/encounters/enc-1/${operation}`, {
-        method: "POST",
-      });
-      const second = await httpApp.request(`/encounters/enc-2/${operation}`, {
-        method: "POST",
-      });
+      const first = await httpApp.request(
+        `/api/encounters/enc-1/${operation}`,
+        {
+          method: "POST",
+        },
+      );
+      const second = await httpApp.request(
+        `/api/encounters/enc-2/${operation}`,
+        {
+          method: "POST",
+        },
+      );
 
       assert.equal(first.status, 204);
       assert.equal(second.status, 204);
@@ -49,9 +55,12 @@ describe("encounter lifecycle HTTP handlers", () => {
 
     it(`${operation} returns 501 while Logic is a stub`, async (context) => {
       const { app, httpApp } = createFixture(context);
-      const response = await httpApp.request(`/encounters/enc-1/${operation}`, {
-        method: "POST",
-      });
+      const response = await httpApp.request(
+        `/api/encounters/enc-1/${operation}`,
+        {
+          method: "POST",
+        },
+      );
 
       assert.equal(response.status, 501);
       assert.deepEqual(await response.json(), {
@@ -71,9 +80,12 @@ describe("encounter lifecycle HTTP handlers", () => {
         async () => {},
       );
 
-      const response = await httpApp.request(`/encounters/%20/${operation}`, {
-        method: "POST",
-      });
+      const response = await httpApp.request(
+        `/api/encounters/%20/${operation}`,
+        {
+          method: "POST",
+        },
+      );
 
       assert.equal(response.status, 400);
       assert.equal(method.mock.callCount(), 0);
@@ -82,10 +94,10 @@ describe("encounter lifecycle HTTP handlers", () => {
 
   it("leaves unknown routes and unsupported methods unhandled", async (context) => {
     const { httpApp } = createFixture(context);
-    const unknown = await httpApp.request("/encounters/enc-1/resume", {
+    const unknown = await httpApp.request("/api/encounters/enc-1/resume", {
       method: "POST",
     });
-    const wrongMethod = await httpApp.request("/encounters/enc-1/start");
+    const wrongMethod = await httpApp.request("/api/encounters/enc-1/start");
 
     assert.equal(unknown.status, 404);
     assert.equal(wrongMethod.status, 404);

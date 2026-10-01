@@ -18,7 +18,7 @@ describe("in-memory backend transport", () => {
     assert.equal(initialize.mock.callCount(), 0);
 
     const response = await backend.fetch(
-      "http://shadow.test/encounters/enc-1/start",
+      "http://shadow.test/api/encounters/enc-1/start",
       { method: "POST" },
     );
     assert.equal(response.status, 401);
@@ -36,7 +36,7 @@ describe("in-memory backend transport", () => {
     );
     const reason = new Error("Cancelled by test");
     await assert.rejects(
-      backend.fetch("http://shadow.test/encounters/enc-1/start", {
+      backend.fetch("http://shadow.test/api/encounters/enc-1/start", {
         method: "POST",
         signal: AbortSignal.abort(reason),
       }),

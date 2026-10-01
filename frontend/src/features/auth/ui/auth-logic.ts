@@ -4,9 +4,9 @@ import { ApiRequestError, requireApiSuccess } from "../../../api/client.js";
 import type { App } from "../../../index.js";
 import type { FrontendLogicProps } from "../../../logic/types.js";
 
-type AuthProps = FrontendLogicProps<never, never, "api"> &
+type AuthProps = FrontendLogicProps<never, never, "me"> &
   Pick<App, "auth" | "apiAccessEvents">;
-type User = InferResponseType<App["api"]["api"]["me"]["$get"], 200>["user"];
+type User = InferResponseType<App["api"]["me"]["$get"], 200>["user"];
 interface AuthState {
   status: "loading" | "signedOut" | "signedIn" | "error";
   user: User | null;
@@ -107,7 +107,7 @@ export class AuthLogic extends Logic<AuthProps, AuthState> {
   private async loadSession(): Promise<void> {
     const version = ++this.requestVersion;
     try {
-      const response = await this.deps.api.api.me.$get();
+      const response = await this.deps.api.me.$get();
       await requireApiSuccess(response);
       if (response.status !== 200)
         throw new Error("Unexpected session response");
