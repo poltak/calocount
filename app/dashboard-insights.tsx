@@ -138,7 +138,7 @@ export function NutrientConsistencyMatrix({ days, goals }: { days: TrendDatum[];
       <div><p className="eyebrow">Seven-day pattern</p><h2 id="consistency-title">Nutrient consistency</h2></div>
       <span className="panel-meta">target progress</span>
     </div>
-    <div className="matrix-legend" aria-hidden="true"><span><i className="matrix-key low" /> Low</span><span><i className="matrix-key met" /> Goal met</span><span><i className="matrix-key partial" /> Partial data</span></div>
+    <div className="matrix-legend" aria-hidden="true"><span><i className="matrix-key low" /> Below goal</span><span><i className="matrix-key met" /> On target</span><span><i className="matrix-key over" /> Over limit</span><span><i className="matrix-key partial" /> Partial data</span></div>
     <div className="consistency-scroll">
       <div className="consistency-matrix" style={{ "--matrix-columns": visible.length } as CSSProperties}>
         <div />{visible.map((day) => <strong className="matrix-date" key={day.date}>{day.label.replace(" ", "\n")}</strong>)}

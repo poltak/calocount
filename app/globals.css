@@ -1723,44 +1723,53 @@ summary:focus-visible {
 
 .compact-select select {
   min-height: 30px;
-  padding: 5px 25px 5px 9px;
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  background: var(--button-secondary-background);
+  padding: 5px 25px 5px 10px;
+  border: 1px solid var(--button-secondary-border);
+  border-radius: var(--radius-control);
+  background-color: var(--button-secondary-background);
   color: var(--muted-strong);
   font: inherit;
+  cursor: pointer;
+  transition: border-color 150ms ease, background-color 150ms ease;
 }
 
 .contribution-list { display: grid; gap: 12px; margin-top: 18px; }
 .contribution-row { display: grid; grid-template-columns: minmax(110px, 1.1fr) minmax(100px, 2fr) 72px; align-items: center; gap: 10px; }
 .contribution-label { display: grid; min-width: 0; }
-.contribution-label strong { overflow: hidden; color: var(--foreground); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
-.contribution-label span { color: var(--muted); font-size: 9px; }
-.contribution-bar { height: 11px; overflow: hidden; border-radius: 3px; background: var(--chart-base); }
-.contribution-bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--chart-calorie-start), var(--chart-calorie-end)); }
-.contribution-value { color: var(--muted-strong); font-size: 10px; font-weight: 650; text-align: right; }
+.contribution-label strong { overflow: hidden; color: var(--foreground); font-size: 12px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.contribution-label span { color: var(--muted); font-size: 10px; }
+.contribution-bar { height: 8px; overflow: hidden; border-radius: 99px; background: var(--chart-base); }
+.contribution-bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--chart-calorie-start), var(--chart-calorie-end)); transition: width 400ms var(--ease-out); }
+.contribution-value { color: var(--muted-strong); font-size: 11px; font-variant-numeric: tabular-nums; font-weight: 650; text-align: right; }
 .compact-empty { min-height: 150px; }
 
-.matrix-legend { display: flex; flex-wrap: wrap; gap: 14px; margin: 15px 0 10px; color: var(--muted); font-size: 9px; }
+.matrix-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 15px 0 10px; color: var(--muted); font-size: 10px; }
 .matrix-legend span { display: flex; align-items: center; gap: 5px; }
-.matrix-key { width: 11px; height: 11px; border-radius: 3px; background: var(--chart-base); }
-.matrix-key.low { background: color-mix(in srgb, var(--chart-orange) 38%, var(--chart-base)); }
+.matrix-key { width: 10px; height: 10px; border-radius: 3px; background: var(--chart-base); }
+.matrix-key.low { background: var(--chart-blue); }
 .matrix-key.met { background: var(--chart-green); }
+.matrix-key.over { background: var(--chart-orange); }
 .matrix-key.partial { background: repeating-linear-gradient(135deg, var(--chart-green) 0 3px, var(--chart-base) 3px 6px); }
 .consistency-panel { overflow: hidden; }
 .consistency-scroll { width: 100%; min-width: 0; max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; }
 .consistency-matrix { display: grid; grid-template-columns: minmax(105px, 1.2fr) repeat(var(--matrix-columns), minmax(42px, 1fr)); gap: 5px; min-width: 480px; }
 .matrix-row { display: contents; }
 .matrix-date { color: var(--chart-axis-strong); font-size: 9px; font-weight: 650; text-align: center; white-space: pre-line; }
+.matrix-date.is-selected { color: var(--foreground); }
 .matrix-label { display: grid; align-content: center; min-height: 39px; }
-.matrix-label strong { color: var(--foreground); font-size: 10px; }
-.matrix-label span { color: var(--muted); font-size: 8px; }
-.matrix-cell { position: relative; min-height: 39px; padding: 0; overflow: hidden; border: 0; border-radius: 5px; background: var(--chart-base); color: var(--muted-strong); font: inherit; cursor: pointer; }
-.matrix-cell::before { position: absolute; inset: auto 0 0; height: var(--cell-intensity); background: var(--chart-blue); content: ""; opacity: .72; }
-.matrix-cell.met::before { background: var(--chart-green); }
-.matrix-cell.over::before { background: var(--chart-orange); }
+.matrix-label strong { color: var(--foreground); font-size: 11px; font-weight: 650; }
+.matrix-label span { color: var(--muted); font-size: 9px; }
+/* Each cell is tinted with its state color, and filled from the bottom in proportion to progress. */
+.matrix-cell { --cell-color: var(--chart-blue); position: relative; min-height: 39px; padding: 0; overflow: hidden; border: 0; border-radius: 7px; background: var(--chart-base); color: var(--muted); font: inherit; cursor: pointer; transition: filter 150ms ease; }
+.matrix-cell.met { --cell-color: var(--chart-green); }
+.matrix-cell.over { --cell-color: var(--chart-orange); }
+.matrix-cell.low,
+.matrix-cell.met,
+.matrix-cell.over { background: color-mix(in srgb, var(--cell-color) 14%, var(--chart-base)); color: var(--foreground); }
+.matrix-cell::before { position: absolute; inset: auto 0 0; height: var(--cell-intensity); background: var(--cell-color); content: ""; opacity: .34; }
+.matrix-cell:hover { filter: brightness(1.12); }
 .matrix-cell.partial::after { position: absolute; inset: 0; background: repeating-linear-gradient(135deg, transparent 0 5px, var(--surface) 5px 8px); content: ""; opacity: calc(1 - var(--cell-coverage)); }
-.matrix-cell span { position: relative; z-index: 1; font-size: 9px; font-weight: 650; }
+.matrix-cell span { position: relative; z-index: 1; font-size: 10px; font-variant-numeric: tabular-nums; font-weight: 650; }
 .matrix-cell:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
 
 .weight-points {
@@ -3845,11 +3854,11 @@ body {
 }
 
 .matrix-cell,
-.matrix-label { min-height: 31px; }
+.matrix-label { min-height: 32px; }
 
-.nutrition-overview-heading { padding: 9px 4px 8px; }
+.nutrition-overview-heading { padding: 14px 4px 8px; }
 .nutrition-overview-heading .eyebrow { display: none; }
-.nutrition-overview-heading h2 { font-size: 15px; }
+.nutrition-overview-heading h2 { font-size: 18px; }
 .nutrition-overview-content { gap: var(--dashboard-gap); }
 .nutrition-overview-content {
   display: grid;
