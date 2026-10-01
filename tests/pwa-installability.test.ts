@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { access, readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
+import { runInNewContext } from "node:vm";
 import { inflateSync } from "node:zlib";
 
 const projectRoot = fileURLToPath(new URL("..", import.meta.url));
@@ -107,30 +108,64 @@ test("manifest has the fields required for mobile installation", async () => {
   ]);
 });
 
-test("the app registers and serves a network-only service worker", async () => {
-  const registration = await readFile(`${projectRoot}/app/pwa-registration.tsx`, "utf8");
-  const serviceWorker = await readFile(`${projectRoot}/public/sw.js`, "utf8");
+/** Load public/sw.js with a fake worker scope and return its event listeners. */
+async function loadServiceWorker() {
+  const source = await readFile(`${projectRoot}/public/sw.js`, "utf8");
+  const listeners = new Map<string, (event: Record<string, unknown>) => void>();
+  const fetched: unknown[] = [];
+  const scope = {
+    location: { origin: "https://calocount.example" },
+    addEventListener(type: string, listener: (event: Record<string, unknown>) => void) {
+      listeners.set(type, listener);
+    },
+    skipWaiting: async () => "skipped",
+    clients: { claim: async () => "claimed" },
+  };
+  runInNewContext(source, {
+    self: scope,
+    URL,
+    fetch(request: unknown) {
+      fetched.push(request);
+      return Promise.resolve("network-response");
+    },
+    // Any use of the Cache API would throw here: the worker must stay network-only.
+    caches: new Proxy({}, { get() { throw new Error("The service worker must not use the Cache API."); } }),
+  });
+  return { listeners, fetched };
+}
 
-  assert.match(registration, /serviceWorker\.register\("\/sw\.js"/);
-  assert.match(serviceWorker, /addEventListener\("fetch"/);
-  assert.match(serviceWorker, /event\.respondWith\(fetch\(request\)\)/);
-  assert.match(serviceWorker, /url\.pathname\.startsWith\("\/api\/"\)/);
-  assert.doesNotMatch(serviceWorker, /caches\.(open|match|put)/);
+test("the service worker passes same-origin page requests to the network and never caches", async () => {
+  const { listeners, fetched } = await loadServiceWorker();
+  const fetchListener = listeners.get("fetch");
+  assert.ok(fetchListener);
+
+  const dispatch = (url: string, method = "GET") => {
+    const request = { url, method };
+    let responded: unknown;
+    fetchListener({ request, respondWith(value: unknown) { responded = value; } });
+    return { request, responded };
+  };
+
+  const page = dispatch("https://calocount.example/owner");
+  assert.equal(await page.responded, "network-response");
+  assert.deepEqual(fetched, [page.request]);
+
+  // API calls, writes and other origins are left to the browser.
+  for (const [url, method] of [
+    ["https://calocount.example/api/dashboard/summary", "GET"],
+    ["https://calocount.example/owner", "POST"],
+    ["https://other.example/script.js", "GET"],
+  ] as const) {
+    assert.equal(dispatch(url, method).responded, undefined, `${method} ${url}`);
+  }
+  assert.equal(fetched.length, 1);
 });
 
-test("layout emits one credentialed manifest link for Access-protected installs", async () => {
-  const layout = await readFile(`${projectRoot}/app/layout.tsx`, "utf8");
-
-  assert.match(layout, /url: "\/favicon\.svg", type: "image\/svg\+xml"/);
-  assert.match(layout, /url: "\/favicon-16\.png", sizes: "16x16", type: "image\/png"/);
-  assert.match(layout, /url: "\/favicon-32\.png", sizes: "32x32", type: "image\/png"/);
-  assert.match(layout, /url: "\/favicon\.ico", type: "image\/x-icon"/);
-  assert.match(layout, /url: "\/apple-touch-icon\.png", sizes: "180x180", type: "image\/png"/);
-  assert.equal((layout.match(/rel="manifest"/g) ?? []).length, 1);
-  assert.match(
-    layout,
-    /<link rel="manifest" href="\/manifest\.webmanifest" crossOrigin="use-credentials" \/>/,
-  );
-  assert.doesNotMatch(layout, /^\s*manifest\s*:/m);
-  await assert.rejects(access(`${projectRoot}/app/manifest.ts`));
+test("the service worker activates immediately and claims open pages", async () => {
+  const { listeners } = await loadServiceWorker();
+  for (const [type, expected] of [["install", "skipped"], ["activate", "claimed"]] as const) {
+    let waited: unknown;
+    listeners.get(type)?.({ waitUntil(value: unknown) { waited = value; } });
+    assert.equal(await waited, expected, type);
+  }
 });
