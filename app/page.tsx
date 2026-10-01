@@ -1597,13 +1597,14 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
         <div className="date-heading">
           <p className="eyebrow">Your log</p>
           <h1 id="today">{selectedDay.weekday}, {fullDateLabel(selectedDay.date)}</h1>
+          {selectedDay.date === days.at(-1)?.date ? <span className="today-chip">Today</span> : null}
         </div>
         <div className="date-controls">
           <button className="date-arrow" type="button" onClick={() => moveSelectedDay("previous")} aria-label="Previous day" disabled={actionInProgress || !previousDayKey}>‹</button>
           <div className="date-pills">
             {days.map((day) => (
               <button
-                className={`date-pill ${selectedDayKey === day.key ? "active" : ""}`}
+                className={`date-pill${selectedDayKey === day.key ? " active" : ""}${day.meals.length > 0 ? " has-entries" : ""}`}
                 key={day.key}
                 type="button"
                 onClick={() => selectDay(day.key)}
