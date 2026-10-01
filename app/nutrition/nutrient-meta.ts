@@ -30,14 +30,8 @@ export type NutrientMeta = {
   order: number;
 };
 
-type SharedMeta = (typeof NUTRIENT_META)[number];
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
-
-function firstString(value: unknown, fallback: string) {
-  return typeof value === "string" && value.trim() ? value : fallback;
 }
 
 function firstFinite(value: unknown, fallback: number) {
@@ -50,36 +44,30 @@ function titleFromKey(key: string) {
     .replace(/^./, (value) => value.toUpperCase());
 }
 
-function normaliseGroup(value: unknown) {
-  const group = firstString(value, "other").toLowerCase();
-  if (group.includes("carb")) return "carbohydrates";
-  if (group.includes("fat") || group.includes("lipid")) return "fats";
-  if (group.includes("vitamin")) return "vitamins";
-  if (group.includes("mineral")) return "minerals";
-  return group;
-}
-
-const metadataSource = Object.fromEntries(NUTRIENT_META.map((entry) => [entry.key, entry])) as Record<string, SharedMeta>;
-
 /** Ordered keys from the shared domain catalogue. */
-export const nutrientKeys = [...NUTRIENT_KEYS]
-  .map((key, index) => ({ key, order: index }))
-  .sort((left, right) => left.order - right.order)
-  .map(({ key }) => key);
+export const nutrientKeys: NutrientKey[] = [...NUTRIENT_KEYS];
+
+const catalogueMeta = new Map<string, NutrientMeta>(NUTRIENT_META.map((entry) => [entry.key, {
+  key: entry.key,
+  label: entry.label,
+  group: entry.group,
+  unit: entry.unit,
+  precision: entry.precision,
+  order: nutrientKeys.indexOf(entry.key),
+}]));
 
 export const nutrientGroupOrder = ["carbohydrates", "fats", "vitamins", "minerals", "other"];
 export const defaultNutrientGoals = resolveNutrientGoals();
 
 export function nutrientMeta(key: string): NutrientMeta {
-  const source = metadataSource[key];
-  const group = normaliseGroup(source?.group);
-  return {
+  // Keys outside the catalogue, such as source-form amounts, get a derived label and unit.
+  return catalogueMeta.get(key) ?? {
     key,
-    label: firstString(source?.label, titleFromKey(key)),
-    group,
-    unit: firstString(source?.unit, key.endsWith("Mg") ? "mg" : key.endsWith("Mcg") ? "mcg" : "g"),
-    precision: Math.max(0, firstFinite(source?.precision, 1)),
-    order: nutrientKeys.indexOf(key as NutrientKey),
+    label: titleFromKey(key),
+    group: "other",
+    unit: key.endsWith("Mg") ? "mg" : key.endsWith("Mcg") ? "mcg" : "g",
+    precision: 1,
+    order: -1,
   };
 }
 
@@ -118,12 +106,17 @@ export function nutrientGroupLabel(group: string) {
   }
 }
 
+const amountFormatters = new Map<number, Intl.NumberFormat>();
+
 export function formatNutrientAmount(value: NutrientValue, key: string) {
   if (value === null || value === undefined || !Number.isFinite(value)) return "—";
-  return new Intl.NumberFormat("en-US", {
-    maximumFractionDigits: nutrientMeta(key).precision,
-    minimumFractionDigits: 0,
-  }).format(value);
+  const precision = nutrientMeta(key).precision;
+  let formatter = amountFormatters.get(precision);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat("en-US", { maximumFractionDigits: precision, minimumFractionDigits: 0 });
+    amountFormatters.set(precision, formatter);
+  }
+  return formatter.format(value);
 }
 
 export function formatNutrientValue(value: NutrientValue, key: string) {
