@@ -19,3 +19,4 @@ when they are resolved.
 - [ ] **Local installation:** add packaging, startup, and static file serving for a local Hono server when local deployment is implemented. Choosing React + Vite does not implement this deployment path.
 - [ ] **Sign-in rate limiting:** Better Auth only enables its rate limiting when `NODE_ENV=production`. Enable it explicitly in the [auth Service](../../../backend/src/features/auth/services/live-auth-service.ts) or set that variable before the server is reachable by anyone else.
 - [ ] **Error tracking service:** simple Service class which affords error tracking via a service like Sentry. May require separate implementations for both frontend and backend, ideally with same Service class interface.
+- [ ] **Integrate Swamp club** to get rid of unnecessary agentic flows. Figure out what currently makese sense to move to swamp flows.
