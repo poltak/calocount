@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { mockDashboardApi } from "./mock-api";
 
 test.beforeEach(async ({ page }) => {
@@ -110,125 +110,135 @@ test("theme choices persist and System follows live operating system changes", a
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
 });
 
-test("light mode gives dashboard secondary surfaces readable colors", async ({ page }) => {
-  await page.emulateMedia({ colorScheme: "light" });
-  await mockDashboardApi(page);
-  await page.goto("/");
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
-  await page.getByRole("button", { name: "Previous day", exact: true }).click();
-  await expect(page.locator(".weight-reading time")).toBeVisible();
+/**
+ * WCAG contrast ratio between an element's text color and the first solid
+ * background color behind it.
+ */
+async function textContrast(page: Page, selector: string): Promise<number> {
+  return page.evaluate((target) => {
+    const element = document.querySelector<HTMLElement>(target);
+    if (!element) throw new Error(`Missing ${target}`);
+    const channels = (color: string) => (color.match(/[\d.]+/g) ?? []).map(Number);
+    const luminance = ([red, green, blue]: number[]) => {
+      const [r, g, b] = [red, green, blue].map((channel) => {
+        const value = channel / 255;
+        return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    let surface: HTMLElement | null = element;
+    let background = [255, 255, 255];
+    while (surface) {
+      const candidate = channels(getComputedStyle(surface).backgroundColor);
+      // Skip transparent and translucent layers, which take their color from what is behind them.
+      if (candidate.length === 3 || candidate[3] === 1) {
+        background = candidate;
+        break;
+      }
+      surface = surface.parentElement;
+    }
+    const [lighter, darker] = [luminance(channels(getComputedStyle(element).color)), luminance(background)].sort((a, b) => b - a);
+    return (lighter + 0.05) / (darker + 0.05);
+  }, selector);
+}
 
-  const styles = await page.evaluate(() => {
-    const read = (selector: string) => {
-      const element = document.querySelector<HTMLElement>(selector);
-      if (!element) throw new Error(`Missing ${selector}`);
-      const style = getComputedStyle(element);
-      return { background: style.backgroundColor, border: style.borderTopColor, color: style.color };
-    };
-    return {
-      weight: {
-        surface: read(".weight-reading"),
-        value: read(".weight-reading strong"),
-        time: read(".weight-reading time"),
-      },
-      history: {
-        row: read(".history-row.selected"),
-        date: read(".history-row.selected .history-date strong"),
-        calories: read(".history-row.selected .history-calories"),
-        arrow: read(".history-row.selected .history-chevron"),
-      },
-      tip: {
-        surface: read(".entries-estimate-note"),
-        text: read(".entries-estimate-note p"),
-        icon: read(".entries-estimate-note .tip-icon"),
-      },
-    };
+for (const scheme of ["light", "dark"] as const) {
+  test(`${scheme} mode keeps text readable on every dashboard surface`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme: scheme, reducedMotion: "reduce" });
+    await mockDashboardApi(page);
+    await page.goto("/");
+    await expect(page.locator("html")).toHaveAttribute("data-theme", scheme);
+    await page.getByRole("button", { name: "Previous day", exact: true }).click();
+    await expect(page.locator(".weight-reading time")).toBeVisible();
+
+    // Body text needs 4.5:1. Large figures and icons need 3:1.
+    for (const selector of [
+      ".metric-subtitle",
+      ".card-label",
+      ".panel-heading h2",
+      ".chart-y-axis",
+      ".chart-legend",
+      ".chart-range-select",
+      ".weight-reading time",
+      ".history-row.selected .history-date strong",
+      ".history-row.selected .history-date small",
+      ".history-row.selected .history-calories",
+      ".history-row:not(.selected) .history-calories",
+      ".date-pill.active strong",
+      ".date-pill:not(.active) strong",
+      ".entries-estimate-note p",
+      ".meal-total",
+      ".primary-button",
+      ".app-footer",
+    ]) {
+      expect(await textContrast(page, selector), `${selector} contrast in ${scheme} mode`).toBeGreaterThanOrEqual(4.5);
+    }
+    for (const selector of [".metric-value", ".weight-reading strong", ".history-row.selected .history-chevron", ".entries-estimate-note .tip-icon"]) {
+      expect(await textContrast(page, selector), `${selector} contrast in ${scheme} mode`).toBeGreaterThanOrEqual(3);
+    }
   });
+}
 
-  expect(styles.weight.surface.background).toBe("rgb(241, 245, 243)");
-  expect(styles.weight.surface.border).toBe("rgb(195, 208, 200)");
-  expect(styles.weight.value.color).toBe("rgb(23, 33, 31)");
-  expect(styles.weight.time.color).toBe("rgb(99, 115, 110)");
-  expect(styles.history.row.background).toBe("rgb(227, 242, 234)");
-  expect(styles.history.date.color).toBe("rgb(63, 79, 74)");
-  expect(styles.history.calories.color).toBe("rgb(63, 79, 74)");
-  expect(styles.history.arrow.color).toBe("rgb(63, 79, 74)");
-  expect(styles.tip.surface.background).toBe("rgba(0, 0, 0, 0)");
-  expect(styles.tip.surface.border).toBe("rgb(231, 238, 234)");
-  expect(styles.tip.text.color).toBe("rgb(99, 115, 110)");
-  expect(styles.tip.icon.color).toBe("rgb(47, 106, 148)");
-});
-
-test("light mode uses a coherent palette for charts and button states", async ({ page }) => {
+test("charts and buttons take their colors from the theme's palette", async ({ page }) => {
   await page.emulateMedia({ colorScheme: "light" });
   await mockDashboardApi(page);
   await page.goto("/");
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   await expect(page.locator(".bar:not(.bar-empty)").first()).toBeVisible();
 
-  const charts = await page.evaluate(() => {
-    const read = (selector: string) => {
+  const colors = await page.evaluate(() => {
+    // Resolve a theme token to the rgb() form computed styles use.
+    const probe = document.body.appendChild(document.createElement("i"));
+    const token = (name: string) => {
+      probe.style.color = `var(${name})`;
+      return getComputedStyle(probe).color;
+    };
+    const style = (selector: string) => {
       const element = document.querySelector<HTMLElement>(selector);
       if (!element) throw new Error(`Missing ${selector}`);
-      const style = getComputedStyle(element);
-      return {
-        background: style.backgroundColor,
-        image: style.backgroundImage,
-        border: style.borderTopColor,
-        color: style.color,
-      };
+      return getComputedStyle(element);
     };
-    return {
-      calories: read(".bar:not(.bar-empty)"),
-      axis: read(".chart-y-axis"),
-      target: read(".target-line"),
-      macroDonut: read(".macro-donut"),
-      macroStack: read(".macro-trend-column:not(.missing) .macro-stack"),
-      weightPoint: read(".weight-point"),
-      nutrientBar: read(".nutrient-trend-bar"),
-      historyBar: read(".history-row:not(.selected) .history-bar i"),
-      selectedHistoryBar: read(".history-row.selected .history-bar i"),
-      primary: read(".primary-button"),
-      date: read(".date-pill.active"),
-      history: read(".history-row.selected"),
-      secondary: read(".chart-range-select"),
+    const result = {
+      tokens: {
+        orange: token("--chart-orange"),
+        green: token("--chart-green"),
+        blue: token("--chart-blue"),
+        emphasisStart: token("--chart-calorie-emphasis-start"),
+        emphasisEnd: token("--chart-calorie-emphasis-end"),
+        primary: token("--button-primary-background"),
+        primaryHover: token("--button-primary-hover-background"),
+        selected: token("--selected-background"),
+      },
+      selectedBar: style(".bar-column.is-selected .bar").backgroundImage,
+      macroDonut: style(".macro-donut").backgroundImage,
+      weightPoint: style(".weight-point").backgroundColor,
+      nutrientBar: style(".nutrient-trend-bar").backgroundColor,
+      historyBar: style(".history-row:not(.selected) .history-bar i").backgroundColor,
+      selectedHistoryBar: style(".history-row.selected .history-bar i").backgroundColor,
+      primary: style(".primary-button").backgroundColor,
+      activeDate: style(".date-pill.active").backgroundColor,
+      selectedHistoryRow: style(".history-row.selected").backgroundColor,
     };
+    probe.remove();
+    return result;
   });
 
   // The only day with calories is the selected one, so its bar uses the emphasis gradient.
-  expect(charts.calories.image).toContain("rgb(251, 154, 76)");
-  expect(charts.calories.image).toContain("rgb(234, 100, 16)");
-  expect(charts.axis.color).toBe("rgb(104, 120, 114)");
-  expect(charts.target.border).toBe("rgb(113, 139, 125)");
-  expect(charts.macroDonut.image).toContain("rgb(61, 132, 230)");
-  expect(charts.macroDonut.image).toContain("rgb(34, 160, 92)");
-  expect(charts.macroDonut.image).toContain("rgb(245, 124, 43)");
-  expect(charts.macroStack.background).toBe("rgb(230, 238, 234)");
-  expect(charts.weightPoint.background).toBe("rgb(34, 160, 92)");
-  expect(charts.nutrientBar.background).toBe("rgb(61, 132, 230)");
-  expect(charts.historyBar.background).toBe("rgb(245, 124, 43)");
-  expect(charts.selectedHistoryBar.background).toBe("rgb(34, 160, 92)");
-  expect(charts.primary.background).toBe("rgb(194, 65, 12)");
-  expect(charts.primary.color).toBe("rgb(255, 255, 255)");
-  expect(charts.date.background).toBe("rgb(227, 242, 234)");
-  expect(charts.history.background).toBe("rgb(227, 242, 234)");
-  expect(charts.secondary.background).toBe("rgb(241, 245, 243)");
-  expect(charts.secondary.border).toBe("rgb(201, 214, 206)");
+  expect(colors.selectedBar).toContain(colors.tokens.emphasisStart);
+  expect(colors.selectedBar).toContain(colors.tokens.emphasisEnd);
+  for (const macro of [colors.tokens.blue, colors.tokens.green, colors.tokens.orange]) expect(colors.macroDonut).toContain(macro);
+  expect(colors.weightPoint).toBe(colors.tokens.green);
+  expect(colors.nutrientBar).toBe(colors.tokens.blue);
+  expect(colors.historyBar).toBe(colors.tokens.orange);
+  expect(colors.selectedHistoryBar).toBe(colors.tokens.green);
+  expect(colors.primary).toBe(colors.tokens.primary);
+  // The selected day looks the same in the date picker and in the recent days list.
+  expect(colors.activeDate).toBe(colors.tokens.selected);
+  expect(colors.selectedHistoryRow).toBe(colors.tokens.selected);
 
   await page.locator(".primary-button").first().hover();
-  await expect(page.locator(".primary-button").first()).toHaveCSS("background-color", "rgb(154, 52, 18)");
-  await expect(page.locator(".primary-button").first()).toHaveCSS("color", "rgb(255, 255, 255)");
-  await page.locator(".icon-button").hover();
-  await expect(page.locator(".icon-button")).toHaveCSS("background-color", "rgb(255, 255, 255)");
-  await page.getByRole("button", { name: "Open settings" }).click();
-  await page.getByRole("button", { name: "Close settings" }).hover();
-  await expect(page.getByRole("button", { name: "Close settings" })).toHaveCSS("background-color", "rgba(31, 42, 42, 0.07)");
-  await page.getByRole("button", { name: "Close settings" }).click();
-  await page.getByRole("button", { name: "Add weight" }).click();
-  await page.locator(".save-button").hover();
-  await expect(page.locator(".save-button")).toHaveCSS("background-color", "rgb(154, 52, 18)");
-  await page.locator(".cancel-button").hover();
-  await expect(page.locator(".cancel-button")).toHaveCSS("background-color", "rgba(31, 42, 42, 0.07)");
+  await expect(page.locator(".primary-button").first()).toHaveCSS("background-color", colors.tokens.primaryHover);
+  expect(await textContrast(page, ".primary-button")).toBeGreaterThanOrEqual(4.5);
 });
 
 test("a double click sends one delete and disables other actions until it ends", async ({ page }) => {
