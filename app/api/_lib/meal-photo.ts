@@ -6,6 +6,8 @@
  * be bounded before they are written to R2.
  */
 
+import { readBoundedBytes } from "./bounded-read";
+
 export const SUPPORTED_MEAL_PHOTO_TYPES = [
   "image/jpeg",
   "image/png",
@@ -125,42 +127,6 @@ function contentLength(request: Request): number | null {
   return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null;
 }
 
-/** Read the request body into a bounded buffer before multipart parsing. */
-async function readRequestBodyWithinLimit(request: Request, maxBytes: number): Promise<ArrayBuffer | null> {
-  const body = request.body;
-  if (!body) return null;
-
-  const reader = body.getReader();
-  let buffer = new Uint8Array(Math.min(maxBytes, 64 * 1024));
-  let size = 0;
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      if (value.byteLength > maxBytes - size) {
-        try {
-          await reader.cancel();
-        } catch {
-          // Preserve the size error when a source cannot be cancelled cleanly.
-        }
-        throw new MealPhotoError(413, "payload_too_large", "The request is too large.");
-      }
-
-      if (size + value.byteLength > buffer.byteLength) {
-        const nextSize = Math.min(maxBytes, Math.max(buffer.byteLength * 2, size + value.byteLength));
-        const nextBuffer = new Uint8Array(nextSize);
-        nextBuffer.set(buffer.subarray(0, size));
-        buffer = nextBuffer;
-      }
-      buffer.set(value, size);
-      size += value.byteLength;
-    }
-    return buffer.buffer.slice(0, size) as ArrayBuffer;
-  } finally {
-    reader.releaseLock();
-  }
-}
-
 function isMultipartFile(value: FormDataEntryValue | null): value is File {
   return value !== null && typeof value !== "string" && typeof value.arrayBuffer === "function";
 }
@@ -213,12 +179,10 @@ async function parsePhoto(value: FormDataEntryValue | null): Promise<MealPhotoUp
       bytes.byteLength > MAX_DASHBOARD_MEAL_PHOTO_BYTES ? "The photo is too large." : "The photo is empty.",
     );
   }
-
   const detectedType = detectImageContentType(new Uint8Array(bytes).subarray(0, MAX_PHOTO_SIGNATURE_BYTES));
   if (detectedType !== declaredType) {
     throw new MealPhotoError(415, "unsupported_photo_type", "The photo content does not match its image type.");
   }
-
   return {
     bytes,
     contentType: declaredType as SupportedMealPhotoType,
@@ -244,10 +208,12 @@ export async function parseMultipartMealRequest(request: Request): Promise<Parse
 
   let form: FormData;
   try {
-    const boundedBody = await readRequestBodyWithinLimit(request, MAX_DASHBOARD_MEAL_MULTIPART_BYTES);
-    if (boundedBody === null) {
+    // Read the body into a bounded buffer before multipart parsing.
+    if (!request.body) {
       form = await request.formData();
     } else {
+      const boundedBody = await readBoundedBytes(request.body, MAX_DASHBOARD_MEAL_MULTIPART_BYTES);
+      if (boundedBody === null) throw new MealPhotoError(413, "payload_too_large", "The request is too large.");
       const headers = new Headers(request.headers);
       headers.delete("content-length");
       form = await new Request(request, { body: boundedBody, headers }).formData();

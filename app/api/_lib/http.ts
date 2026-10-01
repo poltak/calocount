@@ -1,4 +1,5 @@
 import { getDb, getEnvBinding, getEnvValue } from "../../../db";
+import { readBoundedBytes } from "./bounded-read";
 import {
   AccessJwtError,
   accessIdentityFromClaims,
@@ -176,31 +177,8 @@ export async function parseJsonBody(request: Request): Promise<Record<string, un
 
   let value: unknown;
   try {
-    const reader = request.body.getReader();
-    const chunks: Uint8Array[] = [];
-    let byteCount = 0;
-
-    try {
-      while (true) {
-        const chunk = await reader.read();
-        if (chunk.done) break;
-        byteCount += chunk.value.byteLength;
-        if (byteCount > maxBodyBytes) {
-          await reader.cancel("payload_too_large");
-          throw new ApiError(413, "payload_too_large", "The request is too large.");
-        }
-        chunks.push(chunk.value);
-      }
-    } finally {
-      reader.releaseLock();
-    }
-
-    const bytes = new Uint8Array(byteCount);
-    let offset = 0;
-    for (const chunk of chunks) {
-      bytes.set(chunk, offset);
-      offset += chunk.byteLength;
-    }
+    const bytes = await readBoundedBytes(request.body, maxBodyBytes);
+    if (bytes === null) throw new ApiError(413, "payload_too_large", "The request is too large.");
     value = JSON.parse(new TextDecoder().decode(bytes)) as unknown;
   } catch (error) {
     if (error instanceof ApiError) throw error;

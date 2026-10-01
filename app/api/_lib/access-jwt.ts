@@ -1,3 +1,5 @@
+import { readBoundedBytes } from "./bounded-read";
+
 const MAX_JWT_BYTES = 32_768;
 const MAX_JWK_RESPONSE_BYTES = 131_072;
 const MAX_JWK_COUNT = 16;
@@ -209,36 +211,14 @@ async function readBoundedResponse(response: Response): Promise<string> {
 
   if (!response.body) {
     const value = await response.text();
-    if (new TextEncoder().encode(value).byteLength > MAX_JWK_RESPONSE_BYTES) {
+    if (textEncoder.encode(value).byteLength > MAX_JWK_RESPONSE_BYTES) {
       fail("jwks", "jwks_too_large", "The Cloudflare Access key response is too large.");
     }
     return value;
   }
 
-  const reader = response.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let byteCount = 0;
-  try {
-    while (true) {
-      const chunk = await reader.read();
-      if (chunk.done) break;
-      byteCount += chunk.value.byteLength;
-      if (byteCount > MAX_JWK_RESPONSE_BYTES) {
-        await reader.cancel("jwks_too_large");
-        fail("jwks", "jwks_too_large", "The Cloudflare Access key response is too large.");
-      }
-      chunks.push(chunk.value);
-    }
-  } finally {
-    reader.releaseLock();
-  }
-
-  const bytes = new Uint8Array(byteCount);
-  let offset = 0;
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
+  const bytes = await readBoundedBytes(response.body, MAX_JWK_RESPONSE_BYTES);
+  if (bytes === null) fail("jwks", "jwks_too_large", "The Cloudflare Access key response is too large.");
   return textDecoder.decode(bytes);
 }
 

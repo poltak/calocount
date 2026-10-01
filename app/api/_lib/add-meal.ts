@@ -6,6 +6,7 @@ import {
   NUTRIENT_UPPER_LIMIT_META,
   type PartialTrackedNutrientValues,
 } from "../../../domain/nutrients";
+import { readBoundedBytes } from "./bounded-read";
 import {
   MAX_DASHBOARD_MEAL_PHOTO_BYTES,
   MealPhotoError,
@@ -534,43 +535,17 @@ async function convertHeicPhoto(
     throw new AddMealRequestError(502, "image_conversion_failed", "The converted photo has no body.");
   }
 
-  let reader: ReadableStreamDefaultReader<Uint8Array>;
+  let outputBytes: Uint8Array<ArrayBuffer> | null;
   try {
-    reader = response.body.getReader();
+    outputBytes = await readBoundedBytes(response.body, MAX_DASHBOARD_MEAL_PHOTO_BYTES);
   } catch {
     throw new AddMealRequestError(502, "image_conversion_failed", "The converted photo could not be read.");
   }
-  const chunks: Uint8Array[] = [];
-  let byteCount = 0;
-  try {
-    while (true) {
-      const chunk = await reader.read();
-      if (chunk.done) break;
-      if (!(chunk.value instanceof Uint8Array)) {
-        throw new AddMealRequestError(502, "image_conversion_failed", "The converted photo is invalid.");
-      }
-      byteCount += chunk.value.byteLength;
-      if (byteCount > MAX_DASHBOARD_MEAL_PHOTO_BYTES) {
-        await reader.cancel("payload_too_large").catch(() => undefined);
-        throw new AddMealRequestError(413, "payload_too_large", "The converted photo is too large.");
-      }
-      chunks.push(chunk.value);
-    }
-  } catch (error) {
-    if (error instanceof AddMealRequestError) throw error;
-    throw new AddMealRequestError(502, "image_conversion_failed", "The converted photo could not be read.");
-  } finally {
-    reader.releaseLock();
+  if (outputBytes === null) {
+    throw new AddMealRequestError(413, "payload_too_large", "The converted photo is too large.");
   }
-
-  if (declaredLength !== null && declaredLength !== byteCount) {
+  if (declaredLength !== null && declaredLength !== outputBytes.byteLength) {
     throw new AddMealRequestError(502, "image_conversion_failed", "The converted photo size is invalid.");
-  }
-  const outputBytes = new Uint8Array(byteCount);
-  let offset = 0;
-  for (const chunk of chunks) {
-    outputBytes.set(chunk, offset);
-    offset += chunk.byteLength;
   }
   return validateDownloadedPhoto(outputBytes, "image/jpeg");
 }
@@ -607,42 +582,16 @@ async function downloadOpenAIPhoto({
     throw new AddMealRequestError(502, "image_download_failed", "The image response has no body.");
   }
 
-  let reader: ReadableStreamDefaultReader<Uint8Array>;
+  let bytes: Uint8Array<ArrayBuffer> | null;
   try {
-    reader = response.body.getReader();
+    bytes = await readBoundedBytes(response.body, MAX_DASHBOARD_MEAL_PHOTO_BYTES);
   } catch {
-    throw new AddMealRequestError(502, "image_download_failed", "The image response could not be read.");
-  }
-  const chunks: Uint8Array[] = [];
-  let byteCount = 0;
-  try {
-    while (true) {
-      const chunk = await reader.read();
-      if (chunk.done) break;
-      if (!(chunk.value instanceof Uint8Array)) {
-        throw new AddMealRequestError(502, "image_download_failed", "The image response is invalid.");
-      }
-      byteCount += chunk.value.byteLength;
-      if (byteCount > MAX_DASHBOARD_MEAL_PHOTO_BYTES) {
-        await reader.cancel("payload_too_large").catch(() => undefined);
-        throw new AddMealRequestError(413, "payload_too_large", "The image is too large.");
-      }
-      chunks.push(chunk.value);
-    }
-  } catch (error) {
-    if (error instanceof AddMealRequestError) throw error;
     throw new AddMealRequestError(502, "image_download_failed", "The image could not be read.");
-  } finally {
-    reader.releaseLock();
   }
-
-  const bytes = new Uint8Array(byteCount);
-  let offset = 0;
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset);
-    offset += chunk.byteLength;
+  if (bytes === null) {
+    throw new AddMealRequestError(413, "payload_too_large", "The image is too large.");
   }
-  if (declaredLength !== null && declaredLength !== byteCount) {
+  if (declaredLength !== null && declaredLength !== bytes.byteLength) {
     throw new AddMealRequestError(502, "image_download_failed", "The image response size is invalid.");
   }
   if (responseType === "image/heic") {
