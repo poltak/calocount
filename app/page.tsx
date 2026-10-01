@@ -470,9 +470,6 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
   const weightActionPending = pendingAction?.kind === "weight-save";
   const settingsLoadPending = pendingAction?.kind === "settings-load";
   const settingsSavePending = pendingAction?.kind === "settings-save";
-  const weightSaving = weightActionPending;
-  const settingsLoading = settingsLoadPending;
-  const settingsSaving = settingsSavePending;
   const deletingMealId = pendingAction?.kind === "meal-delete" ? pendingAction.id : null;
   const copyingMealId = pendingAction?.kind === "meal-copy" ? pendingAction.id : null;
   const duplicatingMealId = pendingAction?.kind === "meal-duplicate" ? pendingAction.id : null;
@@ -564,17 +561,14 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     }));
   }, [days, trendHistory.weights, visibleTrendDays]);
 
-  const weightChartScale = useMemo(
-    () => {
-      const smoothed = calculateRollingAverage(weightChartValues.map((day) => day.value));
-      return calculateWeightChartScale(smoothed.flatMap((day) => [day.value, day.average]));
-    },
-    [weightChartValues],
-  );
-
   const smoothedWeightValues = useMemo(
     () => calculateRollingAverage(weightChartValues.map((day) => day.value)),
     [weightChartValues],
+  );
+
+  const weightChartScale = useMemo(
+    () => calculateWeightChartScale(smoothedWeightValues.flatMap((day) => [day.value, day.average])),
+    [smoothedWeightValues],
   );
 
   const weightLineSegments = useMemo(() => {
@@ -1600,14 +1594,14 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
           <span className="sync-status"><span className="status-dot" aria-hidden="true" /> {readOnly ? "Public read-only" : dataMode === "live" ? "Live data" : dataMode === "loading" ? "Loading" : "Unavailable"}</span>
           {readOnly ? <a className="secondary-button owner-link" href="/owner">Open owner view</a> : null}
           {!readOnly && dataMode === "live" ? <>
-            <button className="icon-button" type="button" onClick={() => void openSettings()} disabled={actionInProgress || settingsLoading || settingsSaving} aria-label="Open settings" aria-expanded={showSettings} aria-controls="settings-panel" aria-busy={settingsLoadPending}><span aria-hidden="true">{settingsLoadPending ? "…" : "⚙"}</span></button>
+            <button className="icon-button" type="button" onClick={() => void openSettings()} disabled={actionInProgress} aria-label="Open settings" aria-expanded={showSettings} aria-controls="settings-panel" aria-busy={settingsLoadPending}><span aria-hidden="true">{settingsLoadPending ? "…" : "⚙"}</span></button>
           </> : null}
           <span className="avatar" aria-label={readOnly ? "Public read-only view" : "Account"}><span aria-hidden="true">{readOnly ? "↗" : "M"}</span></span>
         </div>
       </header>
 
       {!readOnly && dataMode === "live" && showSettings ? <Suspense fallback={<p role="status">Loading settings…</p>}>
-        <SettingsPanel draft={settingsDraft} setDraft={setSettingsDraft} onSave={saveSettings} onClose={() => setShowSettings(false)} loading={settingsLoading} saving={settingsSaving} themePreference={themePreference} onThemeChange={changeThemePreference} />
+        <SettingsPanel draft={settingsDraft} setDraft={setSettingsDraft} onSave={saveSettings} onClose={() => setShowSettings(false)} loading={settingsLoadPending} saving={settingsSavePending} themePreference={themePreference} onThemeChange={changeThemePreference} />
       </Suspense> : null}
 
       {dataMessage ? <div className={`data-banner ${dataMode}`} role="status"><span aria-hidden="true">{dataMode === "live" ? "✓" : dataMode === "loading" ? "…" : "i"}</span>{dataMessage}</div> : null}
@@ -1813,7 +1807,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
               {!readOnly ? <button
                 className="primary-button"
                 type="button"
-                disabled={actionInProgress || weightSaving}
+                disabled={actionInProgress}
                 aria-busy={weightActionPending}
                 onClick={openWeightEditor}
               >
@@ -1845,17 +1839,17 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
                   inputMode="decimal"
                   value={weightDraft}
                   onChange={(event) => setWeightDraft(event.target.value)}
-                  disabled={weightSaving || actionInProgress}
+                  disabled={actionInProgress}
                   required
                 />
               </label>
-              <button className="save-button" type="submit" disabled={weightSaving || actionInProgress} aria-busy={weightActionPending}>
-                {weightSaving ? "Saving…" : selectedWeight ? "Save changes" : "Save weight"}
+              <button className="save-button" type="submit" disabled={actionInProgress} aria-busy={weightActionPending}>
+                {weightActionPending ? "Saving…" : selectedWeight ? "Save changes" : "Save weight"}
               </button>
               <button
                 className="cancel-button"
                 type="button"
-                disabled={weightSaving || actionInProgress}
+                disabled={actionInProgress}
                 onClick={() => setShowWeightForm(false)}
               >
                 Cancel
