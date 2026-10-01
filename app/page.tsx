@@ -164,8 +164,16 @@ const dayLabels: Record<DayKey, string> = {
   sat: "S",
 };
 
+const numberFormatter = new Intl.NumberFormat("en-US");
+const weightFormatter = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
+const mealTimeFormatter = new Intl.DateTimeFormat("en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
+const recordedTimeFormatter = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" });
+const weekdayFormatter = new Intl.DateTimeFormat("en-US", { weekday: "long", timeZone: "UTC" });
+const trendDateFormatter = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+const fullDateFormatter = new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
+
 function formatNumber(value: number) {
-  return new Intl.NumberFormat("en-US").format(value);
+  return numberFormatter.format(value);
 }
 
 function formatChartTick(value: number) {
@@ -189,13 +197,13 @@ function dayLabelForDate(date: string) {
   const parsed = new Date(`${date}T12:00:00.000Z`);
   return {
     shortDate: String(parsed.getUTCDate()),
-    weekday: new Intl.DateTimeFormat("en-US", { weekday: "long", timeZone: "UTC" }).format(parsed),
+    weekday: weekdayFormatter.format(parsed),
   };
 }
 
 function dateLabelForTrend(date: string) {
   const parsed = new Date(`${date}T12:00:00.000Z`);
-  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" }).format(parsed);
+  return trendDateFormatter.format(parsed);
 }
 
 function showTrendDateLabel(index: number, total: number) {
@@ -203,18 +211,15 @@ function showTrendDateLabel(index: number, total: number) {
 }
 
 function fullDateLabel(date: string) {
-  return new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" }).format(new Date(`${date}T12:00:00.000Z`));
+  return fullDateFormatter.format(new Date(`${date}T12:00:00.000Z`));
 }
 
 function formatWeight(weightKg: number) {
-  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(weightKg);
+  return weightFormatter.format(weightKg);
 }
 
 function formatRecordedTime(recordedAt: number) {
-  return new Intl.DateTimeFormat("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(new Date(recordedAt));
+  return recordedTimeFormatter.format(new Date(recordedAt));
 }
 
 function dayWithMeals(day: Day, meals: Meal[]): Day {
@@ -259,7 +264,7 @@ function mapRemoteMeal(meal: SerializedMeal, { publicView = false }: { publicVie
     status: meal.status,
     savedEntryId: meal.savedEntryId,
     consumedAt: meal.consumedAt,
-    time: new Intl.DateTimeFormat("en-US", { hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(meal.consumedAt)),
+    time: mealTimeFormatter.format(new Date(meal.consumedAt)),
     name,
     description: meal.caption || itemNames.join(", ") || "Logged from dashboard",
     calories: meal.totalCalories,
@@ -512,6 +517,18 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     [days, trendHistory.byDate, trendRange],
   );
 
+  const labelledTrendDays = useMemo(
+    () => visibleTrendDays.map((day) => ({ ...day, label: dateLabelForTrend(day.date) })),
+    [visibleTrendDays],
+  );
+
+  const visibleTrendDates = useMemo(() => visibleTrendDays.map((day) => day.date), [visibleTrendDays]);
+
+  const nutrientTrendByDate = useMemo(
+    () => visibleTrendDays.map((day) => ({ date: day.date, nutrients: day.nutrients })),
+    [visibleTrendDays],
+  );
+
   // Item history covers the whole trend range; the seven live days alone would under-count a 30-day view.
   const foodContributionDays = useMemo(() => {
     const itemsByDate = new Map<string, InsightHistory["entries"][number]["items"]>();
@@ -522,6 +539,11 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     }
     return [...itemsByDate].map(([date, items]) => ({ date, meals: [{ items }] }));
   }, [insightData.entries]);
+
+  const referenceSettings = useMemo(
+    () => ({ vitaminB6UsFnbAdultUlEnabled, usFnbAdultUlEnabled }),
+    [vitaminB6UsFnbAdultUlEnabled, usFnbAdultUlEnabled],
+  );
 
   const chartValues = useMemo(
     () => visibleTrendDays.map((day) => ({ date: day.date, label: dateLabelForTrend(day.date), value: day.calories })),
@@ -1060,7 +1082,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
       ...meal,
       id: `optimistic-copy-${action.token}`,
       consumedAt,
-      time: new Intl.DateTimeFormat("en-US", { hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(consumedAt)),
+      time: mealTimeFormatter.format(new Date(consumedAt)),
       pending: "copying",
     };
     addMealToDate(today.date, optimisticMeal);
@@ -1697,7 +1719,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
           </section>
 
           <ProteinTargetChart
-            days={visibleTrendDays.map((day) => ({ ...day, label: dateLabelForTrend(day.date) }))}
+            days={labelledTrendDays}
             goalByDate={proteinGoal.byDate}
             fallbackTarget={proteinGoal.mode === "grams" ? activeProteinTarget : null}
             range={trendRange}
@@ -1767,10 +1789,10 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
             </> : <div className="chart-empty" role="status"><strong>No macro records for the past {trendRange} days</strong><span>Add protein, carbs, or fat to an entry to see the daily split.</span></div>}
           </section>
 
-          <FoodContributionChart days={foodContributionDays} visibleDates={visibleTrendDays.map((day) => day.date)} />
+          <FoodContributionChart days={foodContributionDays} visibleDates={visibleTrendDates} />
 
           <NutrientConsistencyMatrix
-            days={visibleTrendDays.map((day) => ({ ...day, label: dateLabelForTrend(day.date) }))}
+            days={labelledTrendDays}
             goals={targets.nutrients}
           />
 
@@ -1782,7 +1804,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
             collapsed={nutritionCollapsed}
             onToggle={toggleNutritionSection}
           >
-            <NutrientTrendPanel byDate={visibleTrendDays.map((day) => ({ date: day.date, nutrients: day.nutrients }))} goals={targets.nutrients} range={trendRange} onRangeChange={setTrendRange} />
+            <NutrientTrendPanel byDate={nutrientTrendByDate} goals={targets.nutrients} range={trendRange} onRangeChange={setTrendRange} />
           </NutritionOverview>
 
           <section className="panel weight-panel compact-dashboard-panel" id="weight" aria-labelledby="weight-title">
@@ -2015,7 +2037,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
             entries={insightData.entries}
             currentDate={dashboardDate}
             goals={targets.nutrients}
-            referenceSettings={{ vitaminB6UsFnbAdultUlEnabled, usFnbAdultUlEnabled }}
+            referenceSettings={referenceSettings}
             onInspectEntry={readOnly ? undefined : inspectInsightEntry}
             onSelectFoodChange={compareFoodForNutrient}
           />

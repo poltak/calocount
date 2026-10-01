@@ -22,19 +22,24 @@ const BANDS = {
   "95–105%": [95, 105],
 } as const;
 
-const formatDate = (date: string) => new Intl.DateTimeFormat("en", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(new Date(`${date}T00:00:00Z`));
-export function DaysWorthRepeating(props: Props) {
+const dateFormatter = new Intl.DateTimeFormat("en", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+const formatDate = (date: string) => dateFormatter.format(new Date(`${date}T00:00:00Z`));
+
+export function DaysWorthRepeating({ days, entries, currentDate, calorieTarget, proteinGoals, fallbackProteinTarget, nutrientGoals }: Props) {
   const [range, setRange] = useState<7 | 30>(30);
   const [metric, setMetric] = useState<RepeatMetric>("protein");
   const [bandName, setBandName] = useState<keyof typeof BANDS>("90–110%");
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const points = useMemo(() => buildRepeatPoints({ ...props, range, metric, calorieBand: BANDS[bandName] }), [props, range, metric, bandName]);
+  const points = useMemo(
+    () => buildRepeatPoints({ days, currentDate, calorieTarget, proteinGoals, fallbackProteinTarget, nutrientGoals, range, metric, calorieBand: BANDS[bandName] }),
+    [days, currentDate, calorieTarget, proteinGoals, fallbackProteinTarget, nutrientGoals, range, metric, bandName],
+  );
   const plotted = points.filter((point) => point.caloriePercent !== null && point.percent !== null);
   const xScale = repeatAxisScale(plotted.map((point) => point.caloriePercent));
   const yScale = repeatAxisScale(plotted.map((point) => point.percent));
   const counts = repeatPointCounts(points);
   const selected = points.find((point) => point.date === selectedDate) ?? plotted.at(-1) ?? points.at(-1) ?? null;
-  const selectedEntries = selected ? props.entries.filter((entry) => entry.date === selected.date).sort((a, b) => a.consumedAt - b.consumedAt) : [];
+  const selectedEntries = selected ? entries.filter((entry) => entry.date === selected.date).sort((a, b) => a.consumedAt - b.consumedAt) : [];
 
   return <section className="panel days-repeat" aria-labelledby="days-repeat-title">
     <div className="days-repeat-heading">
