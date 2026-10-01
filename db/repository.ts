@@ -298,6 +298,11 @@ function parsedNutrientProvenance(value: string | null | undefined, nutrientValu
   }
 }
 
+function nutrientProvenanceField(item: MealItemRow): { nutrientProvenance?: NutrientProvenanceMap } {
+  const nutrientProvenance = parsedNutrientProvenance(item.nutrientProvenanceJson, item);
+  return Object.keys(nutrientProvenance).length > 0 ? { nutrientProvenance } : {};
+}
+
 export function calculateNutrientAggregates(
   items: readonly PartialNutrientValues[],
 ): NutrientAggregateMap {
@@ -552,10 +557,6 @@ export async function listNutritionHistoryPage({ db, ownerKey, from, to, limit, 
   };
 }
 
-function finiteCount(value: unknown): number {
-  return typeof value === "number" && Number.isFinite(value) ? value : 0;
-}
-
 function nullableAmount(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
@@ -624,9 +625,9 @@ export async function getNutritionSummary({ db, ownerKey, from, to, startDate, e
     const date = new Date(from + offset * 86_400_000).toISOString().slice(0, 10);
     const mealRow = mealsByDate.get(date);
     const itemRow = nutrientValuesByDate.get(date);
-    const itemCount = finiteCount(itemRow?.get("itemCount"));
+    const itemCount = finiteNumber(itemRow?.get("itemCount"));
     const makeNutrientSummary = (key: NutrientKey | NutrientUpperLimitKey): NutritionDailyNutrient => {
-      const knownItemCount = finiteCount(itemRow?.get(`${key}KnownItemCount`));
+      const knownItemCount = finiteNumber(itemRow?.get(`${key}KnownItemCount`));
       return {
         recordedAmount: nullableAmount(itemRow?.get(`${key}Amount`)),
         knownItemCount,
@@ -637,13 +638,13 @@ export async function getNutritionSummary({ db, ownerKey, from, to, startDate, e
     days.push({
       date,
       status: mealRow ? "logged" : "unlogged",
-      mealCount: finiteCount(mealRow?.mealCount),
+      mealCount: finiteNumber(mealRow?.mealCount),
       itemCount,
       totals: {
-        caloriesKcal: finiteCount(mealRow?.caloriesKcal),
-        proteinG: finiteCount(mealRow?.proteinG),
-        carbsG: finiteCount(mealRow?.carbsG),
-        fatG: finiteCount(mealRow?.fatG),
+        caloriesKcal: finiteNumber(mealRow?.caloriesKcal),
+        proteinG: finiteNumber(mealRow?.proteinG),
+        carbsG: finiteNumber(mealRow?.carbsG),
+        fatG: finiteNumber(mealRow?.fatG),
       },
       nutrients: Object.fromEntries(NUTRIENT_KEYS.map((key) => [key, makeNutrientSummary(key)])) as Record<NutrientKey, NutritionDailyNutrient>,
       sourceFormAmounts: Object.fromEntries(NUTRIENT_UPPER_LIMIT_KEYS.map((key) => [key, makeNutrientSummary(key)])) as Record<NutrientUpperLimitKey, NutritionDailyNutrient>,
@@ -773,38 +774,11 @@ export async function upsertDailyWeight({
   return saved;
 }
 
-export async function findMeal(db: AppDb, ownerKey: string, mealId: string): Promise<MealWithItems | null> {
+async function findMealWhere(db: AppDb, ownerKey: string, condition: SQL): Promise<MealWithItems | null> {
   const meal = await db
     .select()
     .from(mealLogs)
-    .where(and(eq(mealLogs.ownerKey, ownerKey), eq(mealLogs.id, mealId)))
-    .limit(1)
-    .prepare()
-    .get();
-  if (!meal) return null;
-
-  const items = await db
-    .select()
-    .from(mealItems)
-    .where(and(eq(mealItems.ownerKey, ownerKey), eq(mealItems.mealId, mealId)))
-    .orderBy(desc(mealItems.createdAt))
-    .prepare()
-    .all();
-  return { meal, items };
-}
-
-export async function findMealByExternalRequestId(
-  db: AppDb,
-  ownerKey: string,
-  externalRequestId: string,
-): Promise<MealWithItems | null> {
-  const meal = await db
-    .select()
-    .from(mealLogs)
-    .where(and(
-      eq(mealLogs.ownerKey, ownerKey),
-      eq(mealLogs.externalRequestId, externalRequestId),
-    ))
+    .where(and(eq(mealLogs.ownerKey, ownerKey), condition))
     .limit(1)
     .prepare()
     .get();
@@ -818,6 +792,18 @@ export async function findMealByExternalRequestId(
     .prepare()
     .all();
   return { meal, items };
+}
+
+export async function findMeal(db: AppDb, ownerKey: string, mealId: string): Promise<MealWithItems | null> {
+  return findMealWhere(db, ownerKey, eq(mealLogs.id, mealId));
+}
+
+export async function findMealByExternalRequestId(
+  db: AppDb,
+  ownerKey: string,
+  externalRequestId: string,
+): Promise<MealWithItems | null> {
+  return findMealWhere(db, ownerKey, eq(mealLogs.externalRequestId, externalRequestId));
 }
 
 export type CopyMealOptions = {
@@ -1445,9 +1431,7 @@ export async function getDashboardSummary(db: AppDb, ownerKey: string, options: 
             ...Object.fromEntries(NUTRIENT_KEYS.map((key) => [key, nullableNutrientValue(item[key])])),
             ...Object.fromEntries(NUTRIENT_UPPER_LIMIT_KEYS.map((key) => [key, nullableNutrientValue(item[key])])),
           } as NutrientValues & NutrientUpperLimitValues,
-          ...(Object.keys(parsedNutrientProvenance(item.nutrientProvenanceJson, item)).length > 0
-            ? { nutrientProvenance: parsedNutrientProvenance(item.nutrientProvenanceJson, item) }
-            : {}),
+          ...nutrientProvenanceField(item),
         })),
       }))),
     },
@@ -1493,9 +1477,5 @@ export async function findMealByPhotoKey(db: AppDb, ownerKey: string, photoKey: 
 }
 
 export async function hasMealPhotoReference(db: AppDb, ownerKey: string, photoKey: string) {
-  const reference = await db.select({ id: mealLogs.id }).from(mealLogs).where(and(
-    eq(mealLogs.ownerKey, ownerKey),
-    eq(mealLogs.photoKey, photoKey),
-  )).limit(1).prepare().get();
-  return Boolean(reference);
+  return Boolean(await findMealByPhotoKey(db, ownerKey, photoKey));
 }
