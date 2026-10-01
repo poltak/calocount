@@ -1,5 +1,6 @@
 import type { ProteinGoalDay } from "../../domain/protein-goals";
 import type { NutrientGoalMap } from "../nutrition/nutrient-meta";
+import { shiftIsoDate } from "./shared";
 import type { InsightDay } from "./types";
 
 export type RepeatMetric = "protein" | "fiber";
@@ -103,12 +104,6 @@ export function buildRepeatPoints({
       meetsBothTargets: inCalorieBand && targetMet === true,
     };
   });
-}
-
-function shiftIsoDate(date: string, offsetDays: number) {
-  const parsed = new Date(`${date}T00:00:00Z`);
-  parsed.setUTCDate(parsed.getUTCDate() + offsetDays);
-  return parsed.toISOString().slice(0, 10);
 }
 
 export function repeatPointCounts(points: readonly RepeatPoint[]) {

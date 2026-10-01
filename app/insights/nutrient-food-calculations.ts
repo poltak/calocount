@@ -5,6 +5,7 @@ import {
   parseNutrientValue,
   type NutrientKey,
 } from "../nutrition/nutrient-meta";
+import { finiteNonNegative, normalizeFoodName, shiftIsoDate } from "./shared";
 import type { InsightEntry, InsightItem } from "./types";
 
 export type InsightRange = 14 | 28;
@@ -124,27 +125,12 @@ export type NutrientSourceExclusion = {
 
 const OTHER_SOURCE_KEY = "__other__";
 
-export function normalizeFoodName(name: string) {
-  return name.trim().toLowerCase();
-}
-
-function addDays(date: string, amount: number) {
-  const parsed = new Date(`${date}T00:00:00.000Z`);
-  if (!Number.isFinite(parsed.getTime())) return date;
-  parsed.setUTCDate(parsed.getUTCDate() + amount);
-  return parsed.toISOString().slice(0, 10);
-}
-
 export function insightDateRange(currentDate: string, range: InsightRange) {
   return {
-    startDate: addDays(currentDate, -range),
-    endDate: addDays(currentDate, -1),
+    startDate: shiftIsoDate(currentDate, -range),
+    endDate: shiftIsoDate(currentDate, -1),
     elapsedDays: range,
   } as const;
-}
-
-function finiteNonNegative(value: unknown): number | null {
-  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null;
 }
 
 function itemMetric(item: InsightItem, key: FoodScenarioMetricKey): number | null {

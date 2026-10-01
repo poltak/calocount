@@ -1,3 +1,4 @@
+import { normalizeFoodName } from "./shared";
 import type { InsightDay, InsightEntry } from "./types";
 
 export const WEEKLY_METRICS = ["calories", "proteinG", "fiberG", "sodiumMg", "caffeineMg"] as const;
@@ -118,10 +119,6 @@ export function summarizeMetric(period: WeeklyPeriod, key: WeeklyMetricKey): Wee
 
 type MutableContribution = Omit<WaterfallContribution, "difference">;
 
-function normalizeName(name: string) {
-  return name.trim().toLocaleLowerCase();
-}
-
 function itemMetric(item: InsightEntry["items"][number], key: WeeklyMetricKey) {
   if (key === "calories" || key === "proteinG") return finite(item[key]);
   const value = item.nutrients?.[key];
@@ -149,7 +146,7 @@ function periodContributions(period: WeeklyPeriod, metric: WeeklyMetricKey) {
       const amount = itemMetric(item, metric);
       if (amount === null) continue;
       itemTotal += amount;
-      const normalized = normalizeName(item.name);
+      const normalized = normalizeFoodName(item.name);
       const key = normalized ? `food:${normalized}` : "adjustment:unnamed";
       add(key, normalized ? item.name.trim() : "Unnamed items", amount, { id: entry.id, date: entry.date, name: item.name.trim() || "Unnamed item", amount }, normalized ? "food" : "entry-adjustment");
     }

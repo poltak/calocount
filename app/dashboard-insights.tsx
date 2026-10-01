@@ -5,6 +5,7 @@ import type { CSSProperties } from "react";
 import type { ProteinGoalDay } from "../domain/protein-goals";
 import type { NutrientAggregateMap, NutrientGoalMap, NutrientKey, NutrientValueMap } from "./nutrition/nutrient-meta";
 import { nutrientLabel, nutrientUnit } from "./nutrition/nutrient-meta";
+import { normalizeFoodName } from "./insights/shared";
 import { TrendRangeSelect, type TrendRangeDays } from "./trend-range-select";
 
 type TrendDatum = {
@@ -102,7 +103,7 @@ export function FoodContributionChart({ days, visibleDates }: { days: LoggedDay[
       for (const item of day.meals.flatMap((meal) => meal.items)) {
         const raw = metric === "calories" || metric === "proteinG" ? item[metric] : item.nutrients?.[metric];
         if (typeof raw !== "number" || !Number.isFinite(raw) || raw <= 0) continue;
-        const normalized = item.name.trim().toLocaleLowerCase();
+        const normalized = normalizeFoodName(item.name);
         const current = totals.get(normalized) ?? { label: item.name.trim() || "Unnamed food", value: 0, occurrences: 0 };
         current.value += raw;
         current.occurrences += 1;

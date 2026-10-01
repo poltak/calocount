@@ -14,6 +14,7 @@ import {
   type NutrientUpperLimitUnsupportedReason,
 } from "../../domain/nutrient-references";
 import type { NutrientGoalMap } from "../../domain/nutrient-goals";
+import { finiteNonNegative, shiftIsoDate } from "./shared";
 import type { InsightDay, InsightEntry } from "./types";
 
 export type NutritionAttentionWindow = 14 | 28;
@@ -163,20 +164,9 @@ export type NutritionAttentionOptions = {
 
 type EvaluatedDay = NutritionAttentionDayFact;
 
-function finiteNonNegative(value: unknown): number | null {
-  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null;
-}
-
 function finiteCount(value: unknown): number {
   const parsed = finiteNonNegative(value);
   return parsed === null ? 0 : Math.floor(parsed);
-}
-
-function shiftIsoDate(date: string, offsetDays: number) {
-  const parsed = new Date(`${date}T00:00:00.000Z`);
-  if (!Number.isFinite(parsed.getTime())) return date;
-  parsed.setUTCDate(parsed.getUTCDate() + offsetDays);
-  return parsed.toISOString().slice(0, 10);
 }
 
 function mean(values: readonly number[]) {

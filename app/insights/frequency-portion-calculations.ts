@@ -1,4 +1,7 @@
+import { finiteNonNegative, normalizeFoodName, shiftIsoDate } from "./shared";
 import type { InsightEntry, InsightItem } from "./types";
+
+export { normalizeFoodName };
 
 export const frequencyPortionMetrics = [
   { key: "calories", label: "Calories", unit: "kcal" },
@@ -52,22 +55,11 @@ export function frequencyAxisMaximum(values: readonly number[], minimum = 1) {
   return step * magnitude;
 }
 
-function addDays(date: string, amount: number) {
-  const parsed = new Date(`${date}T00:00:00.000Z`);
-  if (!Number.isFinite(parsed.getTime())) return date;
-  parsed.setUTCDate(parsed.getUTCDate() + amount);
-  return parsed.toISOString().slice(0, 10);
-}
-
-export function normalizeFoodName(name: string) {
-  return name.trim().toLowerCase();
-}
-
 function knownMetric(item: InsightItem, metric: FrequencyPortionMetric) {
   const raw = metric === "calories" || metric === "proteinG"
     ? item[metric]
     : item.nutrients?.[metric];
-  return typeof raw === "number" && Number.isFinite(raw) && raw >= 0 ? raw : null;
+  return finiteNonNegative(raw);
 }
 
 type EntryFood = {
@@ -85,9 +77,7 @@ function foodsInEntry(entry: InsightEntry, metric: FrequencyPortionMetric) {
     const key = normalizeFoodName(item.name);
     if (!key) continue;
     const value = knownMetric(item, metric);
-    const quantity = typeof item.quantity === "number" && Number.isFinite(item.quantity) && item.quantity >= 0
-      ? item.quantity
-      : null;
+    const quantity = finiteNonNegative(item.quantity);
     const unit = item.unit?.trim() || null;
     const current = foods.get(key);
     if (!current) {
@@ -128,8 +118,8 @@ export function calculateFrequencyPortion({
   range: FrequencyPortionRange;
   metric: FrequencyPortionMetric;
 }): FrequencyPortionResult {
-  const startDate = addDays(currentDate, -range);
-  const endDate = addDays(currentDate, -1);
+  const startDate = shiftIsoDate(currentDate, -range);
+  const endDate = shiftIsoDate(currentDate, -1);
   const grouped = new Map<string, {
     label: string;
     sources: FrequencyPortionSource[];
