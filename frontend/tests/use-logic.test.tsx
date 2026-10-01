@@ -171,6 +171,30 @@ class PluginOwnerLogic extends Logic<
       },
     });
   }
+
+  copyPluginCount(): void {
+    this.setState({ parentValue: this.plugins.counter.state.count });
+  }
+}
+
+interface PendingDeps extends CounterDeps {
+  gate: Promise<void>;
+  signalStarted: () => void;
+}
+
+class PendingLogic extends Logic<PendingDeps, CounterState> {
+  constructor(deps: PendingDeps) {
+    super({ deps, initialState: { value: 0 } });
+  }
+
+  protected override async onInitialize(): Promise<void> {
+    this.deps.signalStarted();
+    await this.deps.gate;
+  }
+
+  protected override async onCleanup(): Promise<void> {
+    this.deps.trace.push("pending:cleanup");
+  }
 }
 
 function LogicObserver({ logic, id }: { logic: CounterLogic; id: string }) {
@@ -374,12 +398,39 @@ describe("useLogic", () => {
   });
 });
 
+describe("useLogic cancellation", () => {
+  it("does not report an error when unmounting before initialization finishes", async () => {
+    const initialization = createDeferred<void>();
+    const startSignal = createDeferred<void>();
+    const deps: PendingDeps = {
+      label: "pending",
+      trace: [],
+      gate: initialization.promise,
+      signalStarted: () => startSignal.resolve(undefined),
+    };
+    const onError = vi.fn<(error: unknown) => void>();
+
+    function PendingView() {
+      const { state } = useLogic({ LogicClass: PendingLogic, deps, onError });
+      return <output>{state.value}</output>;
+    }
+
+    const { unmount } = render(<PendingView />);
+    await startSignal.promise;
+    unmount();
+    initialization.resolve(undefined);
+
+    await waitFor(() => expect(deps.trace).toContain("pending:cleanup"));
+    expect(onError).not.toHaveBeenCalled();
+  });
+});
+
 describe("useLogicInstance", () => {
   it("supports concurrent observers of one Logic without changing its methods", () => {
     const deps = { label: "shared", trace: [] };
     const logic = new CounterLogic(deps);
     const originalGetState = logic.getState;
-    const originalSetState = logic.setState;
+    const originalSubscribe = logic.subscribe;
 
     const { unmount } = render(
       <>
@@ -392,7 +443,7 @@ describe("useLogicInstance", () => {
     expect(screen.getByTestId("first-observer").textContent).toBe("1");
     expect(screen.getByTestId("second-observer").textContent).toBe("1");
     expect(logic.getState).toBe(originalGetState);
-    expect(logic.setState).toBe(originalSetState);
+    expect(logic.subscribe).toBe(originalSubscribe);
 
     unmount();
     expect(deps.trace).toEqual([]);
@@ -419,7 +470,7 @@ describe("useLogicInstance", () => {
     expect(parentNotifications).toBe(0);
 
     act(() => {
-      logic.setState({ parentValue: logic.plugins.counter.state.count });
+      logic.copyPluginCount();
     });
     expect(screen.getByTestId("parent-state").textContent).toBe("1");
     expect(parentNotifications).toBe(1);

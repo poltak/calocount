@@ -3,7 +3,11 @@ import {
   type EventListener,
   type Unsubscribe,
 } from "../events/event-emitter.js";
-import type { LogicPluginLifecycle } from "./logic-plugin.js";
+
+export interface LogicPluginLifecycle {
+  initialize(): Promise<void>;
+  cleanup(): Promise<void>;
+}
 
 export type LogicPluginFactories<
   Deps,
@@ -23,6 +27,14 @@ export interface LogicOptions<
   plugins?: LogicPluginFactories<Deps, Plugins>;
 }
 
+/** Cleanup started before initialization finished, so initialization stopped. */
+export class InitializationCancelledError extends Error {
+  constructor() {
+    super("Logic cleanup started before initialization completed");
+    this.name = "InitializationCancelledError";
+  }
+}
+
 type LifecycleState =
   "new" | "initializing" | "initialized" | "failed" | "cleaning" | "cleaned";
 
@@ -32,7 +44,7 @@ export abstract class Logic<
   State extends object,
   Event = never,
   Plugins extends Record<string, LogicPluginLifecycle> = Record<string, never>,
-> {
+> implements LogicPluginLifecycle {
   readonly events = new EventEmitter<Event>();
   readonly plugins: Readonly<Plugins>;
 
@@ -40,7 +52,6 @@ export abstract class Logic<
   private currentState: State;
   private readonly stateListeners = new Set<() => void>();
   private readonly cleanupCallbacks = new Set<Unsubscribe>();
-  private readonly cleanedPlugins = new Set<LogicPluginLifecycle>();
   private lifecycleState: LifecycleState = "new";
   private initializationPromise?: Promise<void>;
   private cleanupPromise?: Promise<void>;
@@ -60,11 +71,7 @@ export abstract class Logic<
   }
 
   subscribe(listener: () => void): Unsubscribe {
-    if (
-      this.lifecycleState === "failed" ||
-      this.lifecycleState === "cleaning" ||
-      this.lifecycleState === "cleaned"
-    ) {
+    if (this.isClosed()) {
       return () => undefined;
     }
 
@@ -79,7 +86,7 @@ export abstract class Logic<
     };
   }
 
-  setState(updates: Partial<State>): void {
+  protected setState(updates: Partial<State>): void {
     const currentState = this.currentState;
     const hasChangedValue = Object.entries(updates).some(
       ([key, value]) => !Object.is(currentState[key as keyof State], value),
@@ -95,10 +102,10 @@ export abstract class Logic<
     }
   }
 
-  shouldReload(_previousDeps: Deps, _nextDeps: Deps): boolean {
-    return false;
-  }
-
+  /**
+   * Initialize plugins, then this Logic. Rejects with
+   * InitializationCancelledError when cleanup starts first.
+   */
   initialize(): Promise<void> {
     if (this.lifecycleState === "initialized") {
       return Promise.resolve();
@@ -130,11 +137,7 @@ export abstract class Logic<
   }
 
   protected registerCleanup(cleanup: Unsubscribe): Unsubscribe {
-    if (
-      this.lifecycleState === "failed" ||
-      this.lifecycleState === "cleaning" ||
-      this.lifecycleState === "cleaned"
-    ) {
+    if (this.isClosed()) {
       cleanup();
       return () => undefined;
     }
@@ -169,26 +172,31 @@ export abstract class Logic<
     return promise;
   }
 
+  private isClosed(): boolean {
+    return (
+      this.lifecycleState === "failed" ||
+      this.lifecycleState === "cleaning" ||
+      this.lifecycleState === "cleaned"
+    );
+  }
+
+  private throwIfCleanupStarted(): void {
+    if (this.lifecycleState !== "initializing") {
+      throw new InitializationCancelledError();
+    }
+  }
+
   private async runInitialize(): Promise<void> {
     try {
       for (const plugin of Object.values(this.plugins)) {
-        if (this.lifecycleState !== "initializing") {
-          throw new Error(
-            "Logic cleanup started before initialization completed",
-          );
-        }
+        this.throwIfCleanupStarted();
         await plugin.initialize();
       }
 
-      if (this.lifecycleState !== "initializing") {
-        throw new Error(
-          "Logic cleanup started before initialization completed",
-        );
-      }
+      this.throwIfCleanupStarted();
       await this.onInitialize();
-      if (this.lifecycleState === "initializing") {
-        this.lifecycleState = "initialized";
-      }
+      this.throwIfCleanupStarted();
+      this.lifecycleState = "initialized";
     } catch (initializationError) {
       if (this.lifecycleState === "cleaning") {
         throw initializationError;
@@ -233,15 +241,11 @@ export abstract class Logic<
       }
     }
 
+    // Plugin cleanup is idempotent, so a plugin that already rolled back is safe.
     const plugins = Object.values(this.plugins);
     for (let index = plugins.length - 1; index >= 0; index -= 1) {
-      const plugin = plugins[index];
-      if (this.cleanedPlugins.has(plugin)) {
-        continue;
-      }
-      this.cleanedPlugins.add(plugin);
       try {
-        await plugin.cleanup();
+        await plugins[index].cleanup();
       } catch (error) {
         errors.push(error);
       }

@@ -71,11 +71,14 @@ Import these modules through their public package subpaths:
 Initialize the base Logic with explicit `deps` and `initialState`. Pass plugin
 factories in `plugins`; each factory receives the Logic's dependencies and must
 return a new plugin instance for that Logic. Each LogicPlugin instance owns its
-own state and takes explicit `deps` and `initialState`.
+own state and takes explicit `deps` and `initialState`. LogicPlugin extends
+Logic, so both share one state and lifecycle API; a LogicPlugin cannot own
+plugins.
 
 Logic and LogicPlugin expose stable state snapshots through `getState()` and
 notify `subscribe()` listeners after a state change. Replace changed state with
-`setState()`; do not mutate a snapshot in place. Each plugin's state is observed
+the protected `setState()`; do not mutate a snapshot in place. Other code
+changes state by calling the Logic's methods. Each plugin's state is observed
 separately from its consuming Logic's state.
 
 `emit` returns a promise. It calls every listener, waits for all listeners, and
@@ -88,7 +91,8 @@ Do not await `cleanup()` from the same Logic or LogicPlugin's `onInitialize()`.
 Initialization waits for `onInitialize()`, and cleanup waits for initialization.
 Awaiting cleanup from that hook would create a wait cycle. An external caller may
 still call cleanup during initialization; cleanup waits for initialization to
-settle before it runs.
+settle before it runs. Initialization then stops early and `initialize()`
+rejects with `InitializationCancelledError`.
 
 ## Dependency flow
 

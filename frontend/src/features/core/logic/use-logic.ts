@@ -6,6 +6,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import type { Unsubscribe } from "@shadow/common/features/core/events/event-emitter";
+import { InitializationCancelledError } from "@shadow/common/features/core/logic/logic";
 
 export interface LogicStateStore<State extends object> {
   getState(): Readonly<State>;
@@ -121,7 +122,10 @@ export function useLogic<Deps, Instance extends OwnedLogic<object>>({
       try {
         owner.initialization = logic.initialize();
         void owner.initialization.catch((error: unknown) => {
-          reportError(error, owner);
+          // Unmounting before initialization finishes is expected.
+          if (!(error instanceof InitializationCancelledError)) {
+            reportError(error, owner);
+          }
         });
       } catch (error) {
         reportError(error, owner);

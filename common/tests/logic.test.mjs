@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { EventEmitter } from "@shadow/common/features/core/events/event-emitter";
-import { Logic } from "@shadow/common/features/core/logic/logic";
+import {
+  InitializationCancelledError,
+  Logic,
+} from "@shadow/common/features/core/logic/logic";
 import { LogicPlugin } from "@shadow/common/features/core/logic/logic-plugin";
 
 class CounterPlugin extends LogicPlugin {
@@ -361,7 +364,7 @@ describe("Logic and LogicPlugin", () => {
     }
 
     const logic = new CleanupRequestLogic();
-    await logic.initialize();
+    await assert.rejects(logic.initialize(), InitializationCancelledError);
     await logic.cleanup();
 
     assert.deepEqual(trace, [
@@ -391,7 +394,7 @@ describe("Logic and LogicPlugin", () => {
     }
 
     const plugin = new CleanupRequestPlugin();
-    await plugin.initialize();
+    await assert.rejects(plugin.initialize(), InitializationCancelledError);
     await plugin.cleanup();
 
     assert.deepEqual(trace, [
@@ -423,12 +426,13 @@ describe("Logic and LogicPlugin", () => {
     await assert.rejects(logic.initialize(), /init failed: failing/);
     await logic.cleanup();
 
+    // The failing plugin rolls itself back before its Logic unwinds.
     assert.deepEqual(trace, [
       "init:first",
       "init:failing",
+      "cleanup:failing",
       "cleanup:logic",
       "cleanup:last",
-      "cleanup:failing",
       "cleanup:first",
     ]);
   });
@@ -463,12 +467,13 @@ describe("Logic and LogicPlugin", () => {
       return true;
     });
 
+    // The failing plugin rolls itself back before its Logic unwinds.
     assert.deepEqual(trace, [
       "init:first",
       "init:failing",
+      "cleanup:failing",
       "cleanup:logic",
       "cleanup:last",
-      "cleanup:failing",
       "cleanup:first",
     ]);
   });
