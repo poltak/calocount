@@ -885,33 +885,26 @@ export async function saveEntry(db: AppDb, ownerKey: string, sourceMealId: strin
   const source = await findMeal(db, ownerKey, sourceMealId);
   if (!source) return null;
   const timestamp = nowMs();
-  await db.insert(savedEntries).values({
+  const snapshotJson = safeJson(snapshotForMeal(source), {});
+  const row = await db.insert(savedEntries).values({
     id: createId("saved"),
     ownerKey,
     sourceMealId,
-    snapshotJson: safeJson(snapshotForMeal(source), {}),
+    snapshotJson,
     createdAt: timestamp,
     updatedAt: timestamp,
   }).onConflictDoUpdate({
     target: [savedEntries.ownerKey, savedEntries.sourceMealId],
-    set: { snapshotJson: safeJson(snapshotForMeal(source), {}), updatedAt: timestamp },
-  }).prepare().run();
-  const row = await db.select().from(savedEntries).where(and(
-    eq(savedEntries.ownerKey, ownerKey),
-    eq(savedEntries.sourceMealId, sourceMealId),
-  )).limit(1).prepare().get();
+    set: { snapshotJson, updatedAt: timestamp },
+  }).returning().get();
   return row ? parseSavedEntry(row) : null;
 }
 
 export async function removeSavedEntry(db: AppDb, ownerKey: string, id: string): Promise<boolean> {
-  const existing = await db.select({ id: savedEntries.id }).from(savedEntries).where(and(
+  const removed = await db.delete(savedEntries).where(and(
     eq(savedEntries.ownerKey, ownerKey), eq(savedEntries.id, id),
-  )).limit(1).prepare().get();
-  if (!existing) return false;
-  await db.delete(savedEntries).where(and(
-    eq(savedEntries.ownerKey, ownerKey), eq(savedEntries.id, id),
-  )).prepare().run();
-  return true;
+  )).returning({ id: savedEntries.id }).get();
+  return Boolean(removed);
 }
 
 export async function trackSavedEntry(
