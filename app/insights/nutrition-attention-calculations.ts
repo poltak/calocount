@@ -232,17 +232,11 @@ function evaluateUpperLimitDataDay(
 }
 
 function upperLimitDataDays(
-  entries: readonly InsightEntry[],
+  entriesByDate: ReadonlyMap<string, readonly InsightEntry[]>,
   dataKey: NutrientUpperLimitKey,
   dates: readonly string[],
   currentDate: string,
 ) {
-  const entriesByDate = new Map<string, InsightEntry[]>();
-  for (const entry of entries) {
-    const current = entriesByDate.get(entry.date) ?? [];
-    current.push(entry);
-    entriesByDate.set(entry.date, current);
-  }
   return {
     pastDays: dates.map((date) => evaluateUpperLimitDataDay(entriesByDate, dataKey, date)),
     currentDay: evaluateUpperLimitDataDay(entriesByDate, dataKey, currentDate),
@@ -456,6 +450,12 @@ export function getNutritionAttention({ days, entries = [], currentDate, goals, 
   const dayByDate = new Map(days.map((day) => [day.date, day]));
   const dates = Array.from({ length: windowDays }, (_, index) => shiftIsoDate(startDate, index));
   const currentSource = dayByDate.get(currentDate);
+  const entriesByDate = new Map<string, InsightEntry[]>();
+  for (const entry of entries) {
+    const dayEntries = entriesByDate.get(entry.date);
+    if (dayEntries) dayEntries.push(entry);
+    else entriesByDate.set(entry.date, [entry]);
+  }
   const nutrients = {} as Record<NutrientKey, NutritionAttentionNutrientFact>;
   const facts: NutritionAttentionNutrientFact[] = [];
   const trackedUpperLimitData = { ...(referenceSettings.trackedUpperLimitData ?? {}) };
@@ -478,7 +478,7 @@ export function getNutritionAttention({ days, entries = [], currentDate, goals, 
       : null;
     const upperLimitDataKey = NUTRIENT_UPPER_LIMIT_TRACKING_KEYS[nutrient];
     const sourceSpecificDays = upperLimitDataKey
-      ? upperLimitDataDays(entries, upperLimitDataKey, dates, currentDate)
+      ? upperLimitDataDays(entriesByDate, upperLimitDataKey, dates, currentDate)
       : null;
     const shortfall = buildShortfall(pastDays, startDate, windowDays, shortfallReference);
     const excess = buildExcess(
