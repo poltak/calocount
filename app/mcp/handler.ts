@@ -51,15 +51,21 @@ export type McpHandlerDependencies = {
   getNutritionSummary: (ownerKey: string, input: ReturnType<typeof parseNutritionSummaryInput>) => Promise<NutritionSummaryReport>;
 };
 
-const nutrientProperties = Object.fromEntries(NUTRIENT_META.map((nutrient) => [
-  nutrient.key,
-  {
-    type: ["number", "null"],
-    minimum: 0,
-    maximum: nutrient.maximum,
-    description: `${nutrient.label} in ${nutrient.unit}. Use null when the value is unknown.`,
-  },
-]));
+function nutrientInputProperties(
+  nutrients: ReadonlyArray<{ key: string; label: string; unit: string; maximum: number }>,
+) {
+  return Object.fromEntries(nutrients.map((nutrient) => [
+    nutrient.key,
+    {
+      type: ["number", "null"],
+      minimum: 0,
+      maximum: nutrient.maximum,
+      description: `${nutrient.label} in ${nutrient.unit}. Use null when the value is unknown.`,
+    },
+  ]));
+}
+
+const nutrientProperties = nutrientInputProperties(NUTRIENT_META);
 
 const mealProperties = {
   request_id: {
@@ -158,6 +164,12 @@ const nutrientValueOutputSchema = {
   required: NUTRIENT_META.map((nutrient) => nutrient.key),
   additionalProperties: false,
 };
+const sourceFormValueOutputSchema = {
+  type: "object",
+  properties: Object.fromEntries(SOURCE_FORM_OUTPUT_KEYS.map((key) => [key, nullableNumberSchema])),
+  required: [...SOURCE_FORM_OUTPUT_KEYS],
+  additionalProperties: false,
+};
 const nutrientCoverageSchema = {
   type: "object",
   properties: {
@@ -234,12 +246,7 @@ const GET_NUTRITION_HISTORY_TOOL = {
                   carbsG: { type: "number" },
                   fatG: { type: "number" },
                   nutrients: nutrientValueOutputSchema,
-                  sourceFormAmounts: {
-                    type: "object",
-                    properties: Object.fromEntries(SOURCE_FORM_OUTPUT_KEYS.map((key) => [key, nullableNumberSchema])),
-                    required: [...SOURCE_FORM_OUTPUT_KEYS],
-                    additionalProperties: false,
-                  },
+                  sourceFormAmounts: sourceFormValueOutputSchema,
                 },
                 required: ["id", "name", "quantity", "unit", "caloriesKcal", "proteinG", "carbsG", "fatG", "nutrients", "sourceFormAmounts"],
                 additionalProperties: false,
@@ -348,17 +355,7 @@ const GET_NUTRITION_SUMMARY_TOOL = {
   annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false, idempotentHint: true },
 } as const;
 
-const updateNutrientProperties = Object.fromEntries(
-  [...NUTRIENT_META, ...NUTRIENT_UPPER_LIMIT_META].map((nutrient) => [
-    nutrient.key,
-    {
-      type: ["number", "null"],
-      minimum: 0,
-      maximum: nutrient.maximum,
-      description: nutrient.label + " in " + nutrient.unit + ". Use null when the value is unknown.",
-    },
-  ]),
-);
+const updateNutrientProperties = nutrientInputProperties([...NUTRIENT_META, ...NUTRIENT_UPPER_LIMIT_META]);
 
 const UPDATE_MEAL_TOOL = {
   name: "update_meal",
@@ -451,12 +448,7 @@ const UPDATE_MEAL_TOOL = {
               carbs: { type: "number" },
               fat: { type: "number" },
               nutrients: nutrientValueOutputSchema,
-              sourceFormAmounts: {
-                type: "object",
-                properties: Object.fromEntries(SOURCE_FORM_OUTPUT_KEYS.map((key) => [key, nullableNumberSchema])),
-                required: [...SOURCE_FORM_OUTPUT_KEYS],
-                additionalProperties: false,
-              },
+              sourceFormAmounts: sourceFormValueOutputSchema,
             },
             required: ["id", "name", "quantity", "unit", "kcal", "protein", "carbs", "fat", "nutrients", "sourceFormAmounts"],
             additionalProperties: false,
@@ -826,18 +818,7 @@ async function createNutritionHistoryToolCall(ownerKey: string, arguments_: Json
         carbsG: meal.carbsG,
         fatG: meal.fatG,
       },
-      items: meal.items.map((item) => ({
-        id: item.id,
-        name: item.name,
-        quantity: item.quantity,
-        unit: item.unit,
-        caloriesKcal: item.caloriesKcal,
-        proteinG: item.proteinG,
-        carbsG: item.carbsG,
-        fatG: item.fatG,
-        nutrients: item.nutrients,
-        sourceFormAmounts: item.sourceFormAmounts,
-      })),
+      items: meal.items,
     }));
     const payload = {
       start_date: input.startDate,
