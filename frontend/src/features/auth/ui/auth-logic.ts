@@ -1,8 +1,8 @@
 import { Logic } from "@shadow/common/features/core/logic/logic";
-import type { InferResponseType } from "hono/client";
 import {
   ApiRequestError,
   requireApiSuccess,
+  type ApiUser,
 } from "../../api/client/api-client.js";
 import type { App } from "../../core/types.js";
 import type { FrontendLogicProps } from "../../core/logic/types.js";
@@ -10,10 +10,9 @@ import { LatestRequest } from "../../core/logic/latest-request.js";
 
 type AuthProps = FrontendLogicProps<never, "windowFocus", "me" | "session"> &
   Pick<App, "apiAccessEvents">;
-type User = InferResponseType<App["api"]["me"]["$get"], 200>["user"];
 interface AuthState {
   status: "loading" | "signedOut" | "signedIn" | "error";
-  user: User | null;
+  user: ApiUser | null;
   busy: boolean;
   email: string;
   password: string;

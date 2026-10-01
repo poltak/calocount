@@ -1,5 +1,5 @@
 import type { ApiType } from "backend/api";
-import { hc } from "hono/client";
+import { hc, type InferResponseType } from "hono/client";
 
 export interface ApiClientProps {
   baseUrl?: string;
@@ -31,6 +31,9 @@ export function createApiClient({
 }
 
 export type BackendApi = ReturnType<typeof createApiClient>;
+
+/** The signed-in user's profile, as the API returns it. */
+export type ApiUser = InferResponseType<BackendApi["me"]["$get"], 200>["user"];
 
 /** Hono substitutes path parameters without encoding them. Encode once here. */
 export function encodeApiParam(value: string): string {
