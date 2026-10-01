@@ -862,6 +862,17 @@ test("checks Origin and returns 405 for authenticated GET requests", async () =>
   assert.equal(get.headers.get("access-control-allow-origin"), null);
 });
 
+test("rejects a top-level single meal without a meals array before the meal core runs", async () => {
+  let coreCalls = 0;
+  const route = handler({ addMeals: async () => { coreCalls += 1; throw new Error("Must not call core."); } });
+  const response = await route.POST(toolCall({ ...meal("c5a84680-d0c7-4af6-a4f5-89495c3923ec") }));
+  const payload = await response.json() as { result: { isError: boolean; structuredContent: { error: { code: string; message: string } } } };
+  assert.equal(payload.result.isError, true);
+  assert.equal(payload.result.structuredContent.error.code, "invalid_field");
+  assert.match(payload.result.structuredContent.error.message, /meals must be an array/u);
+  assert.equal(coreCalls, 0);
+});
+
 test("the summary output schema lists the stored protein goal modes", async () => {
   const route = handler();
   const list = await route.POST(request({ jsonrpc: "2.0", id: 2, method: "tools/list" }));

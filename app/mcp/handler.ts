@@ -620,7 +620,10 @@ function mappedMealBody(arguments_: JsonObject): JsonObject {
   if (Object.hasOwn(arguments_, "openaiFileIdRefs")) {
     throw new AddMealRequestError(400, "invalid_field", "openaiFileIdRefs is not supported by MCP. Use meals with top-level photos and photo_meal_indices so ChatGPT can supply file values.");
   }
-  if (Array.isArray(arguments_.meals)) {
+  if (!Array.isArray(arguments_.meals)) {
+    throw new AddMealRequestError(400, "invalid_field", "meals must be an array of meal objects.");
+  }
+  {
     for (const [index, meal] of arguments_.meals.entries()) {
       if (isObject(meal) && Object.hasOwn(meal, "openaiFileIdRefs")) {
         throw new AddMealRequestError(400, "invalid_field", `meals[${index}].openaiFileIdRefs is not supported by MCP. Use top-level photos and photo_meal_indices so ChatGPT can supply file values.`);
@@ -646,10 +649,6 @@ function mappedMealBody(arguments_: JsonObject): JsonObject {
   if (photos.length !== indices.length) {
     throw new AddMealRequestError(400, "invalid_field", "photos and photo_meal_indices must have the same number of entries.");
   }
-  if (!Array.isArray(meals)) {
-    throw new AddMealRequestError(400, "invalid_field", "meals must be an array when photos are provided.");
-  }
-
   const mappedMeals = [...meals];
   const seenIndices = new Set<number>();
   for (const [photoIndex, photo] of photos.entries()) {
