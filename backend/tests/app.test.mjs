@@ -11,26 +11,34 @@ import { FakePatientRecordsService } from "../dist/features/patient-records/serv
 import { LivePatientRecordsService } from "../dist/features/patient-records/services/live-patient-records-service.js";
 import { FakeTranscriptionService } from "../dist/features/transcription/services/fake-transcription-service.js";
 import { LiveTranscriptionService } from "../dist/features/transcription/services/live-transcription-service.js";
+import { readLiveConfig } from "../dist/live/config.js";
 import { createApp as createLiveApp } from "../dist/live/index.js";
 import { createApp as createTestApp } from "../dist/tests/index.js";
 
 describe("createApp", () => {
   it("requires a database URL for the live app", () => {
-    assert.throws(
-      () => createLiveApp({ databaseUrl: "" }),
-      /DATABASE_URL is required/,
+    assert.throws(() =>
+      readLiveConfig({
+        DATABASE_URL: "",
+        BETTER_AUTH_SECRET: "test-secret-that-is-at-least-32-characters",
+        BETTER_AUTH_URL: "http://shadow.test",
+        SHADOW_OWNER_EMAIL: "owner@example.test",
+      }),
     );
   });
 
   it("wires live storage, services, and Logic without connecting", async () => {
     const app = createLiveApp({
-      databaseUrl: "postgresql://user:password@127.0.0.1:1/shadow",
-      auth: {
-        secret: "test-secret-that-is-at-least-32-characters",
-        baseUrl: "http://shadow.test",
-        trustedOrigins: [],
+      config: {
+        databaseUrl: "postgresql://user:password@127.0.0.1:1/shadow",
+        auth: {
+          secret: "test-secret-that-is-at-least-32-characters",
+          baseUrl: "http://shadow.test",
+          trustedOrigins: [],
+        },
+        ownerEmail: "owner@example.test",
+        server: { host: "127.0.0.1", port: 0 },
       },
-      ownerEmail: "owner@example.test",
     });
 
     try {

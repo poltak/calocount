@@ -1,10 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { createTestBackend } from "../dist/tests/api.js";
-import {
-  ownerEmail,
-  readOwnerEmail,
-} from "../dist/features/auth/logic/configuration.js";
+import { ownerEmailSchema } from "../dist/features/auth/logic/configuration.js";
+import { readLiveConfig } from "../dist/live/config.js";
 
 const credentials = { name: "Owner", password: "test-password-for-auth-only" };
 
@@ -24,9 +22,12 @@ describe("single-user setup", () => {
     assert.equal(await backend.app.storage.auth.getUserCount(), 1);
   });
   it("requires a valid owner email and normalizes it", () => {
-    assert.throws(() => readOwnerEmail({ env: {} }));
-    assert.throws(() => ownerEmail("not-an-email"));
-    assert.equal(ownerEmail(" OWNER@EXAMPLE.TEST "), "owner@example.test");
+    assert.throws(() => readLiveConfig({}));
+    assert.throws(() => ownerEmailSchema.parse("not-an-email"));
+    assert.equal(
+      ownerEmailSchema.parse(" OWNER@EXAMPLE.TEST "),
+      "owner@example.test",
+    );
   });
 
   it("provisions the configured owner once without replacing credentials", async (context) => {

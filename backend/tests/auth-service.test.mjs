@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { createApp } from "../dist/tests/index.js";
-import { readAuthConfiguration } from "../dist/features/auth/services/configuration.js";
+import { authConfigurationSchema } from "../dist/features/auth/services/configuration.js";
+import { readLiveConfig } from "../dist/live/config.js";
 
 const credentials = {
   email: "owner@example.test",
@@ -11,13 +12,11 @@ const credentials = {
 
 describe("AuthService", () => {
   it("requires explicit live configuration", () => {
-    assert.throws(() => readAuthConfiguration({ env: {} }));
+    assert.throws(() => readLiveConfig({}));
     assert.throws(() =>
-      readAuthConfiguration({
-        env: {
-          BETTER_AUTH_SECRET: "short",
-          BETTER_AUTH_URL: "http://localhost",
-        },
+      authConfigurationSchema.parse({
+        secret: "short",
+        baseUrl: "http://localhost",
       }),
     );
   });

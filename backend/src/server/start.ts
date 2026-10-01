@@ -1,15 +1,11 @@
 import { serve } from "@hono/node-server";
-import { z } from "zod";
+import { readLiveConfig } from "../live/config.js";
 import { createApp } from "../live/index.js";
 import { createHttpApp } from "./http-app.js";
 import { initializeLogic } from "../logic/lifecycle.js";
 
-const environmentSchema = z.object({
-  HOST: z.string().trim().min(1).default("127.0.0.1"),
-  PORT: z.coerce.number().int().min(0).max(65535).default(3000),
-});
-const environment = environmentSchema.parse(process.env);
-const app = createApp();
+const config = readLiveConfig();
+const app = createApp({ config });
 
 try {
   await initializeLogic({ logic: app.logic });
@@ -22,8 +18,8 @@ const httpApp = createHttpApp({ app });
 const server = serve(
   {
     fetch: httpApp.fetch,
-    hostname: environment.HOST,
-    port: environment.PORT,
+    hostname: config.server.host,
+    port: config.server.port,
   },
   (info) => {
     console.log(`Shadow API listening at http://${info.address}:${info.port}`);
