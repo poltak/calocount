@@ -1254,16 +1254,27 @@ export async function getCurrentDayMealTotals(
   const logicalDate = dateKeyFromParts(zonedDateParts(formatter, now.getTime()));
   const startMs = firstInstantForLocalDate({ date: logicalDate, formatter });
   const endMs = firstInstantForLocalDate({ date: shiftDateKey(logicalDate, 1), formatter });
-  const meals = await listMealsInRange({ db, ownerKey, from: startMs, to: endMs });
-  return meals.reduce((totals, entry) => {
-    if (entry.meal.status !== "complete") return totals;
-    return {
-      date: logicalDate,
-      calories: totals.calories + entry.meal.totalCalories,
-      proteinG: totals.proteinG + entry.meal.totalProteinG,
-      mealCount: totals.mealCount + 1,
-    };
-  }, { date: logicalDate, calories: 0, proteinG: 0, mealCount: 0 });
+  const totals = await db
+    .select({
+      calories: sql<number>`coalesce(sum(${mealLogs.totalCalories}), 0)`,
+      proteinG: sql<number>`coalesce(sum(${mealLogs.totalProteinG}), 0)`,
+      mealCount: sql<number>`count(*)`,
+    })
+    .from(mealLogs)
+    .where(and(
+      eq(mealLogs.ownerKey, ownerKey),
+      eq(mealLogs.status, "complete"),
+      gte(mealLogs.consumedAt, startMs),
+      lt(mealLogs.consumedAt, endMs),
+    ))
+    .prepare()
+    .get();
+  return {
+    date: logicalDate,
+    calories: finiteNumber(totals?.calories),
+    proteinG: finiteNumber(totals?.proteinG),
+    mealCount: finiteNumber(totals?.mealCount),
+  };
 }
 
 export async function upsertSettings(db: AppDb, ownerKey: string, patch: SettingsPatch) {
