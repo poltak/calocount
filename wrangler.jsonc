@@ -26,6 +26,10 @@
   "images": {
     "binding": "IMAGES"
   },
+  // Hourly cleanup of meal photos that no meal links to.
+  "triggers": {
+    "crons": ["0 * * * *"]
+  },
   "vars": {
     "CALOCOUNT_OWNER_KEY": "default",
     "CALOCOUNT_ACCESS_TEAM_DOMAIN": "spring-lab-47cd.cloudflareaccess.com",

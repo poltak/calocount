@@ -5,7 +5,7 @@ import {
   cleanupUnlinkedMealPhotos,
   photoCleanupDecision,
   type CleanupBucket,
-} from "../workers/ingest/photo-cleanup";
+} from "../worker/photo-cleanup";
 
 const CLEANUP_CURSOR_KEY = "__calocount/photo-cleanup-cursor.json";
 

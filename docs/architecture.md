@@ -4,12 +4,12 @@ Calocount is a single-user meal tracker. The public root is read-only, and the o
 
 ## Runtime services
 
-- The app Worker serves the dashboard and JSON API.
+- One Worker serves the dashboard and JSON API and runs the hourly photo cleanup.
 - Cloudflare D1 stores settings, meals, meal items, revisions, and historical job and AI records.
 - A private R2 bucket stores meal photos.
-- The photo-maintenance Worker in `workers/ingest` serves `GET /healthz` and runs a bounded, resumable scan that removes only unlinked R2 photos older than the 24-hour grace period.
-- Cloudflare Access protects the private owner route and private APIs. The photo-maintenance Worker runs as a separate public Worker.
-- Historical D1 schema, migrations, data, and Queue resources remain for compatibility. Current code does not produce or consume analysis jobs.
+- The Worker's hourly cron trigger runs a bounded, resumable scan that removes only unlinked R2 photos older than the 24-hour grace period.
+- Cloudflare Access protects the private owner route and private APIs.
+- Historical D1 tables for analysis jobs and AI runs remain. Current code does not write to them.
 
 ## HTTP route boundary
 
@@ -49,10 +49,6 @@ reachable anonymously; and removed share routes return `404` when reached.
 Recheck the live Access path list after every Access change; this document
 describes the intended state, not automatic enforcement.
 
-On the separate `calocount-ingest` compatibility Worker origin, legacy
-`/telegram/webhook` and `/ai-media/*` routes return `404`. No Telegram webhook
-or in-Worker AI processing remains.
-
 ### Future route and Access review rule
 
 For the intended public-root/private-owner layout, treat routes as public by
@@ -68,7 +64,7 @@ a repository rule for future changes; the current layout was verified on
 1. The owner enters a meal in the private dashboard, or ChatGPT prepares structured data and calls `add_meals` through the private `/mcp` app. The deprecated Custom GPT Action can still call `POST /api/add-meal` with its bearer token for existing clients.
 2. The shared meal-processing code validates the request and stores the meal, nutrient values, and optional photo in D1 and private R2. A UUID `request_id` makes external retries idempotent.
 3. The public read-only projection updates from the stored meal data. The owner dashboard continues to provide edits, corrections, exports, and private photo access.
-4. The photo-maintenance Worker runs its scheduled bounded scan and removes only unlinked R2 photos older than the 24-hour grace period.
+4. The hourly cron trigger runs a bounded scan and removes only unlinked R2 photos older than the 24-hour grace period.
 
 ## ChatGPT integration boundary
 
@@ -92,10 +88,9 @@ a photo immediately, and does not store the temporary link.
 ## Reliability boundary
 
 D1 is the durable source of meal state. External add-meal request IDs make
-retries idempotent. The scheduled photo-maintenance pass is a bounded,
-resumable scan for unlinked photos older than the 24-hour grace period.
-Historical job tables and Queue data remain available for compatibility, but
-current code does not use them.
+retries idempotent. The hourly photo cleanup is a bounded, resumable scan for
+unlinked photos older than the 24-hour grace period. Historical job tables
+remain, but current code does not use them.
 
 ## Product boundary
 

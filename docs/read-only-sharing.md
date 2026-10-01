@@ -30,10 +30,6 @@ compatibility; do not remove or alter them without a separate database decision.
 | `/_next/static/*`, manifest, service worker, and required icons | Public because no Access destination matches them | JavaScript, CSS, and install metadata only |
 | `/api/photos/*`, exports, settings, and other owner APIs | Private | Sensitive data and mutations |
 
-On the separate `calocount-ingest` compatibility Worker origin, legacy
-`/telegram/webhook` and `/ai-media/*` paths return `404`. They are not dashboard
-routes.
-
 The public summary endpoint resolves the stable configured owner key. It fails
 closed when that key is absent and returns `Cache-Control: no-store`. The
 projection contains only the fields required by the dashboard:
@@ -90,9 +86,7 @@ The following layout was live-verified on 2026-08-26:
 4. Anonymous and authenticated live checks must confirm that the public root,
    summary, and projected meal photos load without login; `/owner`,
    `/api/photos/*`, and other private APIs require the owner Access session;
-   static/PWA assets are reachable anonymously; and the separate
-   `calocount-ingest` origin returns `404` for `/telegram/webhook` and
-   `/ai-media/*`.
+   and static/PWA assets are reachable anonymously.
 
 Keep `CALOCOUNT_ALLOW_LOCAL=false` in production. Review the public projection,
 route conditions, and owner JWT checks before each deployment. Apply only the

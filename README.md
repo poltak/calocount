@@ -2,7 +2,7 @@
 
 Calocount is a single-user calorie tracker with a public read-only dashboard and a private owner dashboard. Add meals manually in the owner dashboard or through the private ChatGPT MCP app. The app validates and stores structured nutrition data and shows a compact Caltrack-inspired dashboard.
 
-The application backend uses Cloudflare Workers, D1, R2, Cron Triggers, Static Assets, and Access. The scheduled photo-maintenance Worker remains under `workers/ingest` for deployment compatibility.
+The application backend uses Cloudflare Workers, D1, R2, Cron Triggers, Static Assets, and Access. One Worker serves the dashboard and API and runs the hourly photo cleanup.
 
 ## Included
 
@@ -25,9 +25,8 @@ Calocount does not include WHOOP, Apple Health, body-fat, sleep, recovery, or st
 app/                 dashboard and private JSON API
 db/                  Drizzle schema and D1 repository
 drizzle/             generated D1 migration
-worker/              dashboard Worker entry point
-workers/ingest/      scheduled photo-maintenance Worker (compatibility path)
-tests/               rendered UI, data, security, and schema tests
+worker/              Worker entry point and scheduled photo cleanup
+tests/               unit, Worker runtime, and browser tests
 docs/architecture.md detailed runtime flow and boundaries
 docs/read-only-sharing.md public/owner route boundary and rollout runbook
 ```
@@ -94,45 +93,29 @@ Apply the migration to the local D1 database:
 pnpm exec wrangler d1 migrations apply calocount --local
 ```
 
-The app and photo-maintenance Worker use the same logical database name, `calocount`.
+## Photo cleanup
 
-## Photo-maintenance Worker
-
-The `workers/ingest` path, `ingest:*` npm scripts, and remote Worker name
-`calocount-ingest` remain for deployment compatibility. The Worker serves
-`GET /healthz` and runs a scheduled bounded, resumable scan that removes only
-unlinked R2 photos older than the 24-hour grace period, using the existing D1
-and R2 bindings. It does not accept Telegram webhook or AI-media requests,
-create analysis jobs, or consume Queue messages. `/telegram/webhook` and
-`/ai-media/*` return `404`.
-
-This Worker needs no bot, AI-provider, or Queue setup. Run its local
-commands:
-
-```bash
-pnpm run ingest:types
-pnpm run ingest:dev
-```
+The Worker's cron trigger runs every hour. Each run scans up to 1,000 objects
+in the photo bucket and deletes the ones that no meal links to and that are
+older than 24 hours. A run that does not reach the end of the bucket saves its
+position in the bucket and the next run continues from there.
 
 ## Validate
 
 ```bash
 pnpm run check
-pnpm run ingest:deploy:dry
+pnpm run deploy:dry
 ```
 
 Install the browser once with `pnpm exec playwright install chromium` before running checks. On Linux, use `pnpm exec playwright install --with-deps chromium` to install system libraries too.
 
-The full check runs strict TypeScript, ESLint, a production build, rendered HTML tests, data tests, AI/ingestion tests, and browser tests. The browser tests use the real dashboard with a local API fixture. They do not access production data. Run only these tests with `pnpm run test:browser`.
+The full check runs strict TypeScript, ESLint, a production build, the unit and data tests, tests that send requests to the built Worker, and browser tests. The browser tests use the real dashboard with a local API fixture. They do not access production data. Run only these tests with `pnpm run test:browser`.
 
 ## Cloudflare deployment
 
-This repository has two Worker configurations:
+`wrangler.jsonc` configures the one Worker: the dashboard, the API, and the hourly cron trigger.
 
-- `wrangler.jsonc` for the private dashboard and API
-- `workers/ingest/wrangler.jsonc` for the public photo-maintenance Worker
-
-Production deployment runs through GitHub Actions. A push to `main` or `master` runs the checks, both deployment dry runs, remote D1 migrations, and both Worker deployments in order. You can also start the workflow manually with `workflow_dispatch`. The current default branch is `main`.
+Production deployment runs through GitHub Actions. A push to `main` or `master` runs the checks, a deployment dry run, remote D1 migrations, and the Worker deployment in order. You can also start the workflow manually with `workflow_dispatch`. The current default branch is `main`.
 
 Before the first automatic deployment, complete this one-time GitHub and Cloudflare setup:
 
@@ -142,7 +125,7 @@ Before the first automatic deployment, complete this one-time GitHub and Cloudfl
 4. Keep the existing Cloudflare Worker secrets and resources configured. The workflow deploys Worker code and applies D1 migrations; it does not create resources or copy Worker secrets.
 5. If every push should deploy without approval, do not add required reviewers to the `production` environment. Add reviewers only when you want an approval gate.
 
-Create or confirm one D1 database and one R2 Standard bucket. Both Workers must bind to the same D1 database and R2 bucket. If Wrangler adds resource IDs to one configuration, copy the same IDs to the other configuration. Keep existing Queue resources and historical D1 schema, migrations, and data; the reduced Worker does not create or consume queue messages.
+Create or confirm one D1 database and one R2 Standard bucket, and bind both in `wrangler.jsonc`.
 
 Apply migrations before the first production request:
 
@@ -150,7 +133,7 @@ Apply migrations before the first production request:
 pnpm exec wrangler d1 migrations apply calocount --remote
 ```
 
-Do not put plaintext email values in either JSONC file. For a new production owner allowlist, use the `CALOCOUNT_ALLOWED_EMAIL_SHA256` variable in `wrangler.jsonc`. Its value is the SHA-256 digest of the trimmed, lower-case Access email.
+Do not put plaintext email values in `wrangler.jsonc`. For a new production owner allowlist, use the `CALOCOUNT_ALLOWED_EMAIL_SHA256` variable in `wrangler.jsonc`. Its value is the SHA-256 digest of the trimmed, lower-case Access email.
 
 Encrypted plaintext email bindings remain for compatibility with older or local deployments:
 
@@ -160,36 +143,27 @@ pnpm exec wrangler secret put CALOCOUNT_OWNER_EMAIL
 
 `CALOCOUNT_ALLOWED_EMAIL` remains only as a fallback for older or local configurations. Keep `CALOCOUNT_ALLOWED_USER_ID` if you use the Access user ID allowlist instead of an email. If several allowlists are configured, all of them must match; a malformed email hash fails closed.
 
-Build and deploy the private app:
+Build and deploy the app:
 
 ```bash
 pnpm run build
 pnpm exec wrangler deploy
 ```
 
-Before the first deployment of the reduced photo-maintenance Worker, detach
-the old Queue consumer once:
+An earlier version ran the photo cleanup in a separate Worker named
+`calocount-ingest`. If that Worker still exists in your account, delete it once
+after this deployment, so the cleanup does not run twice:
 
 ```bash
-pnpm exec wrangler queues consumer remove calocount-analysis calocount-ingest
-```
-
-Wrangler does not automatically detach consumers removed from configuration.
-Do not delete the Queue resources or their data.
-
-Deploy the public photo-maintenance Worker:
-
-```bash
-pnpm exec wrangler deploy --config workers/ingest/wrangler.jsonc
+pnpm exec wrangler delete --name calocount-ingest
 ```
 
 Then:
 
 1. Review the public projection, route conditions, and owner JWT checks. The PWA manifest starts at `/owner`; its `id` and `scope` remain `/`.
-2. Leave `calocount-ingest` public so `/healthz` can be monitored. Cron does not require public access.
-3. Confirm that the scheduled bounded cleanup uses the shared D1 and R2 bindings and removes only unlinked photos older than 24 hours.
-4. Test one manual dashboard meal and the MCP meal and nutrition tools. If the legacy Action is still configured, test one `POST /api/add-meal` request for compatibility.
-5. On the separate `calocount-ingest` origin, verify that `/telegram/webhook` and `/ai-media/*` return `404`; also verify the anonymous public projection/photo flow plus the private owner flow.
+2. Confirm in the Worker's logs that the hourly cron run reports a `meal_photo_cleanup` event.
+3. Test one manual dashboard meal and the MCP meal and nutrition tools. If the legacy Action is still configured, test one `POST /api/add-meal` request for compatibility.
+4. Verify the anonymous public projection and photo flow, and the private owner flow.
 
 For the public/owner route split, follow [docs/read-only-sharing.md](docs/read-only-sharing.md). The production Access layout was live-verified on 2026-08-26:
 

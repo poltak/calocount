@@ -45,17 +45,11 @@ jobs:
       - name: Run checks
         run: pnpm run check
 
-      - name: Dry-run dashboard deployment
+      - name: Dry-run deployment
         run: pnpm run deploy:dry
-
-      - name: Dry-run photo maintenance deployment
-        run: pnpm run ingest:deploy:dry
 
       - name: Apply remote D1 migrations
         run: pnpm run db:migrate:remote
 
-      - name: Deploy dashboard Worker
+      - name: Deploy Worker
         run: pnpm run deploy
-
-      - name: Deploy photo maintenance Worker
-        run: pnpm run ingest:deploy

@@ -13,7 +13,7 @@
     "test": "pnpm run build && tsx --test tests/*.test.mjs tests/*.test.ts",
     "test:browser": "playwright test",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern worker-configuration.d.ts --ignore-pattern workers/ingest/worker-configuration.d.ts",
+    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern worker-configuration.d.ts",
     "check": "pnpm run typecheck && pnpm run lint && pnpm run test && pnpm run test:browser",
     "db:generate": "drizzle-kit generate",
     "db:migrate:local": "WRANGLER_LOG_PATH=.wrangler/wrangler.log wrangler d1 migrations apply calocount --local",
@@ -21,11 +21,7 @@
     "db:migrate:remote": "WRANGLER_LOG_PATH=.wrangler/wrangler.log wrangler d1 migrations apply calocount --remote",
     "types": "WRANGLER_LOG_PATH=.wrangler/wrangler.log wrangler types worker-configuration.d.ts",
     "deploy": "pnpm run build && WRANGLER_LOG_PATH=.wrangler/wrangler.log wrangler deploy",
-    "deploy:dry": "pnpm run build && WRANGLER_LOG_PATH=.wrangler/wrangler.log wrangler deploy --dry-run",
-    "ingest:dev": "WRANGLER_LOG_PATH=.wrangler/wrangler.log wrangler dev --config workers/ingest/wrangler.jsonc",
-    "ingest:types": "WRANGLER_LOG_PATH=.wrangler/wrangler.log wrangler types workers/ingest/worker-configuration.d.ts --config workers/ingest/wrangler.jsonc --env-interface IngestEnv --include-runtime false",
-    "ingest:deploy": "WRANGLER_LOG_PATH=.wrangler/wrangler.log wrangler deploy --config workers/ingest/wrangler.jsonc",
-    "ingest:deploy:dry": "WRANGLER_LOG_PATH=.wrangler/wrangler.log wrangler deploy --dry-run --config workers/ingest/wrangler.jsonc"
+    "deploy:dry": "pnpm run build && WRANGLER_LOG_PATH=.wrangler/wrangler.log wrangler deploy --dry-run"
   },
   "dependencies": {
     "@modelcontextprotocol/server": "^2.0.0",
