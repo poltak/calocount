@@ -32,6 +32,7 @@ import {
   parseMcpMealUpdateInput,
   type McpMealUpdateInput,
 } from "./meal-update";
+import { readBoundedBytes } from "../api/_lib/bounded-read";
 import { hasOnlyKeys, isObject, type JsonObject } from "./objects";
 
 export const MCP_PROTOCOL_VERSION = "2025-11-25";
@@ -877,46 +878,41 @@ async function createNutritionSummaryToolCall(ownerKey: string, arguments_: Json
   }
 }
 
-async function validateRequestSize(request: Request): Promise<boolean> {
+/** Read the body once. Returns null when it exceeds the limit. */
+async function readRequestBody(request: Request): Promise<Uint8Array<ArrayBuffer> | null> {
   const contentLength = Number(request.headers.get("content-length") ?? 0);
-  if (Number.isFinite(contentLength) && contentLength > MAX_BODY_BYTES) return true;
-  if (!request.body) return false;
+  if (Number.isFinite(contentLength) && contentLength > MAX_BODY_BYTES) return null;
+  if (!request.body) return new Uint8Array(0);
+  return readBoundedBytes(request.body, MAX_BODY_BYTES);
+}
 
-  const reader = request.clone().body?.getReader();
-  if (!reader) return false;
-  let byteCount = 0;
+type ParsedMessage = { parsed: true; value: unknown } | { parsed: false };
+
+function parseMessage(body: Uint8Array): ParsedMessage {
   try {
-    while (true) {
-      const chunk = await reader.read();
-      if (chunk.done) return false;
-      byteCount += chunk.value.byteLength;
-      if (byteCount > MAX_BODY_BYTES) {
-        void reader.cancel("payload_too_large").catch(() => undefined);
-        return true;
-      }
-    }
+    return { parsed: true, value: JSON.parse(new TextDecoder().decode(body)) as unknown };
   } catch {
-    return false;
-  } finally {
-    reader.releaseLock();
+    return { parsed: false };
   }
 }
 
-async function validateProtocolVersion(request: Request): Promise<Response | null> {
+function validateProtocolVersion(request: Request, message?: ParsedMessage): Response | null {
   const version = request.headers.get("mcp-protocol-version");
   if (version !== null && !SUPPORTED_PROTOCOL_VERSIONS.includes(version)) {
     return httpError(400, "unsupported_protocol_version", "The MCP protocol version is not supported.");
   }
   if (version !== null || request.method !== "POST") return null;
 
-  let message: unknown;
-  try {
-    message = await request.clone().json();
-  } catch {
-    return null;
-  }
-  if (isObject(message) && message.method === "initialize") return null;
+  // An unreadable body is left for the transport to reject.
+  if (!message?.parsed) return null;
+  if (isObject(message.value) && message.value.method === "initialize") return null;
   return httpError(400, "unsupported_protocol_version", "The MCP protocol version is required after initialization.");
+}
+
+function isToolsListRequest(message: ParsedMessage): boolean {
+  if (!message.parsed) return false;
+  const messages = Array.isArray(message.value) ? message.value : [message.value];
+  return messages.some((entry) => isObject(entry) && entry.method === "tools/list");
 }
 
 async function addOpenAISecuritySchemes(response: Response): Promise<Response> {
@@ -1008,7 +1004,7 @@ export function createMcpHandler(dependencies: McpHandlerDependencies) {
   async function GET(request: Request): Promise<Response> {
     const identity = await authorize(request);
     if (identity instanceof Response) return identity;
-    const versionError = await validateProtocolVersion(request);
+    const versionError = validateProtocolVersion(request);
     if (versionError) return versionError;
     return httpError(405, "method_not_allowed", "This MCP endpoint does not offer a server event stream.");
   }
@@ -1017,10 +1013,17 @@ export function createMcpHandler(dependencies: McpHandlerDependencies) {
     const identity = await authorize(request);
     if (identity instanceof Response) return identity;
 
-    if (await validateRequestSize(request)) {
+    let body: Uint8Array<ArrayBuffer> | null;
+    try {
+      body = await readRequestBody(request);
+    } catch {
+      return httpError(400, "invalid_request", "The request body could not be read.");
+    }
+    if (body === null) {
       return httpError(413, "payload_too_large", "The request is too large.");
     }
-    const versionError = await validateProtocolVersion(request);
+    const message = parseMessage(body);
+    const versionError = validateProtocolVersion(request, message);
     if (versionError) return versionError;
 
     const server = createServer(identity.ownerKey, dependencies);
@@ -1030,8 +1033,11 @@ export function createMcpHandler(dependencies: McpHandlerDependencies) {
     });
     try {
       await server.connect(transport);
-      const response = await transport.handleRequest(request);
-      return await addOpenAISecuritySchemes(response);
+      const headers = new Headers(request.headers);
+      headers.delete("content-length");
+      const response = await transport.handleRequest(new Request(request, { body, headers }));
+      // Only a tools/list result carries tool definitions to rewrite.
+      return isToolsListRequest(message) ? await addOpenAISecuritySchemes(response) : response;
     } catch {
       return httpError(500, "internal_error", "The MCP request could not be completed.");
     } finally {
