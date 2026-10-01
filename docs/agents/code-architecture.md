@@ -160,6 +160,18 @@ interfaces through Logic setup functions or a composition root. If coordination
 spans several features, create a coordinating feature that composes their public
 event interfaces.
 
+UI Logic is created by the component that owns it, not by a composition root, so
+that component supplies event interfaces through `deps`:
+
+- App-wide events come from a channel the composition root creates and exposes
+  on the frontend App as a listen-only interface, such as `apiAccessEvents`.
+- Events from another component-owned Logic come from that Logic's `events`. The
+  component reads the Logic from the provider that owns it and passes its
+  `events` typed as a listen-only interface.
+
+Subscribe in `onInitialize()` through `listen()` or `registerCleanup()`, so
+cleanup removes the listener.
+
 Service classes should not depend on other Service, Storage, or Logic classes. If
 several external capabilities form one integration boundary, one Service class may
 encapsulate them. Otherwise, coordinate them in Logic.
@@ -209,10 +221,16 @@ source, such as a secrets manager, put that source behind a Service.
 
 Backend Logic constructors accept a shared props type that selects the required
 Storage and Service instances by their keys. Feature
-props types can extend it with additional dependencies. Keep these dependencies
-on the Logic instance, and pass the props into the base Logic's `deps`. Operation
-method parameters contain operation data; they do not supply Storage or Service
-instances.
+props types can extend it with additional dependencies. Pass the props to the
+base Logic as `deps` and read them through `this.deps`; do not store them in a
+second field. Operation method parameters contain operation data; they do not
+supply Storage or Service instances.
+
+Backend Logic instances are shared by every request for the life of the server.
+They must not hold per-request or per-user state, such as the current user,
+request data, or the progress of one caller's operation. Pass that data as
+method parameters. Backend Logic state is only for process-wide state, such as a
+cache.
 
 Use separate live and test roots with the same application interface. Tests must
 not load live integration modules, apart from the embedded-framework exception
