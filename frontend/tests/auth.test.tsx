@@ -89,7 +89,7 @@ describe("authentication UI with the real backend", () => {
     try {
       renderApp(fixture);
       await screen.findByRole("button", { name: "Start" });
-      await fixture.backend.storage.auth.props.db
+      await fixture.backend.db
         .withTables<{ session: { expiresAt: Date } }>()
         .updateTable("session")
         .set({ expiresAt: new Date(0) })

@@ -72,7 +72,7 @@ describe("createApp", () => {
       assert.ok(
         first.storage.encounterLifecycle instanceof EncounterLifecycleStorage,
       );
-      assert.ok(first.storage.encounterLifecycle.props.db instanceof Kysely);
+      assert.ok(first.db instanceof Kysely);
       assert.ok(first.services.ai instanceof FakeAIService);
       assert.ok(
         first.services.transcription instanceof FakeTranscriptionService,
@@ -103,23 +103,14 @@ describe("createApp", () => {
         first.logic.encounterLifecycle.state,
         second.logic.encounterLifecycle.state,
       );
-      assert.notStrictEqual(
-        first.storage.encounterLifecycle.props.db,
-        second.storage.encounterLifecycle.props.db,
-      );
+      assert.notStrictEqual(first.db, second.db);
 
-      const result = await sql`select 42 as answer`.execute(
-        first.storage.encounterLifecycle.props.db,
-      );
+      const result = await sql`select 42 as answer`.execute(first.db);
       assert.deepEqual(result.rows, [{ answer: 42 }]);
 
-      await sql`create table isolation_check (id integer)`.execute(
-        first.storage.encounterLifecycle.props.db,
-      );
+      await sql`create table isolation_check (id integer)`.execute(first.db);
       await assert.rejects(
-        sql`select id from isolation_check`.execute(
-          second.storage.encounterLifecycle.props.db,
-        ),
+        sql`select id from isolation_check`.execute(second.db),
         /does not exist/,
       );
     } finally {
@@ -129,7 +120,7 @@ describe("createApp", () => {
 
   it("releases the database even when Logic cleanup fails", async (context) => {
     const app = createTestApp();
-    const db = app.storage.encounterLifecycle.props.db;
+    const db = app.db;
     const destroy = db.destroy.bind(db);
     const calls = [];
 

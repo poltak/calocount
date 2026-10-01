@@ -129,7 +129,7 @@ describe("authentication middleware", () => {
     const { session } = await (
       await browser("http://shadow.test/api/auth/get-session")
     ).json();
-    await backend.app.storage.encounterLifecycle.props.db
+    await backend.app.db
       .updateTable("session")
       .set({ expiresAt: new Date(0) })
       .where("id", "=", session.id)

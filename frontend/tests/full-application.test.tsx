@@ -21,7 +21,7 @@ afterEach(() => {
 describe("full application fixture", () => {
   it("drives UI Logic through real handlers into an isolated database without a socket", async () => {
     const fixture = await createFullApplication();
-    const db = fixture.backend.storage.encounterLifecycle.props.db.withTables<{
+    const db = fixture.backend.db.withTables<{
       test_encounter_calls: { encounter_id: string };
     }>();
     const uiLogics: ApiExampleLogic[] = [];
@@ -93,8 +93,7 @@ describe("full application fixture", () => {
 
       const other = await createFullApplication();
       try {
-        const tables =
-          await other.backend.storage.encounterLifecycle.props.db.introspection.getTables();
+        const tables = await other.backend.db.introspection.getTables();
         expect(
           tables.some((table) => table.name === "test_encounter_calls"),
         ).toBe(false);
