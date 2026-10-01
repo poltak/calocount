@@ -10,6 +10,7 @@ import { readBoundedBytes } from "./bounded-read";
 import {
   MAX_DASHBOARD_MEAL_PHOTO_BYTES,
   MealPhotoError,
+  normaliseContentType,
   SUPPORTED_MEAL_PHOTO_TYPES,
   validateMealPhotoBytes,
   type MealPhotoUpload,
@@ -221,10 +222,6 @@ export function parseIsoDatetime(value: string): number {
   const timestamp = Date.parse(value);
   if (!Number.isFinite(timestamp)) invalidField("eaten_at", "must be a valid ISO-8601 datetime");
   return timestamp;
-}
-
-function normaliseContentType(value: string): string {
-  return value.split(";", 1)[0]?.trim().toLowerCase() ?? "";
 }
 
 export function normalizeExternalMealPhotoType(value: unknown): ExternalMealPhotoType | null {

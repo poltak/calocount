@@ -1,9 +1,8 @@
 /**
  * Dashboard meal-photo upload helpers.
  *
- * Dashboard uploads use three image formats, but are received as a multipart
- * form and must
- * be bounded before they are written to R2.
+ * Dashboard uploads use three image formats. They arrive as a multipart form
+ * and must be bounded before they are written to R2.
  */
 
 import { readBoundedBytes } from "./bounded-read";
@@ -89,7 +88,7 @@ function detectImageContentType(bytes: Uint8Array): SupportedMealPhotoType | nul
   return null;
 }
 
-function normaliseContentType(value: string): string {
+export function normaliseContentType(value: string): string {
   return value.split(";", 1)[0]?.trim().toLowerCase() ?? "";
 }
 
@@ -161,8 +160,8 @@ async function parsePhoto(value: FormDataEntryValue | null): Promise<MealPhotoUp
     throw new MealPhotoError(413, "payload_too_large", "The photo is too large.");
   }
 
-  const declaredType = normaliseContentType(value.type);
-  if (!(SUPPORTED_MEAL_PHOTO_TYPES as readonly string[]).includes(declaredType)) {
+  // Reject an unsupported declared type before reading the file.
+  if (!(SUPPORTED_MEAL_PHOTO_TYPES as readonly string[]).includes(normaliseContentType(value.type))) {
     throw new MealPhotoError(415, "unsupported_photo_type", "The photo must be a JPEG, PNG, or WebP image.");
   }
 
@@ -172,22 +171,7 @@ async function parsePhoto(value: FormDataEntryValue | null): Promise<MealPhotoUp
   } catch {
     throw new MealPhotoError(400, "invalid_photo", "The photo could not be read.");
   }
-  if (bytes.byteLength === 0 || bytes.byteLength > MAX_DASHBOARD_MEAL_PHOTO_BYTES) {
-    throw new MealPhotoError(
-      bytes.byteLength > MAX_DASHBOARD_MEAL_PHOTO_BYTES ? 413 : 400,
-      bytes.byteLength > MAX_DASHBOARD_MEAL_PHOTO_BYTES ? "payload_too_large" : "invalid_photo",
-      bytes.byteLength > MAX_DASHBOARD_MEAL_PHOTO_BYTES ? "The photo is too large." : "The photo is empty.",
-    );
-  }
-  const detectedType = detectImageContentType(new Uint8Array(bytes).subarray(0, MAX_PHOTO_SIGNATURE_BYTES));
-  if (detectedType !== declaredType) {
-    throw new MealPhotoError(415, "unsupported_photo_type", "The photo content does not match its image type.");
-  }
-  return {
-    bytes,
-    contentType: declaredType as SupportedMealPhotoType,
-    sizeBytes: bytes.byteLength,
-  };
+  return validateMealPhotoBytes(bytes, value.type);
 }
 
 /** Return true when a request should use the dashboard multipart path. */
