@@ -4,7 +4,7 @@ import { ApiRequestError, requireApiSuccess } from "../../../api/client.js";
 import type { App } from "../../../index.js";
 import type { FrontendLogicProps } from "../../../logic/types.js";
 
-type AuthProps = FrontendLogicProps<never, never, "me"> &
+type AuthProps = FrontendLogicProps<never, "windowFocus", "me"> &
   Pick<App, "auth" | "apiAccessEvents">;
 type User = InferResponseType<App["api"]["me"]["$get"], 200>["user"];
 interface AuthState {
@@ -43,6 +43,11 @@ export class AuthLogic extends Logic<AuthProps, AuthState> {
           password: "",
           error: null,
         });
+      }),
+    );
+    this.registerCleanup(
+      this.deps.services.windowFocus.listen(() => {
+        void this.refresh();
       }),
     );
     await this.loadSession();

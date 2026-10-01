@@ -1,10 +1,4 @@
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  type ReactNode,
-} from "react";
+import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { useFrontendApp } from "../../../app/frontend-app-context.js";
 import { useLogic } from "../../core/logic/use-logic.js";
 import { AuthLogic } from "./auth-logic.js";
@@ -18,7 +12,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const deps = useMemo(
     () => ({
       storage: {},
-      services: {},
+      services: { windowFocus: app.services.windowFocus },
       api: { me: app.api.me },
       auth: app.auth,
       apiAccessEvents: app.apiAccessEvents,
@@ -26,13 +20,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [app],
   );
   const value = useLogic({ LogicClass: AuthLogic, deps });
-  useEffect(() => {
-    const refresh = () => {
-      void value.logic.refresh();
-    };
-    window.addEventListener("focus", refresh);
-    return () => window.removeEventListener("focus", refresh);
-  }, [value.logic]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 export function useAuth(): AuthContextValue {

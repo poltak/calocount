@@ -1,17 +1,18 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { AuthLogic } from "../src/features/auth/ui/auth-logic.js";
 import { createApp } from "../src/tests/index.js";
 
 const user = { id: "owner", email: "owner@example.test", name: "Owner" };
 function createLogic(fetch: typeof globalThis.fetch) {
   const app = createApp({ fetch });
-  return new AuthLogic({
+  const logic = new AuthLogic({
     storage: {},
-    services: {},
+    services: app.services,
     api: { me: app.api.me },
     auth: app.auth,
     apiAccessEvents: app.apiAccessEvents,
   });
+  return { app, logic };
 }
 
 describe("session state", () => {
@@ -21,7 +22,7 @@ describe("session state", () => {
       complete = resolve;
     });
     let profiles = 0;
-    const logic = createLogic(async (input) => {
+    const { logic } = createLogic(async (input) => {
       if (String(input).endsWith("/sign-out"))
         return Response.json({ success: true });
       profiles += 1;
@@ -47,7 +48,7 @@ describe("session state", () => {
 
   it("keeps access closed after a connection failure and permits a retry", async () => {
     let offline = true;
-    const logic = createLogic(async () => {
+    const { logic } = createLogic(async () => {
       if (offline) throw new Error("Connection unavailable");
       return Response.json({ user });
     });
@@ -65,6 +66,34 @@ describe("session state", () => {
         user,
         error: null,
       });
+    } finally {
+      await logic.cleanup();
+    }
+  });
+
+  it("checks the session again when the window regains focus", async () => {
+    let signedIn = true;
+    let profileRequests = 0;
+    const { app, logic } = createLogic(async () => {
+      profileRequests += 1;
+      return signedIn
+        ? Response.json({ user })
+        : Response.json(
+            { error: { code: "UNAUTHENTICATED", message: "Sign in" } },
+            { status: 401 },
+          );
+    });
+    try {
+      await logic.initialize();
+      expect(logic.state.status).toBe("signedIn");
+      signedIn = false;
+      app.services.windowFocus.focus();
+      await vi.waitFor(() => expect(logic.state.status).toBe("signedOut"));
+      expect(profileRequests).toBe(2);
+
+      await logic.cleanup();
+      app.services.windowFocus.focus();
+      expect(profileRequests).toBe(2);
     } finally {
       await logic.cleanup();
     }

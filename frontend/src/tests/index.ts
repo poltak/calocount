@@ -3,6 +3,12 @@ import type { App } from "../index.js";
 import { EventEmitter } from "@shadow/common/features/core/events/event-emitter";
 import { createFrontendAuthClient } from "../api/auth-client.js";
 import type { ApiAccessEvent } from "../api/access-events.js";
+import { FakeWindowFocusService } from "../features/window-focus/services/fake-window-focus-service.js";
+
+/** Tests can drive fake Services directly. */
+export interface TestApp extends App {
+  services: { windowFocus: FakeWindowFocusService };
+}
 
 interface TestAppProps {
   /** Supply an in-memory handler transport or an explicit unit-test transport. */
@@ -14,11 +20,11 @@ interface TestAppProps {
 export function createApp({
   fetch,
   baseUrl = "http://shadow.test",
-}: TestAppProps): App {
+}: TestAppProps): TestApp {
   const apiAccessEvents = new EventEmitter<ApiAccessEvent>();
   return {
     storage: {},
-    services: {},
+    services: { windowFocus: new FakeWindowFocusService() },
     apiAccessEvents,
     auth: createFrontendAuthClient({ fetch, baseUrl }),
     api: createApiClient({
