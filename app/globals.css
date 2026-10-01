@@ -1649,7 +1649,10 @@ summary:focus-visible {
 }
 
 .weight-line .weight-raw-line { opacity: .28; stroke-width: 1.5; }
-.weight-line .weight-average-path { stroke-width: 3; }
+.weight-line .weight-average-path { stroke-width: 2.5; filter: drop-shadow(0 4px 6px var(--chart-weight-shadow)); }
+.weight-area { fill: url(#weight-area-fill); }
+.weight-area-start { stop-color: var(--chart-green); stop-opacity: .2; }
+.weight-area-end { stop-color: var(--chart-green); stop-opacity: 0; }
 .weight-chart-legend { align-items: center; flex-wrap: wrap; }
 .weight-change { margin-left: auto; color: var(--muted-strong); font-weight: 650; }
 
@@ -2254,29 +2257,65 @@ summary:focus-visible {
   display: grid;
   gap: 5px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .weight-form input {
   width: 100%;
-  min-height: 31px;
-  padding: 5px 8px;
+  min-height: 34px;
+  padding: 5px 10px;
   border: 1px solid var(--form-control-border);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   outline: 0;
   background: var(--form-control-background);
   color: var(--foreground);
-  font-size: 11px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
 }
 
-.weight-form input:focus { border-color: var(--orange); }
+.weight-form input:focus {
+  border-color: var(--orange);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--orange) 22%, transparent);
+}
+
+.weight-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.weight-facts div {
+  display: grid;
+  gap: 5px;
+  padding: 11px 13px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-tile);
+  background: var(--surface-soft);
+}
+
+.weight-facts span { color: var(--muted); font-size: 11px; }
+
+.weight-facts strong {
+  color: var(--foreground);
+  font-size: 17px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.03em;
+}
+
+.weight-facts small { color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: 0; }
 
 .cancel-button {
-  min-height: 31px;
-  padding: 0 10px;
-  border: 1px solid var(--line);
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--button-secondary-border);
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--muted-strong);
+  font-size: 12px;
+  font-weight: 650;
+  transition: background-color 150ms ease, color 150ms ease;
 }
 
 .cancel-button:hover {

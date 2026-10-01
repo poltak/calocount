@@ -630,6 +630,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
   }, [smoothedWeightValues]);
 
   const hasWeightData = weightChartValues.some((day) => day.value !== null);
+  const latestWeightAverage = smoothedWeightValues.at(-1)?.average ?? null;
 
   const macroTrendValues = useMemo(
     () => calculateMacroTrend(visibleTrendDays.map((day) => ({
@@ -1709,6 +1710,8 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
                 <div className="chart-plot">
                   <div className="grid-line line-one" /><div className="grid-line line-two" /><div className="grid-line line-three" />
                   <svg className="weight-line" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                    <defs><linearGradient id="weight-area-fill" x1="0" y1="0" x2="0" y2="1"><stop className="weight-area-start" offset="0" /><stop className="weight-area-end" offset="1" /></linearGradient></defs>
+                    {weightAverageLine.length > 1 ? <polygon className="weight-area" points={`${weightAverageLine.join(" ")} ${weightAverageLine.at(-1)?.split(",")[0]},100 ${weightAverageLine[0].split(",")[0]},100`} /> : null}
                     {weightLineSegments.map((points, index) => points.length > 1 ? <polyline className="weight-raw-line" key={index} points={points.join(" ")} /> : null)}
                     {weightAverageLine.length > 1 ? <polyline className="weight-average-path" points={weightAverageLine.join(" ")} /> : null}
                   </svg>
@@ -1805,6 +1808,10 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
                 {weightActionPending ? <span className="pending-indicator" role="status">Saving…</span> : null}
               </>}
             </div>
+            {latestWeightAverage === null ? null : <div className="weight-facts">
+              <div><span>7-day average</span><strong>{formatWeight(latestWeightAverage)} <small>kg</small></strong></div>
+              {weightWeeklyChange === null ? null : <div><span>vs 7 days earlier</span><strong>{weightWeeklyChange > 0 ? "+" : ""}{formatWeight(weightWeeklyChange)} <small>kg</small></strong></div>}
+            </div>}
             {!readOnly && showWeightForm ? <form className="weight-form" onSubmit={saveWeight} aria-busy={weightActionPending}>
               <label>
                 Weight (kg)
