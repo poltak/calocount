@@ -12,6 +12,7 @@ import {
   findMeal,
   getCurrentDayMealTotals,
   listMeals,
+  listNutritionHistoryPage,
   updateMeal,
   upsertSettings,
 } from "../db/repository";
@@ -454,6 +455,25 @@ test("listMeals retrieves 500 meals and their owned items within the D1 binding 
   assert.deepEqual(listed.map(({ items: mealItems }) => mealItems.map((item) => item.id)),
     items.map((item) => [item.id]));
   assert.equal(client.preparedSql.filter((sql) => sql.includes('from "meal_items"')).length, 6);
+});
+
+test("nutrition history reads a full 100-meal page within the D1 binding limit", async () => {
+  const meals = Array.from({ length: 100 }, (_, index) => mealRow(`meal-history-${index}`));
+  const items = meals.map((meal, index) => itemRow(`item-history-${index}`, String(meal.id)));
+  const client = new RecordingD1Database(meals[0]!, items, { maxBindings: 100, meals });
+  const db = drizzle(client as unknown as D1Database, { schema });
+
+  const page = await listNutritionHistoryPage({
+    db,
+    ownerKey: OWNER_KEY,
+    from: 0,
+    to: 2_000_000_000_000,
+    limit: 100,
+  });
+
+  assert.equal(page.meals.length, 100);
+  assert.deepEqual(page.meals.map((meal) => meal.items.map((item) => item.id)), items.map((item) => [item.id]));
+  assert.equal(client.preparedSql.filter((sql) => sql.includes('from "meal_items"')).length, 2);
 });
 
 test("updateMeal keeps 100 replacement items and the revision in one D1-safe batch", async () => {

@@ -353,6 +353,35 @@ function mealSnapshot(meal: MealWithItems) {
   };
 }
 
+// Leave one of D1's 100 bindings for the owner filter.
+const MEAL_ID_CHUNK_SIZE = 99;
+
+type MealItemRow = typeof mealItems.$inferSelect;
+
+async function listItemsForMeals(db: AppDb, ownerKey: string, mealIds: readonly string[]): Promise<MealItemRow[]> {
+  const items: MealItemRow[] = [];
+  for (let offset = 0; offset < mealIds.length; offset += MEAL_ID_CHUNK_SIZE) {
+    items.push(...await db
+      .select()
+      .from(mealItems)
+      .where(and(eq(mealItems.ownerKey, ownerKey), inArray(mealItems.mealId, mealIds.slice(offset, offset + MEAL_ID_CHUNK_SIZE))))
+      .orderBy(desc(mealItems.createdAt))
+      .prepare()
+      .all());
+  }
+  return items;
+}
+
+function groupItemsByMeal(items: readonly MealItemRow[]): Map<string, MealItemRow[]> {
+  const itemsByMeal = new Map<string, MealItemRow[]>();
+  for (const item of items) {
+    const group = itemsByMeal.get(item.mealId);
+    if (group) group.push(item);
+    else itemsByMeal.set(item.mealId, [item]);
+  }
+  return itemsByMeal;
+}
+
 export async function listMeals(
   db: AppDb,
   ownerKey: string,
@@ -375,27 +404,8 @@ export async function listMeals(
 
   if (meals.length === 0) return [];
 
-  const ids = meals.map((meal) => meal.id);
-  const items: Array<typeof mealItems.$inferSelect> = [];
-  // Leave one of D1's 100 bindings for the owner filter.
-  for (let offset = 0; offset < ids.length; offset += 99) {
-    items.push(...await db
-      .select()
-      .from(mealItems)
-      .where(and(eq(mealItems.ownerKey, ownerKey), inArray(mealItems.mealId, ids.slice(offset, offset + 99))))
-      .orderBy(desc(mealItems.createdAt))
-      .prepare()
-      .all());
-  }
-
-  const itemMap = new Map<string, Array<typeof mealItems.$inferSelect>>();
-  for (const item of items) {
-    const current = itemMap.get(item.mealId) ?? [];
-    current.push(item);
-    itemMap.set(item.mealId, current);
-  }
-
-  return meals.map((meal) => ({ meal, items: itemMap.get(meal.id) ?? [] }));
+  const itemsByMeal = groupItemsByMeal(await listItemsForMeals(db, ownerKey, meals.map((meal) => meal.id)));
+  return meals.map((meal) => ({ meal, items: itemsByMeal.get(meal.id) ?? [] }));
 }
 
 /** Read a complete date range in two queries, without the meal-list page limit. */
@@ -413,12 +423,7 @@ export async function listMealsInRange({ db, ownerKey, from, to }: {
       .where(and(...conditions, eq(mealItems.ownerKey, ownerKey)))
       .orderBy(desc(mealItems.createdAt)).prepare().all(),
   ]);
-  const itemsByMeal = new Map<string, typeof items>();
-  for (const item of items) {
-    const group = itemsByMeal.get(item.mealId) ?? [];
-    group.push(item);
-    itemsByMeal.set(item.mealId, group);
-  }
+  const itemsByMeal = groupItemsByMeal(items);
   return meals.map((meal) => ({ meal, items: itemsByMeal.get(meal.id) ?? [] }));
 }
 
@@ -526,21 +531,7 @@ export async function listNutritionHistoryPage({ db, ownerKey, from, to, limit, 
   const pageMeals = meals.slice(0, limit);
   if (pageMeals.length === 0) return { meals: [], hasMore: false };
 
-  const items = await db.select().from(mealItems)
-    .where(and(
-      eq(mealItems.ownerKey, ownerKey),
-      inArray(mealItems.mealId, pageMeals.map((meal) => meal.id)),
-    ))
-    .orderBy(desc(mealItems.createdAt))
-    .prepare()
-    .all();
-
-  const itemsByMeal = new Map<string, typeof items>();
-  for (const item of items) {
-    const grouped = itemsByMeal.get(item.mealId) ?? [];
-    grouped.push(item);
-    itemsByMeal.set(item.mealId, grouped);
-  }
+  const itemsByMeal = groupItemsByMeal(await listItemsForMeals(db, ownerKey, pageMeals.map((meal) => meal.id)));
   return {
     meals: pageMeals.map((meal) => ({
       ...meal,
