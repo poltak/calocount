@@ -1,4 +1,11 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(pnpm run typecheck)",
+      "Bash(pnpm run build)",
+      "Bash(pnpm run check)"
+    ]
+  },
   "hooks": {
     "PostToolUse": [
       {
