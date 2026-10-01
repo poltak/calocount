@@ -1,16 +1,16 @@
 import type { Database } from "./database/database.js";
-import { AuthAccessLogic } from "./features/auth/logic/auth-access-logic.js";
-import { AuthSessionLogic } from "./features/auth/logic/auth-session-logic.js";
-import { OwnerSetupLogic } from "./features/auth/logic/owner-setup-logic.js";
-import { AuthStorage } from "./features/auth/storage/auth-storage.js";
-import { EncounterLifecycleLogic } from "./features/encounter-lifecycle/logic/encounter-lifecycle-logic.js";
-import { EncounterLifecycleStorage } from "./features/encounter-lifecycle/storage/encounter-lifecycle-storage.js";
+import { AuthAccessLogic } from "../auth/logic/auth-access-logic.js";
+import { AuthSessionLogic } from "../auth/logic/auth-session-logic.js";
+import { OwnerSetupLogic } from "../auth/logic/owner-setup-logic.js";
+import { AuthStorage } from "../auth/storage/auth-storage.js";
+import { EncounterLifecycleLogic } from "../encounter-lifecycle/logic/encounter-lifecycle-logic.js";
+import { EncounterLifecycleStorage } from "../encounter-lifecycle/storage/encounter-lifecycle-storage.js";
 import type {
   App,
   BackendLogic,
   BackendServices,
   BackendStorage,
-} from "./index.js";
+} from "./types.js";
 import { cleanupLogic } from "./logic/lifecycle.js";
 
 interface ComposeAppProps {

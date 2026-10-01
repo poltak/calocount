@@ -81,6 +81,39 @@
           }
         ]
       }
+    },
+    {
+      "files": [
+        "frontend/src/**/*.test.ts",
+        "frontend/src/**/*.test.tsx",
+        "frontend/src/features/core/tests/full-application.ts"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "backend",
+                  "backend/*",
+                  "!backend/api",
+                  "!backend/testing"
+                ],
+                "message": "Frontend tests may load only backend/testing and the backend/api type."
+              },
+              {
+                "group": ["@shadow/backend", "@shadow/backend/*"],
+                "message": "Use the explicit backend/testing export."
+              },
+              {
+                "regex": "^(?:\\.\\./)+backend(?:/|$)",
+                "message": "Use backend/testing instead of importing backend source."
+              }
+            ]
+          }
+        ]
+      }
     }
   ],
   "ignorePatterns": [

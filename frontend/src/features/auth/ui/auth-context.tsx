@@ -1,5 +1,5 @@
 import { createContext, useContext, useMemo, type ReactNode } from "react";
-import { useFrontendApp } from "../../../app/frontend-app-context.js";
+import { useFrontendApp } from "../../core/ui/frontend-app-context.js";
 import { useLogic } from "../../core/logic/use-logic.js";
 import { AuthLogic } from "./auth-logic.js";
 type AuthContextValue = {

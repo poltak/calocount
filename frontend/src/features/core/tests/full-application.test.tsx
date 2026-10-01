@@ -8,10 +8,10 @@ import {
 import { StrictMode } from "react";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { FrontendAppProvider } from "../src/app/frontend-app-context.js";
-import { AppRoutes } from "../src/app/routes.js";
-import { ApiExampleLogic } from "../src/features/examples/ui/api-example-logic.js";
-import { createFullApplication } from "./fixtures/full-application.js";
+import { FrontendAppProvider } from "../ui/frontend-app-context.js";
+import { AppRoutes } from "../ui/routes.js";
+import { ApiExampleLogic } from "../../examples/ui/api-example-logic.js";
+import { createFullApplication } from "./full-application.js";
 
 afterEach(() => {
   cleanup();

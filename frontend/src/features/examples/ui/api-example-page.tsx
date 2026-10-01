@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useParams } from "react-router";
-import { useFrontendApp } from "../../../app/frontend-app-context.js";
+import { useFrontendApp } from "../../core/ui/frontend-app-context.js";
 import { useLogic } from "../../core/logic/use-logic.js";
 import { ApiExampleLogic } from "./api-example-logic.js";
 

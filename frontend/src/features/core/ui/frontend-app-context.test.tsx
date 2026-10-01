@@ -1,11 +1,8 @@
 import React from "react";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import {
-  FrontendAppProvider,
-  useFrontendApp,
-} from "../src/app/frontend-app-context.js";
-import { createApp } from "../src/features/core/tests/index.js";
+import { FrontendAppProvider, useFrontendApp } from "./frontend-app-context.js";
+import { createApp } from "../tests/index.js";
 
 function ApiAvailable() {
   const app = useFrontendApp();

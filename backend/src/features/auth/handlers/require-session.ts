@@ -1,5 +1,5 @@
 import { createMiddleware } from "hono/factory";
-import type { BackendLogic, BackendServices } from "../../../index.js";
+import type { BackendLogic, BackendServices } from "../../core/types.js";
 import { AppError } from "../../core/errors/app-error.js";
 import type { AuthEnvironment } from "./types.js";
 

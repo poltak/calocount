@@ -12,10 +12,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Logic } from "@shadow/common/features/core/logic/logic";
 import { LogicPlugin } from "@shadow/common/features/core/logic/logic-plugin";
-import {
-  useLogic,
-  useLogicInstance,
-} from "../src/features/core/logic/use-logic.js";
+import { useLogic, useLogicInstance } from "./use-logic.js";
 
 afterEach(cleanup);
 

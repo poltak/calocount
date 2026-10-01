@@ -1,4 +1,4 @@
-import type { App } from "../index.js";
+import type { App } from "../types.js";
 
 export interface FrontendLogicProps<
   StorageKeys extends keyof App["storage"] = never,

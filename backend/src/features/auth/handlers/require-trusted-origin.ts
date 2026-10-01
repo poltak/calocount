@@ -1,5 +1,5 @@
 import { createMiddleware } from "hono/factory";
-import type { BackendServices } from "../../../index.js";
+import type { BackendServices } from "../../core/types.js";
 import { AppError } from "../../core/errors/app-error.js";
 
 /** Reject state-changing requests from untrusted browser origins. */

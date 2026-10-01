@@ -1,4 +1,4 @@
-import type { BackendLogic } from "../index.js";
+import type { BackendLogic } from "../types.js";
 
 export async function initializeLogic({
   logic,

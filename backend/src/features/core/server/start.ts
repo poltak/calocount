@@ -1,6 +1,6 @@
 import { serve } from "@hono/node-server";
-import { readLiveConfig } from "../features/core/live/config.js";
-import { createApp } from "../features/core/live/index.js";
+import { readLiveConfig } from "../live/config.js";
+import { createApp } from "../live/index.js";
 import { createHttpApp } from "./http-app.js";
 import { initializeLogic } from "../logic/lifecycle.js";
 

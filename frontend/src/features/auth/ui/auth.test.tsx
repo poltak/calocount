@@ -8,9 +8,9 @@ import {
 import { StrictMode } from "react";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { FrontendAppProvider } from "../src/app/frontend-app-context.js";
-import { AppRoutes } from "../src/app/routes.js";
-import { createFullApplication } from "./fixtures/full-application.js";
+import { FrontendAppProvider } from "../../core/ui/frontend-app-context.js";
+import { AppRoutes } from "../../core/ui/routes.js";
+import { createFullApplication } from "../../core/tests/full-application.js";
 
 afterEach(() => {
   cleanup();

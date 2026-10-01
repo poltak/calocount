@@ -1,5 +1,5 @@
 import { createApiClient } from "../../api/client/api-client.js";
-import type { App } from "../../../index.js";
+import type { App } from "../types.js";
 import { EventEmitter } from "@shadow/common/features/core/events/event-emitter";
 import type { ApiAccessEvent } from "../../api/client/access-events.js";
 import { FakeWindowFocusService } from "../../window-focus/services/fake-window-focus-service.js";

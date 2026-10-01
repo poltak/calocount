@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { LatestRequest } from "../src/features/core/logic/latest-request.js";
+import { LatestRequest } from "./latest-request.js";
 
 describe("LatestRequest", () => {
   it("cancels the previous request when a new one starts", () => {

@@ -14,11 +14,8 @@ judgment, so readers know which rules are verified automatically.
 
 ## Before starting
 
-- [ ] **Finish the `src/` layout review.** Path-based rules can only classify
-      files that sit in a role directory. These top-level entries are not yet
-      classified. Backend: `index.ts`, `compose-app.ts`, `api.ts`, `server/`,
-      `database/`, `logic/`, `storage/`. Frontend: `index.ts`, `main.tsx`,
-      `app/`, `logic/`.
+- [x] **Finish the `src/` layout review.** Done: every source file is in a
+      feature directory, apart from the frontend's `src/main.tsx`.
 - [x] **Define a feature's public surface.** Done: `types.ts` files are public,
       `core` (and the frontend `api` feature) may be imported by any feature,
       and composition roots may import anything.

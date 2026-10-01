@@ -9,7 +9,7 @@
       "entry": [
         "src/features/core/live/index.ts",
         "src/features/core/tests/index.ts",
-        "src/server/start.ts",
+        "src/features/core/server/start.ts",
         "src/features/auth/commands/migrate.ts",
         "src/features/auth/commands/setup-owner.ts",
       ],
@@ -18,7 +18,7 @@
       "entry": [
         "src/features/core/live/index.ts",
         "src/features/core/tests/index.ts",
-        "src/logic/types.ts",
+        "src/features/core/logic/types.ts",
         "src/features/core/logic/use-logic.ts",
       ],
     },

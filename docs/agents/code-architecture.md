@@ -47,30 +47,32 @@ it. If Logic classes in different runtime layers need the same stateless behavio
 extract shared utility functions instead of sharing a stateful LogicPlugin across
 those layers.
 
-Utility functions shared by features in one workspace belong in that workspace's `src/utils/`. Code shared by workspaces belongs in `common`.
+Utility functions shared by features in one workspace belong in that workspace's `src/features/core/utils/`. Code shared by workspaces belongs in `common`.
 
 ### Layout of `src/`
 
-Put code in a feature directory when it belongs to one. Add a new top-level
-directory in `src/` only for code that belongs to no feature.
+Every source file lives in a feature directory under `src/features/`. The only
+exception is the frontend's `src/main.tsx`, the browser entry point. Do not add
+other files or directories at the top of `src/`.
 
-- `features/core/`: infrastructure that every feature builds on.
-  - `live/` and `tests/`: the live and test composition roots. They are the only
-    modules that construct Storage, Service, and Logic instances across
-    features. `src/features/core/tests/` holds test setup code; test files live
-    in the workspace's top-level `tests/` directory.
-  - Backend `errors/` and `handlers/`: the shared error type and handler helpers.
-  - Frontend `logic/`: hooks and helpers shared by UI Logic classes.
-- `features/api/` (frontend): the typed first-party API client and its events.
+`features/core/` holds the infrastructure that every feature builds on:
 
-These top-level entries remain while their placement is under review:
+- `types.ts`: the App type and its Storage, Service, and Logic collections.
+- `live/` and `tests/`: the live and test composition roots. With the backend's
+  `compose-app.ts`, they are the only modules that construct Storage, Service,
+  and Logic instances across features.
+- `logic/`: shared Logic props types and helpers. In the frontend this includes
+  the hooks that own and observe UI Logic.
+- Backend `server/` (the HTTP app, startup, and the API contract type),
+  `database/`, `storage/`, `errors/`, and `handlers/`.
+- Frontend `ui/`: the route table, the App provider, and global styles.
 
-- Backend: `index.ts` (App and collection types), `compose-app.ts` (wiring shared
-  by both roots), `api.ts` (the type-only API contract), `server/` (HTTP app and
-  startup), `database/`, and `logic/` and `storage/` (shared props types and
-  lifecycle helpers).
-- Frontend: `index.ts` (App types), `main.tsx`, `app/` (routes, provider, and
-  styles), and `logic/` (the shared props type).
+The frontend's `features/api/` holds the typed first-party API client and its
+events.
+
+Put each test file beside the file it tests, named `<file>.test.ts` or
+`<file>.test.tsx`. Tests that span features, and the fixtures they share, live in
+`features/core/tests/`.
 
 `common` exposes modules that other workspaces may import. Its features live in
 `common/src/features/<feature>/` and follow the same feature directory layout.

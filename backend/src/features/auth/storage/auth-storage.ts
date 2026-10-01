@@ -1,4 +1,4 @@
-import type { BackendStorageProps } from "../../../storage/types.js";
+import type { BackendStorageProps } from "../../core/storage/types.js";
 
 /** Read-only setup queries over the SDK's user table. SDK writes stay in its adapter. */
 export class AuthStorage {

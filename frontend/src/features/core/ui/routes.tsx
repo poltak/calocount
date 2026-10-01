@@ -1,9 +1,9 @@
 import { Link, NavLink, Outlet, Route, Routes } from "react-router";
-import { ApiExamplePage } from "../features/examples/ui/api-example-page.js";
-import { CounterPage } from "../features/examples/ui/counter-page.js";
-import { AuthProvider, useAuth } from "../features/auth/ui/auth-context.js";
-import { SessionGate } from "../features/auth/ui/session-gate.js";
-import { LoginPage } from "../features/auth/ui/login-page.js";
+import { ApiExamplePage } from "../../examples/ui/api-example-page.js";
+import { CounterPage } from "../../examples/ui/counter-page.js";
+import { AuthProvider, useAuth } from "../../auth/ui/auth-context.js";
+import { SessionGate } from "../../auth/ui/session-gate.js";
+import { LoginPage } from "../../auth/ui/login-page.js";
 
 function ProtectedLayout() {
   const { logic, state } = useAuth();

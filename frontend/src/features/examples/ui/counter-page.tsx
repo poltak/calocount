@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useFrontendApp } from "../../../app/frontend-app-context.js";
+import { useFrontendApp } from "../../core/ui/frontend-app-context.js";
 import { useLogic } from "../../core/logic/use-logic.js";
 import { CounterLogic } from "./counter-logic.js";
 

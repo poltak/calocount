@@ -1,6 +1,6 @@
-import type { BackendApi } from "./features/api/client/api-client.js";
-import type { ApiAccessEvents } from "./features/api/client/access-events.js";
-import type { WindowFocusService } from "./features/window-focus/services/types.js";
+import type { BackendApi } from "../api/client/api-client.js";
+import type { ApiAccessEvents } from "../api/client/access-events.js";
+import type { WindowFocusService } from "../window-focus/services/types.js";
 
 export interface FrontendStorage {}
 

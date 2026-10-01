@@ -3,7 +3,7 @@ import {
   encodeApiParam,
   requireApiSuccess,
 } from "../../api/client/api-client.js";
-import type { FrontendLogicProps } from "../../../logic/types.js";
+import type { FrontendLogicProps } from "../../core/logic/types.js";
 
 type ApiExampleProps = FrontendLogicProps<never, never, "encounters"> & {
   encounterId: string;

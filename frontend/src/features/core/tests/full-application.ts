@@ -1,5 +1,5 @@
 import { createTestBackend } from "backend/testing";
-import { createApp } from "../../src/features/core/tests/index.js";
+import { createApp } from "./index.js";
 
 /** No server process or socket. Frontend requests call the real Hono app. */
 export async function createFullApplication({

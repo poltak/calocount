@@ -20,17 +20,17 @@ instructions.
 
 ## Where to start reading the code
 
-| To understand                 | Start at                                                |
-| ----------------------------- | ------------------------------------------------------- |
-| How the backend is assembled  | `backend/src/compose-app.ts`, `backend/src/index.ts`    |
-| Live and test backend setup   | `backend/src/features/core/live/`, `…/core/tests/`      |
-| Backend routes and startup    | `backend/src/server/`                                   |
-| Errors and request validation | `backend/src/features/core/errors/`, `…/core/handlers/` |
-| How the frontend is assembled | `frontend/src/main.tsx`, `frontend/src/features/core/`  |
-| Pages and routing             | `frontend/src/app/routes.tsx`                           |
-| Calling the backend           | `frontend/src/features/api/client/`                     |
-| Logic and events              | `common/src/features/core/`                             |
-| Full-application tests        | `frontend/tests/fixtures/full-application.ts`           |
+| To understand                 | Start at                                                      |
+| ----------------------------- | ------------------------------------------------------------- |
+| How the backend is assembled  | `backend/src/features/core/compose-app.ts`, `…/core/types.ts` |
+| Live and test backend setup   | `backend/src/features/core/live/`, `…/core/tests/`            |
+| Backend routes and startup    | `backend/src/features/core/server/`                           |
+| Errors and request validation | `backend/src/features/core/errors/`, `…/core/handlers/`       |
+| How the frontend is assembled | `frontend/src/main.tsx`, `frontend/src/features/core/`        |
+| Pages and routing             | `frontend/src/features/core/ui/routes.tsx`                    |
+| Calling the backend           | `frontend/src/features/api/client/`                           |
+| Logic and events              | `common/src/features/core/`                                   |
+| Full-application tests        | `frontend/src/features/core/tests/full-application.ts`        |
 
 ## Where to add information
 

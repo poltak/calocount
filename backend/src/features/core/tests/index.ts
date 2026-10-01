@@ -1,12 +1,12 @@
 import { randomBytes } from "node:crypto";
-import { composeApp } from "../../../compose-app.js";
-import type { Database } from "../../../database/database.js";
-import { createDatabase } from "../../../database/pglite-database.js";
+import { composeApp } from "../compose-app.js";
+import type { Database } from "../database/database.js";
+import { createDatabase } from "../database/pglite-database.js";
 import { FakeAIService } from "../../ai/services/fake-ai-service.js";
 import { LiveAuthService } from "../../auth/services/live-auth-service.js";
 import { FakePatientRecordsService } from "../../patient-records/services/fake-patient-records-service.js";
 import { FakeTranscriptionService } from "../../transcription/services/fake-transcription-service.js";
-import type { App } from "../../../index.js";
+import type { App } from "../types.js";
 
 /** Tests may inspect the isolated database directly. */
 export interface TestApp extends App {

@@ -1,6 +1,6 @@
 import { Hono, type Context } from "hono";
 import { z } from "zod";
-import type { BackendLogic } from "../../../index.js";
+import type { BackendLogic } from "../../core/types.js";
 import { validator } from "../../core/handlers/validator.js";
 
 const signInSchema = z.object({

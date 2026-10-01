@@ -1,6 +1,6 @@
 import { Logic } from "@shadow/common/features/core/logic/logic";
 import { AppError } from "../../core/errors/app-error.js";
-import type { BackendLogicProps } from "../../../logic/types.js";
+import type { BackendLogicProps } from "../../core/logic/types.js";
 
 export type EncounterLifecycleLogicProps = BackendLogicProps<
   "encounterLifecycle",

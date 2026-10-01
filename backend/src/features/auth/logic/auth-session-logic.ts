@@ -1,5 +1,5 @@
 import { Logic } from "@shadow/common/features/core/logic/logic";
-import type { BackendLogicProps } from "../../../logic/types.js";
+import type { BackendLogicProps } from "../../core/logic/types.js";
 import { AppError, type AppErrorCode } from "../../core/errors/app-error.js";
 import type {
   AuthUser,

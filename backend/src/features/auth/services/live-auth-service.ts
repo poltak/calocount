@@ -1,6 +1,6 @@
 import { betterAuth } from "better-auth";
 import { getMigrations } from "better-auth/db/migration";
-import type { Database } from "../../../database/database.js";
+import type { Database } from "../../core/database/database.js";
 import type { AuthConfiguration } from "./configuration.js";
 import type {
   AuthService,

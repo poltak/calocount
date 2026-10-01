@@ -1,15 +1,12 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { requireSession } from "../features/auth/handlers/require-session.js";
-import { requireTrustedOrigin } from "../features/auth/handlers/require-trusted-origin.js";
-import { createSessionHandlers } from "../features/auth/handlers/session-handlers.js";
-import type { AuthEnvironment } from "../features/auth/handlers/types.js";
-import {
-  handleError,
-  handleNotFound,
-} from "../features/core/handlers/error-responses.js";
-import { createEncounterLifecycleHandlers } from "../features/encounter-lifecycle/handlers/encounter-lifecycle-handlers.js";
-import type { App } from "../index.js";
+import { requireSession } from "../../auth/handlers/require-session.js";
+import { requireTrustedOrigin } from "../../auth/handlers/require-trusted-origin.js";
+import { createSessionHandlers } from "../../auth/handlers/session-handlers.js";
+import type { AuthEnvironment } from "../../auth/handlers/types.js";
+import { handleError, handleNotFound } from "../handlers/error-responses.js";
+import { createEncounterLifecycleHandlers } from "../../encounter-lifecycle/handlers/encounter-lifecycle-handlers.js";
+import type { App } from "../types.js";
 
 interface HttpAppProps {
   app: Pick<App, "logic" | "services">;

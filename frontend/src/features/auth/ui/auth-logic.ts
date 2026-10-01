@@ -4,8 +4,8 @@ import {
   ApiRequestError,
   requireApiSuccess,
 } from "../../api/client/api-client.js";
-import type { App } from "../../../index.js";
-import type { FrontendLogicProps } from "../../../logic/types.js";
+import type { App } from "../../core/types.js";
+import type { FrontendLogicProps } from "../../core/logic/types.js";
 import { LatestRequest } from "../../core/logic/latest-request.js";
 
 type AuthProps = FrontendLogicProps<never, "windowFocus", "me" | "session"> &

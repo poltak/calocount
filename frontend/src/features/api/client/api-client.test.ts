@@ -7,7 +7,7 @@ import {
   encodeApiParam,
   requireApiSuccess,
   type BackendApi,
-} from "../src/features/api/client/api-client.js";
+} from "./api-client.js";
 
 type Start = BackendApi["encounters"][":encounterId"]["start"]["$post"];
 

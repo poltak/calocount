@@ -1,6 +1,6 @@
 import type { ApplyGlobalResponse } from "hono/client";
-import type { ApiErrorResponses } from "./features/core/handlers/error-responses.js";
-import type { createApiHttpApp } from "./server/http-app.js";
+import type { ApiErrorResponses } from "../handlers/error-responses.js";
+import type { createApiHttpApp } from "./http-app.js";
 
 /**
  * Public, type-only contract for routes mounted under `/api`. No backend

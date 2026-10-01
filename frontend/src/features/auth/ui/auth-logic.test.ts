@@ -1,7 +1,7 @@
 import { InitializationCancelledError } from "@shadow/common/features/core/logic/logic";
 import { describe, expect, it, vi } from "vitest";
-import { AuthLogic } from "../src/features/auth/ui/auth-logic.js";
-import { createApp } from "../src/features/core/tests/index.js";
+import { AuthLogic } from "./auth-logic.js";
+import { createApp } from "../../core/tests/index.js";
 
 const user = { id: "owner", email: "owner@example.test", name: "Owner" };
 function createLogic(fetch: typeof globalThis.fetch) {
