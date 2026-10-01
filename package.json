@@ -3,11 +3,13 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "check": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run build && pnpm -r --if-present run test && pnpm run unused:check",
+    "check": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run build && pnpm run test && pnpm run unused:check",
     "build": "pnpm -r --if-present run build",
     "lint": "oxlint --deny-warnings backend frontend common",
     "unused:check": "knip",
     "typecheck": "pnpm --filter @shadow/common build && pnpm -r --if-present run typecheck",
+    "test": "pnpm run test:hooks && pnpm -r --if-present run test",
+    "test:hooks": "node --test .agents/hooks/*.test.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prepare": "simple-git-hooks"

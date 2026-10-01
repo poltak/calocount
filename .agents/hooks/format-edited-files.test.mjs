@@ -125,3 +125,80 @@ test("formats a supported changed file and skips a file in .prettierignore", asy
     "const ignored={answer:42}\n",
   );
 });
+
+async function readHookCommand(configPath) {
+  const config = JSON.parse(
+    await readFile(path.join(repoRoot, configPath), "utf8"),
+  );
+  const [command] = config.hooks.PostToolUse.flatMap((entry) =>
+    entry.hooks.map((hook) => hook.command),
+  );
+  assert.equal(typeof command, "string");
+  return command;
+}
+
+async function createUnformattedRepoFile(context) {
+  const testDirectory = await mkdtemp(
+    path.join(repoRoot, ".format-hook-config-"),
+  );
+  context.after(async () =>
+    rm(testDirectory, { recursive: true, force: true }),
+  );
+  const filePath = path.join(testDirectory, "edited file.js");
+  await writeFile(filePath, "const value={answer:42}\n");
+  return filePath;
+}
+
+function runHookCommand(command, { env = {}, input }) {
+  execFileSync("/bin/sh", ["-c", command], {
+    cwd: repoRoot,
+    env: { ...process.env, ...env },
+    input: JSON.stringify(input),
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+}
+
+test("runs the configured Claude Code hook for an edited file", async (context) => {
+  const command = await readHookCommand(".claude/settings.json");
+  const filePath = await createUnformattedRepoFile(context);
+
+  runHookCommand(command, {
+    env: { CLAUDE_PROJECT_DIR: repoRoot },
+    input: {
+      tool_name: "Edit",
+      tool_input: { file_path: filePath },
+      cwd: repoRoot,
+    },
+  });
+
+  assert.equal(
+    await readFile(filePath, "utf8"),
+    "const value = { answer: 42 };\n",
+  );
+});
+
+test("runs the configured Codex hook for a patched file", async (context) => {
+  const command = await readHookCommand(".codex/hooks.json");
+  const filePath = await createUnformattedRepoFile(context);
+  const relativePath = path.relative(repoRoot, filePath);
+
+  runHookCommand(command, {
+    input: {
+      tool_name: "apply_patch",
+      tool_input: {
+        command: [
+          "*** Begin Patch",
+          `*** Add File: ${relativePath}`,
+          "+const value={answer:42}",
+          "*** End Patch",
+        ].join("\n"),
+      },
+      cwd: repoRoot,
+    },
+  });
+
+  assert.equal(
+    await readFile(filePath, "utf8"),
+    "const value = { answer: 42 };\n",
+  );
+});
