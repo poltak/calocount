@@ -144,10 +144,19 @@ Storage for persistence. UI components must not call Storage directly.
 
 Avoid circular dependencies.
 
-Avoid direct cross-feature imports. A feature may import another feature's public
-types or interfaces, including event interfaces. If two features need
-the same utility function, hoist it to a shared location instead of importing it
-from one feature into the other.
+Avoid direct cross-feature imports. A feature's public surface is its `types.ts`
+files; every other file is private to the feature. A feature may import another
+feature's public types and interfaces, including event interfaces. If two
+features need the same utility function, hoist it to a shared location instead
+of importing it from one feature into the other.
+
+Two exceptions apply:
+
+- `core` holds centralized code for other features to use. Any feature may
+  import from `core`, including runtime code. In the frontend, the same applies
+  to the first-party client in `api`.
+- Composition roots may import from any feature, because they construct every
+  feature's classes.
 
 Logic classes should not call or depend on other Logic classes directly. The
 exceptions are Logic dependencies on LogicPlugins and dependencies on typed
@@ -183,7 +192,7 @@ Storage classes should not depend on other Storage, Service, or Logic classes.
 - Put business logic and stateful logic in UI or Backend Logic classes, or in LogicPlugin classes when the logic is shared by multiple Logic classes in the same layer.
 - Encapsulate external service+API usage in Service classes.
 - Encapsulate all persistence operations in Storage classes.
-- Keep Service and Storage classes thin and stateless. Do not let them slowly accumulate application rules.
+- Keep Service and Storage classes thin. They hold no application state, and must not slowly accumulate application rules.
 
 When in doubt, ask which layer owns the decision:
 
@@ -267,12 +276,6 @@ Keep handlers in the feature that owns the operation. The main HTTP application
 registers feature handlers. Handler dependencies should select the required
 features from the shared backend Logic interface with `Pick`, rather than repeat
 the application shape or define a separate collection of Logic classes.
-
-Business logic that already exists inside a handler is an architecture violation
-and should be reported as legacy debt. During normal coding tasks, do not require
-immediate refactoring only to correct that existing structure. Put new or
-substantially changed business logic behind a backend Logic class. A caller-side
-API client does not replace the architecture inside the handler.
 
 Use the same typed API client in live and test setup. Live transport sends HTTP
 requests. Test transport may call the handler application directly with in-memory
