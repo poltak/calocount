@@ -169,6 +169,16 @@ applications also expose their long-lived `logic` collection.
 Frontend applications expose their typed first-party `api` client.
 Keep dependency setup in these roots and business rules in Logic classes.
 
+Read environment configuration once, in the live composition root, with one
+parser that returns a typed config object. Pass plain config values into
+Service, Storage, and Logic constructors. This parser is a deliberate exception
+to wrapping platform capabilities in Services: the root needs the config before
+it can construct Services, and the environment is read once with no I/O worth
+faking. Tests pass config values directly and never read the environment.
+Feature modules may export schemas for their own settings, but must not read
+the environment themselves. If configuration later comes from an asynchronous
+source, such as a secrets manager, put that source behind a Service.
+
 Backend Logic constructors accept a shared props type that selects the required
 Storage and Service instances by their keys. Feature
 props types can extend it with additional dependencies. Keep these dependencies
