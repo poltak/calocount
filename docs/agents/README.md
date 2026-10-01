@@ -2,25 +2,49 @@
 
 This directory holds project reference documents for coding agents. Keep the
 root `AGENTS.md` short so both Codex and Claude Code receive the same core
-instructions. Link to new reference documents here and state when an agent
-should read each one.
+instructions.
 
-## Current reference
+## Documents
 
-- [Code architecture](code-architecture.md): read before changing code in any workspace. It defines class roles, feature layout, and dependency direction.
-- [Technology choices](../technology-choices.md): read when selecting or changing frontend or backend frameworks and tools.
-- [Frontend setup](frontend-setup.md): read when changing frontend App composition, React hooks, or Vite configuration.
-- [Backend API](backend-api.md): read when changing server startup, routes, or backend App setup.
-- [Authentication](authentication.md): read when changing auth configuration, sessions, or account setup.
-- [TODOs from initial set up](todos/initial-setup.md): read and update while initial setup continues. Record temporary behavior and unresolved decisions with code links; close items when resolved.
-- [Plan: enforce architecture rules with lint](todos/architecture-lint-rules.md): read before adding lint rules for the architecture, or when moving files between `src/` directories.
-- [Full application test plan](full-application-test-plan.md): read when changing integration tests. It records the shared UI/backend/database fixture and its remaining limits.
-- The root `AGENTS.md` has the workspace map and basic checks.
-- The workspace packages are `backend`, `frontend`, and `common`. The `common` package is a local dependency of both apps through `workspace:*`.
-- The root `pnpm run typecheck` command checks all three packages. The root `pnpm run build` command builds all three packages, including the frontend through Vite.
+- [Code architecture](code-architecture.md): the rules. Read before changing
+  code in any workspace.
+- [Decisions](decisions.md): choices specific to this project and their reasons.
+  Read before changing a framework, authentication, the API transport, or test
+  setup.
+- [Setup and commands](setup.md): read to run, configure, or check the project.
+- [TODOs from initial setup](todos/initial-setup.md): unfinished work and
+  temporary behavior. Read and update while initial setup continues.
+- [Plan: enforce architecture rules with lint](todos/architecture-lint-rules.md):
+  read before adding lint rules for the architecture, or when moving files
+  between `src/` directories.
+
+## Where to start reading the code
+
+| To understand                 | Start at                                                |
+| ----------------------------- | ------------------------------------------------------- |
+| How the backend is assembled  | `backend/src/compose-app.ts`, `backend/src/index.ts`    |
+| Live and test backend setup   | `backend/src/features/core/live/`, `…/core/tests/`      |
+| Backend routes and startup    | `backend/src/server/`                                   |
+| Errors and request validation | `backend/src/features/core/errors/`, `…/core/handlers/` |
+| How the frontend is assembled | `frontend/src/main.tsx`, `frontend/src/features/core/`  |
+| Pages and routing             | `frontend/src/app/routes.tsx`                           |
+| Calling the backend           | `frontend/src/features/api/client/`                     |
+| Logic and events              | `common/src/features/core/`                             |
+| Full-application tests        | `frontend/tests/fixtures/full-application.ts`           |
 
 ## Where to add information
 
-- Add architecture, data flow, API contracts, and build or release notes as separate documents in this directory when they exist. Add a link here that says when to read each document.
-- Keep always-needed instructions in the root `AGENTS.md`. Do not create another `AGENTS.md` or a `CLAUDE.md` for this repository.
-- Put repeatable task workflows in skills when needed. Codex discovers repository skills in `.agents/skills/`; Claude Code discovers them in `.claude/skills/`. These are tool-specific discovery paths, so keep shared reference documents here.
+Do not describe what the code does; the code, its comments, and its tests do
+that. Record only what a reader cannot get from the code:
+
+- A rule that applies to any project built this way goes in
+  [code architecture](code-architecture.md).
+- A choice specific to this project, with its reason, goes in
+  [decisions](decisions.md).
+- How to run or configure something goes in [setup and commands](setup.md).
+- Unfinished work and temporary behavior go in `todos/`.
+
+Keep always-needed instructions in the root `AGENTS.md`. Do not create another
+`AGENTS.md` or a `CLAUDE.md` for this repository. Put repeatable task workflows
+in skills. Codex discovers repository skills in `.agents/skills/`; Claude Code
+discovers them in `.claude/skills/`.

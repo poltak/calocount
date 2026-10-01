@@ -238,7 +238,7 @@ supply Storage or Service instances.
 Backend Logic instances are shared by every request for the life of the server.
 They must not hold per-request or per-user state, such as the current user,
 request data, or the progress of one caller's operation. Pass that data as
-method parameters. Backend Logic state is only for process-wide state, such as a
+method parameters; handlers pass the verified caller identity the same way. Backend Logic state is only for process-wide state, such as a
 cache.
 
 Use separate live and test roots with the same application interface. Tests must
@@ -264,6 +264,23 @@ Keep constructors and plugin factories free of external effects because React
 may discard a render. Use a state subscription to connect Logic to rendering;
 React must not replace the Logic instance's state methods.
 
+Keep the `deps` object passed to the owning hook stable, with a memo or an
+existing stable object; a new object creates a new Logic instance. Other
+components observe an owned Logic through the observer hook and never initialize
+or clean it up. Keep the owner above any boundary that disconnects effects for
+long periods, because a Logic cannot restart after cleanup.
+
+When repeated requests write the same state, such as refetching on focus,
+polling, refresh buttons, or search-as-you-type, keep one `LatestRequest` per
+kind of request. Pass `start()` as each request's signal; it cancels the
+previous request. Return early if that signal is aborted when the response
+arrives, and call `cancel()` when another action makes the pending response
+obsolete.
+
+Call the backend through the typed API client. Encode path parameters with
+`encodeApiParam`, because the client substitutes them without encoding, and
+check responses with `requireApiSuccess`.
+
 ## Backend handlers
 
 Backend handlers are transport entrypoints. New handlers should validate and
@@ -271,6 +288,10 @@ normalize their input, apply transport-level authentication when required,
 delegate to a backend Logic entrypoint, and map the result to the transport
 response. Business logic belongs in backend Logic classes, while external calls
 and persistence remain in Service and Storage classes.
+
+Validate request input with the shared `validator()` helper, so failures use
+the shared error body. Register routes by chaining calls on the router, so the
+typed client keeps each endpoint's types.
 
 Keep handlers in the feature that owns the operation. The main HTTP application
 registers feature handlers. Handler dependencies should select the required
