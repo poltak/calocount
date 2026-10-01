@@ -1,5 +1,6 @@
 import { trackSavedEntry } from "../../../../../db/repository";
 import { ApiError, getRequestDb, jsonResponse, parseJsonBody, requireApiIdentity, withApiErrors } from "../../../_lib/http";
+import { parseConsumedAt } from "../../../_lib/meal-input";
 import { serialiseMeal } from "../../../_lib/serialise";
 
 type RouteContext = { params: Promise<{ id: string }> | { id: string } };
@@ -14,10 +15,7 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
   return withApiErrors(async () => {
     const identity = await requireApiIdentity(request);
     const body = request.body ? await parseJsonBody(request) : {};
-    const consumedAt = body.consumedAt == null ? Date.now() : Number(body.consumedAt);
-    if (!Number.isFinite(consumedAt) || consumedAt < 0) {
-      throw new ApiError(400, "invalid_field", "consumedAt must be a valid timestamp.");
-    }
+    const consumedAt = parseConsumedAt(body.consumedAt) ?? Date.now();
     const entry = await trackSavedEntry(getRequestDb(), identity.ownerKey, await savedEntryId(context), consumedAt);
     if (!entry) throw new ApiError(404, "not_found", "Saved entry not found.");
     return jsonResponse({ entry: serialiseMeal(entry) }, { status: 201 });

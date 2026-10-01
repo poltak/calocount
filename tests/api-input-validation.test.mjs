@@ -57,6 +57,7 @@ test("owner API rejects invalid dates and timezones before database access", asy
       ["/api/meals", "POST"],
       ["/api/meals/example", "PATCH"],
       ["/api/meals/example/copy", "POST"],
+      ["/api/saved-entries/example/track", "POST"],
     ]) {
       for (const consumedAt of [1e100, -1e100]) {
         const response = await request({ path, method, body: { consumedAt } });

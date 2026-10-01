@@ -18,10 +18,16 @@ function optionalString(value: unknown, field: string, max = 2_000): string | un
   return requireString(value, field, { max, optional: true });
 }
 
-function parseConsumedAt(value: unknown): number | undefined {
+/** Parse an optional meal time. Numbers must be non-negative timestamps inside the JavaScript Date range. */
+export function parseConsumedAt(value: unknown): number | undefined {
   if (value == null) return undefined;
-  if (typeof value === "number" && Number.isFinite(new Date(value).getTime())) return value;
-  if (typeof value !== "string") throw new ApiError(400, "invalid_field", "consumedAt must be an ISO date or timestamp.");
+  if (typeof value === "number") {
+    if (value >= 0 && Number.isFinite(new Date(value).getTime())) return value;
+    throw new ApiError(400, "invalid_field", "consumedAt must be a valid timestamp.");
+  }
+  if (typeof value !== "string" || value.trim() === "") {
+    throw new ApiError(400, "invalid_field", "consumedAt must be an ISO date or timestamp.");
+  }
   const parsed = Date.parse(value);
   if (!Number.isFinite(parsed)) throw new ApiError(400, "invalid_field", "consumedAt must be a valid date.");
   return parsed;

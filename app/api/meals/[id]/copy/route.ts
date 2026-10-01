@@ -7,6 +7,7 @@ import {
   requireApiIdentity,
   withApiErrors,
 } from "../../../_lib/http";
+import { parseConsumedAt } from "../../../_lib/meal-input";
 import { serialiseMeal } from "../../../_lib/serialise";
 
 type RouteContext = { params: Promise<{ id: string }> | { id: string } };
@@ -17,22 +18,6 @@ async function mealId(context: RouteContext): Promise<string> {
   return id;
 }
 
-function parseConsumedAt(value: unknown): number {
-  if (value == null) return Date.now();
-  if (typeof value === "number") {
-    if (Number.isFinite(new Date(value).getTime()) && value >= 0) return value;
-    throw new ApiError(400, "invalid_field", "consumedAt must be a valid timestamp.");
-  }
-  if (typeof value !== "string" || value.trim() === "") {
-    throw new ApiError(400, "invalid_field", "consumedAt must be an ISO date or timestamp.");
-  }
-  const parsed = Date.parse(value);
-  if (!Number.isFinite(parsed)) {
-    throw new ApiError(400, "invalid_field", "consumedAt must be a valid date.");
-  }
-  return parsed;
-}
-
 /**
  * Copy one owned meal to the target time. The dashboard sends the current
  * timestamp for "today"; omitting consumedAt uses the server timestamp.
@@ -41,7 +26,7 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
   return withApiErrors(async () => {
     const identity = await requireApiIdentity(request);
     const body = request.body ? await parseJsonBody(request) : {};
-    const consumedAt = parseConsumedAt(body.consumedAt);
+    const consumedAt = parseConsumedAt(body.consumedAt) ?? Date.now();
     const meal = await copyMeal(getRequestDb(), identity.ownerKey, await mealId(context), {
       consumedAt,
     });
