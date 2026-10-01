@@ -3807,10 +3807,44 @@ summary:focus-visible {
   .app-footer { flex-wrap: wrap; padding: 10px 0; }
 }
 
+/* Cards fade in, chart bars rise from the baseline and rings sweep round when they first appear.
+   Bars are revealed with clip-path so their size and position never change. */
+@keyframes fade-in {
+  from { opacity: 0; }
+}
+
+@keyframes rise-in {
+  from { clip-path: inset(100% -24px 0 -24px); }
+  to { clip-path: inset(-24px); }
+}
+
+@keyframes ring-in {
+  from { stroke-dasharray: 0 100; }
+}
+
+.summary-card,
+.panel,
+.date-controls { animation: fade-in 420ms ease-out backwards; }
+
+.summary-card:nth-child(2) { animation-delay: 50ms; }
+.summary-card:nth-child(3) { animation-delay: 100ms; }
+.content-grid .panel { animation-delay: 120ms; }
+
+.bar,
+.protein-target-fill,
+.macro-trend-column:not(.missing) .macro-stack { animation: rise-in 620ms var(--ease-out) 120ms backwards; }
+
+.metric-ring-value { animation: ring-in 800ms var(--ease-out) 150ms backwards; }
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
-  *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 /* 2026 dashboard refresh --------------------------------------------------
