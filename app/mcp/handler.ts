@@ -6,6 +6,7 @@ import {
   type Tool,
 } from "@modelcontextprotocol/server";
 import { NUTRIENT_META, NUTRIENT_UPPER_LIMIT_META } from "../../domain/nutrients";
+import { PROTEIN_GOAL_MODES } from "../../domain/protein-goals";
 import type { MealWithItems, NutritionHistoryPage, NutritionSummaryReport } from "../../db/repository";
 import {
   AddMealRequestError,
@@ -310,7 +311,7 @@ const GET_NUTRITION_SUMMARY_TOOL = {
           protein: {
             type: "object",
             properties: {
-              mode: { type: "string", enum: ["grams", "per_kg"] },
+              mode: { type: "string", enum: [...PROTEIN_GOAL_MODES] },
               grams: nullableNumberSchema,
               gramsPerKg: nullableNumberSchema,
             },

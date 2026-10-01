@@ -861,3 +861,14 @@ test("checks Origin and returns 405 for authenticated GET requests", async () =>
   assert.equal(authorizationCalls, 1);
   assert.equal(get.headers.get("access-control-allow-origin"), null);
 });
+
+test("the summary output schema lists the stored protein goal modes", async () => {
+  const route = handler();
+  const list = await route.POST(request({ jsonrpc: "2.0", id: 2, method: "tools/list" }));
+  const payload = await list.json() as { result: { tools: Array<{ name: string; outputSchema: { oneOf: Array<Record<string, unknown>> } }> } };
+  const summaryTool = payload.result.tools.find((tool) => tool.name === "get_nutrition_summary");
+  const success = summaryTool?.outputSchema.oneOf[0] as {
+    properties: { currentTargets: { properties: { protein: { properties: { mode: { enum: string[] } } } } } };
+  };
+  assert.deepEqual(success.properties.currentTargets.properties.protein.properties.mode.enum, ["grams", "gramsPerKg"]);
+});
