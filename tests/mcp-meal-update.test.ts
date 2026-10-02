@@ -89,8 +89,8 @@ function routeFor(fixture: ReturnType<typeof createSqliteTestDb>, ownerKey = OWN
     getNutritionHistory: (owner, input) => listNutritionHistoryPage({
       db: fixture.db,
       ownerKey: owner,
-      from: input.from,
-      to: input.to,
+      startDate: input.startDate,
+      endDate: input.endDate,
       limit: input.pageSize,
       cursor: input.cursor,
     }),

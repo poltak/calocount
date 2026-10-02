@@ -136,10 +136,11 @@ function handler(overrides: Partial<McpHandlerDependencies> = {}) {
     authorize: async () => OWNER,
     addMeals: async () => new Response("{}", { status: 201 }),
     updateMeal: async () => null,
-    getNutritionHistory: async () => ({ meals: [], hasMore: false }),
+    getNutritionHistory: async () => ({ timezone: "UTC", meals: [], hasMore: false }),
     getNutritionSummary: async (_ownerKey, input) => ({
       startDate: input.startDate,
       endDate: input.endDate,
+      timezone: "UTC",
       days: [],
       currentTargets: {
         scope: "current_settings_only",
@@ -686,7 +687,7 @@ test("requires identity before parsing or dispatching every request", async () =
     },
     getNutritionHistory: async () => {
       nutritionReadCalls += 1;
-      return { meals: [], hasMore: false };
+      return { timezone: "UTC", meals: [], hasMore: false };
     },
   });
 

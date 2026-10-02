@@ -332,6 +332,8 @@ export type NutritionHistoryMeal = {
   /** Internal key for the encrypted continuation cursor. Never return this field to a client. */
   id: string;
   requestId: string | null;
+  /** The day the meal falls on in the owner's saved timezone. */
+  date: string;
   consumedAt: number;
   mealType: string | null;
   caloriesKcal: number;
@@ -342,6 +344,8 @@ export type NutritionHistoryMeal = {
 };
 
 export type NutritionHistoryPage = {
+  /** The timezone that sets the day boundaries of the requested dates. */
+  timezone: string;
   meals: NutritionHistoryMeal[];
   hasMore: boolean;
 };
@@ -380,21 +384,36 @@ export type NutritionGoalChange = {
 export type NutritionSummaryReport = {
   startDate: string;
   endDate: string;
+  /** The timezone that sets the day boundaries of every date in the report. */
+  timezone: string;
   days: NutritionDailySummary[];
   currentTargets: CurrentNutritionTargets;
   /** Recorded calorie and protein goal changes, oldest first. Goals before the first one are not known. */
   goalChanges: NutritionGoalChange[];
 };
 
-/** Fetch one bounded, owner-scoped page of completed meals in stable UTC order. */
-export async function listNutritionHistoryPage({ db, ownerKey, from, to, limit, cursor }: {
+/** The saved-timezone calendar of an owner and the moments that bound an inclusive range of its dates. */
+async function ownerDateRange(db: AppDb, ownerKey: string, startDate: string, endDate: string) {
+  const settingsRow = await getSettings(db, ownerKey);
+  const calendar = zonedCalendar(resolveTimeZone(settingsRow?.timezone));
+  return {
+    settingsRow,
+    calendar,
+    from: calendar.firstInstant(startDate),
+    to: calendar.firstInstant(shiftDateKey(endDate, 1)),
+  };
+}
+
+/** Fetch one bounded, owner-scoped page of completed meals, newest first, for dates in the owner's saved timezone. */
+export async function listNutritionHistoryPage({ db, ownerKey, startDate, endDate, limit, cursor }: {
   db: AppDb;
   ownerKey: string;
-  from: number;
-  to: number;
+  startDate: string;
+  endDate: string;
   limit: number;
   cursor?: { consumedAt: number; id: string } | null;
 }): Promise<NutritionHistoryPage> {
+  const { calendar, from, to } = await ownerDateRange(db, ownerKey, startDate, endDate);
   const conditions = [
     eq(mealLogs.ownerKey, ownerKey),
     eq(mealLogs.status, "complete"),
@@ -426,12 +445,14 @@ export async function listNutritionHistoryPage({ db, ownerKey, from, to, limit, 
 
   const hasMore = meals.length > limit;
   const pageMeals = meals.slice(0, limit);
-  if (pageMeals.length === 0) return { meals: [], hasMore: false };
+  if (pageMeals.length === 0) return { timezone: calendar.timeZone, meals: [], hasMore: false };
 
   const itemsByMeal = groupItemsByMeal(await listItemsForMeals(db, ownerKey, pageMeals.map((meal) => meal.id)));
   return {
+    timezone: calendar.timeZone,
     meals: pageMeals.map((meal) => ({
       ...meal,
+      date: calendar.dateKey(meal.consumedAt),
       items: (itemsByMeal.get(meal.id) ?? []).map((item) => ({
         id: item.id,
         name: item.name,
@@ -453,18 +474,20 @@ function nullableAmount(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
-/** Aggregate a bounded UTC range in SQLite and return one row for each date, including unlogged dates. */
-export async function getNutritionSummary({ db, ownerKey, from, to, startDate, endDate, dayCount }: {
+/**
+ * Aggregate a bounded range of dates in SQLite and return one row for each
+ * date, including unlogged dates. The dates are days in the owner's saved timezone.
+ */
+export async function getNutritionSummary({ db, ownerKey, startDate, endDate, dayCount }: {
   db: AppDb;
   ownerKey: string;
-  from: number;
-  to: number;
   startDate: string;
   endDate: string;
   dayCount: number;
 }): Promise<NutritionSummaryReport> {
-  const mealDate = sql<string>`date(${mealLogs.consumedAt} / 1000, 'unixepoch')`;
-  const [mealRows, nutrientRows, currentSettings, changes] = await Promise.all([
+  const { settingsRow: currentSettings, calendar, from, to } = await ownerDateRange(db, ownerKey, startDate, endDate);
+  const mealDate = mealLogicalDateSql(calendar, from, to);
+  const [mealRows, nutrientRows, changes] = await Promise.all([
     db.select({
       date: mealDate,
       mealCount: sql<number>`count(*)`,
@@ -488,9 +511,8 @@ export async function getNutritionSummary({ db, ownerKey, from, to, startDate, e
         aggregateColumns[`${key}Amount`] = sql<number | null>`sum(${mealItems[key]})`;
         aggregateColumns[`${key}KnownItemCount`] = sql<number>`count(${mealItems[key]})`;
       }
-      const itemDate = sql<string>`date(${mealLogs.consumedAt} / 1000, 'unixepoch')`;
       return db.select({
-        date: itemDate,
+        date: mealDate,
         itemCount: sql<number>`count(*)`,
         ...aggregateColumns,
       }).from(mealItems)
@@ -502,11 +524,10 @@ export async function getNutritionSummary({ db, ownerKey, from, to, startDate, e
           gte(mealLogs.consumedAt, from),
           lt(mealLogs.consumedAt, to),
         ))
-        .groupBy(itemDate)
+        .groupBy(mealDate)
         .prepare()
         .all();
     })(),
-    getSettings(db, ownerKey),
     listGoalChanges(db, ownerKey),
   ]);
 
@@ -515,7 +536,7 @@ export async function getNutritionSummary({ db, ownerKey, from, to, startDate, e
   for (const row of nutrientRows) nutrientValuesByDate.set(row.date, new Map(Object.entries(row)));
   const days: NutritionDailySummary[] = [];
   for (let offset = 0; offset < dayCount; offset += 1) {
-    const date = new Date(from + offset * 86_400_000).toISOString().slice(0, 10);
+    const date = shiftDateKey(startDate, offset);
     const mealRow = mealsByDate.get(date);
     const itemRow = nutrientValuesByDate.get(date);
     const itemCount = finiteNumber(itemRow?.get("itemCount"));
@@ -548,6 +569,7 @@ export async function getNutritionSummary({ db, ownerKey, from, to, startDate, e
   return {
     startDate,
     endDate,
+    timezone: calendar.timeZone,
     days,
     currentTargets: {
       scope: "current_settings_only",
@@ -560,7 +582,7 @@ export async function getNutritionSummary({ db, ownerKey, from, to, startDate, e
       nutrients: resolveNutrientGoals(nutrientOverrides),
     },
     goalChanges: changes.map((change) => ({
-      date: new Date(change.changedAt).toISOString().slice(0, 10),
+      date: calendar.dateKey(change.changedAt),
       changedAt: new Date(change.changedAt).toISOString(),
       caloriesKcal: change.dailyCalorieTarget,
       protein: { mode: change.proteinGoalMode, grams: change.dailyProteinTargetG, gramsPerKg: change.dailyProteinTargetPerKg },

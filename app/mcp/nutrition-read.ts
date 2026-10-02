@@ -17,11 +17,10 @@ export class NutritionReadInputError extends Error {
   }
 }
 
+/** Inclusive calendar dates. The repository turns them into moments in the owner's saved timezone. */
 export type NutritionDateRange = {
   startDate: string;
   endDate: string;
-  from: number;
-  to: number;
   dayCount: number;
 };
 
@@ -37,11 +36,11 @@ export type NutritionHistoryInput = NutritionDateRange & {
 
 function parseDate(value: unknown, field: string): { date: string; timestamp: number } {
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/u.test(value)) {
-    throw new NutritionReadInputError("invalid_date", `${field} must be a UTC date in YYYY-MM-DD format.`);
+    throw new NutritionReadInputError("invalid_date", `${field} must be a date in YYYY-MM-DD format.`);
   }
   const timestamp = Date.parse(`${value}T00:00:00.000Z`);
   if (!Number.isFinite(timestamp) || new Date(timestamp).toISOString().slice(0, 10) !== value) {
-    throw new NutritionReadInputError("invalid_date", `${field} must be a real UTC calendar date.`);
+    throw new NutritionReadInputError("invalid_date", `${field} must be a real calendar date.`);
   }
   return { date: value, timestamp };
 }
@@ -59,13 +58,7 @@ export function parseNutritionDateRange(value: unknown, allowedKeys: string[] = 
   if (dayCount > MAX_NUTRITION_RANGE_DAYS) {
     throw new NutritionReadInputError("date_range_too_large", `The date range can include at most ${MAX_NUTRITION_RANGE_DAYS} days.`);
   }
-  return {
-    startDate: start.date,
-    endDate: end.date,
-    from: start.timestamp,
-    to: end.timestamp + DAY_MS,
-    dayCount,
-  };
+  return { startDate: start.date, endDate: end.date, dayCount };
 }
 
 function toBase64Url(value: Uint8Array): string {
@@ -147,9 +140,7 @@ export function parseNutritionHistoryInput(value: unknown): NutritionHistoryInpu
       if (!isCursorPayload(decoded)
         || decoded.startDate !== range.startDate
         || decoded.endDate !== range.endDate
-        || decoded.pageSize !== pageSize
-        || decoded.consumedAt < range.from
-        || decoded.consumedAt >= range.to) {
+        || decoded.pageSize !== pageSize) {
         throw new Error("invalid_cursor");
       }
       cursor = { consumedAt: decoded.consumedAt, id: decoded.id };

@@ -449,8 +449,8 @@ test("nutrition history reads a full 100-meal page within the D1 binding limit",
   const page = await listNutritionHistoryPage({
     db,
     ownerKey: OWNER_KEY,
-    from: 0,
-    to: 2_000_000_000_000,
+    startDate: "2026-01-01",
+    endDate: "2026-12-31",
     limit: 100,
   });
 

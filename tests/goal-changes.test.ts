@@ -69,12 +69,9 @@ test("the daily history, the nutrition summary and the export carry the goal cha
       { date: "2026-09-20", changedAt: Date.parse("2026-09-20T03:00:00Z"), dailyCalorieTarget: 1_900, proteinGoalMode: "grams", dailyProteinTargetG: 140, dailyProteinTargetPerKg: null },
     ]);
 
-    const summary = await getNutritionSummary({
-      db: fixture.db, ownerKey: OWNER, startDate: "2026-09-20", endDate: "2026-09-20",
-      from: Date.parse("2026-09-20T00:00:00Z"), to: Date.parse("2026-09-21T00:00:00Z"), dayCount: 1,
-    });
+    const summary = await getNutritionSummary({ db: fixture.db, ownerKey: OWNER, startDate: "2026-09-20", endDate: "2026-09-20", dayCount: 1 });
     assert.deepEqual(summary.goalChanges, [
-      { date: "2026-09-01", changedAt: "2026-09-01T18:00:00.000Z", caloriesKcal: 2_100, protein: { mode: "gramsPerKg", grams: null, gramsPerKg: 2 } },
+      { date: "2026-09-02", changedAt: "2026-09-01T18:00:00.000Z", caloriesKcal: 2_100, protein: { mode: "gramsPerKg", grams: null, gramsPerKg: 2 } },
       { date: "2026-09-20", changedAt: "2026-09-20T03:00:00.000Z", caloriesKcal: 1_900, protein: { mode: "grams", grams: 140, gramsPerKg: null } },
     ]);
 

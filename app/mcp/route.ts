@@ -23,8 +23,8 @@ const handler = createMcpHandler({
   getNutritionHistory: (ownerKey, input) => listNutritionHistoryPage({
     db: getDb(),
     ownerKey,
-    from: input.from,
-    to: input.to,
+    startDate: input.startDate,
+    endDate: input.endDate,
     limit: input.pageSize,
     cursor: input.cursor,
   }),

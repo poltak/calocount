@@ -40,7 +40,7 @@ export const MCP_PROTOCOL_VERSION = "2025-11-25";
 const SUPPORTED_PROTOCOL_VERSIONS = [MCP_PROTOCOL_VERSION, "2025-03-26"];
 const MAX_BODY_BYTES = 1_000_000;
 const SECURITY_SCHEMES = [{ type: "oauth2", scopes: [] }] as const;
-const SERVER_INSTRUCTIONS = "Dates are inclusive UTC. Use get_nutrition_summary for totals and get_nutrition_history for request_id and item IDs. Estimate macros before logging. Call add_meals only when asked to log a meal; use a new UUID v4 per meal, reuse only for exact add retries. Call update_meal only when asked to edit; keep the saved request_id. Pass supplied photo values unchanged in photos with photo_meal_indices. Never invent file IDs or URLs. Photos: JPEG, PNG, WebP, HEIC. Report photos only when has_image is true.";
+const SERVER_INSTRUCTIONS = "Dates use the saved timezone. Use get_nutrition_summary for totals and get_nutrition_history for request_id and item IDs. Estimate macros before logging. Call add_meals only when asked to log a meal; use a new UUID v4 per meal, reuse only for exact add retries. Call update_meal only when asked to edit; keep the saved request_id. Pass supplied photo values unchanged in photos with photo_meal_indices. Never invent file IDs or URLs. Photos: JPEG, PNG, WebP, HEIC. Report photos only when has_image is true.";
 type McpIdentity = { ownerKey: string };
 
 export type McpHandlerDependencies = {
@@ -200,15 +200,17 @@ const dailyMacroSchema = {
   additionalProperties: false,
 };
 
+const TIMEZONE_OUTPUT_DESCRIPTION = "The account's saved IANA timezone. It sets the day boundaries of every date in this result.";
+
 const GET_NUTRITION_HISTORY_TOOL = {
   name: "get_nutrition_history",
   title: "Read Calocount nutrition history",
-  description: `Read completed meal items for an inclusive UTC date range of up to ${MAX_NUTRITION_RANGE_DAYS} days. Results include known and unknown nutrient values. Use the opaque next_cursor to read the next page.`,
+  description: `Read completed meal items for an inclusive date range of up to ${MAX_NUTRITION_RANGE_DAYS} days. Dates are days in the account's saved timezone, returned as timezone. Results include known and unknown nutrient values. Use the opaque next_cursor to read the next page.`,
   inputSchema: {
     type: "object",
     properties: {
-      start_date: { type: "string", format: "date", description: "First UTC date, inclusive (YYYY-MM-DD)." },
-      end_date: { type: "string", format: "date", description: "Last UTC date, inclusive (YYYY-MM-DD)." },
+      start_date: { type: "string", format: "date", description: "First date, inclusive (YYYY-MM-DD), in the account's saved timezone." },
+      end_date: { type: "string", format: "date", description: "Last date, inclusive (YYYY-MM-DD), in the account's saved timezone." },
       page_size: { type: "integer", minimum: 1, maximum: MAX_NUTRITION_PAGE_SIZE, default: DEFAULT_NUTRITION_PAGE_SIZE },
       cursor: { type: "string", maxLength: 4096, description: "Opaque next_cursor from the previous page. Keep the same dates and page_size." },
     },
@@ -222,6 +224,7 @@ const GET_NUTRITION_HISTORY_TOOL = {
       properties: {
       start_date: { type: "string", format: "date" },
       end_date: { type: "string", format: "date" },
+      timezone: { type: "string", description: TIMEZONE_OUTPUT_DESCRIPTION },
       meals: {
         type: "array",
         items: {
@@ -260,7 +263,7 @@ const GET_NUTRITION_HISTORY_TOOL = {
       has_more: { type: "boolean" },
       next_cursor: { type: ["string", "null"] },
       },
-      required: ["start_date", "end_date", "meals", "has_more", "next_cursor"],
+      required: ["start_date", "end_date", "timezone", "meals", "has_more", "next_cursor"],
       additionalProperties: false,
     }, toolErrorOutput],
   },
@@ -272,12 +275,12 @@ const GET_NUTRITION_HISTORY_TOOL = {
 const GET_NUTRITION_SUMMARY_TOOL = {
   name: "get_nutrition_summary",
   title: "Summarize Calocount nutrition",
-  description: `Summarize completed meal totals by UTC day for an inclusive range of up to ${MAX_NUTRITION_RANGE_DAYS} days. Each nutrient includes recorded amount and coverage counts. currentTargets are the current settings; goalChanges lists the recorded calorie and protein goal changes.`,
+  description: `Summarize completed meal totals by day for an inclusive date range of up to ${MAX_NUTRITION_RANGE_DAYS} days. Dates are days in the account's saved timezone, returned as timezone. Each nutrient includes recorded amount and coverage counts. currentTargets are the current settings; goalChanges lists the recorded calorie and protein goal changes.`,
   inputSchema: {
     type: "object",
     properties: {
-      start_date: { type: "string", format: "date", description: "First UTC date, inclusive (YYYY-MM-DD)." },
-      end_date: { type: "string", format: "date", description: "Last UTC date, inclusive (YYYY-MM-DD)." },
+      start_date: { type: "string", format: "date", description: "First date, inclusive (YYYY-MM-DD), in the account's saved timezone." },
+      end_date: { type: "string", format: "date", description: "Last date, inclusive (YYYY-MM-DD), in the account's saved timezone." },
     },
     required: ["start_date", "end_date"],
     additionalProperties: false,
@@ -289,6 +292,7 @@ const GET_NUTRITION_SUMMARY_TOOL = {
       properties: {
       startDate: { type: "string", format: "date" },
       endDate: { type: "string", format: "date" },
+      timezone: { type: "string", description: TIMEZONE_OUTPUT_DESCRIPTION },
       days: {
         type: "array",
         items: {
@@ -370,7 +374,7 @@ const GET_NUTRITION_SUMMARY_TOOL = {
         },
       },
       },
-      required: ["startDate", "endDate", "days", "currentTargets", "goalChanges"],
+      required: ["startDate", "endDate", "timezone", "days", "currentTargets", "goalChanges"],
       additionalProperties: false,
     }, toolErrorOutput],
   },
@@ -832,7 +836,7 @@ async function createNutritionHistoryToolCall(ownerKey: string, arguments_: Json
       ? encodeNutritionHistoryCursor(input, { consumedAt: lastMeal.consumedAt, id: lastMeal.id })
       : null;
     const meals = page.meals.map((meal) => ({
-      date: new Date(meal.consumedAt).toISOString().slice(0, 10),
+      date: meal.date,
       eaten_at: new Date(meal.consumedAt).toISOString(),
       request_id: meal.requestId,
       meal_type: meal.mealType,
@@ -847,6 +851,7 @@ async function createNutritionHistoryToolCall(ownerKey: string, arguments_: Json
     const payload = {
       start_date: input.startDate,
       end_date: input.endDate,
+      timezone: page.timezone,
       meals,
       has_more: page.hasMore,
       next_cursor: nextCursor,
@@ -867,7 +872,7 @@ async function createNutritionSummaryToolCall(ownerKey: string, arguments_: Json
     const input = parseNutritionSummaryInput(arguments_);
     const payload = await dependencies.getNutritionSummary(ownerKey, input);
     return {
-      content: [{ type: "text" as const, text: `Returned nutrition totals for ${payload.days.length} UTC dates. Current targets apply to current settings only; see goalChanges for recorded goal changes.` }],
+      content: [{ type: "text" as const, text: `Returned nutrition totals for ${payload.days.length} dates in ${payload.timezone}. Current targets apply to current settings only; see goalChanges for recorded goal changes.` }],
       structuredContent: payload,
       isError: false,
     };

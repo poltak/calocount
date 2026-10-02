@@ -29,8 +29,8 @@ function routeFor(fixture: ReturnType<typeof createSqliteTestDb>, ownerKey = OWN
     getNutritionHistory: (_ownerKey, input) => listNutritionHistoryPage({
       db: fixture.db,
       ownerKey: _ownerKey,
-      from: input.from,
-      to: input.to,
+      startDate: input.startDate,
+      endDate: input.endDate,
       limit: input.pageSize,
       cursor: input.cursor,
     }),
@@ -248,7 +248,7 @@ test("history rejects invalid dates, oversized ranges, and mismatched cursors", 
   const route = routeFor(fixture);
   const invalidDate = await callTool(route, "get_nutrition_history", { start_date: "2026-02-29", end_date: "2026-03-01" });
   assert.equal(invalidDate.isError, true);
-  assert.deepEqual(invalidDate.structuredContent, { error: { code: "invalid_date", message: "start_date must be a real UTC calendar date." } });
+  assert.deepEqual(invalidDate.structuredContent, { error: { code: "invalid_date", message: "start_date must be a real calendar date." } });
 
   const oversized = await callTool(route, "get_nutrition_history", { start_date: "2025-01-01", end_date: "2026-01-02" }, 2);
   assert.equal(oversized.isError, true);
@@ -273,7 +273,7 @@ test("history rejects invalid dates, oversized ranges, and mismatched cursors", 
   fixture.sqlite.close();
 });
 
-test("summary reports UTC day totals, unknown values, known zeroes, unlogged days, and current target scope", async () => {
+test("summary reports day totals, unknown values, known zeroes, unlogged days, and current target scope", async () => {
   const fixture = createSqliteTestDb();
   insertMeal(fixture, { id: "day-one-a", eatenAt: "2026-09-01T08:00:00.000Z", calories: 500, protein: 20, carbs: 40, fat: 10 });
   insertMeal(fixture, { id: "day-one-b", eatenAt: "2026-09-01T12:00:00.000Z", calories: 300, protein: 10, carbs: 20, fat: 5 });
@@ -353,5 +353,60 @@ test("summary reports UTC day totals, unknown values, known zeroes, unlogged day
   assert.equal(data.currentTargets.protein.grams, 120);
   assert.equal(data.currentTargets.nutrients.magnesiumMg?.value, 350);
   assert.equal(JSON.stringify(data).includes("historicalTarget"), false);
+  fixture.sqlite.close();
+});
+
+test("the read tools count days in the owner's saved timezone and report it", async () => {
+  const fixture = createSqliteTestDb();
+  fixture.sqlite.exec("INSERT INTO settings (id, owner_key, timezone) VALUES ('settings-owner-a', 'owner-a', 'Asia/Ho_Chi_Minh')");
+  // 06:30 on 12 September in Ho Chi Minh City is 23:30 on 11 September in UTC.
+  insertMeal(fixture, { id: "breakfast", eatenAt: "2026-09-11T23:30:00.000Z", calories: 400 });
+  insertItem(fixture, { id: "breakfast-item", mealId: "breakfast", name: "Breakfast", magnesium: 20 });
+  // 19:00 on 11 September there.
+  insertMeal(fixture, { id: "dinner-before", eatenAt: "2026-09-11T12:00:00.000Z", calories: 700 });
+  insertItem(fixture, { id: "dinner-before-item", mealId: "dinner-before", name: "Dinner before", magnesium: 30 });
+  // 00:30 on 13 September there, after the requested day ends.
+  insertMeal(fixture, { id: "after-midnight", eatenAt: "2026-09-12T17:30:00.000Z", calories: 900 });
+  insertItem(fixture, { id: "after-midnight-item", mealId: "after-midnight", name: "After midnight" });
+  const route = routeFor(fixture);
+
+  const summary = (await callTool(route, "get_nutrition_summary", { start_date: "2026-09-11", end_date: "2026-09-12" })).structuredContent as {
+    timezone: string;
+    days: Array<{ date: string; totals: { caloriesKcal: number }; nutrients: Record<string, { recordedAmount: number | null }> }>;
+  };
+  assert.equal(summary.timezone, "Asia/Ho_Chi_Minh");
+  assert.deepEqual(summary.days.map((day) => [day.date, day.totals.caloriesKcal, day.nutrients.magnesiumMg?.recordedAmount]), [
+    ["2026-09-11", 700, 30],
+    ["2026-09-12", 400, 20],
+  ]);
+
+  const history = (await callTool(route, "get_nutrition_history", { start_date: "2026-09-12", end_date: "2026-09-12" }, 2)).structuredContent as {
+    timezone: string;
+    meals: Array<{ date: string; eaten_at: string; items: Array<{ name: string }> }>;
+  };
+  assert.equal(history.timezone, "Asia/Ho_Chi_Minh");
+  assert.deepEqual(history.meals.map((meal) => [meal.date, meal.eaten_at, meal.items[0]?.name]), [
+    ["2026-09-12", "2026-09-11T23:30:00.000Z", "Breakfast"],
+  ]);
+  fixture.sqlite.close();
+});
+
+test("the summary puts meals on the right day when the clocks change", async () => {
+  const fixture = createSqliteTestDb();
+  fixture.sqlite.exec("INSERT INTO settings (id, owner_key, timezone) VALUES ('settings-owner-a', 'owner-a', 'America/New_York')");
+  // New York is 5 hours behind UTC until 02:00 on 8 March 2026, then 4 hours behind.
+  insertMeal(fixture, { id: "before-change", eatenAt: "2026-03-08T04:30:00.000Z", calories: 100 }); // 23:30 on 7 March
+  insertMeal(fixture, { id: "night-of-change", eatenAt: "2026-03-08T05:30:00.000Z", calories: 200 }); // 00:30 on 8 March
+  insertMeal(fixture, { id: "after-change", eatenAt: "2026-03-09T03:30:00.000Z", calories: 300 }); // 23:30 on 8 March
+  insertMeal(fixture, { id: "next-day", eatenAt: "2026-03-09T04:30:00.000Z", calories: 400 }); // 00:30 on 9 March
+
+  const summary = (await callTool(routeFor(fixture), "get_nutrition_summary", { start_date: "2026-03-07", end_date: "2026-03-09" })).structuredContent as {
+    days: Array<{ date: string; totals: { caloriesKcal: number } }>;
+  };
+  assert.deepEqual(summary.days.map((day) => [day.date, day.totals.caloriesKcal]), [
+    ["2026-03-07", 100],
+    ["2026-03-08", 500],
+    ["2026-03-09", 400],
+  ]);
   fixture.sqlite.close();
 });
