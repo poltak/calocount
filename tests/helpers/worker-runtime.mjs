@@ -1,4 +1,4 @@
-import { readdir } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 
@@ -8,8 +8,23 @@ const { Miniflare, convertV4MiniflareOptions } = require(require.resolve("minifl
   paths: [require.resolve("wrangler/package.json")],
 }));
 
-/** Start the built app Worker with the given bindings. Requests go through the real route handlers. */
-export async function startWorker(bindings = {}) {
+/** Apply every migration in drizzle/ to a D1 database, in order. */
+async function applyMigrations(database) {
+  const directory = new URL("../../drizzle/", import.meta.url);
+  const files = (await readdir(directory)).filter((file) => file.endsWith(".sql")).sort();
+  for (const file of files) {
+    const sql = await readFile(new URL(file, directory), "utf8");
+    for (const statement of sql.split("--> statement-breakpoint")) {
+      if (statement.trim()) await database.prepare(statement).run();
+    }
+  }
+}
+
+/**
+ * Start the built app Worker with the given bindings. Requests go through the real route handlers.
+ * With `storage`, the Worker also gets an empty migrated D1 database and an empty R2 bucket.
+ */
+export async function startWorker(bindings = {}, { storage = false } = {}) {
   const root = new URL("../../dist/server/", import.meta.url);
   const files = (await readdir(root, { recursive: true })).filter((file) => file.endsWith(".js"));
   // The first module is the entry point. Include dynamic route chunks as well.
@@ -22,6 +37,7 @@ export async function startWorker(bindings = {}) {
       compatibilityDate: "2026-08-23",
       compatibilityFlags: ["nodejs_compat"],
       bindings,
+      ...(storage ? { d1Databases: { DB: "calocount-test" }, r2Buckets: { PHOTOS: "calocount-test" } } : {}),
     }),
     // Collect console output from the Worker instead of printing it.
     handleStructuredLogs({ message }) {
@@ -29,9 +45,13 @@ export async function startWorker(bindings = {}) {
     },
   });
 
+  if (storage) await applyMigrations(await runtime.getD1Database("DB"));
+
   return {
     /** Lines the Worker wrote with console.* so far. */
     logs,
+    /** Send a request as given, for bodies that are not JSON. */
+    fetch: (path, init) => runtime.dispatchFetch(`http://localhost${path}`, init),
     async request({ path, method = "GET", body, headers = {} }) {
       const response = await runtime.dispatchFetch(`http://localhost${path}`, {
         method,

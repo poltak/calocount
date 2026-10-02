@@ -1001,7 +1001,8 @@ export function createMcpHandler(dependencies: McpHandlerDependencies) {
       await server.connect(transport);
       const headers = new Headers(request.headers);
       headers.delete("content-length");
-      const response = await transport.handleRequest(new Request(request, { body, headers }));
+      // Build the request from its parts. The Workers runtime refuses to copy a request whose body was already read.
+      const response = await transport.handleRequest(new Request(request.url, { method: request.method, headers, body }));
       // Only a tools/list result carries tool definitions to rewrite.
       return isToolsListRequest(message) ? await addOpenAISecuritySchemes(response) : response;
     } catch {
