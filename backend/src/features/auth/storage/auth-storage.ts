@@ -5,10 +5,7 @@ export class AuthStorage {
   constructor(private readonly deps: BackendStorageProps) {}
 
   async getUserCount(): Promise<number> {
-    const db = this.deps.db.withTables<{
-      user: { id: string; email: string };
-    }>();
-    const result = await db
+    const result = await this.deps.db
       .selectFrom("user")
       .select((expression) => expression.fn.countAll<string>().as("count"))
       .executeTakeFirstOrThrow();
