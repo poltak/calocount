@@ -10,7 +10,10 @@ import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { FrontendAppProvider } from "../../core/ui/frontend-app-context.js";
 import { AppRoutes } from "../../core/ui/routes.js";
-import { createFullApplication } from "../../core/tests/full-application.js";
+import {
+  createFullApplication,
+  TEST_OWNER_CREDENTIALS,
+} from "../../core/tests/full-application.js";
 
 afterEach(() => {
   cleanup();
@@ -62,13 +65,16 @@ describe("authentication UI with the real backend", () => {
             .disabled,
         ).toBe(false),
       );
-      enterCredentials({ ...fixture.credentials, password: "wrong-password" });
+      enterCredentials({
+        ...TEST_OWNER_CREDENTIALS,
+        password: "wrong-password",
+      });
       await screen.findByRole("alert");
       expect(screen.queryByRole("button", { name: "Start" })).toBeNull();
       expect(
         (screen.getByLabelText("Password") as HTMLInputElement).value,
       ).toBe("");
-      enterCredentials(fixture.credentials);
+      enterCredentials(TEST_OWNER_CREDENTIALS);
       await screen.findByRole("button", { name: "Start" });
       expect(screen.getByText("enc-42")).toBeTruthy();
       expect((await fixture.frontend.api.me.$get()).status).toBe(200);
@@ -80,7 +86,6 @@ describe("authentication UI with the real backend", () => {
     } finally {
       cleanup();
       await Promise.resolve();
-      await fixture.close();
     }
   }, 15000);
 
@@ -100,7 +105,6 @@ describe("authentication UI with the real backend", () => {
     } finally {
       cleanup();
       await Promise.resolve();
-      await fixture.close();
     }
   }, 15000);
 
@@ -132,7 +136,6 @@ describe("authentication UI with the real backend", () => {
     } finally {
       cleanup();
       await Promise.resolve();
-      await fixture.close();
     }
   }, 15000);
 });

@@ -63,7 +63,7 @@ describe("typed API client", () => {
     try {
       const api = createApiClient({
         baseUrl: "http://shadow.test",
-        fetch: backend.createBrowserTransport(),
+        fetch: backend.createBrowserTransport().fetch,
       });
       // Use a real session; the injected transport keeps cookies in memory.
       const credentials = {
@@ -72,7 +72,7 @@ describe("typed API client", () => {
         password: "test-password-for-auth-only",
       };
       await backend.app.services.auth.createAccount(credentials);
-      const fetch = backend.createBrowserTransport();
+      const { fetch } = backend.createBrowserTransport();
       await fetch("http://shadow.test/api/session", {
         method: "POST",
         headers: { "content-type": "application/json" },

@@ -1,3 +1,31 @@
+/** A request the test is holding back. It continues when the test releases it. */
+interface HeldRequest {
+  /** Resolves when a request has arrived at the hold. */
+  reached: Promise<void>;
+  release(): void;
+}
+
+/**
+ * The function a simulated browser uses to send requests to the backend, plus
+ * controls for the timing and failure cases a test needs to reproduce.
+ */
+export interface BrowserTransport {
+  fetch: typeof globalThis.fetch;
+  /** Hold the next request before the backend receives it. */
+  holdNextRequest(): HeldRequest;
+  /** Let the backend handle the next request, then hold its response. */
+  holdNextResponse(): HeldRequest;
+  /** Fail every request, as a browser does without a connection. */
+  goOffline(): void;
+  goOnline(): void;
+}
+
+interface Hold {
+  stage: "request" | "response";
+  reach(): void;
+  released: Promise<void>;
+}
+
 /** Minimal same-origin cookie transport for in-process application tests. */
 export function createBrowserTransport({
   fetch,
@@ -5,15 +33,55 @@ export function createBrowserTransport({
 }: {
   fetch: typeof globalThis.fetch;
   origin: string;
-}): typeof globalThis.fetch {
+}): BrowserTransport {
   const cookies = new Map<string, { value: string; expiresAt: number }>();
-  return async (input, init) => {
+  const holds: Hold[] = [];
+  let offline = false;
+
+  const hold = (stage: Hold["stage"]): HeldRequest => {
+    let reach!: () => void;
+    let release!: () => void;
+    const reached = new Promise<void>((resolve) => {
+      reach = resolve;
+    });
+    const released = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    holds.push({ stage, reach, released });
+    return { reached, release };
+  };
+
+  /** A held request still fails at once when its caller cancels it. */
+  const waitForRelease = async (held: Hold, signal: AbortSignal) => {
+    held.reach();
+    let abort!: () => void;
+    const aborted = new Promise<never>((_resolve, reject) => {
+      abort = () => reject(signal.reason);
+    });
+    signal.addEventListener("abort", abort);
+    try {
+      await Promise.race([held.released, aborted]);
+    } finally {
+      signal.removeEventListener("abort", abort);
+    }
+  };
+
+  const send: typeof globalThis.fetch = async (input, init) => {
     const request = new Request(input, init);
     if (new URL(request.url).origin !== origin) {
       throw new Error(
         "In-memory browser transport accepts only its configured origin",
       );
     }
+    request.signal.throwIfAborted();
+    if (offline) {
+      throw new TypeError("Failed to fetch");
+    }
+    const held = holds.shift();
+    if (held?.stage === "request") {
+      await waitForRelease(held, request.signal);
+    }
+
     const headers = new Headers(request.headers);
     const useCookies = request.credentials !== "omit";
     if (useCookies && !headers.has("cookie")) {
@@ -33,6 +101,9 @@ export function createBrowserTransport({
       headers.set("origin", origin);
     }
     const response = await fetch(new Request(request, { headers }));
+    if (held?.stage === "response") {
+      await waitForRelease(held, request.signal);
+    }
     if (useCookies) {
       for (const value of response.headers.getSetCookie()) {
         const [pair, ...attributes] = value.split(";");
@@ -59,5 +130,17 @@ export function createBrowserTransport({
       }
     }
     return response;
+  };
+
+  return {
+    fetch: send,
+    holdNextRequest: () => hold("request"),
+    holdNextResponse: () => hold("response"),
+    goOffline: () => {
+      offline = true;
+    },
+    goOnline: () => {
+      offline = false;
+    },
   };
 }
