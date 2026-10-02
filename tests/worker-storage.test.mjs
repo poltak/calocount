@@ -57,3 +57,33 @@ test("the MCP endpoint lists its tools and logs, reads and updates a meal", asyn
     await worker.dispose();
   }
 });
+
+test("a dashboard entry with a photo is saved and its photo can be read back", async () => {
+  const worker = await startWorker(LOCAL, { storage: true });
+  try {
+    const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
+    const form = new FormData();
+    form.set("payload", JSON.stringify({
+      consumedAt: Date.parse("2026-10-02T05:30:00Z"), mealType: "lunch", source: "dashboard", status: "complete", caption: "Photo lunch",
+      items: [{ name: "Photo lunch", quantity: 1, unit: "serving", calories: 300, proteinG: 20, carbsG: 30, fatG: 10 }],
+    }));
+    form.set("photo", new File([png], "lunch.png", { type: "image/png" }));
+    // Encode the form here so the request carries its multipart boundary.
+    const encoded = new Response(form);
+    const saved = await worker.fetch("/api/meals", {
+      method: "POST",
+      headers: { "content-type": encoded.headers.get("content-type") },
+      body: Buffer.from(await encoded.arrayBuffer()),
+    });
+    assert.equal(saved.status, 201);
+    const { meal } = await saved.json();
+    assert.equal(meal.caption, "Photo lunch");
+    assert.equal(meal.photoMimeType, "image/png");
+
+    const photo = await worker.fetch(`/api/photos/${meal.photoKey}`);
+    assert.equal(photo.status, 200);
+    assert.deepEqual(Buffer.from(await photo.arrayBuffer()), png);
+  } finally {
+    await worker.dispose();
+  }
+});

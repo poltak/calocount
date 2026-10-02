@@ -200,7 +200,8 @@ export async function parseMultipartMealRequest(request: Request): Promise<Parse
       if (boundedBody === null) throw new MealPhotoError(413, "payload_too_large", "The request is too large.");
       const headers = new Headers(request.headers);
       headers.delete("content-length");
-      form = await new Request(request, { body: boundedBody, headers }).formData();
+      // Build the request from its parts. The Workers runtime refuses to copy a request whose body was already read.
+      form = await new Request(request.url, { method: request.method, headers, body: boundedBody }).formData();
     }
   } catch (error) {
     if (error instanceof MealPhotoError) throw error;
