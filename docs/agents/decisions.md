@@ -82,9 +82,11 @@ entry to the choice, the reason, and any rule that follows from it.
   has methods only for production paths. The operation under test already runs
   the production Storage code, and a direct query checks what it stored.
 - **Every test has its own application and database,** so any test can run alone
-  and test files run in parallel. Setup costs about one second per test, most of
-  it starting PGlite and running the auth migrations. If the suite becomes slow,
-  migrate once per worker and give each test a copy of that database.
+  and test files run in parallel.
+- **Each test database starts from a snapshot.** Starting an empty PGlite
+  database takes about 550 ms, and hashing the owner's password takes another
+  70 ms. Each test worker builds one migrated database with the owner in it,
+  and every test database starts from a copy, which takes about 100 ms.
 - **Coverage requires only that every UI Logic function runs in a test.**
   Meeting that takes a test of each operation. We set no line or branch
   thresholds, because they reward tests written to raise a number. The same run

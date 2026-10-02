@@ -15,10 +15,14 @@ export interface TestApp extends App {
 
 /** Compose one backend app with isolated test dependencies. */
 export function createApp({
+  db = createDatabase(),
   authBaseUrl = "http://shadow.test",
   trustedOrigins = [],
-}: { authBaseUrl?: string; trustedOrigins?: string[] } = {}): TestApp {
-  const db = createDatabase();
+}: {
+  db?: Database;
+  authBaseUrl?: string;
+  trustedOrigins?: string[];
+} = {}): TestApp {
   const app = composeApp({
     db,
     ownerEmail: "owner@example.test",

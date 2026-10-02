@@ -22,12 +22,9 @@ interface FullApplicationParams {
 export async function createFullApplication({
   authenticated = true,
 }: FullApplicationParams = {}) {
-  const backend = await createTestBackend();
+  const backend = await createTestBackend({ owner: TEST_OWNER_CREDENTIALS });
   onTestFinished(() => backend.close());
   const transport = backend.createBrowserTransport();
-  const owner = await backend.app.logic.ownerSetup.createOwner(
-    TEST_OWNER_CREDENTIALS,
-  );
   if (authenticated) {
     const signIn = await transport.fetch("http://shadow.test/api/session", {
       method: "POST",
@@ -44,7 +41,7 @@ export async function createFullApplication({
     /** Controls for the requests the frontend sends. */
     transport,
     /** The owner account as the database holds it at the start of the test. */
-    owner,
+    owner: backend.owner,
   };
 }
 
