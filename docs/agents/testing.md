@@ -89,13 +89,25 @@ The fixture's transport can also reproduce timing and connection problems:
   request does.
 - `goOffline()` makes every request fail as a browser does without a
   connection. `goOnline()` restores it.
+- `failNextRequestAtGateway(status)` answers the next request with a
+  plain-text failure before the backend receives it, as a proxy or gateway in
+  front of the backend does.
 
 ## Other tests
 
-A few files that are not Logic classes have unit tests beside them, such as
-`latest-request.test.ts` and `api-client.test.ts`. `use-logic.test.tsx` is the
-only rendered test, because the hook's lifecycle exists only inside React. Do
-not add other rendered tests; UI components hold no logic of their own.
+A few files that are not Logic classes have tests of their own:
+
+- `api-client.test.ts` checks only the client's types, which no running test
+  can check. The UI Logic tests cover its behavior.
+- `latest-request.test.ts` tests a small helper that has no I/O.
+- `use-logic.test.tsx` is the only rendered test, because the hook's lifecycle
+  exists only inside React. Do not add other rendered tests; UI components
+  hold no logic of their own.
+
+No test covers two things that only a real browser can show. One is that the
+client sends cookies to a backend on another origin (`credentials: "include"`).
+The other is how it joins a configured base URL. Check both by hand when
+changing the client.
 
 ## Enforced by lint
 

@@ -18,6 +18,11 @@ export interface BrowserTransport {
   /** Fail every request, as a browser does without a connection. */
   goOffline(): void;
   goOnline(): void;
+  /**
+   * Answer the next request with a plain-text failure before the backend
+   * receives it, as a proxy or gateway in front of the backend does.
+   */
+  failNextRequestAtGateway(status: 502 | 503 | 504): void;
 }
 
 interface Hold {
@@ -36,6 +41,7 @@ export function createBrowserTransport({
 }): BrowserTransport {
   const cookies = new Map<string, { value: string; expiresAt: number }>();
   const holds: Hold[] = [];
+  const gatewayFailures: number[] = [];
   let offline = false;
 
   const hold = (stage: Hold["stage"]): HeldRequest => {
@@ -76,6 +82,13 @@ export function createBrowserTransport({
     request.signal.throwIfAborted();
     if (offline) {
       throw new TypeError("Failed to fetch");
+    }
+    const gatewayFailure = gatewayFailures.shift();
+    if (gatewayFailure) {
+      return new Response("The service is unavailable", {
+        status: gatewayFailure,
+        headers: { "content-type": "text/plain" },
+      });
     }
     const held = holds.shift();
     if (held?.stage === "request") {
@@ -141,6 +154,9 @@ export function createBrowserTransport({
     },
     goOnline: () => {
       offline = false;
+    },
+    failNextRequestAtGateway: (status) => {
+      gatewayFailures.push(status);
     },
   };
 }
