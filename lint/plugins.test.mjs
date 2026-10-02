@@ -16,14 +16,14 @@ async function projectRules() {
     await readFile(path.join(repoRoot, ".oxlintrc.json"), "utf8"),
   );
   return Object.fromEntries(
-    Object.entries(config.rules).filter(
-      ([name]) => name.startsWith("architecture/") || name.startsWith("stack/"),
+    Object.entries(config.rules).filter(([name]) =>
+      /^(?:architecture|stack|testing)\//.test(name),
     ),
   );
 }
 
 /**
- * Lint fixture files with the project's architecture and stack rules.
+ * Lint fixture files with the project's architecture, stack, and testing rules.
  * Returns "<file>: <rule>" for every problem found.
  */
 async function lint(context, files) {
@@ -44,6 +44,7 @@ async function lint(context, files) {
       jsPlugins: [
         path.join(lintDirectory, "architecture-plugin.mjs"),
         path.join(lintDirectory, "stack-plugin.mjs"),
+        path.join(lintDirectory, "testing-plugin.mjs"),
       ],
       rules: await projectRules(),
     }),
@@ -60,7 +61,7 @@ async function lint(context, files) {
   }
   return JSON.parse(output)
     .diagnostics.filter((problem) =>
-      /^(?:architecture|stack)\(/.test(problem.code),
+      /^(?:architecture|stack|testing)\(/.test(problem.code),
     )
     .map(
       (problem) =>
@@ -81,6 +82,10 @@ const coreFiles = (workspace) => ({
 const importLogic = 'import { Logic } from "../../core/logic/logic.js";\n';
 const importProps =
   'import type { BackendLogicProps } from "../../core/logic/types.js";\n';
+
+/** A UI Logic test that follows docs/agents/testing.md. */
+const logicTest =
+  'import { setupLogicTest } from "../../core/tests/full-application.js";\nexport const setupTest = () => setupLogicTest({}, () => null);\n';
 
 test("accepts a feature that follows the architecture", async (context) => {
   const problems = await lint(context, {
@@ -217,6 +222,7 @@ test("confines vendor packages to the layer that wraps them", async (context) =>
       'import { useState } from "react";\nimport type { InferResponseType } from "hono/client";\nexport class NotesLogic extends Logic {\n  uses?: [typeof useState, InferResponseType<never>];\n}\n',
     "frontend/src/features/notes/ui/notes-page.tsx":
       'import { useState } from "react";\nexport const NotesPage = () => useState(0);\n',
+    "frontend/src/features/notes/ui/notes-logic.test.ts": logicTest,
   });
 
   assert.deepEqual(problems, [
@@ -224,5 +230,64 @@ test("confines vendor packages to the layer that wraps them", async (context) =>
     "backend/src/features/notes/logic/notes-logic.ts: stack(vendor-imports)",
     "frontend/src/features/notes/ui/notes-logic.ts: stack(vendor-imports)",
     "frontend/src/features/notes/ui/notes-logic.ts: stack(vendor-imports)",
+  ]);
+});
+
+test("requires a test beside every UI Logic and LogicPlugin file", async (context) => {
+  const problems = await lint(context, {
+    ...coreFiles("frontend"),
+    "frontend/src/features/notes/ui/notes-logic.ts":
+      importLogic + "export class NotesLogic extends Logic {}\n",
+    "frontend/src/features/notes/ui/notes-logic.test.ts": logicTest,
+    "frontend/src/features/notes/ui/archive-logic.ts":
+      importLogic + "export class ArchiveLogic extends Logic {}\n",
+    "frontend/src/features/notes/ui/draft-plugin.ts":
+      'import { LogicPlugin } from "../../core/logic/logic-plugin.js";\nexport class DraftPlugin extends LogicPlugin {}\n',
+    "frontend/src/features/notes/ui/notes-page.tsx":
+      "export const NotesPage = () => null;\n",
+  });
+
+  assert.deepEqual(problems, [
+    "frontend/src/features/notes/ui/archive-logic.ts: testing(ui-logic-tested)",
+    "frontend/src/features/notes/ui/draft-plugin.ts: testing(ui-logic-tested)",
+  ]);
+});
+
+test("keeps UI Logic tests on the full application fixture", async (context) => {
+  const logic = (name) =>
+    importLogic + `export class ${name}Logic extends Logic {}\n`;
+  const problems = await lint(context, {
+    ...coreFiles("frontend"),
+    "frontend/src/features/notes/ui/notes-logic.ts": logic("Notes"),
+    "frontend/src/features/notes/ui/notes-logic.test.ts": logicTest,
+    "frontend/src/features/doubles/ui/doubles-logic.ts": logic("Doubles"),
+    "frontend/src/features/doubles/ui/doubles-logic.test.ts":
+      'import { vi } from "vitest";\n' +
+      logicTest +
+      'vi.spyOn(globalThis, "fetch");\nexport const wait = vi.waitFor;\n',
+    "frontend/src/features/parallel/ui/parallel-logic.ts": logic("Parallel"),
+    "frontend/src/features/parallel/ui/parallel-logic.test.ts":
+      'import { it } from "vitest";\n' +
+      logicTest +
+      'it.concurrent("runs", () => undefined);\n',
+    "frontend/src/features/rendered/ui/rendered-logic.ts": logic("Rendered"),
+    "frontend/src/features/rendered/ui/rendered-logic.test.ts":
+      'import { render } from "@testing-library/react";\n' +
+      logicTest +
+      "export const view = render;\n",
+    "frontend/src/features/faked/ui/faked-logic.ts": logic("Faked"),
+    "frontend/src/features/faked/ui/faked-logic.test.ts":
+      'import { createApp } from "../../core/tests/index.js";\nexport const app = createApp;\n',
+    // Tests outside a feature's ui/ directory are not UI Logic tests.
+    "frontend/src/features/core/logic/use-logic.test.tsx":
+      'import { render } from "@testing-library/react";\nimport { vi } from "vitest";\nexport const uses = [render, vi.fn()];\n',
+  });
+
+  assert.deepEqual(problems, [
+    "frontend/src/features/doubles/ui/doubles-logic.test.ts: testing(logic-tests)",
+    "frontend/src/features/faked/ui/faked-logic.test.ts: testing(logic-tests)",
+    "frontend/src/features/faked/ui/faked-logic.test.ts: testing(logic-tests)",
+    "frontend/src/features/parallel/ui/parallel-logic.test.ts: testing(logic-tests)",
+    "frontend/src/features/rendered/ui/rendered-logic.test.ts: testing(logic-tests)",
   ]);
 });

@@ -96,3 +96,13 @@ A few files that are not Logic classes have unit tests beside them, such as
 `latest-request.test.ts` and `api-client.test.ts`. `use-logic.test.tsx` is the
 only rendered test, because the hook's lifecycle exists only inside React. Do
 not add other rendered tests; UI components hold no logic of their own.
+
+## Enforced by lint
+
+| Rule                      | What it checks                                                                                                                                                     |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `testing/ui-logic-tested` | Every `*-logic.ts` and `*-plugin.ts` file in a feature's `ui/` directory has a test file beside it.                                                                |
+| `testing/logic-tests`     | A UI Logic test builds its Logic with `setupLogicTest`, uses no `vi` test doubles and no `.concurrent`, and does not import React, a renderer, or a bare test app. |
+
+Type checking enforces the task fields: `executeTask("setName", …)` compiles
+only when the state declares `setNameState` and `setNameError`.

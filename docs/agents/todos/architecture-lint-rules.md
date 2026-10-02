@@ -12,6 +12,8 @@ to judgment, and what remains to decide.
   `lint/stack-plugin.mjs` holds rules tied to this project's technology
   choices. Keep that separation: a project with the same architecture and a
   different stack would change only the stack rules.
+- `lint/testing-plugin.mjs` holds the rules for UI Logic tests. They are listed
+  in [testing](../testing.md).
 - Rule options, such as the list of role directories, live in `.oxlintrc.json`.
 - `lint/plugins.test.mjs` runs each rule against small fixtures using the
   options from `.oxlintrc.json`.

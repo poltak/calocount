@@ -12,7 +12,8 @@
   "jsPlugins": [
     "@stylistic/eslint-plugin",
     "./lint/architecture-plugin.mjs",
-    "./lint/stack-plugin.mjs"
+    "./lint/stack-plugin.mjs",
+    "./lint/testing-plugin.mjs"
   ],
   "categories": {
     "correctness": "error",
@@ -187,6 +188,22 @@
             ],
             "where": "UI components, core/logic hooks, and main.tsx"
           }
+        ]
+      }
+    ],
+    "testing/ui-logic-tested": "error",
+    "testing/logic-tests": [
+      "error",
+      {
+        "fixtureFile": "features/core/tests/full-application.ts",
+        "fixtureName": "setupLogicTest",
+        "forbiddenFiles": ["features/core/tests/index.ts"],
+        "forbiddenPackages": [
+          "backend/testing",
+          "react",
+          "react-dom",
+          "@testing-library/react",
+          "@testing-library/dom"
         ]
       }
     ],
