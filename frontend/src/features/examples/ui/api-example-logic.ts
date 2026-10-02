@@ -1,4 +1,7 @@
-import { Logic } from "@shadow/common/features/core/logic/logic";
+import {
+  Logic,
+  type TaskState,
+} from "@shadow/common/features/core/logic/logic";
 import {
   encodeApiParam,
   requireApiSuccess,
@@ -9,11 +12,14 @@ type ApiExampleProps = FrontendLogicProps<never, never, "encounters"> & {
   encounterId: string;
 };
 
+type Operation = "start" | "pause" | "stop";
+
 interface ApiExampleState {
-  busy: boolean;
+  runState: TaskState;
+  runError: string | null;
+  /** The operation the latest run sent, whatever its outcome. */
+  operation: Operation | null;
   completed: number;
-  message: string;
-  error: string | null;
 }
 
 /** A UI-only example. Backend encounter behavior remains a stub. */
@@ -22,28 +28,17 @@ export class ApiExampleLogic extends Logic<ApiExampleProps, ApiExampleState> {
     super({
       deps,
       initialState: {
-        busy: false,
+        runState: "pristine",
+        runError: null,
+        operation: null,
         completed: 0,
-        message: "No command sent yet.",
-        error: null,
       },
     });
   }
 
-  async run({
-    operation,
-  }: {
-    operation: "start" | "pause" | "stop";
-  }): Promise<void> {
-    if (this.state.busy) {
-      return;
-    }
-    this.setState({
-      busy: true,
-      error: null,
-      message: `Sending ${operation}…`,
-    });
-    try {
+  async run({ operation }: { operation: Operation }): Promise<void> {
+    await this.executeTask("run", async () => {
+      this.setState({ operation });
       const response = await this.deps.api.encounters[":encounterId"][
         operation
       ].$post(
@@ -51,17 +46,7 @@ export class ApiExampleLogic extends Logic<ApiExampleProps, ApiExampleState> {
         { init: { signal: this.signal } },
       );
       await requireApiSuccess(response);
-      this.setState({
-        completed: this.state.completed + 1,
-        message: `${operation} completed.`,
-      });
-    } catch (error) {
-      this.setState({
-        error: error instanceof Error ? error.message : "The command failed.",
-        message: "Command failed.",
-      });
-    } finally {
-      this.setState({ busy: false });
-    }
+      this.setState({ completed: this.state.completed + 1 });
+    });
   }
 }

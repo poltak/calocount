@@ -17,6 +17,12 @@ export function ApiExamplePage() {
     [app, encounterId],
   );
   const { logic, state } = useLogic({ LogicClass: ApiExampleLogic, deps });
+  const status = {
+    pristine: "No command sent yet.",
+    running: `Sending ${state.operation}…`,
+    success: `${state.operation} completed.`,
+    error: "Command failed.",
+  }[state.runState];
 
   return (
     <section>
@@ -32,7 +38,7 @@ export function ApiExamplePage() {
         {(["start", "pause", "stop"] as const).map((operation) => (
           <button
             key={operation}
-            disabled={state.busy}
+            disabled={state.runState === "running"}
             onClick={() => {
               void logic.run({ operation });
             }}
@@ -41,8 +47,8 @@ export function ApiExamplePage() {
           </button>
         ))}
       </div>
-      <output aria-label="Command status">{state.message}</output>
-      {state.error && <p role="alert">{state.error}</p>}
+      <output aria-label="Command status">{status}</output>
+      {state.runError && <p role="alert">{state.runError}</p>}
       <p>
         Completed commands:{" "}
         <output aria-label="Completed commands">{state.completed}</output>
