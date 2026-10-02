@@ -108,6 +108,10 @@ entry to the choice, the reason, and any rule that follows from it.
 - **pnpm runs scripts on a pinned Node version.** `devEngines.runtime` makes pnpm
   download and use the version in `.nvmrc`, whatever `node` is on the PATH.
   Agents, people, and CI therefore run the same version.
+- **`pnpm run check` builds once, then runs every other step at the same time.**
+  After `common` and the backend are built, no step depends on another. Each
+  step is a `check:<name>` script. Every step runs to the end even when one
+  fails, and the output ends with a list of the steps that failed.
 - **Prettier chosen for formatting** with Agent hooks, format-on-save for popular editors,
   and pre-commit hooks set up. Main reason is for consistently formatted code for ease of reading.
 - **oxlint chosen for linting.** One blank-line rule comes from the stylistic ESLint

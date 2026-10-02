@@ -44,7 +44,7 @@ pnpm exec node --input-type=module -e 'import { randomBytes } from "node:crypto"
 
 | Command                                  | Purpose                                                |
 | ---------------------------------------- | ------------------------------------------------------ |
-| `pnpm run check`                         | Every check that CI runs.                              |
+| `pnpm run check`                         | Every check that CI runs, with the steps in parallel.  |
 | `pnpm run typecheck`                     | Type-check all workspaces.                             |
 | `pnpm run build`                         | Build all workspaces.                                  |
 | `pnpm run test`                          | Hook tests, then every workspace's tests.              |
