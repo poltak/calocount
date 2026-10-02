@@ -45,6 +45,7 @@ test("the MCP endpoint lists its tools and logs, reads and updates a meal", asyn
     const summary = await mcp(worker, "tools/call", { name: "get_nutrition_summary", arguments: { start_date: "2026-10-02", end_date: "2026-10-02" } }, 5);
     assert.equal(summary.body.result.isError, false);
     assert.equal(summary.body.result.structuredContent.days[0].totals.caloriesKcal, 520);
+    assert.deepEqual(summary.body.result.structuredContent.goalChanges, []);
 
     const history = await mcp(worker, "tools/call", { name: "get_nutrition_history", arguments: { start_date: "2026-10-02", end_date: "2026-10-02" } }, 6);
     assert.equal(history.body.result.isError, false);
@@ -109,8 +110,19 @@ test("the public daily view covers the whole history in a small response", async
       assert.equal(weighed.status, 200);
     }
 
+    const goalsSaved = await worker.request({ path: "/api/settings", method: "PATCH", body: { dailyCalorieTarget: 2100, dailyProteinTargetG: 140 } });
+    assert.equal(goalsSaved.status, 200);
+    const timezoneSaved = await worker.request({ path: "/api/settings", method: "PATCH", body: { timezone: "UTC" } });
+    assert.equal(timezoneSaved.status, 200);
+
     const daily = await worker.request({ path: "/api/public/summary?view=daily" });
     assert.equal(daily.status, 200);
+    assert.deepEqual(daily.body.targets, { calories: 2100, proteinG: 140 });
+    // One change for the goals. Saving the timezone afterwards does not add another.
+    assert.equal(daily.body.goalChanges.length, 1);
+    const { changedAt, ...goals } = daily.body.goalChanges[0];
+    assert.deepEqual(goals, { date: today, calories: 2100, proteinMode: "grams", proteinG: 140, proteinGramsPerKg: null });
+    assert.ok(Math.abs(Date.now() - changedAt) < 60_000);
     assert.match(daily.headers.get("cache-control") ?? "", /no-store/);
     assert.equal(daily.body.view, "daily");
     assert.equal(daily.body.timezone, "UTC");

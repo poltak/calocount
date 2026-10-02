@@ -5,7 +5,7 @@ Calocount is a single-user meal tracker. The public root is read-only, and the o
 ## Runtime services
 
 - One Worker serves the dashboard and JSON API and runs the hourly photo cleanup.
-- Cloudflare D1 stores settings, meals, meal items, revisions, and historical job and AI records.
+- Cloudflare D1 stores settings, goal changes, meals, meal items, revisions, and historical job and AI records.
 - A private R2 bucket stores meal photos.
 - The Worker's hourly cron trigger runs a bounded, resumable scan that removes only unlinked R2 photos older than the 24-hour grace period.
 - Cloudflare Access protects the private owner route and private APIs.
@@ -67,6 +67,16 @@ a repository rule for future changes; the current layout was verified on
 2. The shared meal-processing code validates the request and stores the meal, nutrient values, and optional photo in D1 and private R2. A UUID `request_id` makes external retries idempotent.
 3. The public read-only projection updates from the stored meal data. The owner dashboard continues to provide edits, corrections, exports, and private photo access.
 4. The hourly cron trigger runs a bounded scan and removes only unlinked R2 photos older than the 24-hour grace period.
+
+## Goal history
+
+Each settings save that changes the calorie goal or the protein goal that
+applies adds a row to `goal_changes` in the same batch as the settings write.
+A row holds the goals in effect from its `changed_at` time. The migration that
+created the table gave each owner one starting row from the saved settings,
+dated at the last settings save. Goals before an owner's first row are not
+known. The public daily view, the MCP nutrition summary, and the JSON export
+return these rows.
 
 ## ChatGPT integration boundary
 

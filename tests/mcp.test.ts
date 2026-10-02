@@ -147,6 +147,7 @@ function handler(overrides: Partial<McpHandlerDependencies> = {}) {
         protein: { mode: "grams", grams: null, gramsPerKg: null },
         nutrients: resolveNutrientGoals(),
       },
+      goalChanges: [],
     }),
     ...overrides,
   });

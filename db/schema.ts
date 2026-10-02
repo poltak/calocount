@@ -43,6 +43,26 @@ export const settings = sqliteTable(
   (table) => [uniqueIndex("settings_owner_key_idx").on(table.ownerKey)],
 );
 
+/**
+ * The calorie and protein goals in effect from `changedAt`. A row is added
+ * each time one of them changes, so a past period can be checked against the
+ * goals it had. Goals before an owner's first row are not known.
+ */
+export const goalChanges = sqliteTable(
+  "goal_changes",
+  {
+    id: text("id").primaryKey(),
+    ownerKey: text("owner_key").notNull(),
+    changedAt: integer("changed_at", { mode: "number" }).notNull(),
+    dailyCalorieTarget: integer("daily_calorie_target"),
+    proteinGoalMode: text("protein_goal_mode").notNull().default("grams"),
+    dailyProteinTargetG: real("daily_protein_target_g"),
+    dailyProteinTargetPerKg: real("daily_protein_target_per_kg"),
+    ...createdAt(),
+  },
+  (table) => [index("goal_changes_owner_changed_idx").on(table.ownerKey, table.changedAt)],
+);
+
 export const dailyWeights = sqliteTable(
   "daily_weights",
   {

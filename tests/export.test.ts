@@ -4,7 +4,7 @@ import { getExportData } from "../db/repository";
 import { buildExportResponse } from "../app/api/_lib/export";
 import { createSqliteTestDb } from "./helpers/sqlite-db";
 
-test("exports include more than 10000 meals, 500 AI runs, and one year of weights in five queries", async () => {
+test("exports include more than 10000 meals, 500 AI runs, one year of weights, and the goal changes in six queries", async () => {
   const fixture = createSqliteTestDb();
   try {
     fixture.sqlite.exec(`
@@ -15,18 +15,20 @@ test("exports include more than 10000 meals, 500 AI runs, and one year of weight
       INSERT INTO ai_runs (id, owner_key, adapter) SELECT id, 'owner', 'historical' FROM meal_logs LIMIT 501;
       INSERT INTO daily_weights (id, owner_key, logical_date, weight_kg, recorded_at)
       SELECT id, 'owner', date('2020-01-01', consumed_at||' days'), 70, consumed_at FROM meal_logs LIMIT 400;
+      INSERT INTO goal_changes (id, owner_key, changed_at, daily_calorie_target) VALUES ('goal-1', 'owner', 1, 2100), ('goal-foreign', 'other-owner', 2, 3000);
       INSERT INTO meal_logs (id, owner_key, consumed_at) VALUES ('foreign', 'other-owner', 0);
       INSERT INTO meal_items (id, meal_id, owner_key, name) VALUES ('foreign-item', 'meal-1', 'other-owner', 'Hidden');
     `);
     const response = await buildExportResponse({ format: "json", loadData: () => getExportData({ db: fixture.db, ownerKey: "owner" }) });
     const exported = await response.json() as {
-      meals: { items: unknown[] }[]; weights: unknown[]; aiRuns: unknown[];
+      meals: { items: unknown[] }[]; weights: unknown[]; aiRuns: unknown[]; goalChanges: { dailyCalorieTarget: number | null }[];
     };
     assert.equal(exported.meals.length, 10001);
     assert.equal(exported.meals.reduce((count: number, meal: { items: unknown[] }) => count + meal.items.length, 0), 10001);
     assert.equal(exported.weights.length, 400);
     assert.equal(exported.aiRuns.length, 501);
-    assert.equal(fixture.queries.length, 5);
+    assert.deepEqual(exported.goalChanges.map((change) => change.dailyCalorieTarget), [2_100]);
+    assert.equal(fixture.queries.length, 6);
     assert.ok(!JSON.stringify(exported).includes("ownerKey"));
     assert.ok(!JSON.stringify(exported).includes("foreign"));
     assert.equal(response.headers.get("cache-control"), "no-store");

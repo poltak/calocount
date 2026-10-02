@@ -61,7 +61,9 @@ food items:
 - the date, the owner's saved timezone, and the units of each amount;
 - `firstEntryDate` and `firstWeightDate`, the days tracking began;
 - `fromDate` and `toDate`, the days the rows cover;
-- the current calorie and protein targets; and
+- the current calorie and protein targets;
+- `goalChanges`, the recorded changes of the calorie and protein goals, oldest
+  first, so a reader can tell whether a goal was constant over a period; and
 - for each day: calories, protein, carbohydrate, fat, the entry count, and the
   weight recorded that day or `null`.
 

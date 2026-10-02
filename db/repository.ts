@@ -43,6 +43,7 @@ import {
   aiRuns,
   analysisJobs,
   dailyWeights,
+  goalChanges,
   mealItems,
   mealLogs,
   mealRevisions,
@@ -369,11 +370,20 @@ export type CurrentNutritionTargets = {
   nutrients: ReturnType<typeof resolveNutrientGoals>;
 };
 
+export type NutritionGoalChange = {
+  date: string;
+  changedAt: string;
+  caloriesKcal: number | null;
+  protein: { mode: ProteinGoalMode; grams: number | null; gramsPerKg: number | null };
+};
+
 export type NutritionSummaryReport = {
   startDate: string;
   endDate: string;
   days: NutritionDailySummary[];
   currentTargets: CurrentNutritionTargets;
+  /** Recorded calorie and protein goal changes, oldest first. Goals before the first one are not known. */
+  goalChanges: NutritionGoalChange[];
 };
 
 /** Fetch one bounded, owner-scoped page of completed meals in stable UTC order. */
@@ -454,7 +464,7 @@ export async function getNutritionSummary({ db, ownerKey, from, to, startDate, e
   dayCount: number;
 }): Promise<NutritionSummaryReport> {
   const mealDate = sql<string>`date(${mealLogs.consumedAt} / 1000, 'unixepoch')`;
-  const [mealRows, nutrientRows, currentSettings] = await Promise.all([
+  const [mealRows, nutrientRows, currentSettings, changes] = await Promise.all([
     db.select({
       date: mealDate,
       mealCount: sql<number>`count(*)`,
@@ -497,6 +507,7 @@ export async function getNutritionSummary({ db, ownerKey, from, to, startDate, e
         .all();
     })(),
     getSettings(db, ownerKey),
+    listGoalChanges(db, ownerKey),
   ]);
 
   const mealsByDate = new Map(mealRows.map((row) => [row.date, row]));
@@ -548,6 +559,12 @@ export async function getNutritionSummary({ db, ownerKey, from, to, startDate, e
       },
       nutrients: resolveNutrientGoals(nutrientOverrides),
     },
+    goalChanges: changes.map((change) => ({
+      date: new Date(change.changedAt).toISOString().slice(0, 10),
+      changedAt: new Date(change.changedAt).toISOString(),
+      caloriesKcal: change.dailyCalorieTarget,
+      protein: { mode: change.proteinGoalMode, grams: change.dailyProteinTargetG, gramsPerKg: change.dailyProteinTargetPerKg },
+    })),
   };
 }
 
@@ -1136,10 +1153,66 @@ export async function getCurrentDayMealTotals(
   };
 }
 
+export type GoalValues = {
+  dailyCalorieTarget: number | null;
+  proteinGoalMode: ProteinGoalMode;
+  dailyProteinTargetG: number | null;
+  dailyProteinTargetPerKg: number | null;
+};
+
+/** The goals that apply: the protein value of the mode that is not selected has no effect, so it reads as null. */
+export function effectiveGoals(values: {
+  dailyCalorieTarget?: number | null;
+  proteinGoalMode?: string | null;
+  dailyProteinTargetG?: number | null;
+  dailyProteinTargetPerKg?: number | null;
+}): GoalValues {
+  const proteinGoalMode = normaliseProteinGoalMode(values.proteinGoalMode);
+  return {
+    dailyCalorieTarget: values.dailyCalorieTarget ?? null,
+    proteinGoalMode,
+    dailyProteinTargetG: proteinGoalMode === "grams" ? values.dailyProteinTargetG ?? null : null,
+    dailyProteinTargetPerKg: proteinGoalMode === "gramsPerKg" ? values.dailyProteinTargetPerKg ?? null : null,
+  };
+}
+
+function sameGoals(left: GoalValues, right: GoalValues): boolean {
+  return left.dailyCalorieTarget === right.dailyCalorieTarget
+    && left.proteinGoalMode === right.proteinGoalMode
+    && left.dailyProteinTargetG === right.dailyProteinTargetG
+    && left.dailyProteinTargetPerKg === right.dailyProteinTargetPerKg;
+}
+
+export const MAX_GOAL_CHANGES = 50;
+
+/** The owner's latest recorded goal changes, oldest first. */
+export async function listGoalChanges(db: AppDb, ownerKey: string) {
+  const rows = await db.select().from(goalChanges)
+    .where(eq(goalChanges.ownerKey, ownerKey))
+    // Two saves in the same millisecond keep the order they were written in.
+    .orderBy(desc(goalChanges.changedAt), desc(sql`rowid`))
+    .limit(MAX_GOAL_CHANGES)
+    .prepare()
+    .all();
+  return rows.reverse().map((row) => ({ changedAt: row.changedAt, ...effectiveGoals(row) }));
+}
+
 export async function upsertSettings(db: AppDb, ownerKey: string, patch: SettingsPatch) {
   const existing = await getSettings(db, ownerKey);
   const timestamp = nowMs();
   const id = existing?.id ?? `settings_${ownerKey}`;
+  const goals = {
+    dailyCalorieTarget: patch.dailyCalorieTarget === undefined ? existing?.dailyCalorieTarget ?? null : patch.dailyCalorieTarget,
+    dailyProteinTargetG: patch.dailyProteinTargetG === undefined ? existing?.dailyProteinTargetG ?? null : patch.dailyProteinTargetG,
+    proteinGoalMode: patch.proteinGoalMode ?? normaliseProteinGoalMode(existing?.proteinGoalMode),
+    dailyProteinTargetPerKg: patch.dailyProteinTargetPerKg === undefined
+      ? existing?.dailyProteinTargetPerKg ?? null
+      : patch.dailyProteinTargetPerKg,
+  };
+  // Record the goals with the settings write, so the history cannot miss a change.
+  const goalChange = !existing || !sameGoals(effectiveGoals(goals), effectiveGoals(existing))
+    ? [db.insert(goalChanges).values({ id: createId("goal"), ownerKey, changedAt: timestamp, ...effectiveGoals(goals), createdAt: timestamp })]
+    : [];
   const vitaminB6UsFnbAdultUlEnabled = patch.vitaminB6UsFnbAdultUlEnabled === undefined
     ? existing?.vitaminB6UsFnbAdultUlEnabled === true
     : patch.vitaminB6UsFnbAdultUlEnabled;
@@ -1153,14 +1226,9 @@ export async function upsertSettings(db: AppDb, ownerKey: string, patch: Setting
     ? existing?.usFnbAdultUlConfirmedAt ?? null
     : usFnbAdultUlEnabled ? existing?.usFnbAdultUlConfirmedAt ?? timestamp : null;
   if (existing) {
-    await db.update(settings).set({
+    const settingsUpdate = db.update(settings).set({
       timezone: patch.timezone ?? existing.timezone,
-      dailyCalorieTarget: patch.dailyCalorieTarget === undefined ? existing.dailyCalorieTarget : patch.dailyCalorieTarget,
-      dailyProteinTargetG: patch.dailyProteinTargetG === undefined ? existing.dailyProteinTargetG : patch.dailyProteinTargetG,
-      proteinGoalMode: patch.proteinGoalMode ?? normaliseProteinGoalMode(existing.proteinGoalMode),
-      dailyProteinTargetPerKg: patch.dailyProteinTargetPerKg === undefined
-        ? existing.dailyProteinTargetPerKg
-        : patch.dailyProteinTargetPerKg,
+      ...goals,
       nutrientTargetsJson: patch.nutrientTargets === undefined
         ? existing.nutrientTargetsJson
         : patch.nutrientTargets === null ? null : safeJson(patch.nutrientTargets, {}),
@@ -1169,16 +1237,14 @@ export async function upsertSettings(db: AppDb, ownerKey: string, patch: Setting
       usFnbAdultUlEnabled,
       usFnbAdultUlConfirmedAt,
       updatedAt: timestamp,
-    }).where(and(eq(settings.id, id), eq(settings.ownerKey, ownerKey))).prepare().run();
+    }).where(and(eq(settings.id, id), eq(settings.ownerKey, ownerKey)));
+    await db.batch([settingsUpdate, ...goalChange]);
   } else {
-    await db.insert(settings).values({
+    const settingsInsert = db.insert(settings).values({
       id,
       ownerKey,
       timezone: patch.timezone ?? "UTC",
-      dailyCalorieTarget: patch.dailyCalorieTarget ?? null,
-      dailyProteinTargetG: patch.dailyProteinTargetG ?? null,
-      proteinGoalMode: patch.proteinGoalMode ?? "grams",
-      dailyProteinTargetPerKg: patch.dailyProteinTargetPerKg ?? null,
+      ...goals,
       nutrientTargetsJson: patch.nutrientTargets === null ? null : safeJson(patch.nutrientTargets, {}),
       vitaminB6UsFnbAdultUlEnabled,
       vitaminB6UsFnbAdultUlConfirmedAt,
@@ -1186,7 +1252,8 @@ export async function upsertSettings(db: AppDb, ownerKey: string, patch: Setting
       usFnbAdultUlConfirmedAt,
       createdAt: timestamp,
       updatedAt: timestamp,
-    }).prepare().run();
+    });
+    await db.batch([settingsInsert, ...goalChange]);
   }
   const saved = await getSettings(db, ownerKey);
   if (!saved) throw new Error("settings_save_failed");
@@ -1352,8 +1419,9 @@ export type DailyHistoryOptions = {
  */
 export async function getDailyHistory(db: AppDb, ownerKey: string, options: DailyHistoryOptions = {}) {
   const completeMeals = and(eq(mealLogs.ownerKey, ownerKey), eq(mealLogs.status, "complete"));
-  const [settingsRow, firstMeal, firstWeight] = await Promise.all([
+  const [settingsRow, changes, firstMeal, firstWeight] = await Promise.all([
     getSettings(db, ownerKey),
+    listGoalChanges(db, ownerKey),
     db.select({ consumedAt: sql<number | null>`min(${mealLogs.consumedAt})` })
       .from(mealLogs).where(completeMeals).prepare().get(),
     db.select({ logicalDate: sql<string | null>`min(${dailyWeights.logicalDate})` })
@@ -1425,20 +1493,23 @@ export async function getDailyHistory(db: AppDb, ownerKey: string, options: Dail
         weights: earlierWeight ? [earlierWeight] : weights,
       }).targetG,
     },
+    goalChanges: changes.map((change) => ({ date: calendar.dateKey(change.changedAt), ...change })),
     days,
   };
 }
 
 export async function getExportData({ db, ownerKey }: { db: AppDb; ownerKey: string }) {
-  const [meals, settingsRow, weights, runs] = await Promise.all([
+  const [meals, settingsRow, weights, runs, changes] = await Promise.all([
     listMealsInRange({ db, ownerKey }),
     getSettings(db, ownerKey),
     db.select().from(dailyWeights).where(eq(dailyWeights.ownerKey, ownerKey))
       .orderBy(desc(dailyWeights.logicalDate)).prepare().all(),
     db.select().from(aiRuns).where(eq(aiRuns.ownerKey, ownerKey))
       .orderBy(desc(aiRuns.createdAt), desc(aiRuns.id)).prepare().all(),
+    db.select().from(goalChanges).where(eq(goalChanges.ownerKey, ownerKey))
+      .orderBy(desc(goalChanges.changedAt), desc(sql`rowid`)).prepare().all(),
   ]);
-  return { meals, settings: settingsRow ?? null, weights, aiRuns: runs };
+  return { meals, settings: settingsRow ?? null, weights, aiRuns: runs, goalChanges: changes };
 }
 
 export async function findMealPhoto({ db, ownerKey, mealId }: { db: AppDb; ownerKey: string; mealId: string }) {

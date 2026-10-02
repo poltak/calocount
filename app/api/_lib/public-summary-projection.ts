@@ -267,6 +267,15 @@ export function projectPublicDailyHistory(history: DailyHistory) {
       calories: history.targets.calories,
       proteinG: history.targets.proteinG,
     },
+    // Each row gives the goals in effect from its date. Goals before the first row are not known.
+    goalChanges: history.goalChanges.map((change) => ({
+      date: change.date,
+      changedAt: change.changedAt,
+      calories: change.dailyCalorieTarget,
+      proteinMode: change.proteinGoalMode,
+      proteinG: change.dailyProteinTargetG,
+      proteinGramsPerKg: change.dailyProteinTargetPerKg,
+    })),
     days: history.days.map((day) => ({
       date: day.date,
       calories: roundAmount(day.calories),

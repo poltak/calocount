@@ -30,6 +30,7 @@ function* jsonChunks(data: ExportData): Generator<string> {
     exportedAt: new Date().toISOString(),
     settings: data.settings ? withoutOwnerKey(data.settings) : null,
     weights: data.weights.map(withoutOwnerKey),
+    goalChanges: data.goalChanges.map(withoutOwnerKey),
     aiRuns: data.aiRuns.map(withoutOwnerKey),
   }).slice(0, -1) + ',"meals":[';
   for (let index = 0; index < data.meals.length; index++) {

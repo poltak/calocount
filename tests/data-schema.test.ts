@@ -31,6 +31,7 @@ test("the migrations create exactly the tables the app uses", () => {
     "ai_runs",
     "analysis_jobs",
     "daily_weights",
+    "goal_changes",
     "meal_items",
     "meal_logs",
     "meal_revisions",

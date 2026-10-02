@@ -272,7 +272,7 @@ const GET_NUTRITION_HISTORY_TOOL = {
 const GET_NUTRITION_SUMMARY_TOOL = {
   name: "get_nutrition_summary",
   title: "Summarize Calocount nutrition",
-  description: `Summarize completed meal totals by UTC day for an inclusive range of up to ${MAX_NUTRITION_RANGE_DAYS} days. Each nutrient includes recorded amount and coverage counts. Current targets are separate and do not describe historical targets.`,
+  description: `Summarize completed meal totals by UTC day for an inclusive range of up to ${MAX_NUTRITION_RANGE_DAYS} days. Each nutrient includes recorded amount and coverage counts. currentTargets are the current settings; goalChanges lists the recorded calorie and protein goal changes.`,
   inputSchema: {
     type: "object",
     properties: {
@@ -345,8 +345,32 @@ const GET_NUTRITION_SUMMARY_TOOL = {
         required: ["scope", "caloriesKcal", "protein", "nutrients"],
         additionalProperties: false,
       },
+      goalChanges: {
+        type: "array",
+        description: "Recorded calorie and protein goal changes, oldest first. Each entry gives the goals in effect from its date. Goals before the first entry are not known.",
+        items: {
+          type: "object",
+          properties: {
+            date: { type: "string", format: "date" },
+            changedAt: { type: "string", format: "date-time" },
+            caloriesKcal: nullableNumberSchema,
+            protein: {
+              type: "object",
+              properties: {
+                mode: { type: "string", enum: [...PROTEIN_GOAL_MODES] },
+                grams: nullableNumberSchema,
+                gramsPerKg: nullableNumberSchema,
+              },
+              required: ["mode", "grams", "gramsPerKg"],
+              additionalProperties: false,
+            },
+          },
+          required: ["date", "changedAt", "caloriesKcal", "protein"],
+          additionalProperties: false,
+        },
       },
-      required: ["startDate", "endDate", "days", "currentTargets"],
+      },
+      required: ["startDate", "endDate", "days", "currentTargets", "goalChanges"],
       additionalProperties: false,
     }, toolErrorOutput],
   },
@@ -843,7 +867,7 @@ async function createNutritionSummaryToolCall(ownerKey: string, arguments_: Json
     const input = parseNutritionSummaryInput(arguments_);
     const payload = await dependencies.getNutritionSummary(ownerKey, input);
     return {
-      content: [{ type: "text" as const, text: `Returned nutrition totals for ${payload.days.length} UTC dates. Current targets apply to current settings only.` }],
+      content: [{ type: "text" as const, text: `Returned nutrition totals for ${payload.days.length} UTC dates. Current targets apply to current settings only; see goalChanges for recorded goal changes.` }],
       structuredContent: payload,
       isError: false,
     };

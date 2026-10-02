@@ -17,6 +17,7 @@ For questions about recorded food, nutrients, or trends, use the read tools. Do 
 - Give both tools an inclusive UTC date range. The range can include at most 366 days. For another history page, pass the returned `next_cursor` with the same dates and `page_size`.
 - Treat `null` as unknown. In a summary, `recordedAmount` is null when no item has a value. `knownItemCount` and `totalItemCount` show coverage; `complete` is true only when every item has a value. A recorded zero is different from null. Use `status` to tell an unlogged date from a logged date with zero totals.
 - `currentTargets.scope` is `current_settings_only`. These targets describe current settings, not past dates.
+- `goalChanges` lists the recorded calorie and protein goal changes, oldest first. Each entry gives the goals in effect from its `date`. Goals before the first entry are not known.
 
 ## Edit a saved meal
 

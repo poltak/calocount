@@ -173,6 +173,14 @@ test("the daily view returns small rounded day rows and nothing else from the hi
     fromDate: "2026-08-24",
     toDate: "2026-08-25",
     targets: { calories: 2_100, proteinG: 132.6 },
+    goalChanges: [{
+      date: "2026-08-24",
+      changedAt: Date.parse("2026-08-23T18:00:00Z"),
+      dailyCalorieTarget: 2_100,
+      proteinGoalMode: "gramsPerKg",
+      dailyProteinTargetG: null,
+      dailyProteinTargetPerKg: 2,
+    }],
     days: [
       { date: "2026-08-24", calories: 2_386.6769999999997, proteinG: 0.1 + 0.2, carbsG: 220, fatG: 80, mealCount: 4, weightKg: null },
       { date: "2026-08-25", calories: 0, proteinG: 0, carbsG: 0, fatG: 0, mealCount: 0, weightKg: 66.3 },
@@ -201,6 +209,14 @@ test("the daily view returns small rounded day rows and nothing else from the hi
     fromDate: "2026-08-24",
     toDate: "2026-08-25",
     targets: { calories: 2_100, proteinG: 132.6 },
+    goalChanges: [{
+      date: "2026-08-24",
+      changedAt: Date.parse("2026-08-23T18:00:00Z"),
+      calories: 2_100,
+      proteinMode: "gramsPerKg",
+      proteinG: null,
+      proteinGramsPerKg: 2,
+    }],
     days: [
       { date: "2026-08-24", calories: 2_386.677, proteinG: 0.3, carbsG: 220, fatG: 80, mealCount: 4, weightKg: null },
       { date: "2026-08-25", calories: 0, proteinG: 0, carbsG: 0, fatG: 0, mealCount: 0, weightKg: 66.3 },
