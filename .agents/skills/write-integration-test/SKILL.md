@@ -64,3 +64,6 @@ start. This skill is the order of work.
 - A backend change needs a rebuild before frontend tests see it.
   `pnpm --filter frontend test` rebuilds; a bare `vitest run` does not.
 - Do not write teardown. The fixture cleans up when the test finishes.
+- The check fails when a function in a UI Logic file never runs in a test. Add
+  a test for the operation it belongs to. Uncovered lines and branches do not
+  fail the check; do not write a test only to cover one.

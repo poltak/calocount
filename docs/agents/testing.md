@@ -109,6 +109,22 @@ client sends cookies to a backend on another origin (`credentials: "include"`).
 The other is how it joins a configured base URL. Check both by hand when
 changing the client.
 
+## Coverage
+
+`pnpm --filter frontend test` measures which code ran during the tests and
+prints a report. Because UI Logic tests run the whole path, the report covers
+the backend as well as the frontend.
+
+- Every function in a UI Logic or LogicPlugin file must run in a test, or the
+  check fails and names the file. This counts callbacks, such as an event
+  listener, as well as methods.
+- Lines and branches have no threshold, and neither does the backend. Read the
+  report's uncovered lines as a list of cases to consider, not as a number to
+  raise. Do not write a test only to cover a line; write it when the line is
+  behavior that a user or another part of the application relies on.
+- Coverage shows that code ran, not that a test asserted anything about it. The
+  rules above still decide what a test contains.
+
 ## Enforced by lint
 
 | Rule                      | What it checks                                                                                                                                                     |

@@ -11,5 +11,29 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+    // Enabled by the `test` script. See docs/agents/testing.md (Coverage).
+    coverage: {
+      provider: "v8",
+      reporter: ["text"],
+      // The same tests measure the backend. Source maps point its build output
+      // back to its source files.
+      allowExternal: true,
+      include: [
+        "src/features/**/*.ts",
+        "**/backend/dist/features/**",
+        "**/backend/src/features/**",
+      ],
+      exclude: [
+        "**/*.test.*",
+        "**/features/core/tests/**",
+        "**/features/core/live/**",
+      ],
+      thresholds: {
+        "src/features/*/ui/*-{logic,plugin}.ts": {
+          functions: 100,
+          perFile: true,
+        },
+      },
+    },
   },
 });

@@ -85,6 +85,10 @@ entry to the choice, the reason, and any rule that follows from it.
   and test files run in parallel. Setup costs about one second per test, most of
   it starting PGlite and running the auth migrations. If the suite becomes slow,
   migrate once per worker and give each test a copy of that database.
+- **Coverage requires only that every UI Logic function runs in a test.**
+  Meeting that takes a test of each operation. We set no line or branch
+  thresholds, because they reward tests written to raise a number. The same run
+  reports backend coverage, also without a threshold.
 - **Each simulated browser has its own cookie-aware transport,** so tests can
   hold separate sessions against one backend. The transport can also hold a
   request or fail as a lost connection, so tests reproduce timing and network

@@ -54,7 +54,7 @@ pnpm exec node --input-type=module -e 'import { randomBytes } from "node:crypto"
 | `pnpm --filter backend auth:migrate`     | Apply auth schema updates without creating an account. |
 | `pnpm --filter backend auth:setup-owner` | Create the owner account.                              |
 | `pnpm --filter frontend dev`             | Start the frontend dev server.                         |
-| `pnpm --filter frontend test`            | Run the frontend tests.                                |
+| `pnpm --filter frontend test`            | Run the frontend tests and print the coverage report.  |
 
 Frontend development, type checks, and tests build the backend and `common`
 first, because the frontend takes its API types from the backend's build output.
