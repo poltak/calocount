@@ -9,7 +9,8 @@ export default defineConfig({
     },
   },
   test: {
-    environment: "jsdom",
+    // Logic tests need no browser. The one rendered test opts into jsdom.
+    environment: "node",
     include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
     // Enabled by the `test` script. See docs/agents/testing.md (Coverage).
     coverage: {

@@ -87,6 +87,9 @@ entry to the choice, the reason, and any rule that follows from it.
   database takes about 550 ms, and hashing the owner's password takes another
   70 ms. Each test worker builds one migrated database with the owner in it,
   and every test database starts from a copy, which takes about 100 ms.
+- **Logic tests run in plain Node, not a simulated browser.** They need no DOM,
+  and the simulated browser adds startup time to every test file. The one
+  rendered test opts into it.
 - **Coverage requires only that every UI Logic function runs in a test.**
   Meeting that takes a test of each operation. We set no line or branch
   thresholds, because they reward tests written to raise a number. The same run
