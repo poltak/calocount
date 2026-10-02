@@ -22,6 +22,8 @@ project information. Read the documents that apply to the task.
   feature needs to expose a public API.
 - Avoid depth in function call stacks as much as possible. Unnecessary depth makes for
   very hard-to-grok code.
+- Do not write unit tests for modules. Full app integration tests should be written which fit our standards.
+  Read [docs/agents/testing.md](docs/agents/testing.md) for more context.
 
 ## Checks
 
@@ -32,6 +34,7 @@ project information. Read the documents that apply to the task.
 ## Project documentation
 
 - Before changing, adding, moving, or deleting code in any workspace, read [docs/agents/code-architecture.md](docs/agents/code-architecture.md) and follow its rules.
+- Before writing or changing a test, read [docs/agents/testing.md](docs/agents/testing.md) and follow its rules.
 - Use [docs/agents/README.md](docs/agents/README.md) to find project reference documents.
 - Add stable project facts and decisions under `docs/agents/`. Update the relevant document when those facts change.
 - Use a `SKILL.md` only for a repeatable task workflow. Keep general project rules and reference documents out of skills.

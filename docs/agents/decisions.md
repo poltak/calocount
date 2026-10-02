@@ -66,15 +66,33 @@ entry to the choice, the reason, and any rule that follows from it.
 
 ## Testing
 
+- **Tests are integration tests of UI Logic against the full application.** A
+  test that replaces parts of the path can pass while the real path is broken,
+  so almost every test runs the whole path and replaces nothing on it. The rules
+  are in [testing](testing.md).
 - **Full-application tests run in one process.** One fixture creates an isolated
   backend, its HTTP app, and a frontend app. Frontend requests call the HTTP app
   directly with standard `Request` objects: no network and no listening socket,
   while validation, handlers, and error mapping still run. A test can then
-  assert on the page, on UI Logic state, and on database rows together.
+  assert on UI Logic state and on database rows together.
+- **Tests do not render components.** Behavior lives in UI Logic, so a rendered
+  test adds little and is slower to write and to read. The one exception is the
+  hook that owns a Logic's lifecycle, which exists only inside React.
+- **Tests read the database with direct queries, not through Storage.** Storage
+  has methods only for production paths. The operation under test already runs
+  the production Storage code, and a direct query checks what it stored.
+- **Every test has its own application and database,** so any test can run alone
+  and test files run in parallel. Setup costs about one second per test, most of
+  it starting PGlite and running the auth migrations. If the suite becomes slow,
+  migrate once per worker and give each test a copy of that database.
 - **Each simulated browser has its own cookie-aware transport,** so tests can
-  hold separate sessions against one backend.
-- **Unmount the UI before closing the backend** in these tests, so no request
-  outlives the database.
+  hold separate sessions against one backend. The transport can also hold a
+  request or fail as a lost connection, so tests reproduce timing and network
+  failures without test doubles.
+- **The fixture cleans up through Vitest's `onTestFinished`.** Its callbacks run
+  in reverse order, so the Logic is cleaned up before the backend closes and no
+  request outlives the database. This needs one test at a time within a file,
+  so `it.concurrent` is not used.
 
 ## Tooling
 

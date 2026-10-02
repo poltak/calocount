@@ -8,6 +8,8 @@ instructions.
 
 - [Code architecture](code-architecture.md): the rules. Read before changing
   code in any workspace.
+- [Testing](testing.md): what a test contains and how to write one. Read
+  before writing or changing a test.
 - [Decisions](decisions.md): choices specific to this project and their reasons.
   Read before changing a framework, authentication, the API transport, or test
   setup.
@@ -30,7 +32,8 @@ instructions.
 | Pages and routing             | `frontend/src/features/core/ui/routes.tsx`                    |
 | Calling the backend           | `frontend/src/features/api/client/`                           |
 | Logic and events              | `common/src/features/core/`                                   |
-| Full-application tests        | `frontend/src/features/core/tests/full-application.ts`        |
+| The test fixture              | `frontend/src/features/core/tests/full-application.ts`        |
+| A model integration test      | `frontend/src/features/auth/ui/auth-logic.test.ts`            |
 
 ## Where to add information
 
@@ -39,6 +42,7 @@ that. Record only what a reader cannot get from the code:
 
 - A rule that applies to any project built this way goes in
   [code architecture](code-architecture.md).
+- A rule about what tests contain goes in [testing](testing.md).
 - A choice specific to this project, with its reason, goes in
   [decisions](decisions.md).
 - How to run or configure something goes in [setup and commands](setup.md).

@@ -75,9 +75,9 @@ other files or directories at the top of `src/`.
 The frontend's `features/api/` holds the typed first-party API client and its
 events.
 
-Put each test file beside the file it tests, named `<file>.test.ts` or
-`<file>.test.tsx`. Tests that span features, and the fixtures they share, live in
-`features/core/tests/`.
+Put each test file beside the file it tests, named `<file>.test.ts`. Tests that
+span features, and the fixtures they share, live in `features/core/tests/`.
+[Testing](testing.md) has the rules for what a test contains.
 
 `common` exposes modules that other workspaces may import. Its features live in
 `common/src/features/<feature>/` and follow the same feature directory layout.
@@ -330,8 +330,8 @@ the application shape or define a separate collection of Logic classes.
 Use the same typed API client in live and test setup. Live transport sends HTTP
 requests. Test transport may call the handler application directly with in-memory
 Request and Response objects, without starting a server. Keep validation, error
-mapping, and handler delegation in that path. Direct backend Logic calls belong
-in Logic unit tests, rather than replacing the API path in application tests.
+mapping, and handler delegation in that path. Tests do not call backend Logic
+in place of the API path.
 
 ## Errors
 
