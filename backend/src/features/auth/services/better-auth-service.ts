@@ -140,8 +140,8 @@ export class BetterAuthService implements AuthServiceInterface {
         autoSignIn: false,
       },
     });
-    const result = await provisioning.api.signUpEmail({ body: props });
-    return result.user;
+    const { user } = await provisioning.api.signUpEmail({ body: props });
+    return { id: user.id, email: user.email, name: user.name };
   }
 }
 
