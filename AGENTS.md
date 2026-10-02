@@ -25,6 +25,11 @@ project information. Read the documents that apply to the task.
 - Do not write unit tests for modules. Full app integration tests should be written which fit our standards.
   Read [docs/agents/testing.md](docs/agents/testing.md) for more context.
 
+## Writing
+
+- Apply the `unslop` skill to all prose you write: documentation, code comments,
+  commit messages, pull request descriptions, and replies to the user.
+
 ## Checks
 
 - Run `pnpm run check` after TypeScript changes.
