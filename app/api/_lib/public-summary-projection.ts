@@ -1,4 +1,5 @@
 import type { getDashboardSummary } from "../../../db/repository";
+import { roundAmount, roundNullableAmount } from "../../../domain/amounts";
 import { resolveNutrientGoals } from "../../../domain/nutrient-goals";
 import { resolveTimeZone, shiftDateKey, zonedCalendar, type ZonedCalendar } from "../../../domain/logical-date";
 import { NUTRIENT_KEYS, nullableNutrientValue, type NutrientAggregateMap, type NutrientValues } from "../../../domain/nutrients";
@@ -44,27 +45,31 @@ type PublicWeight = {
   recordedAt: number;
 };
 
+function publicNutrientValue(value: unknown): number | null {
+  return roundNullableAmount(nullableNutrientValue(value));
+}
+
 function publicMeal(entry: DashboardSummary["recentMeals"][number]): PublicMeal {
   return {
     id: entry.meal.id,
     consumedAt: entry.meal.consumedAt,
     mealType: entry.meal.mealType,
     hasPhoto: Boolean(entry.meal.photoKey) && isPublicPhotoMimeType(entry.meal.photoMimeType),
-    totalCalories: entry.meal.totalCalories,
-    totalProteinG: entry.meal.totalProteinG,
-    totalCarbsG: entry.meal.totalCarbsG,
-    totalFatG: entry.meal.totalFatG,
+    totalCalories: roundAmount(entry.meal.totalCalories),
+    totalProteinG: roundAmount(entry.meal.totalProteinG),
+    totalCarbsG: roundAmount(entry.meal.totalCarbsG),
+    totalFatG: roundAmount(entry.meal.totalFatG),
     items: entry.items.map((item) => {
       const nutrients = {} as NutrientValues;
-      for (const key of NUTRIENT_KEYS) nutrients[key] = nullableNutrientValue(item[key]);
+      for (const key of NUTRIENT_KEYS) nutrients[key] = publicNutrientValue(item[key]);
       return {
         name: item.name,
         quantity: item.quantity,
         unit: item.unit,
-        calories: item.calories,
-        proteinG: item.proteinG,
-        carbsG: item.carbsG,
-        fatG: item.fatG,
+        calories: roundAmount(item.calories),
+        proteinG: roundAmount(item.proteinG),
+        carbsG: roundAmount(item.carbsG),
+        fatG: roundAmount(item.fatG),
         nutrients,
       };
     }),
@@ -83,12 +88,23 @@ function publicNutrientAggregates(source: NutrientAggregateMap | undefined): Nut
   return Object.fromEntries(NUTRIENT_KEYS.map((key) => {
     const aggregate = source?.[key];
     return [key, {
-      amount: nullableNutrientValue(aggregate?.amount),
+      amount: publicNutrientValue(aggregate?.amount),
       knownItemCount: aggregate?.knownItemCount ?? 0,
       totalItemCount: aggregate?.totalItemCount ?? 0,
       complete: aggregate?.complete === true,
     }];
   })) as NutrientAggregateMap;
+}
+
+function publicDayTotals(day: PublicTrendDay): PublicTrendDay {
+  return {
+    date: day.date,
+    calories: roundAmount(day.calories),
+    proteinG: roundAmount(day.proteinG),
+    carbsG: roundAmount(day.carbsG),
+    fatG: roundAmount(day.fatG),
+    mealCount: day.mealCount,
+  };
 }
 
 function publicTrend(summary: DashboardSummary, calendar: ZonedCalendar): PublicTrendDay[] {
@@ -109,18 +125,7 @@ function publicTrend(summary: DashboardSummary, calendar: ZonedCalendar): Public
     day.mealCount += 1;
   }
 
-  return [...byDate.values()].map((day) => (
-    day.date === summary.date
-      ? {
-          ...day,
-          calories: summary.today.calories,
-          proteinG: summary.today.proteinG,
-          carbsG: summary.today.carbsG,
-          fatG: summary.today.fatG,
-          mealCount: summary.today.mealCount,
-        }
-      : day
-  ));
+  return [...byDate.values()].map((day) => publicDayTotals(day.date === summary.date ? { ...day, ...summary.today } : day));
 }
 
 function publicNutrientGoals(summary: DashboardSummary) {
@@ -173,15 +178,15 @@ function publicInsights(summary: DashboardSummary, calendar: ZonedCalendar) {
       id: entry.id,
       date: entry.date,
       consumedAt: entry.consumedAt,
-      calories: entry.calories,
-      proteinG: entry.proteinG,
+      calories: roundAmount(entry.calories),
+      proteinG: roundAmount(entry.proteinG),
       items: entry.items.map((item) => ({
         name: item.name,
         quantity: item.quantity,
         unit: item.unit,
-        calories: item.calories,
-        proteinG: item.proteinG,
-        nutrients: Object.fromEntries(NUTRIENT_KEYS.map((key) => [key, nullableNutrientValue(item.nutrients[key])])),
+        calories: roundAmount(item.calories),
+        proteinG: roundAmount(item.proteinG),
+        nutrients: Object.fromEntries(NUTRIENT_KEYS.map((key) => [key, publicNutrientValue(item.nutrients[key])])),
       })),
     })),
   };
@@ -204,28 +209,23 @@ export function projectPublicDashboardSummary(summary: DashboardSummary) {
     },
     proteinGoal: publicProteinGoal(summary),
     today: {
-      calories: summary.today.calories,
-      proteinG: summary.today.proteinG,
-      carbsG: summary.today.carbsG,
-      fatG: summary.today.fatG,
+      calories: roundAmount(summary.today.calories),
+      proteinG: roundAmount(summary.today.proteinG),
+      carbsG: roundAmount(summary.today.carbsG),
+      fatG: roundAmount(summary.today.fatG),
       mealCount: summary.today.mealCount,
     },
     sevenDay: {
-      calories: summary.sevenDay.calories,
-      proteinG: summary.sevenDay.proteinG,
-      averageCalories: summary.sevenDay.averageCalories,
-      averageProteinG: summary.sevenDay.averageProteinG,
+      calories: roundAmount(summary.sevenDay.calories),
+      proteinG: roundAmount(summary.sevenDay.proteinG),
+      averageCalories: roundAmount(summary.sevenDay.averageCalories),
+      averageProteinG: roundAmount(summary.sevenDay.averageProteinG),
       daysWithMeals: summary.sevenDay.daysWithMeals,
       trend: publicTrend(summary, calendar),
     },
     trend: {
       byDate: (summary.trend?.byDate ?? publicTrend(summary, calendar).map((day) => ({ ...day, nutrients: {} }))).map((day) => ({
-        date: day.date,
-        calories: day.calories,
-        proteinG: day.proteinG,
-        carbsG: day.carbsG,
-        fatG: day.fatG,
-        mealCount: day.mealCount,
+        ...publicDayTotals(day),
         nutrients: publicNutrientAggregates(day.nutrients),
       })),
       weights: (summary.trend?.weights ?? summary.recentWeights).map(publicWeight),

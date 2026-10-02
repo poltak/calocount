@@ -235,3 +235,35 @@ test("public summary reports its timezone and places each meal on its day there"
   assert.deepEqual(projection.recentMeals.map((entry) => entry.id), ["breakfast", "dinner-before"]);
   assert.deepEqual(projection.sevenDay.trend.slice(-2).map((day) => [day.date, day.calories]), [["2026-09-11", 700], ["2026-09-12", 400]]);
 });
+
+test("public summary rounds the float noise out of added amounts", () => {
+  // 0.1 + 0.2 is 0.30000000000000004, and 2386.6769999999997 came from a real day total.
+  const noisyCalories = 2_386.6769999999997;
+  const noisyProteinG = 0.1 + 0.2;
+  const projection = projectPublicDashboardSummary({
+    date: "2026-08-25",
+    targets: { calories: 2_100, proteinG: 150, nutrients: resolveNutrientGoals() },
+    today: { calories: noisyCalories, proteinG: noisyProteinG, carbsG: 0, fatG: 0, mealCount: 1 },
+    sevenDay: { calories: noisyCalories, proteinG: noisyProteinG, averageCalories: noisyCalories / 6, averageProteinG: noisyProteinG, daysWithMeals: 1 },
+    recentMeals: [{
+      meal: {
+        id: "meal-1", consumedAt: Date.parse("2026-08-25T12:00:00Z"), mealType: null, status: "complete", photoKey: null, photoMimeType: null,
+        totalCalories: noisyCalories, totalProteinG: noisyProteinG, totalCarbsG: 0, totalFatG: 0,
+      },
+      items: [{ name: "Rice bowl", quantity: 1, unit: "serving", calories: noisyCalories, proteinG: noisyProteinG, carbsG: 0, fatG: 0, vitaminDMcg: 0.0125 }],
+    }],
+    recentWeights: [],
+    nutrition: { today: { fiberG: { amount: noisyProteinG, knownItemCount: 1, totalItemCount: 1, complete: true } }, byDate: [] },
+  } as never);
+
+  assert.deepEqual(projection.today, { calories: 2_386.677, proteinG: 0.3, carbsG: 0, fatG: 0, mealCount: 1 });
+  assert.equal(projection.sevenDay.averageCalories, 397.779);
+  assert.equal(projection.sevenDay.trend.at(-1)?.calories, 2_386.677);
+  assert.equal(projection.trend.byDate.at(-1)?.proteinG, 0.3);
+  assert.equal(projection.nutrition.today.fiberG.amount, 0.3);
+  assert.equal(projection.recentMeals[0]?.totalCalories, 2_386.677);
+  assert.equal(projection.recentMeals[0]?.items[0]?.proteinG, 0.3);
+  // An unknown nutrient stays unknown, and a small known one keeps its precision.
+  assert.equal(projection.recentMeals[0]?.items[0]?.nutrients.vitaminDMcg, 0.013);
+  assert.equal(projection.recentMeals[0]?.items[0]?.nutrients.fiberG, null);
+});
