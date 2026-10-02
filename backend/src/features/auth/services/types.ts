@@ -42,6 +42,8 @@ export interface AuthServiceInterface {
   }): Promise<PasswordSignInResult>;
   /** End the caller's session. Succeeds when there is no session. */
   signOut(props: { requestHeaders: Headers }): Promise<SessionChange>;
+  /** Rename the user who owns the session in the request headers. */
+  updateName(props: { name: string; requestHeaders: Headers }): Promise<void>;
   migrate(): Promise<void>;
   /** Trusted local setup only; this operation has no public HTTP endpoint. */
   createAccount(props: {

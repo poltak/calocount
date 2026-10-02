@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { requireSession } from "../../auth/handlers/require-session.js";
 import { requireTrustedOrigin } from "../../auth/handlers/require-trusted-origin.js";
+import { createProfileHandlers } from "../../auth/handlers/profile-handlers.js";
 import { createSessionHandlers } from "../../auth/handlers/session-handlers.js";
 import type { AuthEnvironment } from "../../auth/handlers/types.js";
 import { handleError, handleNotFound } from "../handlers/error-responses.js";
@@ -16,10 +17,7 @@ interface HttpAppProps {
 function createBusinessHttpApp({ app }: HttpAppProps) {
   return new Hono<AuthEnvironment>()
     .use("*", requireSession({ services: app.services, logic: app.logic }))
-    .get("/me", (context) => {
-      const { id, email, name } = context.get("auth").user;
-      return context.json({ user: { id, email, name } });
-    })
+    .route("/me", createProfileHandlers({ logic: app.logic }))
     .route(
       "/encounters",
       createEncounterLifecycleHandlers({ logic: app.logic }),

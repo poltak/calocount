@@ -99,6 +99,19 @@ export class BetterAuthService implements AuthServiceInterface {
     return { responseHeaders: cookieHeaders(response) };
   }
 
+  async updateName({
+    name,
+    requestHeaders,
+  }: {
+    name: string;
+    requestHeaders: Headers;
+  }): Promise<void> {
+    await this.instance().api.updateUser({
+      body: { name },
+      headers: requestHeaders,
+    });
+  }
+
   /**
    * Send a request through the SDK's own HTTP handler, which is never mounted
    * publicly. Its rate limits and origin checks only run on that path.
