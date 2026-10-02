@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { createMcpHandler, MCP_PROTOCOL_VERSION } from "../app/mcp/handler";
-import { getNutritionSummary, listNutritionHistoryPage } from "../db/repository";
+import { getNutritionSummary, getWeightHistory, listNutritionHistoryPage } from "../db/repository";
 import { NUTRIENT_KEYS, NUTRIENT_UPPER_LIMIT_KEYS } from "../domain/nutrients";
 import { createSqliteTestDb } from "./helpers/sqlite-db";
 
@@ -38,6 +38,12 @@ function routeFor(fixture: ReturnType<typeof createSqliteTestDb>, ownerKey = OWN
       db: fixture.db,
       ownerKey: _ownerKey,
       ...input,
+    }),
+    getWeightHistory: (_ownerKey, input) => getWeightHistory({
+      db: fixture.db,
+      ownerKey: _ownerKey,
+      startDate: input.startDate,
+      endDate: input.endDate,
     }),
   });
 }
@@ -408,5 +414,40 @@ test("the summary puts meals on the right day when the clocks change", async () 
     ["2026-03-08", 500],
     ["2026-03-09", 400],
   ]);
+  fixture.sqlite.close();
+});
+
+test("weight history is owner-scoped, oldest first, and reports the first weight outside the range", async () => {
+  const fixture = createSqliteTestDb();
+  const insertWeight = fixture.sqlite.prepare("INSERT INTO daily_weights (id, owner_key, logical_date, weight_kg, recorded_at) VALUES (?, ?, ?, ?, ?)");
+  insertWeight.run("weight-private-1", OWNER, "2026-08-20", 70.4, Date.parse("2026-08-20T01:00:00Z"));
+  insertWeight.run("weight-private-2", OWNER, "2026-09-03", 69.1, Date.parse("2026-09-03T01:00:00Z"));
+  insertWeight.run("weight-private-3", OWNER, "2026-09-01", 69.5, Date.parse("2026-09-01T01:30:00Z"));
+  insertWeight.run("weight-private-4", OWNER, "2026-09-04", 68.9, Date.parse("2026-09-04T01:00:00Z"));
+  insertWeight.run("weight-foreign", "owner-b", "2026-09-02", 90, Date.parse("2026-09-02T01:00:00Z"));
+  const route = routeFor(fixture);
+
+  const result = await callTool(route, "get_weight_history", { start_date: "2026-09-01", end_date: "2026-09-03" });
+  assert.equal(result.isError, false);
+  assert.deepEqual(result.structuredContent, {
+    startDate: "2026-09-01",
+    endDate: "2026-09-03",
+    firstWeightDate: "2026-08-20",
+    weights: [
+      { date: "2026-09-01", weightKg: 69.5, recordedAt: "2026-09-01T01:30:00.000Z" },
+      { date: "2026-09-03", weightKg: 69.1, recordedAt: "2026-09-03T01:00:00.000Z" },
+    ],
+  });
+  assert.match(result.content[0]?.text ?? "", /2 weights in kilograms/u);
+
+  const noWeights = await callTool(routeFor(fixture, "owner-c"), "get_weight_history", { start_date: "2026-09-01", end_date: "2026-09-03" }, 2);
+  assert.deepEqual(noWeights.structuredContent, { startDate: "2026-09-01", endDate: "2026-09-03", firstWeightDate: null, weights: [] });
+
+  const oversized = await callTool(route, "get_weight_history", { start_date: "2025-01-01", end_date: "2026-01-02" }, 3);
+  assert.equal(oversized.isError, true);
+  assert.match(oversized.content[0]?.text ?? "", /date_range_too_large/u);
+  const unknownField = await callTool(route, "get_weight_history", { start_date: "2026-09-01", end_date: "2026-09-03", page_size: 5 }, 4);
+  assert.equal(unknownField.isError, true);
+  assert.match(unknownField.content[0]?.text ?? "", /invalid_arguments/u);
   fixture.sqlite.close();
 });

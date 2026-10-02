@@ -150,6 +150,7 @@ function handler(overrides: Partial<McpHandlerDependencies> = {}) {
       },
       goalChanges: [],
     }),
+    getWeightHistory: async (_ownerKey, input) => ({ startDate: input.startDate, endDate: input.endDate, firstWeightDate: null, weights: [] }),
     ...overrides,
   });
 }
@@ -202,9 +203,10 @@ test("initializes and lists the meal write tool and both nutrition read tools wi
     "add_meals",
     "get_nutrition_history",
     "get_nutrition_summary",
+    "get_weight_history",
     "update_meal",
   ]);
-  assert.equal(listPayload.result.tools.length, 4);
+  assert.equal(listPayload.result.tools.length, 5);
   const [tool] = listPayload.result.tools;
   assert.equal(tool?.name, "add_meals");
   assert.match(tool?.description as string, /generate a UUID v4 request_id.*code tool when available/u);
@@ -242,7 +244,7 @@ test("initializes and lists the meal write tool and both nutrition read tools wi
   assert.equal(historySchema.properties.page_size.maximum, 100);
   assert.deepEqual(historySchema.required, ["start_date", "end_date"]);
   assert.equal(historySchema.additionalProperties, false);
-  const updateTool = listPayload.result.tools[3];
+  const updateTool = listPayload.result.tools.find((listedTool) => listedTool.name === "update_meal");
   assert.equal(updateTool?.name, "update_meal");
   assert.deepEqual(updateTool?.annotations, {
     readOnlyHint: false,

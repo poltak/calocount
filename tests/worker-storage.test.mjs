@@ -11,7 +11,7 @@ function mcp(worker, method, params, id = 1) {
   return worker.request({ path: "/mcp", method: "POST", headers: MCP_HEADERS, body: { jsonrpc: "2.0", id, method, params } });
 }
 
-test("the MCP endpoint lists its tools and logs, reads and updates a meal", async () => {
+test("the MCP endpoint lists its tools, logs, reads and updates a meal, and reads weights", async () => {
   const worker = await startWorker(LOCAL, { storage: true });
   try {
     const initialized = await mcp(worker, "initialize", { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "test", version: "1" } });
@@ -22,7 +22,7 @@ test("the MCP endpoint lists its tools and logs, reads and updates a meal", asyn
     assert.equal(listed.status, 200);
     assert.deepEqual(
       listed.body.result.tools.map((tool) => tool.name).sort(),
-      ["add_meals", "get_nutrition_history", "get_nutrition_summary", "update_meal"],
+      ["add_meals", "get_nutrition_history", "get_nutrition_summary", "get_weight_history", "update_meal"],
     );
 
     const requestId = "4f4b2a53-7f0c-4b0e-9d5a-0c1f6f1f2a10";
@@ -50,6 +50,13 @@ test("the MCP endpoint lists its tools and logs, reads and updates a meal", asyn
     const history = await mcp(worker, "tools/call", { name: "get_nutrition_history", arguments: { start_date: "2026-10-02", end_date: "2026-10-02" } }, 6);
     assert.equal(history.body.result.isError, false);
     assert.match(JSON.stringify(history.body.result.structuredContent), /Chicken pho/);
+
+    const weighed = await worker.request({ path: "/api/weights", method: "PUT", body: { logicalDate: "2026-10-02", weightKg: 66.3 } });
+    assert.equal(weighed.status, 200);
+    const weights = await mcp(worker, "tools/call", { name: "get_weight_history", arguments: { start_date: "2026-09-01", end_date: "2026-10-02" } }, 8);
+    assert.equal(weights.body.result.isError, false);
+    assert.equal(weights.body.result.structuredContent.firstWeightDate, "2026-10-02");
+    assert.deepEqual(weights.body.result.structuredContent.weights.map(({ date, weightKg }) => [date, weightKg]), [["2026-10-02", 66.3]]);
 
     const updated = await mcp(worker, "tools/call", { name: "update_meal", arguments: { request_id: requestId, patch: { name: "Beef pho" } } }, 7);
     assert.equal(updated.body.result.isError, false, JSON.stringify(updated.body.result.structuredContent));

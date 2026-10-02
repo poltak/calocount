@@ -15,6 +15,7 @@ import {
   createMealsForExternalRequests,
   findMealByExternalRequestId,
   getNutritionSummary,
+  getWeightHistory,
   listNutritionHistoryPage,
 } from "../db/repository";
 import { createSqliteTestDb } from "./helpers/sqlite-db";
@@ -99,6 +100,7 @@ function routeFor(fixture: ReturnType<typeof createSqliteTestDb>, ownerKey = OWN
       ownerKey: owner,
       ...input,
     }),
+    getWeightHistory: (owner, input) => getWeightHistory({ db: fixture.db, ownerKey: owner, startDate: input.startDate, endDate: input.endDate }),
   });
 }
 

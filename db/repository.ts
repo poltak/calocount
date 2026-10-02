@@ -636,6 +636,38 @@ export async function listDailyWeights({
     .all();
 }
 
+export type WeightHistoryReport = {
+  startDate: string;
+  endDate: string;
+  /** The first date the owner has a weight for, in or out of the range. */
+  firstWeightDate: string | null;
+  weights: { date: string; weightKg: number; recordedAt: string }[];
+};
+
+/** The owner's weights for an inclusive range of at most 366 dates, oldest first. */
+export async function getWeightHistory({ db, ownerKey, startDate, endDate }: {
+  db: AppDb;
+  ownerKey: string;
+  startDate: string;
+  endDate: string;
+}): Promise<WeightHistoryReport> {
+  const [weights, first] = await Promise.all([
+    listDailyWeights({ db, ownerKey, from: startDate, to: endDate }),
+    db.select({ logicalDate: sql<string | null>`min(${dailyWeights.logicalDate})` })
+      .from(dailyWeights).where(eq(dailyWeights.ownerKey, ownerKey)).prepare().get(),
+  ]);
+  return {
+    startDate,
+    endDate,
+    firstWeightDate: first?.logicalDate ?? null,
+    weights: weights.reverse().map((weight) => ({
+      date: weight.logicalDate,
+      weightKg: weight.weightKg,
+      recordedAt: new Date(weight.recordedAt).toISOString(),
+    })),
+  };
+}
+
 export async function getLatestDailyWeightBefore({
   db,
   ownerKey,

@@ -26,7 +26,7 @@ compatibility; do not remove or alter them without a separate database decision.
 | `/api/public/summary` | Separate exact Cloudflare Access application with Bypass Everyone | Explicit read-only dashboard projection, and the daily view for agents at `?view=daily` |
 | `/meal-photos/*` | Public because no Access destination matches it, with server-side projection checks | Images for completed meals in the current public seven-day projection |
 | `/api/*` in general | Private Cloudflare Access and server-side owner authentication | Owner data and API write operations, including the legacy Action route |
-| `/mcp` | Exact private Cloudflare Access application and server-side owner authentication | ChatGPT meal logging and nutrition reads |
+| `/mcp` | Exact private Cloudflare Access application and server-side owner authentication | ChatGPT meal logging, nutrition reads and weight reads |
 | `/_next/static/*`, manifest, service worker, and required icons | Public because no Access destination matches them | JavaScript, CSS, and install metadata only |
 | `/api/photos/*`, exports, settings, and other owner APIs | Private | Sensitive data and mutations |
 

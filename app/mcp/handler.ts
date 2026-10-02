@@ -7,7 +7,7 @@ import {
 } from "@modelcontextprotocol/server";
 import { NUTRIENT_META, NUTRIENT_UPPER_LIMIT_META } from "../../domain/nutrients";
 import { PROTEIN_GOAL_MODES } from "../../domain/protein-goals";
-import type { MealWithItems, NutritionHistoryPage, NutritionSummaryReport } from "../../db/repository";
+import type { MealWithItems, NutritionHistoryPage, NutritionSummaryReport, WeightHistoryReport } from "../../db/repository";
 import {
   AddMealRequestError,
   MAX_BATCH_MEALS,
@@ -24,6 +24,7 @@ import {
   encodeNutritionHistoryCursor,
   parseNutritionHistoryInput,
   parseNutritionSummaryInput,
+  parseWeightHistoryInput,
   SOURCE_FORM_OUTPUT_KEYS,
 } from "./nutrition-read";
 import {
@@ -49,6 +50,7 @@ export type McpHandlerDependencies = {
   updateMeal: (ownerKey: string, input: McpMealUpdateInput) => Promise<MealWithItems | null>;
   getNutritionHistory: (ownerKey: string, input: ReturnType<typeof parseNutritionHistoryInput>) => Promise<NutritionHistoryPage>;
   getNutritionSummary: (ownerKey: string, input: ReturnType<typeof parseNutritionSummaryInput>) => Promise<NutritionSummaryReport>;
+  getWeightHistory: (ownerKey: string, input: ReturnType<typeof parseWeightHistoryInput>) => Promise<WeightHistoryReport>;
 };
 
 function nutrientInputProperties(
@@ -375,6 +377,50 @@ const GET_NUTRITION_SUMMARY_TOOL = {
       },
       },
       required: ["startDate", "endDate", "timezone", "days", "currentTargets", "goalChanges"],
+      additionalProperties: false,
+    }, toolErrorOutput],
+  },
+  securitySchemes: SECURITY_SCHEMES,
+  _meta: { securitySchemes: SECURITY_SCHEMES },
+  annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false, idempotentHint: true },
+} as const;
+
+const GET_WEIGHT_HISTORY_TOOL = {
+  name: "get_weight_history",
+  title: "Read Calocount weight history",
+  description: `Read the recorded body weights for an inclusive date range of up to ${MAX_NUTRITION_RANGE_DAYS} days, oldest first. Weights are in kilograms, at most one for each date. firstWeightDate is the earliest date with a weight, including dates before the range.`,
+  inputSchema: {
+    type: "object",
+    properties: {
+      start_date: { type: "string", format: "date", description: "First date, inclusive (YYYY-MM-DD)." },
+      end_date: { type: "string", format: "date", description: "Last date, inclusive (YYYY-MM-DD)." },
+    },
+    required: ["start_date", "end_date"],
+    additionalProperties: false,
+  },
+  outputSchema: {
+    type: "object",
+    oneOf: [{
+      type: "object",
+      properties: {
+        startDate: { type: "string", format: "date" },
+        endDate: { type: "string", format: "date" },
+        firstWeightDate: { type: ["string", "null"], format: "date" },
+        weights: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              date: { type: "string", format: "date" },
+              weightKg: { type: "number" },
+              recordedAt: { type: "string", format: "date-time" },
+            },
+            required: ["date", "weightKg", "recordedAt"],
+            additionalProperties: false,
+          },
+        },
+      },
+      required: ["startDate", "endDate", "firstWeightDate", "weights"],
       additionalProperties: false,
     }, toolErrorOutput],
   },
@@ -882,6 +928,20 @@ async function createNutritionSummaryToolCall(ownerKey: string, arguments_: Json
   }
 }
 
+async function createWeightHistoryToolCall(ownerKey: string, arguments_: JsonObject, dependencies: McpHandlerDependencies) {
+  try {
+    const payload = await dependencies.getWeightHistory(ownerKey, parseWeightHistoryInput(arguments_));
+    return {
+      content: [{ type: "text" as const, text: `Returned ${payload.weights.length} weights in kilograms, oldest first.` }],
+      structuredContent: payload,
+      isError: false,
+    };
+  } catch (error) {
+    const safe = safeNutritionReadError(error);
+    return toolErrorResult(safe.code, safe.message);
+  }
+}
+
 /** Read the body once. Returns null when it exceeds the limit. */
 async function readRequestBody(request: Request): Promise<Uint8Array<ArrayBuffer> | null> {
   const contentLength = Number(request.headers.get("content-length") ?? 0);
@@ -953,6 +1013,7 @@ const TOOLS = [
   { definition: ADD_MEALS_TOOL, call: createToolCall },
   { definition: GET_NUTRITION_HISTORY_TOOL, call: createNutritionHistoryToolCall },
   { definition: GET_NUTRITION_SUMMARY_TOOL, call: createNutritionSummaryToolCall },
+  { definition: GET_WEIGHT_HISTORY_TOOL, call: createWeightHistoryToolCall },
   { definition: UPDATE_MEAL_TOOL, call: createMealUpdateToolCall },
 ] as const;
 const TOOL_CALLS = new Map<string, (typeof TOOLS)[number]["call"]>(

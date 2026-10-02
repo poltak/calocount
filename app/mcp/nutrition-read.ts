@@ -156,4 +156,8 @@ export function parseNutritionSummaryInput(value: unknown): NutritionDateRange {
   return parseNutritionDateRange(value);
 }
 
+export function parseWeightHistoryInput(value: unknown): NutritionDateRange {
+  return parseNutritionDateRange(value);
+}
+
 export const SOURCE_FORM_OUTPUT_KEYS = NUTRIENT_UPPER_LIMIT_KEYS;

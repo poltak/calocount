@@ -1,5 +1,5 @@
 import { getDb, getEnvValue } from "../../db";
-import { getNutritionSummary, listNutritionHistoryPage } from "../../db/repository";
+import { getNutritionSummary, getWeightHistory, listNutritionHistoryPage } from "../../db/repository";
 import { handleAuthorizedAddMealRequest } from "../api/_lib/add-meal";
 import { createAddMealRuntimeOptions } from "../api/_lib/add-meal-runtime";
 import { requireApiIdentity } from "../api/_lib/http";
@@ -32,6 +32,12 @@ const handler = createMcpHandler({
     db: getDb(),
     ownerKey,
     ...input,
+  }),
+  getWeightHistory: (ownerKey, input) => getWeightHistory({
+    db: getDb(),
+    ownerKey,
+    startDate: input.startDate,
+    endDate: input.endDate,
   }),
 });
 
