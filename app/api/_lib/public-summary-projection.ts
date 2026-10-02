@@ -1,4 +1,4 @@
-import type { getDashboardSummary } from "../../../db/repository";
+import type { getDailyHistory, getDashboardSummary } from "../../../db/repository";
 import { roundAmount, roundNullableAmount } from "../../../domain/amounts";
 import { resolveNutrientGoals } from "../../../domain/nutrient-goals";
 import { resolveTimeZone, shiftDateKey, zonedCalendar, type ZonedCalendar } from "../../../domain/logical-date";
@@ -6,6 +6,7 @@ import { NUTRIENT_KEYS, nullableNutrientValue, type NutrientAggregateMap, type N
 import { isPublicPhotoMimeType, isWithinPublicDateRange } from "./public-photo-policy";
 
 type DashboardSummary = Awaited<ReturnType<typeof getDashboardSummary>>;
+type DailyHistory = Awaited<ReturnType<typeof getDailyHistory>>;
 
 type PublicMealItem = {
   name: string;
@@ -244,5 +245,36 @@ export function projectPublicDashboardSummary(summary: DashboardSummary) {
       && isWithinPublicDateRange({ consumedAt: entry.meal.consumedAt, summaryDate: summary.date, timeZone: calendar.timeZone })
     )).map(publicMeal),
     recentWeights: summary.recentWeights.map(publicWeight),
+  };
+}
+
+/**
+ * Build the small daily view for agents: one row for each day, with no food
+ * items. Keep the field list explicit, as in the full projection above.
+ */
+export function projectPublicDailyHistory(history: DailyHistory) {
+  return {
+    view: "daily" as const,
+    date: history.date,
+    // The timezone that sets the day boundaries of every date in this response.
+    timezone: history.timezone,
+    units: { calories: "kcal", proteinG: "g", carbsG: "g", fatG: "g", weightKg: "kg" },
+    firstEntryDate: history.firstEntryDate,
+    firstWeightDate: history.firstWeightDate,
+    fromDate: history.fromDate,
+    toDate: history.toDate,
+    targets: {
+      calories: history.targets.calories,
+      proteinG: history.targets.proteinG,
+    },
+    days: history.days.map((day) => ({
+      date: day.date,
+      calories: roundAmount(day.calories),
+      proteinG: roundAmount(day.proteinG),
+      carbsG: roundAmount(day.carbsG),
+      fatG: roundAmount(day.fatG),
+      mealCount: day.mealCount,
+      weightKg: day.weightKg,
+    })),
   };
 }

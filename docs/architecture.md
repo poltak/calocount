@@ -22,7 +22,9 @@ The application has two dashboard entry points:
 `/api/public/summary` resolves the configured stable owner key, fails closed when
 that key is absent, returns `Cache-Control: no-store`, and removes owner keys,
 captions, notes, photo storage metadata, AI fields, and other private data. It
-exposes only a `hasPhoto` flag for a safe projected image. The public
+exposes only a `hasPhoto` flag for a safe projected image. With `?view=daily`
+the same path returns a small daily view for agents: one row for each day since
+tracking began, with totals and weight and no food items. The public
 `/meal-photos/<mealId>` route rechecks the configured owner's current seven-day
 projection, streams only completed JPEG, PNG, or WebP meals from private R2, and
 requires cache revalidation. All `/api/*` routes other than the reviewed summary

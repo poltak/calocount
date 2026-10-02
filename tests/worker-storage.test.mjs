@@ -87,3 +87,53 @@ test("a dashboard entry with a photo is saved and its photo can be read back", a
     await worker.dispose();
   }
 });
+
+test("the public daily view covers the whole history in a small response", async () => {
+  const worker = await startWorker(LOCAL, { storage: true });
+  try {
+    const day = 86_400_000;
+    const today = new Date().toISOString().slice(0, 10);
+    const dateBefore = (days) => new Date(Date.now() - days * day).toISOString().slice(0, 10);
+    // Forty days of meals and weights: more than the 30 days the dashboard view carries.
+    for (let daysBefore = 0; daysBefore < 40; daysBefore += 1) {
+      const saved = await worker.request({
+        path: "/api/meals",
+        method: "POST",
+        body: {
+          consumedAt: Date.parse(`${dateBefore(daysBefore)}T00:00:01Z`), mealType: "lunch", source: "dashboard", status: "complete", caption: "Private caption",
+          items: [{ name: "Rice bowl", quantity: 1, unit: "serving", calories: 500.1, proteinG: 30.2, carbsG: 60, fatG: 12, fiberG: 4 }],
+        },
+      });
+      assert.equal(saved.status, 201);
+      const weighed = await worker.request({ path: "/api/weights", method: "PUT", body: { logicalDate: dateBefore(daysBefore), weightKg: 70 - daysBefore / 10 } });
+      assert.equal(weighed.status, 200);
+    }
+
+    const daily = await worker.request({ path: "/api/public/summary?view=daily" });
+    assert.equal(daily.status, 200);
+    assert.match(daily.headers.get("cache-control") ?? "", /no-store/);
+    assert.equal(daily.body.view, "daily");
+    assert.equal(daily.body.timezone, "UTC");
+    assert.equal(daily.body.date, today);
+    assert.equal(daily.body.firstEntryDate, dateBefore(39));
+    assert.equal(daily.body.firstWeightDate, dateBefore(39));
+    assert.equal(daily.body.fromDate, dateBefore(39));
+    assert.equal(daily.body.days.length, 40);
+    assert.deepEqual(daily.body.days[0], { date: dateBefore(39), calories: 500.1, proteinG: 30.2, carbsG: 60, fatG: 12, mealCount: 1, weightKg: 66.1 });
+    assert.deepEqual(daily.body.days.at(-1), { date: today, calories: 500.1, proteinG: 30.2, carbsG: 60, fatG: 12, mealCount: 1, weightKg: 70 });
+    assert.doesNotMatch(daily.text, /Rice bowl|Private caption|owner/);
+
+    // The dashboard view stays the default and is many times larger for the same data.
+    const dashboard = await worker.request({ path: "/api/public/summary" });
+    assert.equal(dashboard.status, 200);
+    assert.equal(dashboard.body.trend.weights.length, 30);
+    assert.ok(daily.text.length * 10 < dashboard.text.length, `daily ${daily.text.length} bytes, dashboard ${dashboard.text.length} bytes`);
+    assert.ok(daily.text.length < 6_000, `daily view is ${daily.text.length} bytes`);
+
+    const unknown = await worker.request({ path: "/api/public/summary?view=everything" });
+    assert.equal(unknown.status, 400);
+    assert.equal(unknown.body.error.code, "invalid_query");
+  } finally {
+    await worker.dispose();
+  }
+});

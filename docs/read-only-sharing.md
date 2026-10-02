@@ -23,7 +23,7 @@ compatibility; do not remove or alter them without a separate database decision.
 | `/` | Public because no Access destination matches it | Read-only dashboard UI |
 | `/llms.txt` | Public because no Access destination matches it | Markdown discovery document for agents; links to the canonical public JSON projection |
 | `/owner` and `/owner/*` | Existing private Cloudflare Access application, existing owner Allow policy and audience, plus server-side signed JWT check | Owner read-write dashboard |
-| `/api/public/summary` | Separate exact Cloudflare Access application with Bypass Everyone | Explicit read-only dashboard projection |
+| `/api/public/summary` | Separate exact Cloudflare Access application with Bypass Everyone | Explicit read-only dashboard projection, and the daily view for agents at `?view=daily` |
 | `/meal-photos/*` | Public because no Access destination matches it, with server-side projection checks | Images for completed meals in the current public seven-day projection |
 | `/api/*` in general | Private Cloudflare Access and server-side owner authentication | Owner data and API write operations, including the legacy Action route |
 | `/mcp` | Exact private Cloudflare Access application and server-side owner authentication | ChatGPT meal logging and nutrition reads |
@@ -50,6 +50,29 @@ photo storage keys or MIME metadata, AI/provider data, private settings,
 exports, or API credentials.
 `app/api/_lib/public-summary-projection.ts` implements the projection. Keep the
 field list explicit when changing the public response.
+
+### Daily view for agents
+
+`/api/public/summary?view=daily` returns a second, much smaller projection on
+the same path. The dashboard projection carries 30 days of food items and is
+several hundred kilobytes. The daily view carries one row for each day and no
+food items:
+
+- the date, the owner's saved timezone, and the units of each amount;
+- `firstEntryDate` and `firstWeightDate`, the days tracking began;
+- `fromDate` and `toDate`, the days the rows cover;
+- the current calorie and protein targets; and
+- for each day: calories, protein, carbohydrate, fat, the entry count, and the
+  weight recorded that day or `null`.
+
+The rows start on the first day with an entry or a weight and keep at most the
+latest 366 days. This makes daily totals and weights older than the dashboard's
+30 days public. The owner chose this on 2026-10-02. An unknown `view` value
+returns `400`.
+
+The view is a query on the existing path because the Access bypass covers only
+the exact `/api/public/summary` path. A new path under `/api/public/` would be
+private until it had its own bypass application.
 
 The anonymous `/meal-photos/<mealId>` route intentionally makes the image for a
 projected completed meal public to site viewers. It resolves the configured

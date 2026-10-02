@@ -3,21 +3,26 @@ import test from "node:test";
 
 import {
   buildPublicSummaryResponse,
+  parsePublicSummaryView,
   PublicSummaryConfigError,
 } from "../app/api/_lib/public-summary";
-import type { getDashboardSummary } from "../db/repository";
+import type { getDailyHistory, getDashboardSummary } from "../db/repository";
 import { resolveNutrientGoals } from "../domain/nutrient-goals";
 import { aggregateNutrients, emptyNutrientValues } from "../domain/nutrients";
 
 type DashboardSummary = Awaited<ReturnType<typeof getDashboardSummary>>;
+type DailyHistory = Awaited<ReturnType<typeof getDailyHistory>>;
+
+async function mustNotLoad(): Promise<never> {
+  throw new Error("must not load this view");
+}
 
 test("public summary fails closed when the owner key is missing", async () => {
   await assert.rejects(
     buildPublicSummaryResponse({
       ownerKey: "  ",
-      loadSummary: async () => {
-        throw new Error("must not load without a key");
-      },
+      loadSummary: mustNotLoad,
+      loadDailyHistory: mustNotLoad,
     }),
     (error: unknown) => error instanceof PublicSummaryConfigError
       && error.status === 503
@@ -136,6 +141,7 @@ test("public summary returns a no-store projection without private fields", asyn
       requestedOwnerKeys.push(ownerKey);
       return summary;
     },
+    loadDailyHistory: mustNotLoad,
   });
 
   assert.deepEqual(requestedOwnerKeys, ["owner-1"]);
@@ -155,4 +161,57 @@ test("public summary returns a no-store projection without private fields", asyn
     840,
   );
   assert.equal(((body.recentMeals as Array<Record<string, unknown>>)[0]).hasPhoto, true);
+});
+
+test("the daily view returns small rounded day rows and nothing else from the history", async () => {
+  const requestedOwnerKeys: string[] = [];
+  const history = {
+    date: "2026-08-25",
+    timezone: "Asia/Ho_Chi_Minh",
+    firstEntryDate: "2026-08-24",
+    firstWeightDate: "2026-08-25",
+    fromDate: "2026-08-24",
+    toDate: "2026-08-25",
+    targets: { calories: 2_100, proteinG: 132.6 },
+    days: [
+      { date: "2026-08-24", calories: 2_386.6769999999997, proteinG: 0.1 + 0.2, carbsG: 220, fatG: 80, mealCount: 4, weightKg: null },
+      { date: "2026-08-25", calories: 0, proteinG: 0, carbsG: 0, fatG: 0, mealCount: 0, weightKg: 66.3 },
+    ],
+  } satisfies DailyHistory;
+  const response = await buildPublicSummaryResponse({
+    ownerKey: " owner-1 ",
+    view: "daily",
+    loadSummary: mustNotLoad,
+    loadDailyHistory: async (ownerKey) => {
+      requestedOwnerKeys.push(ownerKey);
+      // A field added to the repository result must not reach the public response by default.
+      return { ...history, ownerKey, notes: "private notes" };
+    },
+  });
+
+  assert.deepEqual(requestedOwnerKeys, ["owner-1"]);
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  assert.deepEqual(await response.json(), {
+    view: "daily",
+    date: "2026-08-25",
+    timezone: "Asia/Ho_Chi_Minh",
+    units: { calories: "kcal", proteinG: "g", carbsG: "g", fatG: "g", weightKg: "kg" },
+    firstEntryDate: "2026-08-24",
+    firstWeightDate: "2026-08-25",
+    fromDate: "2026-08-24",
+    toDate: "2026-08-25",
+    targets: { calories: 2_100, proteinG: 132.6 },
+    days: [
+      { date: "2026-08-24", calories: 2_386.677, proteinG: 0.3, carbsG: 220, fatG: 80, mealCount: 4, weightKg: null },
+      { date: "2026-08-25", calories: 0, proteinG: 0, carbsG: 0, fatG: 0, mealCount: 0, weightKg: 66.3 },
+    ],
+  });
+});
+
+test("the view query selects the dashboard by default and rejects an unknown view", () => {
+  assert.equal(parsePublicSummaryView(null), "dashboard");
+  assert.equal(parsePublicSummaryView("dashboard"), "dashboard");
+  assert.equal(parsePublicSummaryView("daily"), "daily");
+  assert.equal(parsePublicSummaryView("everything"), null);
+  assert.equal(parsePublicSummaryView(""), null);
 });

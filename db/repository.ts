@@ -12,7 +12,7 @@ import {
   type SQL,
 } from "drizzle-orm";
 import { getDb } from "./index";
-import { resolveTimeZone, shiftDateKey, zonedCalendar } from "../domain/logical-date";
+import { resolveTimeZone, shiftDateKey, utcOffsetSegments, zonedCalendar, type ZonedCalendar } from "../domain/logical-date";
 import {
   aggregateNutrients,
   NUTRIENT_KEYS,
@@ -36,6 +36,7 @@ import {
 import {
   buildProteinGoalSummary,
   normaliseProteinGoalMode,
+  resolveProteinGoalDay,
   type ProteinGoalMode,
 } from "../domain/protein-goals";
 import {
@@ -1315,6 +1316,116 @@ export async function getDashboardSummary(db: AppDb, ownerKey: string, options: 
     },
     recentMeals,
     recentWeights,
+  };
+}
+
+/**
+ * SQL for the logical date of `meal_logs.consumed_at`, for meals between two moments.
+ * SQLite has no timezone data, so the calendar supplies the UTC offsets and the
+ * moments they change. The values are whole numbers computed here, not input.
+ */
+function mealLogicalDateSql(calendar: ZonedCalendar, fromMs: number, toMs: number): SQL<string> {
+  const segments = utcOffsetSegments(calendar, fromMs, toMs);
+  const whole = (value: number) => {
+    if (!Number.isSafeInteger(value)) throw new Error("logical_date_offset_invalid");
+    return sql.raw(String(value));
+  };
+  const lastOffset = whole(segments.at(-1)?.offsetMs ?? 0);
+  const offset = segments.length === 1
+    ? lastOffset
+    : sql`(case ${sql.join(segments.slice(0, -1).map((segment) => (
+      sql`when ${mealLogs.consumedAt} < ${whole(segment.untilMs ?? 0)} then ${whole(segment.offsetMs)}`
+    )), sql` `)} else ${lastOffset} end)`;
+  return sql<string>`date((${mealLogs.consumedAt} + ${offset}) / 1000, 'unixepoch')`;
+}
+
+export const MAX_DAILY_HISTORY_DAYS = 366;
+
+export type DailyHistoryOptions = {
+  now?: Date;
+};
+
+/**
+ * One row for each day since the owner's first entry or weight, in the owner's
+ * saved timezone. Keeps at most the latest 366 days and carries no food items,
+ * so the result stays small enough for an agent to read whole.
+ */
+export async function getDailyHistory(db: AppDb, ownerKey: string, options: DailyHistoryOptions = {}) {
+  const completeMeals = and(eq(mealLogs.ownerKey, ownerKey), eq(mealLogs.status, "complete"));
+  const [settingsRow, firstMeal, firstWeight] = await Promise.all([
+    getSettings(db, ownerKey),
+    db.select({ consumedAt: sql<number | null>`min(${mealLogs.consumedAt})` })
+      .from(mealLogs).where(completeMeals).prepare().get(),
+    db.select({ logicalDate: sql<string | null>`min(${dailyWeights.logicalDate})` })
+      .from(dailyWeights).where(eq(dailyWeights.ownerKey, ownerKey)).prepare().get(),
+  ]);
+  const calendar = zonedCalendar(resolveTimeZone(settingsRow?.timezone));
+  const toDate = calendar.dateKey((options.now ?? new Date()).getTime());
+  const earliestDate = shiftDateKey(toDate, 1 - MAX_DAILY_HISTORY_DAYS);
+  const firstEntryDate = typeof firstMeal?.consumedAt === "number" ? calendar.dateKey(firstMeal.consumedAt) : null;
+  const firstWeightDate = firstWeight?.logicalDate ?? null;
+  const trackedDates = [firstEntryDate, firstWeightDate].filter((date): date is string => date !== null && date <= toDate);
+  const firstTrackedDate = trackedDates.sort()[0] ?? toDate;
+  const fromDate = firstTrackedDate < earliestDate ? earliestDate : firstTrackedDate;
+  const fromMs = calendar.firstInstant(fromDate);
+  const toMs = calendar.firstInstant(shiftDateKey(toDate, 1));
+
+  const mealDate = mealLogicalDateSql(calendar, fromMs, toMs);
+  const [mealRows, weights] = await Promise.all([
+    db.select({
+      date: mealDate,
+      mealCount: sql<number>`count(*)`,
+      calories: sql<number>`coalesce(sum(${mealLogs.totalCalories}), 0)`,
+      proteinG: sql<number>`coalesce(sum(${mealLogs.totalProteinG}), 0)`,
+      carbsG: sql<number>`coalesce(sum(${mealLogs.totalCarbsG}), 0)`,
+      fatG: sql<number>`coalesce(sum(${mealLogs.totalFatG}), 0)`,
+    }).from(mealLogs)
+      .where(and(completeMeals, gte(mealLogs.consumedAt, fromMs), lt(mealLogs.consumedAt, toMs)))
+      .groupBy(mealDate)
+      .prepare()
+      .all(),
+    listDailyWeights({ db, ownerKey, from: fromDate, to: toDate }),
+  ]);
+  // A weight-based protein target needs the latest weight, which may be older than the days returned.
+  const proteinGoalMode = normaliseProteinGoalMode(settingsRow?.proteinGoalMode);
+  const earlierWeight = proteinGoalMode === "gramsPerKg" && weights.length === 0
+    ? await getLatestDailyWeightBefore({ db, ownerKey, logicalDate: fromDate })
+    : undefined;
+
+  const mealsByDate = new Map(mealRows.map((row) => [row.date, row]));
+  const weightByDate = new Map(weights.map((weight) => [weight.logicalDate, weight.weightKg]));
+  const days = [];
+  for (let date = fromDate; date <= toDate; date = shiftDateKey(date, 1)) {
+    const meals = mealsByDate.get(date);
+    days.push({
+      date,
+      calories: finiteNumber(meals?.calories),
+      proteinG: finiteNumber(meals?.proteinG),
+      carbsG: finiteNumber(meals?.carbsG),
+      fatG: finiteNumber(meals?.fatG),
+      mealCount: finiteNumber(meals?.mealCount),
+      weightKg: weightByDate.get(date) ?? null,
+    });
+  }
+
+  return {
+    date: toDate,
+    timezone: calendar.timeZone,
+    firstEntryDate,
+    firstWeightDate,
+    fromDate,
+    toDate,
+    targets: {
+      calories: settingsRow?.dailyCalorieTarget ?? null,
+      proteinG: resolveProteinGoalDay({
+        date: toDate,
+        mode: proteinGoalMode,
+        fixedTargetG: settingsRow?.dailyProteinTargetG,
+        gramsPerKg: settingsRow?.dailyProteinTargetPerKg,
+        weights: earlierWeight ? [earlierWeight] : weights,
+      }).targetG,
+    },
+    days,
   };
 }
 

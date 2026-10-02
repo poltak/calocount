@@ -93,6 +93,8 @@ export type ZonedCalendar = {
   hour(timestamp: number): number;
   /** The first moment of a logical date. Handles days that are not 24 hours long. */
   firstInstant(date: string): number;
+  /** Milliseconds to add to a UTC timestamp to read the local wall time at that moment. */
+  utcOffsetMs(timestamp: number): number;
 };
 
 /** Date arithmetic for one timezone. Reuses one formatter for every conversion. */
@@ -103,6 +105,11 @@ export function zonedCalendar(timeZone: string): ZonedCalendar {
     timeZone,
     dateKey,
     hour: (timestamp) => zonedDateParts(formatter, timestamp).hour,
+    utcOffsetMs(timestamp) {
+      const parts = zonedDateParts(formatter, timestamp);
+      const wallTime = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second);
+      return wallTime - Math.floor(timestamp / 1000) * 1000;
+    },
     firstInstant(date) {
       const [year, month, day] = date.split("-").map(Number);
       const target = utcTimestamp({ year, month, day });
@@ -130,4 +137,43 @@ export function logicalDateWindow({ now, timeZone, days }: { now: number; timeZo
     startMs: calendar.firstInstant(shiftDateKey(date, 1 - days)),
     endMs: calendar.firstInstant(shiftDateKey(date, 1)),
   };
+}
+
+export type UtcOffsetSegment = {
+  /** The first moment after this segment. The last segment has no end. */
+  untilMs: number | null;
+  offsetMs: number;
+};
+
+/**
+ * The UTC offsets a timezone uses between two moments, in time order.
+ *
+ * SQLite has no timezone data, so a query that groups rows by logical date
+ * takes its offsets from here. This samples the offset once a week and then
+ * searches each change for its exact moment, which keeps the conversion count
+ * low. No timezone changes its offset twice within one week.
+ */
+export function utcOffsetSegments(calendar: ZonedCalendar, fromMs: number, toMs: number): UtcOffsetSegment[] {
+  if (calendar.timeZone === "UTC") return [{ untilMs: null, offsetMs: 0 }];
+  const segments: UtcOffsetSegment[] = [];
+  let cursor = fromMs;
+  let offsetMs = calendar.utcOffsetMs(cursor);
+  while (cursor < toMs) {
+    const next = Math.min(cursor + 7 * DAY_MS, toMs);
+    const nextOffsetMs = calendar.utcOffsetMs(next);
+    if (nextOffsetMs !== offsetMs) {
+      let low = cursor;
+      let high = next;
+      while (high - low > 1) {
+        const middle = Math.floor((low + high) / 2);
+        if (calendar.utcOffsetMs(middle) === offsetMs) low = middle;
+        else high = middle;
+      }
+      segments.push({ untilMs: high, offsetMs });
+      offsetMs = nextOffsetMs;
+    }
+    cursor = next;
+  }
+  segments.push({ untilMs: null, offsetMs });
+  return segments;
 }
