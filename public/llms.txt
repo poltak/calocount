@@ -1,62 +1,149 @@
 # Calocount
 
-> Public, read-only nutrition dashboard for agents.
+> One person's nutrition and weight log. The data is public and read-only as
+> JSON. You need no sign-in and no API key.
 
-Calocount's public human dashboard is available at `/`. For current
-machine-readable data, fetch [`/api/public/summary`](/api/public/summary). This
-JSON endpoint is the canonical source for the public dashboard projection.
+All paths are on this host. Both public views are `GET` requests that return
+JSON. This file contains no live data.
 
-The summary includes:
+## Start here
 
-- the public date, its timezone, and calorie, protein, and nutrient targets;
-- today's calories, protein, carbohydrate, fat, and entry-count totals;
-- seven-day totals, averages, and daily trend points;
-- nutrition totals;
-- recent completed entries, their item nutrition, entry types, timestamps, and
-  photo availability;
-- recent weights; and
-- `insights`, with date-bounded food and drink entries for today and the prior
-  30 days, including item amounts and nutrition for historical comparisons.
+- [Daily view](/api/public/summary?view=daily): one small row for each day
+  since tracking began, with calories, macros, entry count and weight. About
+  100 bytes for each day and at most 366 days. Use it for weight progress,
+  trends, averages and goal adherence.
+- [Dashboard view](/api/public/summary): the last 30 days with every food item
+  and 24 nutrients. It can be several hundred kilobytes. Use it only when you
+  need food items, nutrient amounts or meal times. Save it to a file and query
+  the file; do not read it whole.
 
-An insight entry is a logging occasion, such as food, a snack, or a beverage.
-Its `date` uses the same day boundary as the public summary. Unknown nutrient
-amounts remain `null`; a day with entries is not proof of complete food logging.
+## Daily view
 
-`proteinGoal` identifies whether the protein target is fixed grams or grams per
-kilogram. In grams-per-kilogram mode it includes the effective target and the
-selected day's weight, or the most recent earlier weight; if no earlier weight
-exists, the effective target is `null`.
+`GET /api/public/summary?view=daily`
 
-Dates use the owner's saved timezone, which the summary returns as `timezone`.
-Treat `date`, trend dates, and insight dates as calendar dates in that
-timezone. The timezone is `UTC` until the owner sets one. Timestamps such as
-`consumedAt` are Unix milliseconds.
+- `view`: always `daily`.
+- `date`: today in the owner's timezone. It is the last row of `days` and is
+  still in progress.
+- `timezone`: the IANA timezone that sets the day boundaries of every date.
+- `units`: the unit of each amount. Calories are kcal, macros are grams and
+  weight is kilograms.
+- `firstEntryDate`: the date of the owner's first food entry, or `null`.
+- `firstWeightDate`: the date of the owner's first weight, or `null`.
+- `fromDate`: the first date in `days`. It is the earlier of the two dates
+  above. When that is more than 366 days ago, `fromDate` is later than it and
+  the older days are not returned.
+- `toDate`: the last date in `days`, equal to `date`.
+- `targets.calories`: the current daily calorie goal, or `null`.
+- `targets.proteinG`: the current daily protein goal in grams, or `null`.
+- `goalChanges[].date`: the date a goal changed. Each row gives the goals in
+  effect from that date until the next row. Rows are oldest first.
+- `goalChanges[].changedAt`: the moment of the change in Unix milliseconds.
+- `goalChanges[].calories`: the daily calorie goal from that date, or `null`.
+- `goalChanges[].proteinMode`: `grams` for a fixed protein goal, or
+  `gramsPerKg` for a goal that follows body weight.
+- `goalChanges[].proteinG`: the fixed protein goal in grams. `null` in
+  `gramsPerKg` mode.
+- `goalChanges[].proteinGramsPerKg`: grams of protein for each kilogram of body
+  weight. `null` in `grams` mode.
+- `days[].date`: the calendar date. Every date from `fromDate` to `toDate` has
+  a row, oldest first.
+- `days[].calories`: kcal eaten that day.
+- `days[].proteinG`: grams of protein.
+- `days[].carbsG`: grams of carbohydrate.
+- `days[].fatG`: grams of fat.
+- `days[].mealCount`: the number of entries logged. Each meal, snack or drink
+  is one entry. `0` means nothing was logged, not that nothing was eaten.
+- `days[].weightKg`: the weight recorded that day in kilograms, or `null`.
 
-When an entry has `hasPhoto: true`, its public image is available at the legacy
-`/meal-photos/{mealId}` route, using that entry's `id` for `{mealId}`.
+Goals before the first `goalChanges` row are not known. If the first row is on
+or before the first day you study and no later row falls in your period, the
+goals were constant over it.
 
-The public projection omits private fields and systems, including owner
-identifiers and keys, captions, notes, assumptions, confidence, photo storage
-keys and MIME metadata, AI/provider data, private settings, exports, and API
-credentials.
+## Dashboard view
 
-This file contains no live dashboard data. Fetch `/api/public/summary` for
-current values.
+`GET /api/public/summary`
 
-## Private MCP access
+- `date`: today in the owner's timezone.
+- `timezone`: the IANA timezone that sets the day boundaries of every date.
+- `targets.calories`: the current daily calorie goal, or `null`.
+- `targets.proteinG`: the current daily protein goal in grams, or `null`.
+- `targets.nutrients`: for each nutrient, a goal `value` and whether it is a
+  `minimum` or a `maximum`.
+- `proteinGoal.mode`: `grams` or `gramsPerKg`.
+- `proteinGoal.byDate[]`: the protein goal of each of the last 31 days. In
+  `gramsPerKg` mode each day uses the weight of that day or the latest earlier
+  weight.
+- `today`: totals for today: `calories`, `proteinG`, `carbsG`, `fatG` and
+  `mealCount`.
+- `sevenDay`: totals and averages for the last seven days. The averages leave
+  out today until 21:00 in the owner's timezone.
+- `sevenDay.trend[]`: one row of totals for each of those seven days.
+- `trend.byDate[]`: one row for each of the last 30 days, with totals and
+  `nutrients`.
+- `trend.weights[]`: the weights of the last 30 days, newest first. Each has
+  `logicalDate`, `weightKg` and `recordedAt`.
+- `nutrition.today`: today's amount of each nutrient.
+- `nutrition.sevenDay`: the seven-day amount of each nutrient.
+- `nutrition.byDate[]`: the amount of each nutrient on each of the last seven
+  days.
+- `insights.fromDate`: the first date covered by `insights.entries`.
+- `insights.toDate`: the last date covered, equal to `date`.
+- `insights.entries[]`: every entry of today and the 30 days before it. Each
+  has `id`, `date`, `consumedAt`, `calories`, `proteinG` and `items`. Each item
+  has `name`, `quantity`, `unit`, `calories`, `proteinG` and `nutrients`.
+- `recentMeals[]`: the entries of the last seven days, newest first, with
+  `id`, `consumedAt`, `mealType`, `hasPhoto`, `totalCalories`, `totalProteinG`,
+  `totalCarbsG`, `totalFatG` and `items`.
+- `recentWeights[]`: the weights of the last seven days, newest first.
 
-The private MCP endpoint is `https://calocount-app.hoian-embroidery.workers.dev/mcp`.
-These read tools are available only on deployments that include this revision
-and require a signed-in, owner-authorized Calocount app connection. Do not treat
-this as a public endpoint.
+A nutrient amount is an object with `amount`, `knownItemCount`,
+`totalItemCount` and `complete`. `complete` is true only when every logged item
+has a value for that nutrient. The nutrient names carry their unit, such as
+`fiberG`, `sodiumMg` and `vitaminDMcg`.
 
-- `get_nutrition_summary` returns daily totals, item counts, nutrient coverage,
-  and targets labelled as current settings.
-- `get_nutrition_history` returns completed meals and item details for a date
-  range. Continue with `next_cursor` and the same dates and `page_size`.
-- Both tools use inclusive UTC `start_date` and `end_date` values in
-  `YYYY-MM-DD` format. A request can cover at most 366 days.
-- In nutrient results, `null` means unknown. `knownItemCount` and
-  `totalItemCount` show coverage; `complete` means every logged item has a
-  value. A known zero differs from `null`. Use the day's logged status to
-  distinguish an unlogged date from a logged date with zero totals.
+## Reading the data
+
+- Dates are calendar dates in `timezone`. The timezone is `UTC` until the owner
+  saves one, so check it before you compare a date with a local day.
+- `consumedAt`, `recordedAt` and `changedAt` are Unix milliseconds.
+- Amounts are rounded to three decimal places.
+- `null` means unknown. A known zero is `0`.
+- A day with entries is not proof that everything eaten was logged.
+- Today is in progress, so leave it out of averages.
+
+## Photos
+
+When an entry in `recentMeals` has `hasPhoto: true`, its image is at
+`/meal-photos/{id}`, using that entry's `id`. Photos are public only for
+entries of the last seven days.
+
+## Not public
+
+Captions, notes, assumptions, confidence, photo storage details, private
+settings, exports and credentials are not in either view. Every other path
+under `/api/` needs the owner's sign-in.
+
+## Private MCP endpoint
+
+`/mcp` is an MCP server over Streamable HTTP for the owner's own assistant. It
+is not public. Cloudflare Access protects it: an MCP client signs in as the
+owner through Access Managed OAuth, and the server checks the signed Access
+token on every request. Without that sign-in a request gets a login redirect or
+`401`. If you are not connected as the owner, use the public views above. Do
+not ask anyone for credentials.
+
+Tools:
+
+- `get_nutrition_summary`: daily totals, entry counts, nutrient coverage, the
+  current goals and the recorded goal changes for a date range.
+- `get_nutrition_history`: the meals and food items of a date range, in pages.
+  Continue with `next_cursor` and the same dates and `page_size`.
+- `get_weight_history`: the weights of a date range in kilograms, oldest first,
+  and the date of the first weight.
+- `add_meals`: logs new meals. It writes data.
+- `update_meal`: corrects a saved meal. It writes data.
+
+The read tools take inclusive `start_date` and `end_date` values in
+`YYYY-MM-DD` format, covering at most 366 days. The dates are days in the
+owner's saved timezone, the same as in the public views, and each nutrition
+result returns that `timezone`.
