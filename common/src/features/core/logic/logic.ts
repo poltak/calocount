@@ -38,6 +38,31 @@ export class InitializationCancelledError extends Error {
 type LifecycleState =
   "new" | "initializing" | "initialized" | "failed" | "cleaning" | "cleaned";
 
+/** The progress of one async operation, held in Logic state for the UI. */
+export type TaskState = "pristine" | "running" | "success" | "error";
+
+type Exactly<Actual, Expected> = [Actual] extends [Expected]
+  ? [Expected] extends [Actual]
+    ? true
+    : false
+  : false;
+
+/**
+ * Every name `foo` for which the state has both `fooState: TaskState` and
+ * `fooError: string | null`. A name without both fields does not compile.
+ */
+export type TaskName<State> = {
+  [Key in keyof State & string]: Key extends `${infer Name}State`
+    ? `${Name}Error` extends keyof State
+      ? Exactly<State[Key], TaskState> extends true
+        ? Exactly<State[`${Name}Error`], string | null> extends true
+          ? Name
+          : never
+        : never
+      : never
+    : never;
+}[keyof State & string];
+
 /** Stateful application logic with explicit state, dependencies, and lifecycle. */
 export abstract class Logic<
   Deps,
@@ -113,6 +138,38 @@ export abstract class Logic<
     const listeners = Array.from(this.stateListeners);
     for (const listener of listeners) {
       listener();
+    }
+  }
+
+  /**
+   * Run one async operation and record its progress in `<name>State` and
+   * `<name>Error`. A call made while the same task is running does nothing.
+   * A failure is recorded in state and never thrown to the caller.
+   */
+  protected async executeTask(
+    name: TaskName<State>,
+    task: () => Promise<void>,
+  ): Promise<void> {
+    const stateKey = `${name}State` as keyof State;
+    const errorKey = `${name}Error` as keyof State;
+    if (this.currentState[stateKey] === "running") {
+      return;
+    }
+
+    this.setState({
+      [stateKey]: "running",
+      [errorKey]: null,
+    } as Partial<State>);
+    try {
+      await task();
+      this.setState({ [stateKey]: "success" } as Partial<State>);
+    } catch (error) {
+      // After cleanup starts, setState ignores this, so a cancelled task
+      // records no error.
+      this.setState({
+        [stateKey]: "error",
+        [errorKey]: error instanceof Error ? error.message : String(error),
+      } as Partial<State>);
     }
   }
 

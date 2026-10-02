@@ -111,6 +111,22 @@ the protected `setState()`; do not mutate a snapshot in place. Other code
 changes state by calling the Logic's methods. Each plugin's state is observed
 separately from its consuming Logic's state.
 
+Run every async operation in a Logic method through the protected
+`executeTask()`:
+
+- The state declares two fields for each task: `<name>State`, of type
+  `TaskState`, and `<name>Error`, of type `string | null`. Calling
+  `executeTask("<name>", …)` without both fields does not compile.
+- `executeTask` sets `running` before its first `await`, then `success`, or
+  `error` with the error's message. It never throws. Callers and components read
+  the outcome from state.
+- A call made while the same task is running does nothing. Components should
+  also disable the control while the task runs.
+- Do not add separate `busy`, `loading`, or `error` fields for an operation.
+- A task function that stops early because another action cancelled its request
+  returns normally, and the task ends as `success`. The action that cancelled it
+  owns the resulting state.
+
 `emit` returns a promise. It calls every listener, waits for all listeners, and
 rejects with an `AggregateError` if any listener throws or rejects. Await `emit`
 when the caller needs the outcome. Use `emitDetached` when the caller does not
