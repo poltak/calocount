@@ -1,8 +1,10 @@
-import { Logic } from "@shadow/common/features/core/logic/logic";
+import {
+  Logic,
+  type TaskState,
+} from "@shadow/common/features/core/logic/logic";
 import {
   ApiRequestError,
   requireApiSuccess,
-  type ApiUser,
 } from "../../api/client/api-client.js";
 import type { App } from "../../core/types.js";
 import type { FrontendLogicProps } from "../../core/logic/types.js";
@@ -11,13 +13,29 @@ import { LatestRequest } from "../../core/logic/latest-request.js";
 type AuthProps = FrontendLogicProps<never, "windowFocus", "me" | "session"> &
   Pick<App, "apiAccessEvents">;
 interface AuthState {
-  status: "loading" | "signedOut" | "signedIn" | "error";
-  user: ApiUser | null;
-  busy: boolean;
+  isSignedIn: boolean;
+  userId: string | null;
+  userEmail: string | null;
+  userName: string | null;
+  /** The sign-in form's fields. */
   email: string;
   password: string;
-  error: string | null;
+  loadSessionState: TaskState;
+  loadSessionError: string | null;
+  signInState: TaskState;
+  signInError: string | null;
+  signOutState: TaskState;
+  signOutError: string | null;
+  setNameState: TaskState;
+  setNameError: string | null;
 }
+
+const SIGNED_OUT = {
+  isSignedIn: false,
+  userId: null,
+  userEmail: null,
+  userName: null,
+} satisfies Partial<AuthState>;
 
 /** Owned by the session provider. The protected backend profile decides access. */
 export class AuthLogic extends Logic<AuthProps, AuthState> {
@@ -27,12 +45,17 @@ export class AuthLogic extends Logic<AuthProps, AuthState> {
     super({
       deps,
       initialState: {
-        status: "loading",
-        user: null,
-        busy: false,
+        ...SIGNED_OUT,
         email: "",
         password: "",
-        error: null,
+        loadSessionState: "pristine",
+        loadSessionError: null,
+        signInState: "pristine",
+        signInError: null,
+        signOutState: "pristine",
+        signOutError: null,
+        setNameState: "pristine",
+        setNameError: null,
       },
     });
   }
@@ -41,20 +64,18 @@ export class AuthLogic extends Logic<AuthProps, AuthState> {
     this.registerCleanup(
       this.deps.apiAccessEvents.listen(() => {
         this.sessionChecks.cancel();
-        this.setState({
-          status: "signedOut",
-          user: null,
-          password: "",
-          error: null,
-        });
+        this.setState({ ...SIGNED_OUT, password: "" });
       }),
     );
     this.registerCleanup(
       this.deps.services.windowFocus.listen(() => {
-        void this.refresh();
+        // Only an open session can end while the user is away.
+        if (this.state.isSignedIn) {
+          void this.refresh();
+        }
       }),
     );
-    await this.loadSession();
+    await this.refresh();
   }
 
   setEmail(email: string): void {
@@ -65,63 +86,82 @@ export class AuthLogic extends Logic<AuthProps, AuthState> {
     this.setState({ password });
   }
 
-  async refresh(): Promise<void> {
-    if (!this.state.busy) {
-      await this.loadSession();
-    }
-  }
-
-  async signIn(): Promise<void> {
-    if (this.state.busy) {
-      return;
-    }
-    this.sessionChecks.cancel();
-    this.setState({ busy: true, error: null });
-    try {
-      const response = await this.deps.api.session.$post(
-        {
-          json: {
-            email: this.state.email.trim(),
-            password: this.state.password,
-          },
-        },
+  async setName(name: string): Promise<void> {
+    await this.executeTask("setName", async () => {
+      const response = await this.deps.api.me.$patch(
+        { json: { name } },
         { init: { signal: this.signal } },
       );
       await requireApiSuccess(response);
-      await this.loadSession();
-    } catch (error) {
-      this.setState({
-        status: "signedOut",
-        user: null,
-        error: error instanceof Error ? error.message : "Sign-in failed",
-      });
-    } finally {
-      this.setState({ busy: false, password: "" });
+      if (response.status !== 200) {
+        throw new Error("Unexpected profile response");
+      }
+      const { user } = await response.json();
+      this.setState({ userName: user.name });
+    });
+  }
+
+  async refresh(): Promise<void> {
+    if (this.isChangingSession()) {
+      return;
     }
+    await this.executeTask("loadSession", () => this.checkSession());
+  }
+
+  async signIn(): Promise<void> {
+    if (this.isChangingSession()) {
+      return;
+    }
+    await this.executeTask("signIn", async () => {
+      this.sessionChecks.cancel();
+      try {
+        const response = await this.deps.api.session.$post(
+          {
+            json: {
+              email: this.state.email.trim(),
+              password: this.state.password,
+            },
+          },
+          { init: { signal: this.signal } },
+        );
+        await requireApiSuccess(response);
+        await this.checkSession();
+        if (!this.state.isSignedIn) {
+          throw new Error("Sign-in did not start a session");
+        }
+      } finally {
+        this.setState({ password: "" });
+      }
+    });
   }
 
   async signOut(): Promise<void> {
-    if (this.state.busy) {
+    if (this.isChangingSession()) {
       return;
     }
-    this.sessionChecks.cancel();
-    this.setState({ busy: true, error: null });
-    try {
+    await this.executeTask("signOut", async () => {
+      this.sessionChecks.cancel();
       const response = await this.deps.api.session.$delete(undefined, {
         init: { signal: this.signal },
       });
       await requireApiSuccess(response);
-      this.setState({ status: "signedOut", user: null, password: "" });
-    } catch (error) {
-      this.setState({
-        error: error instanceof Error ? error.message : "Sign-out failed",
-      });
-    } finally {
-      this.setState({ busy: false });
-    }
+      this.setState({ ...SIGNED_OUT, password: "" });
+    });
   }
 
-  private async loadSession(): Promise<void> {
+  /** Signing in and out each replace the session, so neither overlaps the other. */
+  private isChangingSession(): boolean {
+    return (
+      this.state.signInState === "running" ||
+      this.state.signOutState === "running"
+    );
+  }
+
+  /**
+   * Ask the backend who is signed in and store the answer. A cancelled check
+   * stores nothing, because the action that cancelled it owns the result.
+   */
+  private async checkSession(): Promise<void> {
     const signal = this.sessionChecks.start();
     try {
       const response = await this.deps.api.me.$get(undefined, {
@@ -135,24 +175,22 @@ export class AuthLogic extends Logic<AuthProps, AuthState> {
       if (signal.aborted) {
         return;
       }
-      this.setState({ status: "signedIn", user, error: null });
+      this.setState({
+        isSignedIn: true,
+        userId: user.id,
+        userEmail: user.email,
+        userName: user.name,
+      });
     } catch (error) {
       if (signal.aborted) {
         return;
       }
-      const denied =
-        error instanceof ApiRequestError &&
-        (error.status === 401 || error.status === 403);
-      this.setState({
-        status: denied ? "signedOut" : "error",
-        user: null,
-        error:
-          error instanceof ApiRequestError && error.status === 401
-            ? null
-            : error instanceof Error
-              ? error.message
-              : "Unable to check your session",
-      });
+      this.setState(SIGNED_OUT);
+      // Having no session is an answer, not a failure.
+      if (error instanceof ApiRequestError && error.status === 401) {
+        return;
+      }
+      throw error;
     }
   }
 }

@@ -12,9 +12,14 @@ export function LoginPage() {
     !returnTo.startsWith("/login")
       ? returnTo
       : "/";
-  if (state.status === "signedIn") {
+  if (state.isSignedIn) {
     return <Navigate to={destination} replace />;
   }
+  const checkingSession =
+    state.loadSessionState === "pristine" ||
+    state.loadSessionState === "running";
+  const signingIn = state.signInState === "running";
+  const error = state.signInError ?? state.loadSessionError;
   return (
     <section className="login-panel">
       <h1>Sign in to Shadow</h1>
@@ -33,7 +38,7 @@ export function LoginPage() {
           required
           value={state.email}
           onChange={(event) => logic.setEmail(event.target.value)}
-          disabled={state.busy || state.status === "loading"}
+          disabled={signingIn || checkingSession}
         />
         <label htmlFor="password">Password</label>
         <input
@@ -44,15 +49,12 @@ export function LoginPage() {
           required
           value={state.password}
           onChange={(event) => logic.setPassword(event.target.value)}
-          disabled={state.busy || state.status === "loading"}
+          disabled={signingIn || checkingSession}
         />
-        {state.error && <p role="alert">{state.error}</p>}
-        {state.status === "loading" && <output>Checking your session…</output>}
-        <button
-          type="submit"
-          disabled={state.busy || state.status === "loading"}
-        >
-          {state.busy ? "Signing in…" : "Sign in"}
+        {error && <p role="alert">{error}</p>}
+        {checkingSession && <output>Checking your session…</output>}
+        <button type="submit" disabled={signingIn || checkingSession}>
+          {signingIn ? "Signing in…" : "Sign in"}
         </button>
       </form>
     </section>

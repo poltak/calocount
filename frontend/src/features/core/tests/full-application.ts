@@ -1,5 +1,6 @@
 import { createTestBackend } from "backend/testing";
 import { onTestFinished } from "vitest";
+import type { OwnedLogic } from "../logic/use-logic.js";
 import { createApp } from "./index.js";
 
 export const TEST_OWNER_CREDENTIALS = {
@@ -45,4 +46,32 @@ export async function createFullApplication({
     /** The owner account as the database holds it at the start of the test. */
     owner,
   };
+}
+
+export type FullApplication = Awaited<ReturnType<typeof createFullApplication>>;
+
+/** The test's own database, for reading and changing rows directly. */
+export type TestDatabase = FullApplication["backend"]["db"];
+
+export interface LogicTestParams extends FullApplicationParams {
+  /** Leave the Logic uninitialized, for tests of initialization itself. */
+  skipInitialization?: boolean;
+}
+
+/**
+ * A full application plus the UI Logic under test, initialized unless the test
+ * opts out. The Logic is cleaned up before the backend closes, so a test body
+ * needs no teardown.
+ */
+export async function setupLogicTest<Instance extends OwnedLogic<object>>(
+  { skipInitialization = false, ...applicationParams }: LogicTestParams,
+  createLogic: (app: FullApplication) => Instance,
+) {
+  const app = await createFullApplication(applicationParams);
+  const logic = createLogic(app);
+  onTestFinished(() => logic.cleanup());
+  if (!skipInitialization) {
+    await logic.initialize();
+  }
+  return { ...app, logic };
 }

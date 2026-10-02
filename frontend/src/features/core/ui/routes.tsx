@@ -20,13 +20,16 @@ function ProtectedLayout() {
           <NavLink to="/examples/api/example-encounter">API example</NavLink>
         </nav>
         <div className="session-actions">
-          <span>{state.user?.name}</span>
-          <button disabled={state.busy} onClick={() => void logic.signOut()}>
+          <span>{state.userName}</span>
+          <button
+            disabled={state.signOutState === "running"}
+            onClick={() => void logic.signOut()}
+          >
             Sign out
           </button>
         </div>
       </header>
-      {state.error && <p role="alert">{state.error}</p>}
+      {state.signOutError && <p role="alert">{state.signOutError}</p>}
       <main>
         <Outlet />
       </main>

@@ -111,6 +111,12 @@ the protected `setState()`; do not mutate a snapshot in place. Other code
 changes state by calling the Logic's methods. Each plugin's state is observed
 separately from its consuming Logic's state.
 
+Keep Logic state flat: one top-level field per value, such as `userName`, not a
+nested `user` object. `setState()` merges and compares only top-level fields, so
+changing one value inside a nested object needs a copy of the object, and the
+object always counts as changed. Nest only collections, such as a list of
+records, and values that are always replaced as a whole.
+
 Run every async operation in a Logic method through the protected
 `executeTask()`:
 
