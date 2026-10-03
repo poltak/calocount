@@ -10,7 +10,7 @@
         "src/features/core/live/index.ts",
         "src/features/core/tests/index.ts",
         "src/features/core/server/start.ts",
-        "src/features/auth/scripts/migrate.ts",
+        "src/features/core/scripts/migrate.ts",
         "src/features/auth/scripts/setup-owner.ts",
       ],
     },

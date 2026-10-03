@@ -17,6 +17,27 @@ entry to the choice, the reason, and any rule that follows from it.
   own in-memory PostgreSQL database, so tests run real queries without a
   database server and cannot affect each other. Kysely chosen for ease of
   switching between real vs in-memory Postgres, without changing interfacing code (Storage classes).
+- **Schema migrations are TypeScript files that run plain SQL, in one
+  directory.** The schema history is one sequence for the whole database, so
+  the files are in `core/database/migrations/` and not in each feature. A
+  directory for each feature would still need one list for the order, and
+  would have no place for a migration that changes two features' tables. Plain
+  `.sql` files are not used, because `tsc` does not copy them to `dist` and
+  Kysely's migrator takes modules.
+- **A migration's name starts with its creation time in seconds.** Kysely's
+  migrator runs migrations in name order, so a new one sorts last. Branches
+  merge in any order, so the migrator may apply an older name after a newer
+  one ran (`allowUnorderedMigrations`). A branch whose migration depends on
+  another already contains that other migration, so this is safe.
+- **The list of migrations is generated, and explicit.** A scan of `dist` at
+  run time would also find the compiled file of a migration that was renamed
+  or deleted, because `tsc` leaves old output in place. The create script
+  writes `migrations.ts` from the directory instead.
+- **Migrations only go forward.** There is no `down`. To undo a change, write a
+  new migration.
+- **Application tables and columns use camelCase, like Better Auth's.** One
+  convention in the database needs no name mapping in Kysely. SQL must then
+  quote each name.
 - **A typed first-party API client instead of feature Service wrappers.** Hono's
   client derives request and response types from the backend routes through a
   type-only export. This couples builds to the contract, not browser code to the
@@ -87,9 +108,10 @@ entry to the choice, the reason, and any rule that follows from it.
   experience; they are not a security control.
 - **Requests that change state must come from a trusted origin.** CORS allows
   only the configured origins, and every `/api` mutation is checked again.
-- **Auth schema migration is an explicit command.** Server startup neither
-  migrates nor creates users. Review dependency upgrades before migrating a
-  populated database.
+- **Schema migration is an explicit command.** Server startup neither migrates
+  nor creates users. `db:migrate` applies Better Auth's schema changes first,
+  then the application's migrations, which can refer to the auth tables.
+  Review dependency upgrades before migrating a populated database.
 
 ## Frontend
 

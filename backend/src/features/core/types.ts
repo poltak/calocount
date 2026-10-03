@@ -12,11 +12,14 @@ import type { HealthLogic } from "../health/logic/health-logic.js";
 import type { HealthStorage } from "../health/storage/health-storage.js";
 import type { PatientRecordsServiceInterface } from "../patient-records/services/types.js";
 import type { TranscriptionServiceInterface } from "../transcription/services/types.js";
+import type { MigrationLogic } from "./logic/migration-logic.js";
+import type { MigrationStorage } from "./storage/migration-storage.js";
 
 export interface BackendStorage {
   auth: AuthStorage;
   encounterLifecycle: EncounterLifecycleStorage;
   health: HealthStorage;
+  migration: MigrationStorage;
 }
 
 /**
@@ -41,6 +44,7 @@ export interface BackendLogic {
   ownerSetup: OwnerSetupLogic;
   encounterLifecycle: EncounterLifecycleLogic;
   health: HealthLogic;
+  migration: MigrationLogic;
 }
 
 export interface App {

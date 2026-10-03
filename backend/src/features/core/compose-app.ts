@@ -15,6 +15,8 @@ import type {
   BackendStorage,
 } from "./types.js";
 import { cleanupLogic } from "./logic/lifecycle.js";
+import { MigrationLogic } from "./logic/migration-logic.js";
+import { MigrationStorage } from "./storage/migration-storage.js";
 
 interface ComposeAppProps {
   db: Database;
@@ -31,6 +33,7 @@ export function composeApp({ db, services, ownerEmail }: ComposeAppProps): App {
     auth: new AuthStorage({ db }),
     encounterLifecycle: new EncounterLifecycleStorage({ db }),
     health: new HealthStorage({ db }),
+    migration: new MigrationStorage({ db }),
   };
 
   const logic: BackendLogic = {
@@ -40,6 +43,7 @@ export function composeApp({ db, services, ownerEmail }: ComposeAppProps): App {
     ownerSetup: new OwnerSetupLogic({ storage, services, ownerEmail }),
     encounterLifecycle: new EncounterLifecycleLogic({ storage, services }),
     health: new HealthLogic({ storage, services }),
+    migration: new MigrationLogic({ storage, services }),
   };
 
   return {

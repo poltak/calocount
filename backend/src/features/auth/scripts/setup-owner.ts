@@ -52,7 +52,7 @@ async function credentials() {
 try {
   const app = createApp();
   try {
-    await app.services.auth.migrate();
+    await app.logic.migration.migrate();
     await app.logic.ownerSetup.initialize();
     await app.logic.ownerSetup.createOwner(await credentials());
     console.log("Owner account created. Public registration remains disabled.");

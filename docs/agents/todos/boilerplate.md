@@ -127,18 +127,15 @@ start CI. On a private repository, each run uses the plan's Actions minutes.
 
 ## What the template still needs
 
-Items 5, 8, 9, 10, and 11 are done. Recommended order for the others: decide
-items 1, 3, 4, and 6, then build item 2 as one "notes" feature, which uses the
-results of items 1, 3, and 4. Then do item 18. Items 12 to 17 wait until the
+Checked items are done. Recommended order for the others: items 6 and 3, then
+item 2 as one "notes" feature, then item 18. Items 12 to 17 wait until the
 template repository is made.
 
 ### Gaps that stop the first real feature
 
-- [ ] 1. **Migrations for application tables.** `DatabaseSchema` holds only the
-      auth tables ([database.ts](../../../backend/src/features/core/database/database.ts)),
-      and the only migrate command is Better Auth's. The test snapshot in
-      [api.ts](../../../backend/src/features/core/tests/api.ts) runs only the
-      auth migration.
+- [x] 1. **Migrations for application tables.** `pnpm run db:migration:create`
+      creates a migration and `pnpm run db:migrate` applies them. The rules are
+      in [code architecture](../code-architecture.md#database-schema).
 - [ ] 2. **A complete example feature.** No code shows an application table, a
       Storage query, a list page, a LogicPlugin, or frontend Storage. The
       `examples` feature calls the `encounters` routes
@@ -161,7 +158,7 @@ template repository is made.
 - [ ] 7. **A deployment path.** Host-specific files stay out of the template.
       Done: the health routes, JSON logs, and the production notes in
       [setup](../setup.md). Open: an option for the backend to serve the
-      frontend build from one origin, and one migrate command (item 1).
+      frontend build from one origin.
 - [x] 8. **Health routes.** `GET /health` and `GET /health/ready`.
 - [x] 9. **Logging.** The logger Core Service, a request log with request IDs,
       and a lint rule against `console`. Error tracking is still open in
@@ -208,19 +205,6 @@ template repository is made.
 
 These are proposals. The owner has not decided them.
 
-- **1. Migrations.** Keep all migrations in one directory,
-  `backend/src/features/core/database/migrations/`, because the schema history
-  is one sequence for the whole database. A directory for each feature would
-  still need one central list for the order, and has no good place for a
-  migration that changes the tables of two features. Each feature keeps its
-  table types in its `storage/types.ts`. Each migration is a TypeScript file
-  named `0001-create-notes.ts` whose `up` function runs plain SQL through
-  Kysely's `sql` tag. One module lists the files with explicit imports and
-  gives them to Kysely's built-in `Migrator`, which applies them in name order
-  and records them in its own table. Plain `.sql` files are not used, because
-  `tsc` does not copy them to `dist` and Kysely's `Migrator` takes modules. One
-  `db:migrate` command runs the auth migration and then this list, and the
-  test snapshot calls the same function. Migrations go forward only.
 - **2. Example feature.** "Notes" for the signed-in user: a list with search,
   a create form, an edit form that keeps each earlier version, and delete. It
   covers a migration, Storage queries, `LatestRequest`, field errors, a

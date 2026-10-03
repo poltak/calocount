@@ -32,7 +32,7 @@ async function createTemplate(
   let owner!: AuthUser;
   const snapshot = await createDatabaseSnapshot(async (db) => {
     const app = createApp({ db });
-    await app.services.auth.migrate();
+    await app.logic.migration.migrate();
     owner = await app.logic.ownerSetup.createOwner(credentials);
   });
   return { snapshot, owner };

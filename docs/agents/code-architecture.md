@@ -396,6 +396,24 @@ request ID and answers with `INTERNAL` and no detail. Every response carries
 its request ID in the `X-Request-Id` header, so a report from a user leads to
 the log entry.
 
+## Database schema
+
+A change to the schema is a migration: one file in
+`backend/src/features/core/database/migrations/`. Create it with
+`pnpm run db:migration:create <name>`. The script names the file with the
+current time, and rewrites the list in `migrations.ts`. Do not edit that list
+by hand.
+
+- Write plain SQL in the migration's `up` function, with one statement for
+  each `sql` call. The test database rejects a call that holds several.
+- Name tables and columns in camelCase, as the auth tables are, and quote each
+  name in SQL: `"note" ("userId")`.
+- Do not change or rename a migration after it is merged. A database that
+  already ran it does not get the change. Write a new migration.
+- Declare the table's row type in the owning feature's `storage/types.ts` and
+  add it to `DatabaseSchema`, in the same change as the migration.
+- Migrations only go forward. To undo a change, write a new migration.
+
 ## Logging
 
 Write diagnostic output through the logger Core Service. Do not call `console`.

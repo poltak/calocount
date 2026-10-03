@@ -36,9 +36,9 @@ pnpm exec node --input-type=module -e 'import { randomBytes } from "node:crypto"
 
 1. Run `pnpm install`.
 2. Create `.env` as described above.
-3. Run `pnpm --filter backend auth:setup-owner` in a terminal. It creates the
-   auth tables and prompts for the owner's name and password. It needs an
-   interactive terminal; a password is never accepted as an argument.
+3. Run `pnpm --filter backend auth:setup-owner` in a terminal. It applies the
+   schema migrations and prompts for the owner's name and password. It needs
+   an interactive terminal; a password is never accepted as an argument.
 4. Run `pnpm run dev`, then open `http://localhost:5173`.
 
 ## Development
@@ -59,6 +59,18 @@ waits for up to 10 seconds and does not fail.
 
 A change to `.env` needs a restart of `pnpm run dev`.
 
+## Database migrations
+
+- `pnpm run db:migration:create <name>` creates a migration file in
+  `backend/src/features/core/database/migrations/` and adds it to the list.
+  The rules for its content are in
+  [code architecture](code-architecture.md#database-schema).
+- `pnpm run db:migrate` applies every migration that the database in
+  `DATABASE_URL` does not have yet. It prints the database name and host first.
+- To migrate another database, set the URL for that one command:
+  `DATABASE_URL=postgresql://… pnpm run db:migrate`. The other required
+  variables still come from `.env`.
+
 ## Production
 
 The repository has no deployment files yet. These facts hold on any host:
@@ -74,26 +86,27 @@ The repository has no deployment files yet. These facts hold on any host:
   Without it, every caller has the proxy's address and shares one sign-in rate
   limit.
 - Use an HTTPS `BETTER_AUTH_URL`. Session cookies are then `Secure`.
-- Run `pnpm --filter backend auth:migrate` after an upgrade of Better Auth and
-  before the first start. It also creates the table for the rate limits.
+- Run `pnpm run db:migrate` before the first start and before the start of
+  each new version. The server does not migrate by itself.
 
 ## Commands
 
-| Command                                  | Purpose                                                |
-| ---------------------------------------- | ------------------------------------------------------ |
-| `pnpm run dev`                           | Start the backend and the frontend in watch mode.      |
-| `pnpm run check`                         | Every check that CI runs, with the steps in parallel.  |
-| `pnpm run typecheck`                     | Type-check all workspaces.                             |
-| `pnpm run build`                         | Build all workspaces.                                  |
-| `pnpm run test`                          | Hook tests, then every workspace's tests.              |
-| `pnpm run lint`                          | Lint the workspaces.                                   |
-| `pnpm run format`                        | Format every file with Prettier.                       |
-| `pnpm --filter backend dev`              | Start only the backend in watch mode.                  |
-| `pnpm --filter backend start`            | Start the built backend server, without watch mode.    |
-| `pnpm --filter backend auth:migrate`     | Apply auth schema updates without creating an account. |
-| `pnpm --filter backend auth:setup-owner` | Create the owner account.                              |
-| `pnpm --filter frontend dev`             | Start only the frontend dev server.                    |
-| `pnpm --filter frontend test`            | Run the frontend tests and print the coverage report.  |
+| Command                                  | Purpose                                               |
+| ---------------------------------------- | ----------------------------------------------------- |
+| `pnpm run dev`                           | Start the backend and the frontend in watch mode.     |
+| `pnpm run check`                         | Every check that CI runs, with the steps in parallel. |
+| `pnpm run typecheck`                     | Type-check all workspaces.                            |
+| `pnpm run build`                         | Build all workspaces.                                 |
+| `pnpm run test`                          | Hook tests, then every workspace's tests.             |
+| `pnpm run lint`                          | Lint the workspaces.                                  |
+| `pnpm run format`                        | Format every file with Prettier.                      |
+| `pnpm --filter backend dev`              | Start only the backend in watch mode.                 |
+| `pnpm --filter backend start`            | Start the built backend server, without watch mode.   |
+| `pnpm run db:migrate`                    | Apply the schema migrations to the database.          |
+| `pnpm run db:migration:create <name>`    | Create a schema migration file.                       |
+| `pnpm --filter backend auth:setup-owner` | Create the owner account.                             |
+| `pnpm --filter frontend dev`             | Start only the frontend dev server.                   |
+| `pnpm --filter frontend test`            | Run the frontend tests and print the coverage report. |
 
 Frontend development, type checks, and tests build the backend and `common`
 first, because the frontend takes its API types from the backend's build output.
