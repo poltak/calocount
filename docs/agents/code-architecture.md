@@ -97,7 +97,8 @@ other files or directories at the top of `src/`.
 - `services/`: the Core Services.
 - Backend `server/` (the HTTP app, startup, and the API contract type),
   `database/`, `storage/`, `errors/`, and `handlers/`.
-- Frontend `ui/`: the route table, the App provider, and global styles.
+- Frontend `ui/`: the route table, the App provider, the error boundary, and
+  global styles.
 
 The frontend's `features/api/` holds the typed first-party API client and its
 events.
@@ -334,6 +335,13 @@ long periods, because a Logic cannot restart after cleanup.
 The owning hook needs the App provider above it. A failed initialization or
 cleanup goes to the hook's `onError`, or to the logger when the owner passes
 none.
+
+A rendering error is a defect in a component. Two error boundaries keep it from
+blanking the page. One is around the route outlet: it leaves the header usable
+and clears on navigation. The other is around the whole app. Add a boundary
+around another part of a page only when that part can fail by itself. The
+root's error callbacks in `main.tsx` log every rendering error, so a boundary
+only shows its fallback.
 
 When repeated requests write the same state, such as refetching on focus,
 polling, refresh buttons, or search-as-you-type, keep one `LatestRequest` per

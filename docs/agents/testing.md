@@ -111,10 +111,14 @@ A few files that are not Logic classes have tests of their own:
   there only for behavior of the HTTP app itself. A route that a UI Logic calls
   gets its tests through that Logic.
 
-No test covers two things that only a real browser can show. One is that the
-client sends cookies to a backend on another origin (`credentials: "include"`).
-The other is how it joins a configured base URL. Check both by hand when
-changing the client.
+No test covers these things, which only a real browser can show. Check them by
+hand when changing the code involved:
+
+- The client sends cookies to a backend on another origin
+  (`credentials: "include"`).
+- The client joins a configured base URL correctly.
+- The error boundaries show their fallbacks. To check, throw an error in a page
+  component while the app runs.
 
 ## Coverage
 

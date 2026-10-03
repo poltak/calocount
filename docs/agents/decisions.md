@@ -98,6 +98,10 @@ entry to the choice, the reason, and any rule that follows from it.
 - **React Router in declarative mode.** Chosen for familiar component routes in
   a small single-page app. Live rendering uses `BrowserRouter` and tests use
   `MemoryRouter`. Framework mode and server rendering are not needed.
+- **The error boundary is our own class component.** It is about 50 lines, so
+  a package is not necessary. Its fallback offers "Try again", which mounts the
+  failed part again from a new start. It does not reload the page, because
+  only Services and `main.tsx` may use browser globals.
 
 ## Testing
 
