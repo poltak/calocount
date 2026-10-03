@@ -46,4 +46,13 @@ export interface AuthTables {
     createdAt: Date;
     updatedAt: Date;
   };
+  /** One row for each caller address and auth route that the rate limits count. */
+  rateLimit: {
+    id: string;
+    /** The caller's address and the auth route, as `<address>|<route>`. */
+    key: string;
+    count: number;
+    /** Milliseconds since the epoch. `pg` returns a string, PGlite a number. */
+    lastRequest: string | number;
+  };
 }

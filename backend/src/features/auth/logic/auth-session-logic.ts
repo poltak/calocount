@@ -5,6 +5,7 @@ import type {
   AuthUser,
   PasswordSignInResult,
   SessionChange,
+  SessionRequest,
 } from "../services/types.js";
 
 type AuthSessionProps = BackendLogicProps<never, "auth">;
@@ -38,11 +39,9 @@ export class AuthSessionLogic extends Logic<
     super({ deps, initialState: {} });
   }
 
-  async signIn(props: {
-    email: string;
-    password: string;
-    requestHeaders: Headers;
-  }): Promise<{ user: AuthUser } & SessionChange> {
+  async signIn(
+    props: SessionRequest & { email: string; password: string },
+  ): Promise<{ user: AuthUser } & SessionChange> {
     const result = await this.deps.services.auth.signInWithPassword(props);
     if (!result.ok) {
       throw new AppError(signInErrors[result.reason]);
@@ -50,7 +49,7 @@ export class AuthSessionLogic extends Logic<
     return { user: result.user, responseHeaders: result.responseHeaders };
   }
 
-  signOut(props: { requestHeaders: Headers }): Promise<SessionChange> {
+  signOut(props: SessionRequest): Promise<SessionChange> {
     return this.deps.services.auth.signOut(props);
   }
 }

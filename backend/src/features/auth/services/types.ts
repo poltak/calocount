@@ -30,18 +30,26 @@ export type PasswordSignInResult =
       reason: "invalidCredentials" | "rateLimited" | "untrustedOrigin";
     };
 
+/**
+ * What the provider needs to know about the caller of a session route. The
+ * request headers carry the caller's origin for the provider's origin check.
+ * The provider counts attempts for its rate limits by `clientAddress`. Callers
+ * without an address share one count.
+ */
+export interface SessionRequest {
+  requestHeaders: Headers;
+  clientAddress?: string;
+}
+
 /** Authentication boundary. Session identity belongs to the request, never this Service. */
 export interface AuthServiceInterface {
   readonly trustedOrigins: readonly string[];
   getSession(props: { headers: Headers }): Promise<AuthSession | null>;
-  /** Request headers carry the caller's origin and address for the provider's checks. */
-  signInWithPassword(props: {
-    email: string;
-    password: string;
-    requestHeaders: Headers;
-  }): Promise<PasswordSignInResult>;
+  signInWithPassword(
+    props: SessionRequest & { email: string; password: string },
+  ): Promise<PasswordSignInResult>;
   /** End the caller's session. Succeeds when there is no session. */
-  signOut(props: { requestHeaders: Headers }): Promise<SessionChange>;
+  signOut(props: SessionRequest): Promise<SessionChange>;
   /** Rename the user who owns the session in the request headers. */
   updateName(props: { name: string; requestHeaders: Headers }): Promise<void>;
   migrate(): Promise<void>;

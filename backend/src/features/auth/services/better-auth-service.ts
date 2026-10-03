@@ -11,12 +11,20 @@ import type {
   AuthUser,
   PasswordSignInResult,
   SessionChange,
+  SessionRequest,
 } from "./types.js";
 
 interface BetterAuthServiceDeps extends AuthConfiguration {
   db: Database;
   logger: LoggerServiceInterface;
 }
+
+/**
+ * The only header from which the SDK reads the caller's address. `dispatch`
+ * sets it from a value the transport determined, so a caller cannot choose
+ * the address that the rate limits count.
+ */
+const CLIENT_ADDRESS_HEADER = "x-client-address";
 
 /** Embedded authentication. Better Auth owns its auth-table persistence. */
 export class BetterAuthService implements AuthServiceInterface {
@@ -37,6 +45,11 @@ export class BetterAuthService implements AuthServiceInterface {
       baseURL: this.deps.baseUrl,
       trustedOrigins: [...this.trustedOrigins],
       emailAndPassword: { enabled: true, disableSignUp: true },
+      // The SDK turns its rate limits on only when NODE_ENV is "production",
+      // and counts in process memory. Here they are always on, and the counts
+      // are in the database, so every server instance shares them.
+      rateLimit: { enabled: true, storage: "database" as const },
+      advanced: { ipAddress: { ipAddressHeaders: [CLIENT_ADDRESS_HEADER] } },
       logger: {
         log: (level: LogLevel, message: string, ...details: unknown[]) => {
           this.deps.logger[level](
@@ -67,14 +80,13 @@ export class BetterAuthService implements AuthServiceInterface {
   async signInWithPassword({
     email,
     password,
-    requestHeaders,
-  }: {
+    ...request
+  }: SessionRequest & {
     email: string;
     password: string;
-    requestHeaders: Headers;
   }): Promise<PasswordSignInResult> {
     const response = await this.dispatch("/sign-in/email", {
-      requestHeaders,
+      ...request,
       body: { email, password },
     });
     if (response.ok) {
@@ -97,13 +109,9 @@ export class BetterAuthService implements AuthServiceInterface {
     throw new Error(`Sign-in failed with status ${response.status}`);
   }
 
-  async signOut({
-    requestHeaders,
-  }: {
-    requestHeaders: Headers;
-  }): Promise<SessionChange> {
+  async signOut(request: SessionRequest): Promise<SessionChange> {
     const response = await this.dispatch("/sign-out", {
-      requestHeaders,
+      ...request,
       body: {},
     });
     if (!response.ok) {
@@ -131,11 +139,16 @@ export class BetterAuthService implements AuthServiceInterface {
    */
   private dispatch(
     path: string,
-    { requestHeaders, body }: { requestHeaders: Headers; body: object },
+    { requestHeaders, clientAddress, body }: SessionRequest & { body: object },
   ): Promise<Response> {
     const headers = new Headers(requestHeaders);
     headers.set("content-type", "application/json");
     headers.delete("content-length");
+    // Drop a value that the caller sent in this header itself.
+    headers.delete(CLIENT_ADDRESS_HEADER);
+    if (clientAddress) {
+      headers.set(CLIENT_ADDRESS_HEADER, clientAddress);
+    }
     const url = new URL(`/api/auth${path}`, this.deps.baseUrl);
     return this.instance().handler(
       new Request(url, {

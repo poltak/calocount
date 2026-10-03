@@ -9,6 +9,7 @@ import { createProfileHandlers } from "../../auth/handlers/profile-handlers.js";
 import { createSessionHandlers } from "../../auth/handlers/session-handlers.js";
 import type { AuthEnvironment } from "../../auth/handlers/types.js";
 import { AppError } from "../errors/app-error.js";
+import { resolveClientAddress } from "../handlers/client-address.js";
 import {
   createErrorHandler,
   handleNotFound,
@@ -22,12 +23,17 @@ import type { App } from "../types.js";
 /** The server refuses a larger request body. Raise it for a route that takes uploads. */
 const MAX_REQUEST_BODY_BYTES = 100 * 1024;
 
-interface HttpAppProps {
+interface ApiHttpAppProps {
   app: Pick<App, "logic" | "services">;
 }
 
+interface HttpAppProps extends ApiHttpAppProps {
+  /** Set it only behind a proxy. See `resolveClientAddress`. */
+  clientAddressHeader?: string;
+}
+
 /** Every business route, including future routes, shares the authentication gate. */
-function createBusinessHttpApp({ app }: HttpAppProps) {
+function createBusinessHttpApp({ app }: ApiHttpAppProps) {
   return new Hono<AuthEnvironment>()
     .use("*", requireSession({ services: app.services, logic: app.logic }))
     .route("/me", createProfileHandlers({ logic: app.logic }))
@@ -41,14 +47,14 @@ function createBusinessHttpApp({ app }: HttpAppProps) {
  * Routes under `/api`. Session routes come first so they stay reachable
  * without a session; every other route passes the authentication gate.
  */
-export function createApiHttpApp({ app }: HttpAppProps) {
+export function createApiHttpApp({ app }: ApiHttpAppProps) {
   return new Hono()
     .use("*", requireTrustedOrigin({ services: app.services }))
     .route("/session", createSessionHandlers({ logic: app.logic }))
     .route("/", createBusinessHttpApp({ app }));
 }
 
-export function createHttpApp({ app }: HttpAppProps) {
+export function createHttpApp({ app, clientAddressHeader }: HttpAppProps) {
   return (
     new Hono<RequestEnvironment>()
       .use("*", requestId())
@@ -77,6 +83,7 @@ export function createHttpApp({ app }: HttpAppProps) {
           },
         }),
       )
+      .use("*", resolveClientAddress({ header: clientAddressHeader }))
       .route("/api", createApiHttpApp({ app }))
       .onError(createErrorHandler({ services: app.services }))
       .notFound(handleNotFound)

@@ -15,7 +15,10 @@ try {
   throw error;
 }
 
-const httpApp = createHttpApp({ app });
+const httpApp = createHttpApp({
+  app,
+  clientAddressHeader: config.server.clientAddressHeader,
+});
 const server = serve(
   {
     fetch: httpApp.fetch,

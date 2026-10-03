@@ -25,6 +25,16 @@ async function readSessionUserIds(db: TestDatabase) {
   return sessions.map((session) => session.userId);
 }
 
+/** The auth SDK counts sign-in attempts in one row for each caller address. */
+async function readSignInAttemptCounts(db: TestDatabase) {
+  const rows = await db
+    .selectFrom("rateLimit")
+    .select("count")
+    .where("key", "like", "%/sign-in/email")
+    .execute();
+  return rows.map((row) => row.count);
+}
+
 describe("AuthLogic tests", () => {
   it("should afford successful updating existing user's name", async () => {
     const { backend, logic, owner } = await setupTest();
@@ -181,6 +191,33 @@ describe("AuthLogic tests", () => {
     expect(logic.state.userId).toEqual(null);
     expect(logic.state.password).toEqual("");
     expect(await readSessionUserIds(backend.db)).toEqual([]);
+  });
+
+  it("should refuse a fourth sign-in attempt in a short time, even with the correct password", async () => {
+    const { backend, logic } = await setupTest({ authenticated: false });
+    logic.setEmail(TEST_OWNER_CREDENTIALS.email);
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      logic.setPassword("wrong-password");
+      await logic.signIn();
+      expect(logic.state.signInError).toEqual("Invalid email or password");
+    }
+    logic.setPassword(TEST_OWNER_CREDENTIALS.password);
+
+    expect(logic.state.isSignedIn).toEqual(false);
+    expect(await readSignInAttemptCounts(backend.db)).toEqual([3]);
+
+    const signInP = logic.signIn();
+    expect(logic.state.signInState).toEqual("running");
+    await signInP;
+
+    expect(logic.state.signInState).toEqual("error");
+    expect(logic.state.signInError).toEqual(
+      "Too many sign-in attempts. Try again later.",
+    );
+    expect(logic.state.isSignedIn).toEqual(false);
+    expect(logic.state.password).toEqual("");
+    expect(await readSessionUserIds(backend.db)).toEqual([]);
+    expect(await readSignInAttemptCounts(backend.db)).toEqual([3]);
   });
 
   it("should not admit another account even when its password is correct", async () => {

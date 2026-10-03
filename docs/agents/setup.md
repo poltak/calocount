@@ -12,18 +12,19 @@ Backend commands read the root `.env`. Values already set in the process
 environment take precedence. Copy `.env.example` to `.env` and keep `.env`
 private and untracked.
 
-| Variable                 | Required | Meaning                                                                     |
-| ------------------------ | -------- | --------------------------------------------------------------------------- |
-| `DATABASE_URL`           | Yes      | PostgreSQL connection URL.                                                  |
-| `BETTER_AUTH_SECRET`     | Yes      | Session secret, at least 32 characters. No default exists.                  |
-| `BETTER_AUTH_URL`        | Yes      | The backend's HTTP(S) origin, without a path.                               |
-| `SHADOW_OWNER_EMAIL`     | Yes      | Email of the one account allowed to use the app.                            |
-| `SHADOW_TRUSTED_ORIGINS` | No       | Comma-separated frontend origins allowed to call the API.                   |
-| `HOST`                   | No       | Address the server binds to. Default `127.0.0.1`.                           |
-| `PORT`                   | No       | Port the server listens on. Default `3000`.                                 |
-| `LOG_FORMAT`             | No       | `json` (default) or `pretty`. `.env.example` sets `pretty` for development. |
-| `LOG_LEVEL`              | No       | Lowest level to log: `debug`, `info` (default), `warn`, or `error`.         |
-| `VITE_API_BASE_URL`      | No       | Frontend only. API location when it is not served from the page's origin.   |
+| Variable                       | Required | Meaning                                                                               |
+| ------------------------------ | -------- | ------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                 | Yes      | PostgreSQL connection URL.                                                            |
+| `BETTER_AUTH_SECRET`           | Yes      | Session secret, at least 32 characters. No default exists.                            |
+| `BETTER_AUTH_URL`              | Yes      | The backend's HTTP(S) origin, without a path.                                         |
+| `SHADOW_OWNER_EMAIL`           | Yes      | Email of the one account allowed to use the app.                                      |
+| `SHADOW_TRUSTED_ORIGINS`       | No       | Comma-separated frontend origins allowed to call the API.                             |
+| `SHADOW_CLIENT_ADDRESS_HEADER` | No       | Set only behind a proxy: the request header in which it reports the caller's address. |
+| `HOST`                         | No       | Address the server binds to. Default `127.0.0.1`.                                     |
+| `PORT`                         | No       | Port the server listens on. Default `3000`.                                           |
+| `LOG_FORMAT`                   | No       | `json` (default) or `pretty`. `.env.example` sets `pretty` for development.           |
+| `LOG_LEVEL`                    | No       | Lowest level to log: `debug`, `info` (default), `warn`, or `error`.                   |
+| `VITE_API_BASE_URL`            | No       | Frontend only. API location when it is not served from the page's origin.             |
 
 Generate a secret with:
 
@@ -52,6 +53,13 @@ The repository has no deployment files yet. These facts hold on any host:
   log line to standard output.
 - Point the host's liveness check at `GET /health` and its readiness check at
   `GET /health/ready`.
+- Behind a proxy or load balancer, set `SHADOW_CLIENT_ADDRESS_HEADER` to the
+  header in which it reports the caller's address, such as `x-forwarded-for`.
+  Without it, every caller has the proxy's address and shares one sign-in rate
+  limit.
+- Use an HTTPS `BETTER_AUTH_URL`. Session cookies are then `Secure`.
+- Run `pnpm --filter backend auth:migrate` after an upgrade of Better Auth and
+  before the first start. It also creates the table for the rate limits.
 
 ## Commands
 

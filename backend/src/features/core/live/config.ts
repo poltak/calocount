@@ -24,6 +24,13 @@ const environmentSchema = z.object({
     .pipe(z.array(z.url())),
   // The single admitted account. Compared case-insensitively.
   SHADOW_OWNER_EMAIL: z.string().trim().toLowerCase().pipe(z.email()),
+  // Set it only behind a proxy. An empty value counts as unset.
+  SHADOW_CLIENT_ADDRESS_HEADER: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .optional()
+    .transform((value) => value || undefined),
   HOST: z.string().trim().min(1).default("127.0.0.1"),
   PORT: z.coerce.number().int().min(0).max(65535).default(3000),
   // JSON is the default, so a production host needs no setting to get it.
@@ -36,7 +43,12 @@ export interface LiveConfig {
   databaseUrl: string;
   auth: AuthConfiguration;
   ownerEmail: string;
-  server: { host: string; port: number };
+  server: {
+    host: string;
+    port: number;
+    /** The request header in which a proxy reports the caller's address. */
+    clientAddressHeader?: string;
+  };
   log: { format: "json" | "pretty"; level: LogLevel };
 }
 
@@ -52,7 +64,11 @@ export function readLiveConfig(
       trustedOrigins: parsed.SHADOW_TRUSTED_ORIGINS,
     },
     ownerEmail: parsed.SHADOW_OWNER_EMAIL,
-    server: { host: parsed.HOST, port: parsed.PORT },
+    server: {
+      host: parsed.HOST,
+      port: parsed.PORT,
+      clientAddressHeader: parsed.SHADOW_CLIENT_ADDRESS_HEADER,
+    },
     log: { format: parsed.LOG_FORMAT, level: parsed.LOG_LEVEL },
   };
 }

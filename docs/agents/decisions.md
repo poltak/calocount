@@ -61,6 +61,20 @@ entry to the choice, the reason, and any rule that follows from it.
   Service.** Its rate limits and origin checks only run on that path; calling
   its server functions directly would skip them. The Service returns only the
   session cookies, so the session token never appears in a response body.
+- **Rate limits are always on, and their counts are in the database.** Better
+  Auth turns them on only when `NODE_ENV` is `production`, and counts in
+  process memory by default. Memory counts are separate in each server
+  instance, and all tests in one worker would share them. The limit for
+  sign-in is Better Auth's default: 3 attempts in 10 seconds for one caller
+  address.
+- **The transport decides the caller's address, not the caller.** Better Auth
+  reads the address from request headers, which a caller can forge when no
+  proxy is in front. A middleware takes the address from the socket, or from
+  the header named in `SHADOW_CLIENT_ADDRESS_HEADER` behind a proxy. The
+  Service passes it to Better Auth in a private header and removes any value
+  the caller sent there. Callers without an address share one count.
+- **Session cookies are `Secure` when `BETTER_AUTH_URL` is HTTPS.** Better Auth
+  derives this from the base URL, so production needs no extra setting.
 - **Better Auth logs through our logger.** Its own messages, such as a wrong
   password, appear in the same format as ours.
 - **One owner account, created from the command line.** Registration is
