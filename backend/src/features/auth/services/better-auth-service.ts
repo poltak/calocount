@@ -26,6 +26,15 @@ interface BetterAuthServiceDeps extends AuthConfiguration {
  */
 const CLIENT_ADDRESS_HEADER = "x-client-address";
 
+/**
+ * The SDK logs this each time it checks the schema, although the column is
+ * correct. The column is `bigint`, the database reports that type as `int8`,
+ * and the SDK's list of number types for PostgreSQL has no `int8`. Seen in
+ * better-auth 1.7.6. Remove this when an upgrade stops the warning.
+ */
+const FALSE_RATE_LIMIT_TYPE_WARNING =
+  "Field lastRequest in table rateLimit has a different type in the database";
+
 /** Embedded authentication. Better Auth owns its auth-table persistence. */
 export class BetterAuthService implements AuthServiceInterface {
   private auth?: ReturnType<BetterAuthService["createInstance"]>;
@@ -52,6 +61,9 @@ export class BetterAuthService implements AuthServiceInterface {
       advanced: { ipAddress: { ipAddressHeaders: [CLIENT_ADDRESS_HEADER] } },
       logger: {
         log: (level: LogLevel, message: string, ...details: unknown[]) => {
+          if (message.startsWith(FALSE_RATE_LIMIT_TYPE_WARNING)) {
+            return;
+          }
           this.deps.logger[level](
             message,
             details.length > 0 ? { details } : undefined,
