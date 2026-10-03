@@ -8,12 +8,15 @@ import type { AuthSessionLogic } from "../auth/logic/auth-session-logic.js";
 import type { OwnerSetupLogic } from "../auth/logic/owner-setup-logic.js";
 import type { EncounterLifecycleLogic } from "../encounter-lifecycle/logic/encounter-lifecycle-logic.js";
 import type { EncounterLifecycleStorage } from "../encounter-lifecycle/storage/encounter-lifecycle-storage.js";
+import type { HealthLogic } from "../health/logic/health-logic.js";
+import type { HealthStorage } from "../health/storage/health-storage.js";
 import type { PatientRecordsServiceInterface } from "../patient-records/services/types.js";
 import type { TranscriptionServiceInterface } from "../transcription/services/types.js";
 
 export interface BackendStorage {
   auth: AuthStorage;
   encounterLifecycle: EncounterLifecycleStorage;
+  health: HealthStorage;
 }
 
 /**
@@ -37,6 +40,7 @@ export interface BackendLogic {
   authSession: AuthSessionLogic;
   ownerSetup: OwnerSetupLogic;
   encounterLifecycle: EncounterLifecycleLogic;
+  health: HealthLogic;
 }
 
 export interface App {

@@ -34,6 +34,7 @@ instructions.
 | Logic and events              | `common/src/features/core/`                                   |
 | Logging and Core Services     | `common/src/features/core/services/`                          |
 | Request log and request IDs   | `backend/src/features/core/handlers/`, `…/core/server/`       |
+| A complete backend feature    | `backend/src/features/health/`                                |
 | The test fixture              | `frontend/src/features/core/tests/full-application.ts`        |
 | A model integration test      | `frontend/src/features/auth/ui/auth-logic.test.ts`            |
 

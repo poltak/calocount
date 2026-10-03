@@ -29,6 +29,12 @@ entry to the choice, the reason, and any rule that follows from it.
 - **All business routes sit under `/api` behind one authentication gate.** Only
   the session routes are outside it. Add new routes inside the gated app, so a
   route cannot be exposed by omission.
+- **Two health routes sit outside `/api` and need no session.** `GET /health`
+  answers when the process runs. `GET /health/ready` also queries the database
+  and answers 503 when it does not respond. A host uses the first to restart a
+  stuck process, and the second to send traffic only to an instance that can
+  serve it. The request log leaves both out, because probes arrive every few
+  seconds.
 - **Logging uses no library.** The logger is a Core Service with three
   implementations: readable lines on the console, one JSON object for each
   line on standard output, and entries kept in memory for tests. `LOG_FORMAT`

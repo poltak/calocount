@@ -13,6 +13,7 @@ import {
 import { logRequests } from "../handlers/request-log.js";
 import type { RequestEnvironment } from "../handlers/types.js";
 import { createEncounterLifecycleHandlers } from "../../encounter-lifecycle/handlers/encounter-lifecycle-handlers.js";
+import { createHealthHandlers } from "../../health/handlers/health-handlers.js";
 import type { App } from "../types.js";
 
 interface HttpAppProps {
@@ -42,18 +43,23 @@ export function createApiHttpApp({ app }: HttpAppProps) {
 }
 
 export function createHttpApp({ app }: HttpAppProps) {
-  return new Hono<RequestEnvironment>()
-    .use("*", requestId())
-    .use(
-      "*",
-      cors({
-        origin: [...app.services.auth.trustedOrigins],
-        credentials: true,
-        exposeHeaders: ["X-Request-Id"],
-      }),
-    )
-    .use("*", logRequests({ services: app.services }))
-    .route("/api", createApiHttpApp({ app }))
-    .onError(createErrorHandler({ services: app.services }))
-    .notFound(handleNotFound);
+  return (
+    new Hono<RequestEnvironment>()
+      .use("*", requestId())
+      .use(
+        "*",
+        cors({
+          origin: [...app.services.auth.trustedOrigins],
+          credentials: true,
+          exposeHeaders: ["X-Request-Id"],
+        }),
+      )
+      // A host sends a probe every few seconds. The health routes come before
+      // the request log, so the probes do not fill it.
+      .route("/health", createHealthHandlers({ logic: app.logic }))
+      .use("*", logRequests({ services: app.services }))
+      .route("/api", createApiHttpApp({ app }))
+      .onError(createErrorHandler({ services: app.services }))
+      .notFound(handleNotFound)
+  );
 }

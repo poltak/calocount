@@ -6,7 +6,8 @@ export type AppErrorCode =
   | "NOT_FOUND"
   | "RATE_LIMITED"
   | "INTERNAL"
-  | "NOT_IMPLEMENTED";
+  | "NOT_IMPLEMENTED"
+  | "UNAVAILABLE";
 
 export interface AppErrorIssue {
   path: string;

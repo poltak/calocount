@@ -6,6 +6,46 @@ const ORIGIN = "http://shadow.test";
 // No UI Logic reaches this behavior of the backend's HTTP app, so these tests
 // send requests through the same transport that the frontend uses.
 describe("backend HTTP app", () => {
+  it("should answer the health routes without a session", async () => {
+    const { backend, transport } = await createFullApplication({
+      authenticated: false,
+    });
+
+    const live = await transport.fetch(`${ORIGIN}/health`);
+    expect(live.status).toEqual(200);
+    expect(await live.json()).toEqual({ status: "ok" });
+
+    const ready = await transport.fetch(`${ORIGIN}/health/ready`);
+    expect(ready.status).toEqual(200);
+    expect(await ready.json()).toEqual({ status: "ready" });
+
+    // Probes arrive every few seconds, so they stay out of the request log.
+    expect(backend.services.logger.entries).toEqual([]);
+  });
+
+  it("should report that it is not ready when the database does not respond", async () => {
+    // Signing in opens the database connection, so that closing it has an effect.
+    const { backend, transport } = await createFullApplication();
+    await backend.db.destroy();
+    const logged = backend.services.logger.entries.length;
+
+    const ready = await transport.fetch(`${ORIGIN}/health/ready`);
+    expect(ready.status).toEqual(503);
+    expect(await ready.json()).toEqual({
+      error: {
+        code: "UNAVAILABLE",
+        message: "The database does not respond",
+      },
+    });
+    expect(backend.services.logger.entries.slice(logged)).toMatchObject([
+      { level: "warn", message: "Readiness check failed" },
+    ]);
+
+    // The process itself still answers.
+    const live = await transport.fetch(`${ORIGIN}/health`);
+    expect(live.status).toEqual(200);
+  });
+
   it("should give each request an ID and log the request with it", async () => {
     const { backend, transport } = await createFullApplication({
       authenticated: false,

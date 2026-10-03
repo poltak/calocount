@@ -6,6 +6,8 @@ import { OwnerSetupLogic } from "../auth/logic/owner-setup-logic.js";
 import { AuthStorage } from "../auth/storage/auth-storage.js";
 import { EncounterLifecycleLogic } from "../encounter-lifecycle/logic/encounter-lifecycle-logic.js";
 import { EncounterLifecycleStorage } from "../encounter-lifecycle/storage/encounter-lifecycle-storage.js";
+import { HealthLogic } from "../health/logic/health-logic.js";
+import { HealthStorage } from "../health/storage/health-storage.js";
 import type {
   App,
   BackendLogic,
@@ -28,6 +30,7 @@ export function composeApp({ db, services, ownerEmail }: ComposeAppProps): App {
   const storage: BackendStorage = {
     auth: new AuthStorage({ db }),
     encounterLifecycle: new EncounterLifecycleStorage({ db }),
+    health: new HealthStorage({ db }),
   };
 
   const logic: BackendLogic = {
@@ -36,6 +39,7 @@ export function composeApp({ db, services, ownerEmail }: ComposeAppProps): App {
     authSession: new AuthSessionLogic({ storage: {}, services }),
     ownerSetup: new OwnerSetupLogic({ storage, services, ownerEmail }),
     encounterLifecycle: new EncounterLifecycleLogic({ storage, services }),
+    health: new HealthLogic({ storage, services }),
   };
 
   return {

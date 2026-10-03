@@ -50,6 +50,8 @@ The repository has no deployment files yet. These facts hold on any host:
   `pnpm --filter backend start`.
 - Leave `LOG_FORMAT` unset. The backend then writes one JSON object for each
   log line to standard output.
+- Point the host's liveness check at `GET /health` and its readiness check at
+  `GET /health/ready`.
 
 ## Commands
 

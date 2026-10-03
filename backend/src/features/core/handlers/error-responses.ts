@@ -17,6 +17,7 @@ const appErrorStatuses = {
   RATE_LIMITED: 429,
   INTERNAL: 500,
   NOT_IMPLEMENTED: 501,
+  UNAVAILABLE: 503,
 } as const satisfies Record<AppErrorCode, ContentfulStatusCode>;
 
 type AppErrorStatus = (typeof appErrorStatuses)[AppErrorCode];

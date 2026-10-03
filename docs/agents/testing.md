@@ -105,7 +105,8 @@ A few files that are not Logic classes have tests of their own:
   exists only inside React. Do not add other rendered tests; UI components
   hold no logic of their own.
 - `backend-http.test.ts` covers backend behavior that no UI Logic reaches: the
-  request ID, the request log, and the answer to an unexpected error. It sends requests
+  health routes, the request ID and request log, and the answer to an
+  unexpected error. It sends requests
   through the fixture's transport, so the whole backend still runs. Add a test
   there only for behavior of the HTTP app itself. A route that a UI Logic calls
   gets its tests through that Logic.

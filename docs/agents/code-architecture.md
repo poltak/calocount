@@ -377,10 +377,11 @@ to a status and returns one JSON error body, so Logic never deals with HTTP and
 clients handle one known set of codes.
 
 The single list is a deliberate choice for simplicity. Codes are broad
-categories such as `NOT_FOUND` or `CONFLICT`, not one code per feature failure,
-so the list should grow slowly. It may still become unwieldy in a large app.
-When a client needs to tell specific feature failures apart, consider a
-feature-specific reason alongside the category code before adding many codes.
+categories such as `NOT_FOUND` or `UNAVAILABLE`, not one code per feature
+failure, so the list should grow slowly. It may still become unwieldy in a
+large app. When a client needs to tell specific feature failures apart,
+consider a feature-specific reason alongside the category code before adding
+many codes.
 
 An error that is not an `AppError` is a defect. The HTTP layer logs it with the
 request ID and answers with `INTERNAL` and no detail. Every response carries
