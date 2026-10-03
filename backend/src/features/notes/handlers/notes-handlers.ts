@@ -29,6 +29,13 @@ export function createNotesHandlers({ logic }: NotesHandlerProps) {
       });
       return context.json({ note }, 201);
     })
+    .get("/:noteId", validator("param", noteParamsSchema), async (context) => {
+      const note = await logic.notes.get({
+        id: context.req.valid("param").noteId,
+        user: context.get("auth").user,
+      });
+      return context.json({ note });
+    })
     .put(
       "/:noteId",
       validator("param", noteParamsSchema),

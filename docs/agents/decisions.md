@@ -135,6 +135,11 @@ entry to the choice, the reason, and any rule that follows from it.
 - **React Router in declarative mode.** Chosen for familiar component routes in
   a small single-page app. Live rendering uses `BrowserRouter` and tests use
   `MemoryRouter`. Framework mode and server rendering are not needed.
+- **The notes example keeps unsaved text in `localStorage`.** `NoteDraftPlugin`
+  holds the fields of a note form, and the create form and the edit form each
+  own an instance. Each user and each form has a separate entry, so one user
+  does not get another user's draft on a shared browser. This is an example. A
+  real feature must decide if its text may stay in the browser after sign-out.
 - **The error boundary is our own class component.** It is about 50 lines, so
   a package is not necessary. Its fallback offers "Try again", which mounts the
   failed part again from a new start. It does not reload the page, because

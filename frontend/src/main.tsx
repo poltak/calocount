@@ -15,6 +15,7 @@ if (!rootElement) {
 
 const app = createApp({
   baseUrl: import.meta.env.VITE_API_BASE_URL,
+  browserStorage: window.localStorage,
   // The console shows every entry in development, and only problems in a build.
   logLevel: import.meta.env.DEV ? "debug" : "warn",
 });

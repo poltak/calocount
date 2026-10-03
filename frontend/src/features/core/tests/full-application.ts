@@ -59,13 +59,16 @@ export interface LogicTestParams extends FullApplicationParams {
  * A full application plus the UI Logic under test, initialized unless the test
  * opts out. The Logic is cleaned up before the backend closes, so a test body
  * needs no teardown.
+ *
+ * `createLogic` can be async, to first seed what the Logic's `deps` name, such
+ * as the record that a page opens.
  */
 export async function setupLogicTest<Instance extends OwnedLogic<object>>(
   { skipInitialization = false, ...applicationParams }: LogicTestParams,
-  createLogic: (app: FullApplication) => Instance,
+  createLogic: (app: FullApplication) => Instance | Promise<Instance>,
 ) {
   const app = await createFullApplication(applicationParams);
-  const logic = createLogic(app);
+  const logic = await createLogic(app);
   onTestFinished(() => logic.cleanup());
   if (!skipInitialization) {
     await logic.initialize();

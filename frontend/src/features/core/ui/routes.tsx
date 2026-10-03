@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import {
   Link,
   NavLink,
@@ -8,16 +9,23 @@ import {
 } from "react-router";
 import { ApiExamplePage } from "../../examples/ui/api-example-page.js";
 import { CounterPage } from "../../examples/ui/counter-page.js";
+import { NoteEditPage } from "../../notes/ui/note-edit-page.js";
 import { NotesPage } from "../../notes/ui/notes-page.js";
 import { AuthProvider, useAuth } from "../../auth/ui/auth-context.js";
 import { SessionGate } from "../../auth/ui/session-gate.js";
 import { LoginPage } from "../../auth/ui/login-page.js";
 import { ErrorBoundary } from "./error-boundary.js";
 import { PageErrorFallback } from "./error-fallbacks.js";
+import type { SignedInUser } from "./signed-in-user.js";
 
 function ProtectedLayout() {
   const { logic, state } = useAuth();
   const location = useLocation();
+  // The session gate renders this layout only for a signed-in user.
+  const signedInUser = useMemo<SignedInUser>(
+    () => ({ id: state.userId ?? "" }),
+    [state.userId],
+  );
   return (
     <>
       <header>
@@ -45,7 +53,7 @@ function ProtectedLayout() {
       <main>
         {/* A page that fails leaves the header usable. Navigation clears the failure. */}
         <ErrorBoundary resetKey={location.key} Fallback={PageErrorFallback}>
-          <Outlet />
+          <Outlet context={signedInUser} />
         </ErrorBoundary>
       </main>
     </>
@@ -67,6 +75,7 @@ export function AppRoutes() {
                 element={<ApiExamplePage />}
               />
               <Route path="/notes" element={<NotesPage />} />
+              <Route path="/notes/:noteId" element={<NoteEditPage />} />
               <Route
                 path="*"
                 element={

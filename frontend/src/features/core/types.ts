@@ -1,9 +1,12 @@
 import type { LoggerServiceInterface } from "@shadow/common/features/core/services/types";
 import type { BackendApi } from "../api/client/api-client.js";
 import type { ApiAccessEvents } from "../api/client/access-events.js";
+import type { NotesDraftStorage } from "../notes/storage/notes-draft-storage.js";
 import type { WindowFocusServiceInterface } from "../window-focus/services/types.js";
 
-export interface FrontendStorage {}
+export interface FrontendStorage {
+  notesDrafts: NotesDraftStorage;
+}
 
 /**
  * Core Services. Any Service, Storage, or Logic class may depend on one. See

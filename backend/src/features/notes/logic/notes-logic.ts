@@ -35,6 +35,17 @@ export class NotesLogic extends Logic<NotesProps, Record<string, never>> {
     return this.deps.storage.notes.listForUser({ userId: user.id });
   }
 
+  async get({ user, id }: { user: AuthUser; id: string }): Promise<Note> {
+    const note = await this.deps.storage.notes.findForUser({
+      userId: user.id,
+      id,
+    });
+    if (!note) {
+      throw noteNotFound();
+    }
+    return note;
+  }
+
   create({
     user,
     ...content

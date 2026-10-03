@@ -136,9 +136,9 @@ template repository is made.
       creates a migration and `pnpm run db:migrate` applies them. The rules are
       in [code architecture](../code-architecture.md#database-schema).
 - [x] 2. **A complete example feature.** The `notes` feature lists, creates,
-      changes, and deletes the signed-in user's notes. Two parts are still
-      open. No code shows a LogicPlugin or frontend Storage. The API example
-      in `examples`
+      changes, and deletes the signed-in user's notes. Its two forms share a
+      LogicPlugin that keeps unsaved text in a frontend Storage class. One
+      part is still open. The API example in `examples`
       ([api-example-logic.ts](../../../frontend/src/features/examples/ui/api-example-logic.ts),
       [api-client.test.ts](../../../frontend/src/features/api/client/api-client.test.ts))
       calls the `encounters` routes, so the template must drop it or point it

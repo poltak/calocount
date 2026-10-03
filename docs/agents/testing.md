@@ -18,6 +18,10 @@ success case; the tests after it are the model for failure cases. For a
 feature with its own table, see
 [`notes-logic.test.ts`](../../frontend/src/features/notes/ui/notes-logic.test.ts),
 which also shows how to seed rows through the API.
+[`note-edit-logic.test.ts`](../../frontend/src/features/notes/ui/note-edit-logic.test.ts)
+shows a Logic whose `deps` name a record: its `setupTest` seeds the record in
+an async `createLogic`. A LogicPlugin has a test file of its own, such as
+[`note-draft-plugin.test.ts`](../../frontend/src/features/notes/ui/note-draft-plugin.test.ts).
 
 Backend code has no test runner of its own. Handlers, backend Logic, and Storage
 are covered through these tests.
@@ -71,6 +75,7 @@ returns:
 | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
 | `logic`                                                  | The UI Logic being tested, with `initialize()` method automatically called unless `skipInitialization` set. |
 | `frontend`                                               | The frontend app. Its fake Services can be driven, such as `focus()`.                                       |
+| `frontend.browserStorage`                                | What frontend Storage classes stored, for direct reads and writes, like `backend.db`.                       |
 | `backend`                                                | The backend app. `backend.db` is the test's own database.                                                   |
 | `backend.services.logger` and `frontend.services.logger` | Loggers that keep what each app logged in `entries`.                                                        |
 | `owner`                                                  | The owner account as stored when the test starts.                                                           |

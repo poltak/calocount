@@ -323,6 +323,11 @@ must release Logic before its dependencies, and must still release the remaining
 resources if a cleanup step fails. Keep runtime startup separate from route
 definitions so tests can call handlers without starting a network server.
 
+A frontend Storage class does not name a browser global such as `localStorage`.
+It receives the browser's storage as an injected handle: `main.tsx` passes it
+to the live root, and the test root passes one that keeps its values in
+memory.
+
 For a frontend, create the API client, Storage, and Services once per application instance. UI
 Logic belongs to the component or provider that owns the UI state. Create it
 through a React hook when that owner renders, initialize it after commit, and
@@ -336,6 +341,10 @@ existing stable object; a new object creates a new Logic instance. Other
 components observe an owned Logic through the observer hook and never initialize
 or clean it up. Keep the owner above any boundary that disconnects effects for
 long periods, because a Logic cannot restart after cleanup.
+
+A page behind the session gate reads the signed-in user with
+`useSignedInUser()`, and passes what a Logic needs, such as the user's ID, in
+`deps`.
 
 The owning hook needs the App provider above it. A failed initialization or
 cleanup goes to the hook's `onError`, or to the logger when the owner passes

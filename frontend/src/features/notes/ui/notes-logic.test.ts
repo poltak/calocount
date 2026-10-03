@@ -8,7 +8,10 @@ import {
 } from "../../core/tests/full-application.js";
 
 function setupTest(params: LogicTestParams = {}) {
-  return setupLogicTest(params, (app) => new NotesLogic(app.frontend));
+  return setupLogicTest(
+    params,
+    (app) => new NotesLogic({ ...app.frontend, userId: app.owner.id }),
+  );
 }
 
 function readNotes(db: TestDatabase) {
@@ -41,6 +44,11 @@ async function seedNote(
   return note;
 }
 
+/** The browser storage entry of the draft for a new note. */
+function newNoteDraftKey({ owner }: Pick<FullApplication, "owner">) {
+  return `notes.draft.${owner.id}.new`;
+}
+
 const FIRST = { title: "First", body: "The first note" };
 const SECOND = { title: "Second", body: "The second note" };
 
@@ -56,12 +64,17 @@ describe("NotesLogic tests", () => {
     expect(logic.state.notes).toEqual([]);
 
     const initializeP = logic.initialize();
-    await Promise.resolve();
-    expect(logic.state.loadState).toEqual("running");
     await initializeP;
 
     expect(logic.state.loadState).toEqual("success");
     expect(logic.state.loadError).toEqual(null);
+    expect(logic.state.notes).toEqual([second, first]);
+
+    // A later load shows the running state at once.
+    const loadP = logic.load();
+    expect(logic.state.loadState).toEqual("running");
+    await loadP;
+    expect(logic.state.loadState).toEqual("success");
     expect(logic.state.notes).toEqual([second, first]);
   });
 
@@ -126,16 +139,22 @@ describe("NotesLogic tests", () => {
     expect(await readActivity(backend.db)).toEqual([]);
   });
 
-  it("should afford creating a note", async () => {
-    const { backend, logic, owner, transport } = await setupTest();
-    logic.setNewTitle(FIRST.title);
-    logic.setNewBody(FIRST.body);
+  it("should afford creating a note from the draft, and empty the draft", async () => {
+    const app = await setupTest();
+    const { backend, frontend, logic, owner, transport } = app;
+    const { draft } = logic.plugins;
+    draft.setTitle(FIRST.title);
+    draft.setBody(FIRST.body);
 
     expect(logic.state.createState).toEqual("pristine");
     expect(logic.state.createError).toEqual(null);
+    expect(logic.state.createFieldErrors).toEqual(null);
     expect(logic.state.notes).toEqual([]);
     expect(await readNotes(backend.db)).toEqual([]);
     expect(await readActivity(backend.db)).toEqual([]);
+    expect(frontend.browserStorage.getItem(newNoteDraftKey(app))).toEqual(
+      JSON.stringify(FIRST),
+    );
 
     const held = transport.holdNextRequest();
     const createP = logic.create();
@@ -150,8 +169,8 @@ describe("NotesLogic tests", () => {
     expect(logic.state.createState).toEqual("success");
     expect(logic.state.createError).toEqual(null);
     expect(logic.state.notes).toMatchObject([FIRST]);
-    expect(logic.state.newTitle).toEqual("");
-    expect(logic.state.newBody).toEqual("");
+    expect(draft.state).toEqual({ title: "", body: "", isRestored: false });
+    expect(frontend.browserStorage.getItem(newNoteDraftKey(app))).toEqual(null);
     expect(await readNotes(backend.db)).toEqual([
       { id: logic.state.notes[0]?.id, userId: owner.id, ...FIRST },
     ]);
@@ -168,8 +187,8 @@ describe("NotesLogic tests", () => {
     const { backend, logic } = await setupTest();
     // Without its table, the activity write fails after the note write.
     await backend.db.schema.dropTable("activity").execute();
-    logic.setNewTitle(FIRST.title);
-    logic.setNewBody(FIRST.body);
+    logic.plugins.draft.setTitle(FIRST.title);
+    logic.plugins.draft.setBody(FIRST.body);
 
     expect(logic.state.createState).toEqual("pristine");
     expect(await readNotes(backend.db)).toEqual([]);
@@ -185,9 +204,11 @@ describe("NotesLogic tests", () => {
   });
 
   it("should set the error state and store nothing when the new title is empty", async () => {
-    const { backend, logic } = await setupTest();
-    logic.setNewTitle("   ");
-    logic.setNewBody(FIRST.body);
+    const app = await setupTest();
+    const { backend, frontend, logic } = app;
+    const { draft } = logic.plugins;
+    draft.setTitle("   ");
+    draft.setBody(FIRST.body);
 
     expect(logic.state.createState).toEqual("pristine");
     expect(await readNotes(backend.db)).toEqual([]);
@@ -200,9 +221,11 @@ describe("NotesLogic tests", () => {
     expect(logic.state.createError).toEqual("The request is invalid");
     expect(logic.state.createFieldErrors).toEqual({ title: "Enter a title" });
     expect(logic.state.notes).toEqual([]);
-    // The form keeps what the user typed.
-    expect(logic.state.newTitle).toEqual("   ");
-    expect(logic.state.newBody).toEqual(FIRST.body);
+    // The draft keeps what the user typed.
+    expect(draft.state).toMatchObject({ title: "   ", body: FIRST.body });
+    expect(frontend.browserStorage.getItem(newNoteDraftKey(app))).toEqual(
+      JSON.stringify({ title: "   ", body: FIRST.body }),
+    );
     expect(await readNotes(backend.db)).toEqual([]);
   });
 
@@ -212,7 +235,7 @@ describe("NotesLogic tests", () => {
       .updateTable("session")
       .set({ expiresAt: new Date(0) })
       .execute();
-    logic.setNewTitle(FIRST.title);
+    logic.plugins.draft.setTitle(FIRST.title);
 
     expect(logic.state.createState).toEqual("pristine");
 
@@ -228,8 +251,8 @@ describe("NotesLogic tests", () => {
 
   it("should create one note when create is called again while it runs", async () => {
     const { backend, logic, transport } = await setupTest();
-    logic.setNewTitle(FIRST.title);
-    logic.setNewBody(FIRST.body);
+    logic.plugins.draft.setTitle(FIRST.title);
+    logic.plugins.draft.setBody(FIRST.body);
     const held = transport.holdNextRequest();
 
     const firstP = logic.create();
@@ -246,133 +269,18 @@ describe("NotesLogic tests", () => {
     expect(await readNotes(backend.db)).toMatchObject([FIRST]);
   });
 
-  it("should afford changing a note, and move it to the top of the list", async () => {
+  it("should afford deleting a note, and forget the unsaved changes to it", async () => {
     const app = await setupTest({ skipInitialization: true });
-    const { backend, logic, owner } = app;
+    const { backend, frontend, logic, owner, transport } = app;
     const first = await seedNote(app, FIRST);
     const second = await seedNote(app, SECOND);
     await logic.initialize();
-    const changed = { title: "First, changed", body: "A new body" };
-
-    logic.startEditing(first.id);
-    expect(logic.state.editingNoteId).toEqual(first.id);
-    expect(logic.state.editTitle).toEqual(FIRST.title);
-    expect(logic.state.editBody).toEqual(FIRST.body);
-    logic.setEditTitle(changed.title);
-    logic.setEditBody(changed.body);
-
-    expect(logic.state.saveState).toEqual("pristine");
-    expect(logic.state.saveError).toEqual(null);
-    expect(logic.state.notes).toEqual([second, first]);
-
-    const saveP = logic.save();
-    expect(logic.state.saveState).toEqual("running");
-    await saveP;
-
-    expect(logic.state.saveState).toEqual("success");
-    expect(logic.state.saveError).toEqual(null);
-    expect(logic.state.notes).toMatchObject([
-      { id: first.id, ...changed },
-      second,
-    ]);
-    expect(logic.state.editingNoteId).toEqual(null);
-    expect(logic.state.editTitle).toEqual("");
-    expect(logic.state.editBody).toEqual("");
-    expect(await readNotes(backend.db)).toEqual([
-      { id: first.id, userId: owner.id, ...changed },
-      { id: second.id, userId: owner.id, ...SECOND },
-    ]);
-    expect(await readActivity(backend.db)).toEqual([
-      { userId: owner.id, action: "note.created", subjectId: first.id },
-      { userId: owner.id, action: "note.created", subjectId: second.id },
-      { userId: owner.id, action: "note.updated", subjectId: first.id },
-    ]);
-  });
-
-  it("should set the error state and change nothing when the changed title is too long", async () => {
-    const app = await setupTest({ skipInitialization: true });
-    const { backend, logic, owner } = app;
-    const first = await seedNote(app, FIRST);
-    await logic.initialize();
-    logic.startEditing(first.id);
-    logic.setEditTitle("x".repeat(201));
-
-    expect(logic.state.saveState).toEqual("pristine");
-
-    const saveP = logic.save();
-    expect(logic.state.saveState).toEqual("running");
-    await saveP;
-
-    expect(logic.state.saveState).toEqual("error");
-    expect(logic.state.saveError).toEqual("The request is invalid");
-    // This rule has no message of its own, so the message for its kind applies.
-    expect(logic.state.saveFieldErrors).toEqual({
-      title: "Use 200 characters or fewer",
-    });
-    expect(logic.state.notes).toEqual([first]);
-    // The form stays open with what the user typed.
-    expect(logic.state.editingNoteId).toEqual(first.id);
-    expect(logic.state.editTitle).toEqual("x".repeat(201));
-    expect(await readNotes(backend.db)).toEqual([
-      { id: first.id, userId: owner.id, ...FIRST },
-    ]);
-  });
-
-  it("should set the error state when the note was deleted in the meantime", async () => {
-    const app = await setupTest({ skipInitialization: true });
-    const { backend, logic } = app;
-    const first = await seedNote(app, FIRST);
-    await logic.initialize();
-    logic.startEditing(first.id);
-    logic.setEditTitle("Changed");
-    await backend.db.deleteFrom("note").execute();
-
-    expect(logic.state.saveState).toEqual("pristine");
-
-    const saveP = logic.save();
-    expect(logic.state.saveState).toEqual("running");
-    await saveP;
-
-    expect(logic.state.saveState).toEqual("error");
-    expect(logic.state.saveError).toEqual("This note does not exist");
-    expect(logic.state.editingNoteId).toEqual(first.id);
-    expect(await readNotes(backend.db)).toEqual([]);
-    expect(await readActivity(backend.db)).toMatchObject([
-      { action: "note.created", subjectId: first.id },
-    ]);
-  });
-
-  it("should do nothing on save when no note is in the edit form", async () => {
-    const app = await setupTest({ skipInitialization: true });
-    const { backend, logic, owner } = app;
-    const first = await seedNote(app, FIRST);
-    await logic.initialize();
-
-    // An unknown ID opens no form, and a cancelled form is closed.
-    logic.startEditing("no-such-note");
-    expect(logic.state.editingNoteId).toEqual(null);
-    logic.startEditing(first.id);
-    logic.setEditTitle("Changed");
-    logic.cancelEditing();
-    expect(logic.state.editingNoteId).toEqual(null);
-    expect(logic.state.editTitle).toEqual("");
-
-    await logic.save();
-
-    expect(logic.state.saveState).toEqual("pristine");
-    expect(logic.state.notes).toEqual([first]);
-    expect(await readNotes(backend.db)).toEqual([
-      { id: first.id, userId: owner.id, ...FIRST },
-    ]);
-  });
-
-  it("should afford deleting a note, and close the edit form that holds it", async () => {
-    const app = await setupTest({ skipInitialization: true });
-    const { backend, logic, owner, transport } = app;
-    const first = await seedNote(app, FIRST);
-    const second = await seedNote(app, SECOND);
-    await logic.initialize();
-    logic.startEditing(first.id);
+    // The edit page stored unsaved changes to the first note.
+    const editDraftKey = `notes.draft.${owner.id}.${first.id}`;
+    frontend.browserStorage.setItem(
+      editDraftKey,
+      JSON.stringify({ title: "Unsaved", body: "Unsaved" }),
+    );
 
     expect(logic.state.removeState).toEqual("pristine");
     expect(logic.state.removeError).toEqual(null);
@@ -390,7 +298,7 @@ describe("NotesLogic tests", () => {
     expect(logic.state.removeState).toEqual("success");
     expect(logic.state.removeError).toEqual(null);
     expect(logic.state.notes).toEqual([second]);
-    expect(logic.state.editingNoteId).toEqual(null);
+    expect(frontend.browserStorage.getItem(editDraftKey)).toEqual(null);
     expect(await readNotes(backend.db)).toEqual([
       { id: second.id, userId: owner.id, ...SECOND },
     ]);

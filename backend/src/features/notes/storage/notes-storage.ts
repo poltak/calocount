@@ -19,6 +19,22 @@ export class NotesStorage {
       .execute();
   }
 
+  /** Returns `undefined` when the user has no such note. */
+  findForUser({
+    userId,
+    id,
+  }: {
+    userId: string;
+    id: string;
+  }): Promise<Note | undefined> {
+    return this.deps.db
+      .selectFrom("note")
+      .select(NOTE_COLUMNS)
+      .where("id", "=", id)
+      .where("userId", "=", userId)
+      .executeTakeFirst();
+  }
+
   create(note: { userId: string; title: string; body: string }): Promise<Note> {
     return this.deps.db
       .insertInto("note")

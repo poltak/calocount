@@ -1,23 +1,27 @@
 import { useMemo } from "react";
+import { Link } from "react-router";
 import { useFrontendApp } from "../../core/ui/frontend-app-context.js";
+import { useSignedInUser } from "../../core/ui/signed-in-user.js";
 import { useLogic } from "../../core/logic/use-logic.js";
+import { NoteFormFields } from "./note-form-fields.js";
 import { NotesLogic } from "./notes-logic.js";
 
 export function NotesPage() {
   const app = useFrontendApp();
+  const user = useSignedInUser();
   const deps = useMemo(
     () => ({
       storage: app.storage,
       services: app.services,
       api: { notes: app.api.notes },
+      userId: user.id,
     }),
-    [app],
+    [app, user.id],
   );
   const { logic, state } = useLogic({ LogicClass: NotesLogic, deps });
   const loading =
     state.loadState === "pristine" || state.loadState === "running";
   const creating = state.createState === "running";
-  const saving = state.saveState === "running";
   const removing = state.removeState === "running";
 
   return (
@@ -31,28 +35,11 @@ export function NotesPage() {
           void logic.create();
         }}
       >
-        <label htmlFor="new-note-title">Title</label>
-        <input
-          id="new-note-title"
-          required
-          value={state.newTitle}
-          onChange={(event) => logic.setNewTitle(event.target.value)}
+        <NoteFormFields
+          draft={logic.plugins.draft}
+          fieldErrors={state.createFieldErrors}
           disabled={creating}
         />
-        {state.createFieldErrors?.title && (
-          <p role="alert">{state.createFieldErrors.title}</p>
-        )}
-        <label htmlFor="new-note-body">Note</label>
-        <textarea
-          id="new-note-body"
-          rows={3}
-          value={state.newBody}
-          onChange={(event) => logic.setNewBody(event.target.value)}
-          disabled={creating}
-        />
-        {state.createFieldErrors?.body && (
-          <p role="alert">{state.createFieldErrors.body}</p>
-        )}
         {state.createError && !state.createFieldErrors && (
           <p role="alert">{state.createError}</p>
         )}
@@ -74,73 +61,21 @@ export function NotesPage() {
       )}
 
       <ul className="note-list">
-        {state.notes.map((note) =>
-          note.id === state.editingNoteId ? (
-            <li key={note.id}>
-              <form
-                className="note-form"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void logic.save();
-                }}
+        {state.notes.map((note) => (
+          <li key={note.id}>
+            <h2>{note.title}</h2>
+            <p>{note.body}</p>
+            <div className="actions">
+              <Link to={`/notes/${note.id}`}>Edit</Link>
+              <button
+                disabled={removing}
+                onClick={() => void logic.remove(note.id)}
               >
-                <label htmlFor="edit-note-title">Title</label>
-                <input
-                  id="edit-note-title"
-                  required
-                  value={state.editTitle}
-                  onChange={(event) => logic.setEditTitle(event.target.value)}
-                  disabled={saving}
-                />
-                {state.saveFieldErrors?.title && (
-                  <p role="alert">{state.saveFieldErrors.title}</p>
-                )}
-                <label htmlFor="edit-note-body">Note</label>
-                <textarea
-                  id="edit-note-body"
-                  rows={3}
-                  value={state.editBody}
-                  onChange={(event) => logic.setEditBody(event.target.value)}
-                  disabled={saving}
-                />
-                {state.saveFieldErrors?.body && (
-                  <p role="alert">{state.saveFieldErrors.body}</p>
-                )}
-                {state.saveError && !state.saveFieldErrors && (
-                  <p role="alert">{state.saveError}</p>
-                )}
-                <div className="actions">
-                  <button type="submit" disabled={saving}>
-                    {saving ? "Saving…" : "Save"}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={saving}
-                    onClick={() => logic.cancelEditing()}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            </li>
-          ) : (
-            <li key={note.id}>
-              <h2>{note.title}</h2>
-              <p>{note.body}</p>
-              <div className="actions">
-                <button onClick={() => logic.startEditing(note.id)}>
-                  Edit
-                </button>
-                <button
-                  disabled={removing}
-                  onClick={() => void logic.remove(note.id)}
-                >
-                  Delete
-                </button>
-              </div>
-            </li>
-          ),
-        )}
+                Delete
+              </button>
+            </div>
+          </li>
+        ))}
       </ul>
     </section>
   );
