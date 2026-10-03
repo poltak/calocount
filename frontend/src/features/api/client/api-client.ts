@@ -37,24 +37,46 @@ export function encodeApiParam(value: string): string {
   return encodeURIComponent(value);
 }
 
+/** One field of the request that the backend refused, with a message for the user. */
+interface ApiRequestIssue {
+  path: string;
+  message: string;
+}
+
 export class ApiRequestError extends Error {
   readonly status: number;
   readonly code?: string;
+  /** Set when the backend refused single fields. A task shows them as field errors. */
+  readonly issues?: ApiRequestIssue[];
 
   constructor({
     status,
     code,
     message,
+    issues,
   }: {
     status: number;
     code?: string;
     message: string;
+    issues?: ApiRequestIssue[];
   }) {
     super(message);
     this.name = "ApiRequestError";
     this.status = status;
     this.code = code;
+    this.issues = issues;
   }
+}
+
+function isApiRequestIssue(value: unknown): value is ApiRequestIssue {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "path" in value &&
+    typeof value.path === "string" &&
+    "message" in value &&
+    typeof value.message === "string"
+  );
 }
 
 /** Common transport error handling, rather than a wrapper per feature. */
@@ -65,6 +87,7 @@ export async function requireApiSuccess(response: Response): Promise<void> {
 
   let code: string | undefined;
   let message = `Request failed with status ${response.status}`;
+  let issues: ApiRequestIssue[] | undefined;
   try {
     const body: unknown = await response.json();
     if (body && typeof body === "object" && "error" in body) {
@@ -76,10 +99,13 @@ export async function requireApiSuccess(response: Response): Promise<void> {
         if ("message" in error && typeof error.message === "string") {
           message = error.message;
         }
+        if ("issues" in error && Array.isArray(error.issues)) {
+          issues = error.issues.filter(isApiRequestIssue);
+        }
       }
     }
   } catch {
     // A non-JSON error still has its HTTP status.
   }
-  throw new ApiRequestError({ status: response.status, code, message });
+  throw new ApiRequestError({ status: response.status, code, message, issues });
 }

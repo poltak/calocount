@@ -5,7 +5,7 @@ import { validator } from "../../core/handlers/validator.js";
 import type { BackendLogic } from "../../core/types.js";
 
 const noteSchema = z.object({
-  title: z.string().trim().min(1).max(200),
+  title: z.string().trim().min(1, "Enter a title").max(200),
   body: z.string().max(20_000),
 });
 

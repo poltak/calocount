@@ -1,5 +1,6 @@
 import {
   Logic,
+  type TaskFieldErrors,
   type TaskState,
 } from "@shadow/common/features/core/logic/logic";
 import {
@@ -24,6 +25,7 @@ interface AuthState {
   loadSessionError: string | null;
   signInState: TaskState;
   signInError: string | null;
+  signInFieldErrors: TaskFieldErrors | null;
   signOutState: TaskState;
   signOutError: string | null;
   setNameState: TaskState;
@@ -52,6 +54,7 @@ export class AuthLogic extends Logic<AuthProps, AuthState> {
         loadSessionError: null,
         signInState: "pristine",
         signInError: null,
+        signInFieldErrors: null,
         signOutState: "pristine",
         signOutError: null,
         setNameState: "pristine",

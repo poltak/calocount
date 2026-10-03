@@ -5,7 +5,7 @@ import { validator } from "../../core/handlers/validator.js";
 import type { AuthEnvironment } from "./types.js";
 
 const updateProfileSchema = z.object({
-  name: z.string().trim().min(1).max(200),
+  name: z.string().trim().min(1, "Enter a name").max(200),
 });
 
 interface ProfileHandlerProps {

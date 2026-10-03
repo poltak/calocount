@@ -6,7 +6,7 @@ import { validator } from "../../core/handlers/validator.js";
 
 const signInSchema = z.object({
   email: z.string().trim().pipe(z.email()),
-  password: z.string().min(1),
+  password: z.string().min(1, "Enter your password"),
 });
 
 interface SessionHandlerProps {

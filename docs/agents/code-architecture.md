@@ -161,6 +161,11 @@ Run every async operation in a Logic method through the protected
 - A task function that stops early because another action cancelled its request
   returns normally, and the task ends as `success`. The action that cancelled it
   owns the resulting state.
+- A task that sends a form can declare a third field, `<name>FieldErrors`, of
+  type `TaskFieldErrors | null`. When the backend refuses single fields,
+  `executeTask` puts each field's message there, by the field's path. The
+  component shows each message at its field, and shows `<name>Error` only when
+  there are no field messages.
 
 `emit` returns a promise. It calls every listener, waits for all listeners, and
 rejects with an `AggregateError` if any listener throws or rejects. Await `emit`
@@ -365,6 +370,15 @@ and persistence remain in Service and Storage classes.
 Validate request input with the shared `validator()` helper, so failures use
 the shared error body. Register routes by chaining calls on the router, so the
 typed client keeps each endpoint's types.
+
+A user reads the message of each failed validation rule, at the field that
+broke it. `userMessage` in `core/handlers/validation-messages.ts` writes that
+message for every rule, by the kind of rule, so no rule is without one.
+
+- Give a rule its own message in the schema only when the general one is not
+  clear enough for that field: `z.string().min(1, "Enter a title")`.
+- When you use a kind of rule that `userMessage` has no sentence for, add the
+  sentence there. Until then, the user sees "This value is not valid".
 
 Keep handlers in the feature that owns the operation. The main HTTP application
 registers feature handlers. Handler dependencies should select the required

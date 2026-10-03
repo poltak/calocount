@@ -46,6 +46,13 @@ entry to the choice, the reason, and any rule that follows from it.
   Storage instance inside a transaction cannot open a second.
 - **The `activity` feature shows a write across two features.** Each change to
   a note and its activity record are one transaction in `NotesLogic`.
+- **One function writes the validation messages that users see.** Zod's own
+  messages are for developers. A message on each rule in each schema would be
+  easy to forget. `userMessage` gives every kind of rule a sentence instead,
+  and a schema overrides it for one rule when it needs to. The backend returns
+  each message with its field's path, and `executeTask` puts them in
+  `<name>FieldErrors`. Rules are not shared with the frontend, so a form shows
+  these messages only after it sends the request.
 - **A typed first-party API client instead of feature Service wrappers.** Hono's
   client derives request and response types from the backend routes through a
   type-only export. This couples builds to the contract, not browser code to the

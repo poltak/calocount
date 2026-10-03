@@ -172,6 +172,36 @@ describe("AuthLogic tests", () => {
     expect(await readSessionUserIds(backend.db)).toEqual([owner.id]);
   });
 
+  it("should set a message for each field that the backend refuses", async () => {
+    const { backend, logic } = await setupTest({ authenticated: false });
+    logic.setEmail("not-an-email");
+
+    expect(logic.state.signInState).toEqual("pristine");
+    expect(logic.state.signInFieldErrors).toEqual(null);
+
+    const signInP = logic.signIn();
+    expect(logic.state.signInState).toEqual("running");
+    await signInP;
+
+    expect(logic.state.signInState).toEqual("error");
+    expect(logic.state.signInError).toEqual("The request is invalid");
+    expect(logic.state.signInFieldErrors).toEqual({
+      email: "Enter a valid email address",
+      password: "Enter your password",
+    });
+    expect(logic.state.isSignedIn).toEqual(false);
+    expect(await readSessionUserIds(backend.db)).toEqual([]);
+
+    // The next attempt clears the messages.
+    logic.setEmail(TEST_OWNER_CREDENTIALS.email);
+    logic.setPassword(TEST_OWNER_CREDENTIALS.password);
+    await logic.signIn();
+
+    expect(logic.state.signInState).toEqual("success");
+    expect(logic.state.signInFieldErrors).toEqual(null);
+    expect(logic.state.isSignedIn).toEqual(true);
+  });
+
   it("should set the error state and stay signed out when the password is wrong", async () => {
     const { backend, logic } = await setupTest({ authenticated: false });
     logic.setEmail(TEST_OWNER_CREDENTIALS.email);

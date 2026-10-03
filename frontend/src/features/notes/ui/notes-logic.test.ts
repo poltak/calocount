@@ -198,6 +198,7 @@ describe("NotesLogic tests", () => {
 
     expect(logic.state.createState).toEqual("error");
     expect(logic.state.createError).toEqual("The request is invalid");
+    expect(logic.state.createFieldErrors).toEqual({ title: "Enter a title" });
     expect(logic.state.notes).toEqual([]);
     // The form keeps what the user typed.
     expect(logic.state.newTitle).toEqual("   ");
@@ -288,13 +289,13 @@ describe("NotesLogic tests", () => {
     ]);
   });
 
-  it("should set the error state and change nothing when the changed title is empty", async () => {
+  it("should set the error state and change nothing when the changed title is too long", async () => {
     const app = await setupTest({ skipInitialization: true });
     const { backend, logic, owner } = app;
     const first = await seedNote(app, FIRST);
     await logic.initialize();
     logic.startEditing(first.id);
-    logic.setEditTitle("");
+    logic.setEditTitle("x".repeat(201));
 
     expect(logic.state.saveState).toEqual("pristine");
 
@@ -304,10 +305,14 @@ describe("NotesLogic tests", () => {
 
     expect(logic.state.saveState).toEqual("error");
     expect(logic.state.saveError).toEqual("The request is invalid");
+    // This rule has no message of its own, so the message for its kind applies.
+    expect(logic.state.saveFieldErrors).toEqual({
+      title: "Use 200 characters or fewer",
+    });
     expect(logic.state.notes).toEqual([first]);
     // The form stays open with what the user typed.
     expect(logic.state.editingNoteId).toEqual(first.id);
-    expect(logic.state.editTitle).toEqual("");
+    expect(logic.state.editTitle).toEqual("x".repeat(201));
     expect(await readNotes(backend.db)).toEqual([
       { id: first.id, userId: owner.id, ...FIRST },
     ]);

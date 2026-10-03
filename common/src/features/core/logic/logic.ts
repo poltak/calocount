@@ -48,20 +48,68 @@ type Exactly<Actual, Expected> = [Actual] extends [Expected]
   : false;
 
 /**
+ * The messages for single fields of what a task sent, by each field's path. A
+ * task that sends a form can hold them in state as `<name>FieldErrors`.
+ */
+export type TaskFieldErrors = Readonly<Record<string, string>>;
+
+/** A field errors entry, when the state has one, must have the right type. */
+type FieldErrorsFit<
+  State,
+  Name extends string,
+> = `${Name}FieldErrors` extends keyof State
+  ? Exactly<State[`${Name}FieldErrors`], TaskFieldErrors | null>
+  : true;
+
+/**
  * Every name `foo` for which the state has both `fooState: TaskState` and
- * `fooError: string | null`. A name without both fields does not compile.
+ * `fooError: string | null`. A name without both fields does not compile. The
+ * state can also have `fooFieldErrors: TaskFieldErrors | null`.
  */
 export type TaskName<State> = {
   [Key in keyof State & string]: Key extends `${infer Name}State`
     ? `${Name}Error` extends keyof State
       ? Exactly<State[Key], TaskState> extends true
         ? Exactly<State[`${Name}Error`], string | null> extends true
-          ? Name
+          ? FieldErrorsFit<State, Name> extends true
+            ? Name
+            : never
           : never
         : never
       : never
     : never;
 }[keyof State & string];
+
+/**
+ * The field messages that a failure carries. A failed request has them when
+ * the backend refused single fields of its input.
+ */
+function readFieldErrors(error: unknown): TaskFieldErrors | null {
+  if (
+    typeof error !== "object" ||
+    error === null ||
+    !("issues" in error) ||
+    !Array.isArray(error.issues)
+  ) {
+    return null;
+  }
+
+  const fieldErrors: Record<string, string> = {};
+  for (const issue of error.issues as unknown[]) {
+    if (
+      typeof issue === "object" &&
+      issue !== null &&
+      "path" in issue &&
+      typeof issue.path === "string" &&
+      "message" in issue &&
+      typeof issue.message === "string"
+    ) {
+      // The first message for a field is the one to show.
+      fieldErrors[issue.path] ??= issue.message;
+    }
+  }
+  return Object.keys(fieldErrors).length > 0 ? fieldErrors : null;
+}
 
 /** Stateful application logic with explicit state, dependencies, and lifecycle. */
 export abstract class Logic<
@@ -145,6 +193,10 @@ export abstract class Logic<
    * Run one async operation and record its progress in `<name>State` and
    * `<name>Error`. A call made while the same task is running does nothing.
    * A failure is recorded in state and never thrown to the caller.
+   *
+   * When the state also has `<name>FieldErrors`, a failure that names single
+   * fields puts their messages there, and every other outcome sets it to
+   * `null`.
    */
   protected async executeTask(
     name: TaskName<State>,
@@ -152,13 +204,17 @@ export abstract class Logic<
   ): Promise<void> {
     const stateKey = `${name}State` as keyof State;
     const errorKey = `${name}Error` as keyof State;
+    const fieldErrorsKey = `${name}FieldErrors` as keyof State;
     if (this.currentState[stateKey] === "running") {
       return;
     }
 
+    const fieldErrors = (value: TaskFieldErrors | null) =>
+      fieldErrorsKey in this.currentState ? { [fieldErrorsKey]: value } : {};
     this.setState({
       [stateKey]: "running",
       [errorKey]: null,
+      ...fieldErrors(null),
     } as Partial<State>);
     try {
       await task();
@@ -169,6 +225,7 @@ export abstract class Logic<
       this.setState({
         [stateKey]: "error",
         [errorKey]: error instanceof Error ? error.message : String(error),
+        ...fieldErrors(readFieldErrors(error)),
       } as Partial<State>);
     }
   }

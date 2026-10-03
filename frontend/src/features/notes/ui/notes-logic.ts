@@ -1,5 +1,6 @@
 import {
   Logic,
+  type TaskFieldErrors,
   type TaskState,
 } from "@shadow/common/features/core/logic/logic";
 import {
@@ -33,8 +34,10 @@ interface NotesState {
   loadError: string | null;
   createState: TaskState;
   createError: string | null;
+  createFieldErrors: TaskFieldErrors | null;
   saveState: TaskState;
   saveError: string | null;
+  saveFieldErrors: TaskFieldErrors | null;
   removeState: TaskState;
   removeError: string | null;
 }
@@ -59,8 +62,10 @@ export class NotesLogic extends Logic<NotesProps, NotesState> {
         loadError: null,
         createState: "pristine",
         createError: null,
+        createFieldErrors: null,
         saveState: "pristine",
         saveError: null,
+        saveFieldErrors: null,
         removeState: "pristine",
         removeError: null,
       },

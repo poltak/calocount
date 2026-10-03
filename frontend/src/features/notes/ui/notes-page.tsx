@@ -39,6 +39,9 @@ export function NotesPage() {
           onChange={(event) => logic.setNewTitle(event.target.value)}
           disabled={creating}
         />
+        {state.createFieldErrors?.title && (
+          <p role="alert">{state.createFieldErrors.title}</p>
+        )}
         <label htmlFor="new-note-body">Note</label>
         <textarea
           id="new-note-body"
@@ -47,7 +50,12 @@ export function NotesPage() {
           onChange={(event) => logic.setNewBody(event.target.value)}
           disabled={creating}
         />
-        {state.createError && <p role="alert">{state.createError}</p>}
+        {state.createFieldErrors?.body && (
+          <p role="alert">{state.createFieldErrors.body}</p>
+        )}
+        {state.createError && !state.createFieldErrors && (
+          <p role="alert">{state.createError}</p>
+        )}
         <button type="submit" disabled={creating}>
           {creating ? "Adding…" : "Add note"}
         </button>
@@ -84,6 +92,9 @@ export function NotesPage() {
                   onChange={(event) => logic.setEditTitle(event.target.value)}
                   disabled={saving}
                 />
+                {state.saveFieldErrors?.title && (
+                  <p role="alert">{state.saveFieldErrors.title}</p>
+                )}
                 <label htmlFor="edit-note-body">Note</label>
                 <textarea
                   id="edit-note-body"
@@ -92,7 +103,12 @@ export function NotesPage() {
                   onChange={(event) => logic.setEditBody(event.target.value)}
                   disabled={saving}
                 />
-                {state.saveError && <p role="alert">{state.saveError}</p>}
+                {state.saveFieldErrors?.body && (
+                  <p role="alert">{state.saveFieldErrors.body}</p>
+                )}
+                {state.saveError && !state.saveFieldErrors && (
+                  <p role="alert">{state.saveError}</p>
+                )}
                 <div className="actions">
                   <button type="submit" disabled={saving}>
                     {saving ? "Saving…" : "Save"}

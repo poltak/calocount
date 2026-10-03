@@ -40,6 +40,9 @@ export function LoginPage() {
           onChange={(event) => logic.setEmail(event.target.value)}
           disabled={signingIn || checkingSession}
         />
+        {state.signInFieldErrors?.email && (
+          <p role="alert">{state.signInFieldErrors.email}</p>
+        )}
         <label htmlFor="password">Password</label>
         <input
           id="password"
@@ -51,7 +54,10 @@ export function LoginPage() {
           onChange={(event) => logic.setPassword(event.target.value)}
           disabled={signingIn || checkingSession}
         />
-        {error && <p role="alert">{error}</p>}
+        {state.signInFieldErrors?.password && (
+          <p role="alert">{state.signInFieldErrors.password}</p>
+        )}
+        {error && !state.signInFieldErrors && <p role="alert">{error}</p>}
         {checkingSession && <output>Checking your session…</output>}
         <button type="submit" disabled={signingIn || checkingSession}>
           {signingIn ? "Signing in…" : "Sign in"}

@@ -146,10 +146,9 @@ template repository is made.
 - [x] 3. **A transaction rule.** Backend Logic runs several writes in
       `this.deps.transaction()`, also across features; see
       [code architecture](../code-architecture.md#transactions).
-- [ ] 4. **Field errors in the client.** The backend returns `issues` for each
-      invalid field, but `requireApiSuccess` keeps only `code` and `message`
-      ([api-client.ts](../../../frontend/src/features/api/client/api-client.ts)).
-      A form can show only "The request is invalid".
+- [x] 4. **Field errors in the client.** A task with `<name>FieldErrors` in
+      its state gets a message for each field that the backend refuses; see
+      [code architecture](../code-architecture.md#backend-handlers).
 
 ### Run and deploy
 
@@ -203,16 +202,7 @@ template repository is made.
       `noUncheckedIndexedAccess`, `noImplicitOverride`, and
       `exactOptionalPropertyTypes` while the codebase is small.
 
-### Proposals for the open items
-
-These are proposals. The owner has not decided them.
-
-- **4. Field errors.** `ApiRequestError` carries `issues`. `executeTask` fills
-  an optional third state field, `<name>FieldErrors`, when the error has
-  issues. The backend schemas then need messages written for users. Shared
-  request schemas in `common` are a later option, because they add zod to the
-  frontend. No form with several fields exists yet, so this can wait for the
-  first one.
+### Out of scope
 
 Do not add email, background jobs, file upload, or a component library to the
 template. Each project needs different ones, and each adds dependencies that
