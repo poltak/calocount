@@ -10,6 +10,8 @@ import type { EncounterLifecycleLogic } from "../encounter-lifecycle/logic/encou
 import type { EncounterLifecycleStorage } from "../encounter-lifecycle/storage/encounter-lifecycle-storage.js";
 import type { HealthLogic } from "../health/logic/health-logic.js";
 import type { HealthStorage } from "../health/storage/health-storage.js";
+import type { NotesLogic } from "../notes/logic/notes-logic.js";
+import type { NotesStorage } from "../notes/storage/notes-storage.js";
 import type { PatientRecordsServiceInterface } from "../patient-records/services/types.js";
 import type { TranscriptionServiceInterface } from "../transcription/services/types.js";
 import type { MigrationLogic } from "./logic/migration-logic.js";
@@ -20,6 +22,7 @@ export interface BackendStorage {
   encounterLifecycle: EncounterLifecycleStorage;
   health: HealthStorage;
   migration: MigrationStorage;
+  notes: NotesStorage;
 }
 
 /**
@@ -45,6 +48,7 @@ export interface BackendLogic {
   encounterLifecycle: EncounterLifecycleLogic;
   health: HealthLogic;
   migration: MigrationLogic;
+  notes: NotesLogic;
 }
 
 export interface App {

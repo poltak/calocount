@@ -127,8 +127,8 @@ start CI. On a private repository, each run uses the plan's Actions minutes.
 
 ## What the template still needs
 
-Checked items are done. Recommended order for the others: item 3, then item 2
-as one "notes" feature, then item 18. Items 12 to 17 wait until the
+Checked items are done. Recommended order for the others: item 3, then
+item 18. Items 12 to 17 wait until the
 template repository is made.
 
 ### Gaps that stop the first real feature
@@ -136,12 +136,14 @@ template repository is made.
 - [x] 1. **Migrations for application tables.** `pnpm run db:migration:create`
       creates a migration and `pnpm run db:migrate` applies them. The rules are
       in [code architecture](../code-architecture.md#database-schema).
-- [ ] 2. **A complete example feature.** No code shows an application table, a
-      Storage query, a list page, a LogicPlugin, or frontend Storage. The
-      `examples` feature calls the `encounters` routes
+- [x] 2. **A complete example feature.** The `notes` feature lists, creates,
+      changes, and deletes the signed-in user's notes. Two parts are still
+      open. No code shows a LogicPlugin or frontend Storage. The API example
+      in `examples`
       ([api-example-logic.ts](../../../frontend/src/features/examples/ui/api-example-logic.ts),
-      [api-client.test.ts](../../../frontend/src/features/api/client/api-client.test.ts)),
-      so it breaks when the product features are removed.
+      [api-client.test.ts](../../../frontend/src/features/api/client/api-client.test.ts))
+      calls the `encounters` routes, so the template must drop it or point it
+      at `notes`.
 - [ ] 3. **A transaction rule.** No rule says where a write to more than one
       row or table becomes atomic.
 - [ ] 4. **Field errors in the client.** The backend returns `issues` for each
@@ -205,11 +207,6 @@ template repository is made.
 
 These are proposals. The owner has not decided them.
 
-- **2. Example feature.** "Notes" for the signed-in user: a list with search,
-  a create form, an edit form that keeps each earlier version, and delete. It
-  covers a migration, Storage queries, `LatestRequest`, field errors, a
-  Storage transaction, and a `DraftPlugin` that keeps unsaved text in browser
-  storage. It replaces the API example in `examples`.
 - **3. Transactions.** A feature has one Storage class, so a write to several
   rows or tables is one Storage method, and that method runs it in one
   transaction. Logic never holds a transaction open. For a rule that must read

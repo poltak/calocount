@@ -18,6 +18,7 @@ import { logRequests } from "../handlers/request-log.js";
 import type { RequestEnvironment } from "../handlers/types.js";
 import { createEncounterLifecycleHandlers } from "../../encounter-lifecycle/handlers/encounter-lifecycle-handlers.js";
 import { createHealthHandlers } from "../../health/handlers/health-handlers.js";
+import { createNotesHandlers } from "../../notes/handlers/notes-handlers.js";
 import type { App } from "../types.js";
 
 /** The server refuses a larger request body. Raise it for a route that takes uploads. */
@@ -37,6 +38,7 @@ function createBusinessHttpApp({ app }: ApiHttpAppProps) {
   return new Hono<AuthEnvironment>()
     .use("*", requireSession({ services: app.services, logic: app.logic }))
     .route("/me", createProfileHandlers({ logic: app.logic }))
+    .route("/notes", createNotesHandlers({ logic: app.logic }))
     .route(
       "/encounters",
       createEncounterLifecycleHandlers({ logic: app.logic }),

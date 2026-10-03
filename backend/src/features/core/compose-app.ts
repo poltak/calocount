@@ -8,6 +8,8 @@ import { EncounterLifecycleLogic } from "../encounter-lifecycle/logic/encounter-
 import { EncounterLifecycleStorage } from "../encounter-lifecycle/storage/encounter-lifecycle-storage.js";
 import { HealthLogic } from "../health/logic/health-logic.js";
 import { HealthStorage } from "../health/storage/health-storage.js";
+import { NotesLogic } from "../notes/logic/notes-logic.js";
+import { NotesStorage } from "../notes/storage/notes-storage.js";
 import type {
   App,
   BackendLogic,
@@ -34,6 +36,7 @@ export function composeApp({ db, services, ownerEmail }: ComposeAppProps): App {
     encounterLifecycle: new EncounterLifecycleStorage({ db }),
     health: new HealthStorage({ db }),
     migration: new MigrationStorage({ db }),
+    notes: new NotesStorage({ db }),
   };
 
   const logic: BackendLogic = {
@@ -44,6 +47,7 @@ export function composeApp({ db, services, ownerEmail }: ComposeAppProps): App {
     encounterLifecycle: new EncounterLifecycleLogic({ storage, services }),
     health: new HealthLogic({ storage, services }),
     migration: new MigrationLogic({ storage, services }),
+    notes: new NotesLogic({ storage, services }),
   };
 
   return {

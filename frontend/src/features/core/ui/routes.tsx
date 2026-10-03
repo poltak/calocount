@@ -8,6 +8,7 @@ import {
 } from "react-router";
 import { ApiExamplePage } from "../../examples/ui/api-example-page.js";
 import { CounterPage } from "../../examples/ui/counter-page.js";
+import { NotesPage } from "../../notes/ui/notes-page.js";
 import { AuthProvider, useAuth } from "../../auth/ui/auth-context.js";
 import { SessionGate } from "../../auth/ui/session-gate.js";
 import { LoginPage } from "../../auth/ui/login-page.js";
@@ -28,6 +29,7 @@ function ProtectedLayout() {
             Counter
           </NavLink>
           <NavLink to="/examples/api/example-encounter">API example</NavLink>
+          <NavLink to="/notes">Notes</NavLink>
         </nav>
         <div className="session-actions">
           <span>{state.userName}</span>
@@ -64,6 +66,7 @@ export function AppRoutes() {
                 path="/examples/api/:encounterId?"
                 element={<ApiExamplePage />}
               />
+              <Route path="/notes" element={<NotesPage />} />
               <Route
                 path="*"
                 element={

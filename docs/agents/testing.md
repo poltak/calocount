@@ -14,7 +14,10 @@ Nothing on that path is replaced/mocked.
 The canonical example is
 [`auth-logic.test.ts`](../../frontend/src/features/auth/ui/auth-logic.test.ts).
 Copy its shape. Its first test, for `AuthLogic.setName`, is the model for a
-success case; the tests after it are the model for failure cases.
+success case; the tests after it are the model for failure cases. For a
+feature with its own table, see
+[`notes-logic.test.ts`](../../frontend/src/features/notes/ui/notes-logic.test.ts),
+which also shows how to seed rows through the API.
 
 Backend code has no test runner of its own. Handlers, backend Logic, and Storage
 are covered through these tests.

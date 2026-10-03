@@ -93,14 +93,37 @@ a:focus-visible {
   display: grid;
   gap: 12px;
 }
-input {
+input,
+textarea {
   min-width: 0;
   padding: 10px 12px;
   font: inherit;
   border: 1px solid #b9c4da;
   border-radius: 8px;
 }
-input:focus-visible {
+input:focus-visible,
+textarea:focus-visible {
   outline: 3px solid #3049a5;
   outline-offset: 3px;
+}
+.note-form {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.note-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.note-list li {
+  padding: 16px 0;
+  border-top: 1px solid #dbe1eb;
+}
+.note-list h2 {
+  margin: 0;
+  font-size: 18px;
+}
+.note-list p {
+  white-space: pre-wrap;
 }
