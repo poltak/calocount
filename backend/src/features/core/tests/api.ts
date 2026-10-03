@@ -5,7 +5,6 @@ import { initializeLogic } from "../logic/lifecycle.js";
 import {
   createDatabase,
   createDatabaseSnapshot,
-  type DatabaseSnapshot,
 } from "../database/pglite-database.js";
 import type { AuthUser } from "../../auth/services/types.js";
 
@@ -14,48 +13,47 @@ interface OwnerCredentials {
   password: string;
 }
 
-interface Template {
-  snapshot: DatabaseSnapshot;
+/**
+ * A migrated database that already holds the owner account, as plain data that
+ * the test runner can hand to each test file.
+ */
+export interface DatabaseTemplate {
+  snapshot: ArrayBuffer;
+  /** The owner account as the template holds it. */
   owner: AuthUser;
 }
 
-const templates = new Map<string, Promise<Template>>();
-
 /**
- * A migrated database that already holds the owner account. Starting PGlite
- * empty and creating the owner takes most of a test's setup time, so this runs
- * once per test worker and every test database starts from its snapshot.
+ * Build the database that every test database starts from. Starting PGlite
+ * empty, migrating it, and creating the owner takes several seconds, so a test
+ * run does this once, before its test files start.
  */
-async function createTemplate(
+export async function createDatabaseTemplate(
   credentials: OwnerCredentials,
-): Promise<Template> {
+): Promise<DatabaseTemplate> {
   let owner!: AuthUser;
   const snapshot = await createDatabaseSnapshot(async (db) => {
     const app = createApp({ db });
     await app.logic.migration.migrate();
     owner = await app.logic.ownerSetup.createOwner(credentials);
   });
-  return { snapshot, owner };
+  return { snapshot: await snapshot.arrayBuffer(), owner };
 }
 
 /** Node-only fixture: real handlers and validation, with no listening socket. */
 export async function createTestBackend({
-  owner: credentials,
+  template,
   baseUrl = "http://shadow.test",
   trustedOrigins = [],
 }: {
-  owner: OwnerCredentials;
+  template: DatabaseTemplate;
   baseUrl?: string;
   trustedOrigins?: string[];
 }) {
-  const key = JSON.stringify([credentials.name, credentials.password]);
-  if (!templates.has(key)) {
-    templates.set(key, createTemplate(credentials));
-  }
-  const { snapshot, owner } = await templates.get(key)!;
-
   const app = createApp({
-    db: createDatabase({ snapshot }),
+    db: createDatabase({
+      snapshot: new Blob([template.snapshot], { type: "application/x-tar" }),
+    }),
     authBaseUrl: baseUrl,
     trustedOrigins,
   });
@@ -78,7 +76,7 @@ export async function createTestBackend({
   return {
     app,
     /** The owner account as every test database holds it at the start. */
-    owner,
+    owner: template.owner,
     httpApp,
     fetch,
     createBrowserTransport: () =>

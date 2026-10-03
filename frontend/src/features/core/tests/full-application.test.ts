@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
-import {
-  createFullApplication,
-  TEST_OWNER_CREDENTIALS,
-} from "./full-application.js";
+import { createFullApplication } from "./full-application.js";
+import { TEST_OWNER_CREDENTIALS } from "./test-owner.js";
 
 describe("full application fixture", () => {
   it("should give each application its own database", async () => {

@@ -165,9 +165,13 @@ entry to the choice, the reason, and any rule that follows from it.
 - **Every test has its own application and database,** so any test can run alone
   and test files run in parallel.
 - **Each test database starts from a snapshot.** Starting an empty PGlite
-  database takes about 550 ms, and hashing the owner's password takes another
-  70 ms. Each test worker builds one migrated database with the owner in it,
-  and every test database starts from a copy, which takes about 100 ms.
+  database, migrating it, and hashing the owner's password takes seconds.
+  Vitest's global setup builds one migrated database with the owner in it,
+  once for a test run, and every test database starts from a copy. Building
+  it in each test file put that time inside the limit of the file's first
+  test, which then failed on a slow CI machine. The test time limit is 20
+  seconds for the same reason: the first test of each file still starts the
+  database engine.
 - **Logic tests run in plain Node, not a simulated browser.** They need no DOM,
   and the simulated browser adds startup time to every test file. The one
   rendered test opts into it.

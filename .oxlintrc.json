@@ -281,7 +281,8 @@
       "files": [
         "frontend/src/**/*.test.ts",
         "frontend/src/**/*.test.tsx",
-        "frontend/src/features/core/tests/full-application.ts"
+        "frontend/src/features/core/tests/full-application.ts",
+        "frontend/src/features/core/tests/global-setup.ts"
       ],
       "rules": {
         "no-restricted-imports": [

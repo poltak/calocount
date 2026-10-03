@@ -1,13 +1,8 @@
 import { createTestBackend } from "backend/testing";
-import { onTestFinished } from "vitest";
+import { inject, onTestFinished } from "vitest";
 import type { OwnedLogic } from "../logic/use-logic.js";
 import { createApp } from "./index.js";
-
-export const TEST_OWNER_CREDENTIALS = {
-  email: "owner@example.test",
-  name: "Owner",
-  password: "test-password-for-auth-only",
-};
+import { TEST_OWNER_CREDENTIALS } from "./test-owner.js";
 
 interface FullApplicationParams {
   /** Sign the owner in before the test starts. Defaults to true. */
@@ -22,7 +17,10 @@ interface FullApplicationParams {
 export async function createFullApplication({
   authenticated = true,
 }: FullApplicationParams = {}) {
-  const backend = await createTestBackend({ owner: TEST_OWNER_CREDENTIALS });
+  // `global-setup.ts` built the template once for the whole test run.
+  const backend = await createTestBackend({
+    template: inject("databaseTemplate"),
+  });
   onTestFinished(() => backend.close());
   const transport = backend.createBrowserTransport();
   if (authenticated) {

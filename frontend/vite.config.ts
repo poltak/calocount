@@ -55,6 +55,11 @@ export default defineConfig(({ mode }) => {
       // Logic tests need no browser. The one rendered test opts into jsdom.
       environment: "node",
       include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+      // The first test of each file also starts the in-memory database engine,
+      // which takes several seconds on a slow CI machine.
+      testTimeout: 20_000,
+      // Builds the database that every test database starts from, once.
+      globalSetup: ["src/features/core/tests/global-setup.ts"],
       // Enabled by the `test` script. See docs/agents/testing.md (Coverage).
       coverage: {
         provider: "v8",

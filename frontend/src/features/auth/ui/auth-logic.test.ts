@@ -3,10 +3,10 @@ import { describe, expect, it, vi } from "vitest";
 import { AuthLogic } from "./auth-logic.js";
 import {
   setupLogicTest,
-  TEST_OWNER_CREDENTIALS,
   type LogicTestParams,
   type TestDatabase,
 } from "../../core/tests/full-application.js";
+import { TEST_OWNER_CREDENTIALS } from "../../core/tests/test-owner.js";
 
 function setupTest(params: LogicTestParams = {}) {
   return setupLogicTest(params, (app) => new AuthLogic(app.frontend));
