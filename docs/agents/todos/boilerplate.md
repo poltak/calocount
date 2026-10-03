@@ -1,8 +1,8 @@
 # Reusable boilerplate: plan and open work
 
 The goal is a template repository that new projects start from, and that stays
-current after the projects start. No item on this list is done. Close items as
-work completes.
+current after the projects start. Checked items in the list below are done.
+Close the others as work completes.
 
 ## Plan
 
@@ -21,6 +21,29 @@ work completes.
 - Do not publish shared packages yet. Files such as `compose-app.ts` exist to
   be edited in each project. The `lint/` plugins are the first candidate when a
   second project shows which parts stay the same.
+
+## How a new project starts
+
+A new project starts from the template's latest commit and keeps the template's
+Git history. The shared history is what lets the project take a later template
+change with a merge or a cherry-pick.
+
+1. Make a new, empty repository for the project.
+2. Clone the template. Rename its remote from `origin` to `template`, add the
+   new repository as `origin`, and push.
+3. Replace the name and remove the example features that the project does not
+   need. Item 14 is the skill for this step.
+4. Record the template commit that the project started from. Item 16 is the
+   file for this.
+
+Later, `git fetch template` shows what changed in the template. Merge
+`template/main` while the project has changed few of the template's files.
+After that, cherry-pick single commits, or let an agent port them.
+
+Do not use GitHub's "Use this template" button. It makes a repository without
+the template's history, so no merge is possible later. Do not use a GitHub
+fork. An organization can have only one fork of a repository, and a fork's pull
+requests go to the template by default.
 
 ## Renovate
 
