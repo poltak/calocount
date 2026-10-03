@@ -38,6 +38,14 @@ entry to the choice, the reason, and any rule that follows from it.
 - **Application tables and columns use camelCase, like Better Auth's.** One
   convention in the database needs no name mapping in Kysely. SQL must then
   quote each name.
+- **Transactions start in backend Logic, and nowhere else.** The composition
+  root gives Logic a `transaction` function whose callback receives every
+  Storage class, bound to the transaction. One mechanism then covers a write
+  to several tables of one feature and a write across features, and one
+  operation never has two transactions. A Storage method cannot start one: a
+  Storage instance inside a transaction cannot open a second.
+- **The `activity` feature shows a write across two features.** Each change to
+  a note and its activity record are one transaction in `NotesLogic`.
 - **A typed first-party API client instead of feature Service wrappers.** Hono's
   client derives request and response types from the backend routes through a
   type-only export. This couples builds to the contract, not browser code to the

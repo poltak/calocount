@@ -1,10 +1,13 @@
 import { Logic } from "@shadow/common/features/core/logic/logic";
 import type { AuthUser } from "../../auth/services/types.js";
 import { AppError } from "../../core/errors/app-error.js";
-import type { BackendLogicProps } from "../../core/logic/types.js";
+import type {
+  BackendLogicProps,
+  BackendTransactionProps,
+} from "../../core/logic/types.js";
 import type { Note } from "../storage/types.js";
 
-type NotesProps = BackendLogicProps<"notes">;
+type NotesProps = BackendLogicProps<"notes"> & BackendTransactionProps;
 
 interface NoteContent {
   title: string;
@@ -18,7 +21,11 @@ function noteNotFound(): AppError {
   });
 }
 
-/** A user's own notes. A note of another user is the same as no note. */
+/**
+ * A user's own notes. A note of another user is the same as no note. Each
+ * change and its activity record are one transaction, so neither exists
+ * without the other.
+ */
 export class NotesLogic extends Logic<NotesProps, Record<string, never>> {
   constructor(deps: NotesProps) {
     super({ deps, initialState: {} });
@@ -32,30 +39,46 @@ export class NotesLogic extends Logic<NotesProps, Record<string, never>> {
     user,
     ...content
   }: NoteContent & { user: AuthUser }): Promise<Note> {
-    return this.deps.storage.notes.create({ userId: user.id, ...content });
+    return this.deps.transaction(async (storage) => {
+      const note = await storage.notes.create({ userId: user.id, ...content });
+      await storage.activity.record({
+        userId: user.id,
+        action: "note.created",
+        subjectId: note.id,
+      });
+      return note;
+    });
   }
 
-  async update({
+  update({
     user,
     ...note
   }: NoteContent & { user: AuthUser; id: string }): Promise<Note> {
-    const updated = await this.deps.storage.notes.update({
-      userId: user.id,
-      ...note,
+    return this.deps.transaction(async (storage) => {
+      const updated = await storage.notes.update({ userId: user.id, ...note });
+      if (!updated) {
+        throw noteNotFound();
+      }
+      await storage.activity.record({
+        userId: user.id,
+        action: "note.updated",
+        subjectId: updated.id,
+      });
+      return updated;
     });
-    if (!updated) {
-      throw noteNotFound();
-    }
-    return updated;
   }
 
-  async delete({ user, id }: { user: AuthUser; id: string }): Promise<void> {
-    const deleted = await this.deps.storage.notes.delete({
-      userId: user.id,
-      id,
+  delete({ user, id }: { user: AuthUser; id: string }): Promise<void> {
+    return this.deps.transaction(async (storage) => {
+      const deleted = await storage.notes.delete({ userId: user.id, id });
+      if (!deleted) {
+        throw noteNotFound();
+      }
+      await storage.activity.record({
+        userId: user.id,
+        action: "note.deleted",
+        subjectId: id,
+      });
     });
-    if (!deleted) {
-      throw noteNotFound();
-    }
   }
 }

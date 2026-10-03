@@ -7,7 +7,7 @@ Use this guide when you are changing existing code, writing new code, moving fil
 Use class names to signal responsibility clearly:
 
 - Service class (e.g., `FooService`): thin wrapper around a stateful or I/O-based external service, API, SDK, or platform capability. Pure utility packages do not need Service wrappers. Each Service has an interface named after the capability, `FooServiceInterface`, and one or more implementations named after what backs them, such as `BetterAuthService`, `SupabaseAuthService`, or `FakeAuthService`. Other code depends only on the interface. Keep vendor types and details inside the implementation, so another one can replace it behind the same interface.
-- Storage class (e.g., `FooStorage`): thin persistence abstraction with query and data-mapping logic only. Persistence includes databases, database RPCs, object storage, browser storage, IndexedDB, AsyncStorage, secure storage, caches, cookies, and local files used as application data.
+- Storage class (e.g., `FooStorage`): thin persistence abstraction with query and data-mapping logic only. A feature has one Storage class for all its tables, not one class for each table. Persistence includes databases, database RPCs, object storage, browser storage, IndexedDB, AsyncStorage, secure storage, caches, cookies, and local files used as application data.
 - UI Logic class (e.g., `FooLogic`): frontend state, UI behavior, and business logic. A Logic class may be stateless; state features are available but not required.
 - Backend Logic class (e.g., `FooLogic`): backend business logic.
 
@@ -396,6 +396,41 @@ request ID and answers with `INTERNAL` and no detail. Every response carries
 its request ID in the `X-Request-Id` header, so a report from a user leads to
 the log entry.
 
+## Transactions
+
+When an operation needs several writes to succeed or fail together, the backend
+Logic method runs them in `this.deps.transaction()`. A Logic class gets
+`transaction` when its props type includes `BackendTransactionProps`.
+
+```ts
+return this.deps.transaction(async (storage) => {
+  const note = await storage.notes.create({ userId, title, body });
+  await storage.activity.record({
+    userId,
+    action: "note.created",
+    subjectId: note.id,
+  });
+  return note;
+});
+```
+
+- The callback receives every Storage class, bound to the transaction. The
+  transaction commits when the callback returns, and rolls back when it
+  throws. Throw an `AppError` to roll back and report an expected failure.
+- A transaction is the only place where a Logic class may use the Storage of
+  another feature. Outside one, a Logic class uses only its own feature's
+  Storage, from `this.deps.storage`.
+- Inside the callback, use only the Storage that the callback receives.
+  `this.deps.storage` is not part of the transaction, and lint rejects it
+  there.
+- Do not call a Service inside the callback, except a Core Service. An
+  external effect cannot roll back, and the transaction stays open while the
+  Service runs. Call the Service before or after the transaction.
+- Keep the callback short. It holds reads, decisions, and writes, and nothing
+  that waits for another system.
+- A Storage method does not start a transaction. Atomic writes always start in
+  Logic, so one operation has one transaction.
+
 ## Database schema
 
 A change to the schema is a migration: one file in
@@ -444,3 +479,4 @@ Before you hand off a structural change, check:
 - Does each Logic instance own a separate instance and state for each LogicPlugin it uses?
 - Did the change create a cross-feature dependency that should instead be modeled through a shared abstraction or event?
 - Does a Service or Storage class depend on a Service that is not a Core Service?
+- Does an operation with several writes run them in one transaction?

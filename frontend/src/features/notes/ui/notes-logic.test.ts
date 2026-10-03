@@ -19,6 +19,15 @@ function readNotes(db: TestDatabase) {
     .execute();
 }
 
+/** What the activity feature recorded, oldest first. */
+function readActivity(db: TestDatabase) {
+  return db
+    .selectFrom("activity")
+    .select(["userId", "action", "subjectId"])
+    .orderBy("createdAt")
+    .execute();
+}
+
 /** Create a note as the signed-in user does, through the API. */
 async function seedNote(
   { frontend }: Pick<FullApplication, "frontend">,
@@ -114,6 +123,7 @@ describe("NotesLogic tests", () => {
     expect(await readNotes(backend.db)).toEqual([
       { id: foreign.id, userId: other.id, title: "Private", body: "Not yours" },
     ]);
+    expect(await readActivity(backend.db)).toEqual([]);
   });
 
   it("should afford creating a note", async () => {
@@ -125,6 +135,7 @@ describe("NotesLogic tests", () => {
     expect(logic.state.createError).toEqual(null);
     expect(logic.state.notes).toEqual([]);
     expect(await readNotes(backend.db)).toEqual([]);
+    expect(await readActivity(backend.db)).toEqual([]);
 
     const held = transport.holdNextRequest();
     const createP = logic.create();
@@ -132,6 +143,7 @@ describe("NotesLogic tests", () => {
     expect(logic.state.createState).toEqual("running");
     expect(logic.state.notes).toEqual([]);
     expect(await readNotes(backend.db)).toEqual([]);
+    expect(await readActivity(backend.db)).toEqual([]);
     held.release();
     await createP;
 
@@ -143,6 +155,33 @@ describe("NotesLogic tests", () => {
     expect(await readNotes(backend.db)).toEqual([
       { id: logic.state.notes[0]?.id, userId: owner.id, ...FIRST },
     ]);
+    expect(await readActivity(backend.db)).toEqual([
+      {
+        userId: owner.id,
+        action: "note.created",
+        subjectId: logic.state.notes[0]?.id,
+      },
+    ]);
+  });
+
+  it("should store neither the note nor its activity record when one of the two writes fails", async () => {
+    const { backend, logic } = await setupTest();
+    // Without its table, the activity write fails after the note write.
+    await backend.db.schema.dropTable("activity").execute();
+    logic.setNewTitle(FIRST.title);
+    logic.setNewBody(FIRST.body);
+
+    expect(logic.state.createState).toEqual("pristine");
+    expect(await readNotes(backend.db)).toEqual([]);
+
+    const createP = logic.create();
+    expect(logic.state.createState).toEqual("running");
+    await createP;
+
+    expect(logic.state.createState).toEqual("error");
+    expect(logic.state.createError).toEqual("Internal server error");
+    expect(logic.state.notes).toEqual([]);
+    expect(await readNotes(backend.db)).toEqual([]);
   });
 
   it("should set the error state and store nothing when the new title is empty", async () => {
@@ -242,6 +281,11 @@ describe("NotesLogic tests", () => {
       { id: first.id, userId: owner.id, ...changed },
       { id: second.id, userId: owner.id, ...SECOND },
     ]);
+    expect(await readActivity(backend.db)).toEqual([
+      { userId: owner.id, action: "note.created", subjectId: first.id },
+      { userId: owner.id, action: "note.created", subjectId: second.id },
+      { userId: owner.id, action: "note.updated", subjectId: first.id },
+    ]);
   });
 
   it("should set the error state and change nothing when the changed title is empty", async () => {
@@ -288,6 +332,9 @@ describe("NotesLogic tests", () => {
     expect(logic.state.saveError).toEqual("This note does not exist");
     expect(logic.state.editingNoteId).toEqual(first.id);
     expect(await readNotes(backend.db)).toEqual([]);
+    expect(await readActivity(backend.db)).toMatchObject([
+      { action: "note.created", subjectId: first.id },
+    ]);
   });
 
   it("should do nothing on save when no note is in the edit form", async () => {
@@ -341,6 +388,11 @@ describe("NotesLogic tests", () => {
     expect(logic.state.editingNoteId).toEqual(null);
     expect(await readNotes(backend.db)).toEqual([
       { id: second.id, userId: owner.id, ...SECOND },
+    ]);
+    expect(await readActivity(backend.db)).toEqual([
+      { userId: owner.id, action: "note.created", subjectId: first.id },
+      { userId: owner.id, action: "note.created", subjectId: second.id },
+      { userId: owner.id, action: "note.deleted", subjectId: first.id },
     ]);
   });
 

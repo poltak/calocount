@@ -530,6 +530,59 @@ const fileLayout = {
   },
 };
 
+/** True for `this.deps.<name>`. */
+function isDepsMember(node, name) {
+  return (
+    node.type === "MemberExpression" &&
+    !node.computed &&
+    node.property.name === name &&
+    node.object.type === "MemberExpression" &&
+    node.object.object.type === "ThisExpression" &&
+    node.object.property.name === "deps"
+  );
+}
+
+const transactionScope = {
+  meta: {
+    type: "problem",
+    docs: {
+      description:
+        "Inside a transaction, a Logic class uses the Storage that the transaction provides.",
+    },
+    schema: [],
+    messages: {
+      outside:
+        "Inside a transaction, use the Storage that the callback receives. `this.deps.storage` is not part of the transaction. " +
+        DOC +
+        " (Transactions).",
+    },
+  },
+  create(context) {
+    // How many `this.deps.transaction(...)` calls enclose the current node.
+    let depth = 0;
+    const isTransactionCall = (node) =>
+      isDepsMember(node.callee, "transaction");
+
+    return {
+      CallExpression(node) {
+        if (isTransactionCall(node)) {
+          depth += 1;
+        }
+      },
+      "CallExpression:exit"(node) {
+        if (isTransactionCall(node)) {
+          depth -= 1;
+        }
+      },
+      MemberExpression(node) {
+        if (depth > 0 && isDepsMember(node, "storage")) {
+          context.report({ node, messageId: "outside" });
+        }
+      },
+    };
+  },
+};
+
 export default {
   meta: { name: "architecture" },
   rules: {
@@ -541,5 +594,6 @@ export default {
     "role-naming": roleNaming,
     "constructor-deps": constructorDeps,
     "file-layout": fileLayout,
+    "transaction-scope": transactionScope,
   },
 };

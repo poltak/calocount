@@ -127,8 +127,7 @@ start CI. On a private repository, each run uses the plan's Actions minutes.
 
 ## What the template still needs
 
-Checked items are done. Recommended order for the others: item 3, then
-item 18. Items 12 to 17 wait until the
+Checked items are done. Item 18 is the next one to do. Items 12 to 17 wait until the
 template repository is made.
 
 ### Gaps that stop the first real feature
@@ -144,8 +143,9 @@ template repository is made.
       [api-client.test.ts](../../../frontend/src/features/api/client/api-client.test.ts))
       calls the `encounters` routes, so the template must drop it or point it
       at `notes`.
-- [ ] 3. **A transaction rule.** No rule says where a write to more than one
-      row or table becomes atomic.
+- [x] 3. **A transaction rule.** Backend Logic runs several writes in
+      `this.deps.transaction()`, also across features; see
+      [code architecture](../code-architecture.md#transactions).
 - [ ] 4. **Field errors in the client.** The backend returns `issues` for each
       invalid field, but `requireApiSuccess` keeps only `code` and `message`
       ([api-client.ts](../../../frontend/src/features/api/client/api-client.ts)).
@@ -207,12 +207,6 @@ template repository is made.
 
 These are proposals. The owner has not decided them.
 
-- **3. Transactions.** A feature has one Storage class, so a write to several
-  rows or tables is one Storage method, and that method runs it in one
-  transaction. Logic never holds a transaction open. For a rule that must read
-  and then write, use a conditional write or a database constraint in Storage,
-  and let Logic turn the result into an `AppError`. An atomic write across two
-  features has no pattern yet; decide it when a real case exists.
 - **4. Field errors.** `ApiRequestError` carries `issues`. `executeTask` fills
   an optional third state field, `<name>FieldErrors`, when the error has
   issues. The backend schemas then need messages written for users. Shared

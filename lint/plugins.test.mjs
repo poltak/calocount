@@ -169,6 +169,20 @@ test("lets Logic use only its own feature's Storage", async (context) => {
   ]);
 });
 
+test("keeps a transaction on the Storage that it provides", async (context) => {
+  const problems = await lint(context, {
+    ...coreFiles("backend"),
+    ...coreFiles("frontend"),
+    [`${feature("notes")}/logic/notes-logic.ts`]:
+      importLogic +
+      "export class NotesLogic extends Logic {\n  inside() {\n    return this.deps.transaction((storage) => storage.notes.save());\n  }\n  mixed() {\n    return this.deps.transaction(() => this.deps.storage.notes.save());\n  }\n  outside() {\n    return this.deps.storage.notes.save();\n  }\n}\n",
+  });
+
+  assert.deepEqual(problems, [
+    "backend/src/features/notes/logic/notes-logic.ts: architecture(transaction-scope)",
+  ]);
+});
+
 test("enforces role names and constructor shape", async (context) => {
   const problems = await lint(context, {
     ...coreFiles("backend"),

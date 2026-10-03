@@ -148,6 +148,7 @@
         }
       }
     ],
+    "architecture/transaction-scope": "error",
     "stack/vendor-imports": [
       "error",
       {

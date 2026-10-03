@@ -1,4 +1,5 @@
 import type { LoggerServiceInterface } from "@shadow/common/features/core/services/types";
+import type { ActivityStorage } from "../activity/storage/activity-storage.js";
 import type { AIServiceInterface } from "../ai/services/types.js";
 import type { AuthServiceInterface } from "../auth/services/types.js";
 import type { AuthStorage } from "../auth/storage/auth-storage.js";
@@ -18,6 +19,7 @@ import type { MigrationLogic } from "./logic/migration-logic.js";
 import type { MigrationStorage } from "./storage/migration-storage.js";
 
 export interface BackendStorage {
+  activity: ActivityStorage;
   auth: AuthStorage;
   encounterLifecycle: EncounterLifecycleStorage;
   health: HealthStorage;

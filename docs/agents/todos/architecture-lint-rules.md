@@ -27,7 +27,8 @@ to judgment, and what remains to decide.
 | `architecture/layer-imports`           | Storage and Service files import no other layer, none of the App collections, and no other feature's Service interface unless it is a Core Service. A Logic file imports no other Logic file. |
 | `architecture/service-implementations` | Only composition files and tests import a Service implementation.                                                                                                                             |
 | `architecture/no-construction`         | Only composition files and tests construct a Service, Storage, or Logic class.                                                                                                                |
-| `architecture/own-storage`             | A Logic class may select any Service, but only Storage whose key starts with its own feature's name.                                                                                          |
+| `architecture/own-storage`             | A Logic class may select any Service, but only Storage whose key starts with its own feature's name. A transaction callback is the exception: it receives every Storage.                      |
+| `architecture/transaction-scope`       | Inside a `this.deps.transaction()` callback, Logic does not use `this.deps.storage`.                                                                                                          |
 | `architecture/role-naming`             | File and class names in `services/`, `storage/`, and `logic/`, and for `*-logic.ts` and `*-plugin.ts` files anywhere.                                                                         |
 | `architecture/constructor-deps`        | Service, Storage, and Logic constructors take one `deps` parameter.                                                                                                                           |
 | `architecture/file-layout`             | Every source file sits in a known role directory of a feature.                                                                                                                                |
@@ -50,6 +51,7 @@ These stay as written rules, checked in review:
 - Use events, not direct calls, when one Logic reacts to another.
 - Components pass Services into a Logic's `deps` but never call them.
 - Keep call stacks shallow.
+- A transaction callback calls no Service except a Core Service.
 - A Service depends on no other Service in its own feature. Lint checks only
   imports from other features, because it cannot tell a second interface in the
   same `types.ts` from the one the class implements.
