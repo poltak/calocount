@@ -50,6 +50,7 @@
       }
     ],
     "node/no-process-env": "error",
+    "no-console": "error",
     "architecture/feature-boundaries": [
       "error",
       {
@@ -67,7 +68,8 @@
     "architecture/layer-imports": [
       "error",
       {
-        "collectionTypeFiles": ["features/core/types.ts"]
+        "collectionTypeFiles": ["features/core/types.ts"],
+        "coreServiceFeatures": ["core"]
       }
     ],
     "architecture/service-implementations": [
@@ -311,6 +313,15 @@
       "files": ["backend/src/features/core/live/config.ts"],
       "rules": {
         "node/no-process-env": "off"
+      }
+    },
+    {
+      "files": [
+        "common/src/features/core/services/console-logger-service.ts",
+        "backend/src/features/*/scripts/**"
+      ],
+      "rules": {
+        "no-console": "off"
       }
     },
     {

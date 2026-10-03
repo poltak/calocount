@@ -7,6 +7,8 @@ import {
 } from "react";
 import type { Unsubscribe } from "@shadow/common/features/core/events/event-emitter";
 import { InitializationCancelledError } from "@shadow/common/features/core/logic/logic";
+import type { LoggerServiceInterface } from "@shadow/common/features/core/services/types";
+import { useFrontendApp } from "../ui/frontend-app-context.js";
 
 export interface LogicStateStore<State extends object> {
   getState(): Readonly<State>;
@@ -26,19 +28,21 @@ export interface UseLogicOptions<Deps, Instance extends OwnedLogic<object>> {
   LogicClass: new (deps: Deps) => Instance;
   /** Keep this object stable. A new object creates a new Logic instance. */
   deps: Deps;
+  /** Receives a failed initialization or cleanup. Without it, the logger does. */
   onError?: LogicErrorHandler;
 }
 
 interface LogicOwner {
   activeEffects: number;
   errorHandler: LogicErrorHandler | undefined;
+  logger: LoggerServiceInterface;
   initializationAttempted: boolean;
   initialization?: Promise<void>;
   reportedErrors: WeakSet<object>;
 }
 
-function reportDefaultError(error: unknown): void {
-  console.error(error);
+function reportDefaultError(error: unknown, owner: LogicOwner): void {
+  owner.logger.error("A UI Logic failed to initialize or clean up", { error });
 }
 
 function reportError(error: unknown, owner: LogicOwner): void {
@@ -50,7 +54,7 @@ function reportError(error: unknown, owner: LogicOwner): void {
   }
 
   if (!owner.errorHandler) {
-    reportDefaultError(error);
+    reportDefaultError(error, owner);
     return;
   }
 
@@ -62,6 +66,7 @@ function reportError(error: unknown, owner: LogicOwner): void {
             [error, handlerError],
             "The Logic error handler failed",
           ),
+          owner,
         );
       },
     );
@@ -71,6 +76,7 @@ function reportError(error: unknown, owner: LogicOwner): void {
         [error, handlerError],
         "The Logic error handler failed",
       ),
+      owner,
     );
   }
 }
@@ -91,6 +97,7 @@ export function useLogic<Deps, Instance extends OwnedLogic<object>>({
 } {
   const logic = useMemo(() => new LogicClass(deps), [LogicClass, deps]);
   const ownersRef = useRef(new WeakMap<object, LogicOwner>());
+  const { logger } = useFrontendApp().services;
 
   const subscribe = useCallback(
     (listener: () => void) => logic.subscribe(listener),
@@ -109,6 +116,7 @@ export function useLogic<Deps, Instance extends OwnedLogic<object>>({
       owner = {
         activeEffects: 0,
         errorHandler: onError,
+        logger,
         initializationAttempted: false,
         reportedErrors: new WeakSet<object>(),
       };
@@ -116,6 +124,7 @@ export function useLogic<Deps, Instance extends OwnedLogic<object>>({
     }
     owner.activeEffects += 1;
     owner.errorHandler = onError;
+    owner.logger = logger;
 
     if (!owner.initializationAttempted) {
       owner.initializationAttempted = true;
@@ -149,7 +158,7 @@ export function useLogic<Deps, Instance extends OwnedLogic<object>>({
         }
       });
     };
-  }, [logic, onError]);
+  }, [logic, onError, logger]);
 
   return { logic, state };
 }

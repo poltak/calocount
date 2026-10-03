@@ -21,22 +21,23 @@ to judgment, and what remains to decide.
 
 ## Enforced
 
-| Rule                                   | What it checks                                                                                                                     |
-| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `architecture/feature-boundaries`      | A feature imports another feature only through its `types.ts`. `core` and the frontend `api` feature are shared. Tests are exempt. |
-| `architecture/layer-imports`           | Storage and Service files import no other layer and none of the App collections. A Logic file imports no other Logic file.         |
-| `architecture/service-implementations` | Only composition files and tests import a Service implementation.                                                                  |
-| `architecture/no-construction`         | Only composition files and tests construct a Service, Storage, or Logic class.                                                     |
-| `architecture/own-storage`             | A Logic class may select any Service, but only Storage whose key starts with its own feature's name.                               |
-| `architecture/role-naming`             | File and class names in `services/`, `storage/`, and `logic/`, and for `*-logic.ts` and `*-plugin.ts` files anywhere.              |
-| `architecture/constructor-deps`        | Service, Storage, and Logic constructors take one `deps` parameter.                                                                |
-| `architecture/file-layout`             | Every source file sits in a known role directory of a feature.                                                                     |
-| `stack/vendor-imports`                 | Each vendor package is imported only in the layer that wraps it.                                                                   |
-| `import/no-cycle`                      | No import cycles.                                                                                                                  |
-| `oxc/no-barrel-file`                   | No barrel files.                                                                                                                   |
-| `node/no-process-env`                  | Only the live config module reads the environment.                                                                                 |
-| `no-restricted-globals`                | Frontend browser globals appear only in Services, the API client, and `main.tsx`.                                                  |
-| `no-restricted-imports`                | Workspace boundaries: the frontend imports only the type from `backend/api`, and tests may load `backend/testing`.                 |
+| Rule                                   | What it checks                                                                                                                                                                                |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `architecture/feature-boundaries`      | A feature imports another feature only through its `types.ts`. `core` and the frontend `api` feature are shared. Tests are exempt.                                                            |
+| `architecture/layer-imports`           | Storage and Service files import no other layer, none of the App collections, and no other feature's Service interface unless it is a Core Service. A Logic file imports no other Logic file. |
+| `architecture/service-implementations` | Only composition files and tests import a Service implementation.                                                                                                                             |
+| `architecture/no-construction`         | Only composition files and tests construct a Service, Storage, or Logic class.                                                                                                                |
+| `architecture/own-storage`             | A Logic class may select any Service, but only Storage whose key starts with its own feature's name.                                                                                          |
+| `architecture/role-naming`             | File and class names in `services/`, `storage/`, and `logic/`, and for `*-logic.ts` and `*-plugin.ts` files anywhere.                                                                         |
+| `architecture/constructor-deps`        | Service, Storage, and Logic constructors take one `deps` parameter.                                                                                                                           |
+| `architecture/file-layout`             | Every source file sits in a known role directory of a feature.                                                                                                                                |
+| `stack/vendor-imports`                 | Each vendor package is imported only in the layer that wraps it.                                                                                                                              |
+| `import/no-cycle`                      | No import cycles.                                                                                                                                                                             |
+| `oxc/no-barrel-file`                   | No barrel files.                                                                                                                                                                              |
+| `node/no-process-env`                  | Only the live config module reads the environment.                                                                                                                                            |
+| `no-console`                           | Only the console logger and command-line scripts call `console`. Other code uses the logger Core Service.                                                                                     |
+| `no-restricted-globals`                | Frontend browser globals appear only in Services, the API client, and `main.tsx`.                                                                                                             |
+| `no-restricted-imports`                | Workspace boundaries: the frontend imports only the type from `backend/api`, and tests may load `backend/testing`.                                                                            |
 
 ## Left to judgment
 
@@ -49,6 +50,10 @@ These stay as written rules, checked in review:
 - Use events, not direct calls, when one Logic reacts to another.
 - Components pass Services into a Logic's `deps` but never call them.
 - Keep call stacks shallow.
+- A Service depends on no other Service in its own feature. Lint checks only
+  imports from other features, because it cannot tell a second interface in the
+  same `types.ts` from the one the class implements.
+- A Core Service carries no product behavior, and the set stays small.
 
 ## Open work
 
@@ -60,7 +65,8 @@ These stay as written rules, checked in review:
       `requireTrustedOrigin` call the auth Service, while the dependency rules
       say handlers call Logic. No rule checks this yet. Decide how auth should
       work in handlers, then add a rule that handler files use only the Logic
-      collection.
+      collection and Core Services. The request log and the error handler use
+      the logger, which the Core Service rule permits.
 - [ ] **Simplify the architecture document.** Mark each rule as enforced or
       left to judgment, and cut prose that only restates an enforced rule.
 - [ ] **ESLint configuration.** Not needed while oxlint is the linter. To run

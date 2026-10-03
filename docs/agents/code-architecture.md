@@ -30,6 +30,32 @@ Implement Logic, LogicPlugin, Service, and Storage boundaries as classes. UI
 components and shared utility functions do not need to be classes. Expose
 interfaces where implementations must be replaceable.
 
+### Core Services
+
+A Core Service is a Service that classes in every layer need. The logger is
+one, and error tracking will be another. It has the shape of any Service: one
+interface, and implementations named after what backs them. Two rules differ:
+
+- Any Service, Storage, Logic, or LogicPlugin class, and any handler or
+  middleware, may depend on a Core Service's interface. No other rule lets a
+  Service or a Storage class depend on a Service.
+- A Core Service depends on no other class. That includes other Core Services.
+  If two must work together, a composition root combines them.
+
+Keep the set small. Make a Service a Core Service only when both conditions
+hold:
+
+- Classes in more than one layer need it.
+- It carries no product behavior. A caller reports to it or reads a plain value
+  from it, and no business decision depends on which implementation runs.
+
+A Core Service's interface and implementations live in the `core` feature, in
+`common` when both workspaces use them. Each workspace lists its Core Services
+in the `CoreServices` interface in its `core/types.ts`. A composition root
+constructs them first and passes each one to the classes that need it: to a
+Logic class in `deps.services`, and to a Service or Storage class as a field of
+that class's own `deps`.
+
 ## File organization
 
 All workspaces in the monorepo should follow feature-first organization of files. A feature could be both a concrete (user-facing) feature of the app, or a more abstract (developer-facing) feature.
@@ -68,6 +94,7 @@ other files or directories at the top of `src/`.
   and Logic instances across features.
 - `logic/`: shared Logic props types and helpers. In the frontend this includes
   the hooks that own and observe UI Logic.
+- `services/`: the Core Services.
 - Backend `server/` (the HTTP app, startup, and the API contract type),
   `database/`, `storage/`, `errors/`, and `handlers/`.
 - Frontend `ui/`: the route table, the App provider, and global styles.
@@ -97,6 +124,7 @@ Import these modules through their public package subpaths:
 - `@shadow/common/features/core/logic/logic`
 - `@shadow/common/features/core/logic/logic-plugin`
 - `@shadow/common/features/core/events/event-emitter`
+- `@shadow/common/features/core/services/types`, for the logger interface
 
 Initialize the base Logic with explicit `deps` and `initialState`. Pass plugin
 factories in `plugins`; each factory receives the Logic's dependencies and must
@@ -165,6 +193,7 @@ Keep dependencies moving in one direction:
 - UI components -> UI Logic classes -> Storage classes -> persistent data
 - Logic classes -> LogicPlugin classes
 - LogicPlugin classes -> the same dependencies permitted for their consuming Logic layer
+- Any class, handler, or middleware -> Core Services
 - Logic, LogicPlugin, Service, and Storage classes -> pure same-feature or global utility functions
 
 These are the main permitted application dependency paths. The typed event
@@ -215,6 +244,9 @@ several external capabilities form one integration boundary, one Service class m
 encapsulate them. Otherwise, coordinate them in Logic.
 
 Storage classes should not depend on other Storage, Service, or Logic classes.
+
+The one exception to both rules is a [Core Service](#core-services), which any
+class may depend on.
 
 ## Where code belongs
 
@@ -299,6 +331,10 @@ components observe an owned Logic through the observer hook and never initialize
 or clean it up. Keep the owner above any boundary that disconnects effects for
 long periods, because a Logic cannot restart after cleanup.
 
+The owning hook needs the App provider above it. A failed initialization or
+cleanup goes to the hook's `onError`, or to the logger when the owner passes
+none.
+
 When repeated requests write the same state, such as refetching on focus,
 polling, refresh buttons, or search-as-you-type, keep one `LatestRequest` per
 kind of request. Pass `start()` as each request's signal; it cancels the
@@ -346,6 +382,30 @@ so the list should grow slowly. It may still become unwieldy in a large app.
 When a client needs to tell specific feature failures apart, consider a
 feature-specific reason alongside the category code before adding many codes.
 
+An error that is not an `AppError` is a defect. The HTTP layer logs it with the
+request ID and answers with `INTERNAL` and no detail. Every response carries
+its request ID in the `X-Request-Id` header, so a report from a user leads to
+the log entry.
+
+## Logging
+
+Write diagnostic output through the logger Core Service. Do not call `console`.
+Lint permits `console` only in the console logger and in command-line scripts,
+whose output is for the person who runs them.
+
+- Keep the message constant and put the details in fields:
+  `logger.warn("Readiness check failed", { error })`. Entries with one message
+  can then be found and counted.
+- Pass an `Error` as a field value. Each implementation keeps its stack.
+- Do not log passwords, session tokens, secrets, or request bodies. The request
+  log leaves out the query string for this reason.
+- Do not log a failure that the caller receives as an `AppError`. The request
+  log already records its status.
+
+Use `error` for a defect or a failure that needs a person, `warn` for a problem
+the application handled, `info` for normal events such as one handled request,
+and `debug` for detail that helps only during development.
+
 ## Practical check before shipping
 
 Before you hand off a structural change, check:
@@ -356,3 +416,4 @@ Before you hand off a structural change, check:
 - Did one Logic class start depending directly on another Logic class?
 - Does each Logic instance own a separate instance and state for each LogicPlugin it uses?
 - Did the change create a cross-feature dependency that should instead be modeled through a shared abstraction or event?
+- Does a Service or Storage class depend on a Service that is not a Core Service?

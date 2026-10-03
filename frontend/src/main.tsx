@@ -11,8 +11,19 @@ if (!rootElement) {
   throw new Error("The root element is missing from index.html");
 }
 
-const app = createApp({ baseUrl: import.meta.env.VITE_API_BASE_URL });
-createRoot(rootElement).render(
+const app = createApp({
+  baseUrl: import.meta.env.VITE_API_BASE_URL,
+  // The console shows every entry in development, and only problems in a build.
+  logLevel: import.meta.env.DEV ? "debug" : "warn",
+});
+const { logger } = app.services;
+
+createRoot(rootElement, {
+  // React reports a rendering error here when nothing caught it.
+  onUncaughtError: (error, { componentStack }) => {
+    logger.error("A component failed to render", { error, componentStack });
+  },
+}).render(
   <StrictMode>
     <FrontendAppProvider app={app}>
       <BrowserRouter>

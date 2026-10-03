@@ -6,6 +6,8 @@ import {
   type AppErrorCode,
   type AppErrorIssue,
 } from "../errors/app-error.js";
+import type { BackendServices } from "../types.js";
+import type { RequestEnvironment } from "./types.js";
 
 const appErrorStatuses = {
   INVALID_REQUEST: 400,
@@ -46,21 +48,36 @@ function errorResponse(context: Context, error: AppError) {
   return context.json(body, appErrorStatuses[error.code]);
 }
 
-/** Map thrown errors to the shared JSON error body. */
-export const handleError: ErrorHandler = (error, context) => {
-  if (error instanceof AppError) {
-    return errorResponse(context, error);
-  }
-  if (error instanceof HTTPException) {
-    return error.getResponse();
-  }
+/**
+ * Map thrown errors to the shared JSON error body. An error that no code
+ * expected is logged with the request ID, which the response also carries in
+ * `X-Request-Id`, and the caller gets no detail about it.
+ */
+export function createErrorHandler({
+  services,
+}: {
+  services: Pick<BackendServices, "logger">;
+}): ErrorHandler<RequestEnvironment> {
+  return (error, context) => {
+    if (error instanceof AppError) {
+      return errorResponse(context, error);
+    }
+    if (error instanceof HTTPException) {
+      return error.getResponse();
+    }
 
-  console.error(error);
-  return errorResponse(
-    context,
-    new AppError({ code: "INTERNAL", message: "Internal server error" }),
-  );
-};
+    services.logger.error("Request failed with an unexpected error", {
+      requestId: context.get("requestId"),
+      method: context.req.method,
+      path: context.req.path,
+      error,
+    });
+    return errorResponse(
+      context,
+      new AppError({ code: "INTERNAL", message: "Internal server error" }),
+    );
+  };
+}
 
 export const handleNotFound: NotFoundHandler = (context) =>
   errorResponse(

@@ -15,6 +15,22 @@
     "./features/core/logic/logic": {
       "types": "./dist/features/core/logic/logic.d.ts",
       "default": "./dist/features/core/logic/logic.js"
+    },
+    "./features/core/services/console-logger-service": {
+      "types": "./dist/features/core/services/console-logger-service.d.ts",
+      "default": "./dist/features/core/services/console-logger-service.js"
+    },
+    "./features/core/services/memory-logger-service": {
+      "types": "./dist/features/core/services/memory-logger-service.d.ts",
+      "default": "./dist/features/core/services/memory-logger-service.js"
+    },
+    "./features/core/services/types": {
+      "types": "./dist/features/core/services/types.d.ts",
+      "default": "./dist/features/core/services/types.js"
+    },
+    "./features/core/utils/log-level": {
+      "types": "./dist/features/core/utils/log-level.d.ts",
+      "default": "./dist/features/core/utils/log-level.js"
     }
   },
   "scripts": {

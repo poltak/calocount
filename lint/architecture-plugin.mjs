@@ -97,7 +97,7 @@ const layerImports = {
     type: "problem",
     docs: {
       description:
-        "Storage and Service classes depend on no other layer, and Logic classes do not import each other.",
+        "Storage and Service classes depend on no other layer and on no Service except a Core Service, and Logic classes do not import each other.",
     },
     schema: [{ type: "object" }],
     messages: {
@@ -105,6 +105,10 @@ const layerImports = {
         "A file in {{from}}/ must not import from {{to}}/. " +
         DOC +
         " (Dependency flow).",
+      service:
+        "A file in {{from}}/ may depend on a Service of another feature only when it is a Core Service. Coordinate other Services in a Logic class. " +
+        DOC +
+        " (Class roles).",
       collections:
         "A file in {{from}}/ must not use the App's Storage, Service, or Logic collections. " +
         DOC +
@@ -123,7 +127,7 @@ const layerImports = {
     }
 
     const isolated = file.role === "storage" || file.role === "services";
-    return importVisitors((node, source) => {
+    return importVisitors((node, source, names) => {
       const target = importedFile(context, source);
       if (!target?.feature) {
         return;
@@ -133,6 +137,19 @@ const layerImports = {
         context.report({
           node,
           messageId: "collections",
+          data: { from: file.role },
+        });
+        return;
+      }
+      if (
+        isolated &&
+        target.feature !== file.feature &&
+        !(options.coreServiceFeatures ?? []).includes(target.feature) &&
+        (names ?? []).some((name) => name?.endsWith("ServiceInterface"))
+      ) {
+        context.report({
+          node,
+          messageId: "service",
           data: { from: file.role },
         });
         return;

@@ -64,13 +64,14 @@ are covered through these tests.
 [`full-application.ts`](../../frontend/src/features/core/tests/full-application.ts)
 returns:
 
-| Field       | Meaning                                                                                                     |
-| ----------- | ----------------------------------------------------------------------------------------------------------- |
-| `logic`     | The UI Logic being tested, with `initialize()` method automatically called unless `skipInitialization` set. |
-| `frontend`  | The frontend app. Its fake Services can be driven, such as `focus()`.                                       |
-| `backend`   | The backend app. `backend.db` is the test's own database.                                                   |
-| `owner`     | The owner account as stored when the test starts.                                                           |
-| `transport` | Controls for the requests the frontend sends. See below.                                                    |
+| Field                                                    | Meaning                                                                                                     |
+| -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `logic`                                                  | The UI Logic being tested, with `initialize()` method automatically called unless `skipInitialization` set. |
+| `frontend`                                               | The frontend app. Its fake Services can be driven, such as `focus()`.                                       |
+| `backend`                                                | The backend app. `backend.db` is the test's own database.                                                   |
+| `backend.services.logger` and `frontend.services.logger` | Loggers that keep what each app logged in `entries`.                                                        |
+| `owner`                                                  | The owner account as stored when the test starts.                                                           |
+| `transport`                                              | Controls for the requests the frontend sends. See below.                                                    |
 
 The owner is signed in unless the test passes `authenticated: false`.
 
@@ -103,6 +104,11 @@ A few files that are not Logic classes have tests of their own:
 - `use-logic.test.tsx` is the only rendered test, because the hook's lifecycle
   exists only inside React. Do not add other rendered tests; UI components
   hold no logic of their own.
+- `backend-http.test.ts` covers backend behavior that no UI Logic reaches: the
+  request ID, the request log, and the answer to an unexpected error. It sends requests
+  through the fixture's transport, so the whole backend still runs. Add a test
+  there only for behavior of the HTTP app itself. A route that a UI Logic calls
+  gets its tests through that Logic.
 
 No test covers two things that only a real browser can show. One is that the
 client sends cookies to a backend on another origin (`credentials: "include"`).

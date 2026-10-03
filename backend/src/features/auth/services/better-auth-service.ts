@@ -1,3 +1,7 @@
+import type {
+  LoggerServiceInterface,
+  LogLevel,
+} from "@shadow/common/features/core/services/types";
 import { betterAuth } from "better-auth";
 import { getMigrations } from "better-auth/db/migration";
 import type { Database } from "../../core/database/database.js";
@@ -11,6 +15,7 @@ import type {
 
 interface BetterAuthServiceDeps extends AuthConfiguration {
   db: Database;
+  logger: LoggerServiceInterface;
 }
 
 /** Embedded authentication. Better Auth owns its auth-table persistence. */
@@ -32,6 +37,14 @@ export class BetterAuthService implements AuthServiceInterface {
       baseURL: this.deps.baseUrl,
       trustedOrigins: [...this.trustedOrigins],
       emailAndPassword: { enabled: true, disableSignUp: true },
+      logger: {
+        log: (level: LogLevel, message: string, ...details: unknown[]) => {
+          this.deps.logger[level](
+            message,
+            details.length > 0 ? { details } : undefined,
+          );
+        },
+      },
     };
   }
 

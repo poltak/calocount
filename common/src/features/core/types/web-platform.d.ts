@@ -19,3 +19,12 @@ declare var AbortController: {
   prototype: AbortController;
   new (): AbortController;
 };
+
+interface Console {
+  debug(...data: unknown[]): void;
+  info(...data: unknown[]): void;
+  warn(...data: unknown[]): void;
+  error(...data: unknown[]): void;
+}
+
+declare var console: Console;

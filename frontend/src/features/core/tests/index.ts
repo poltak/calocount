@@ -1,12 +1,16 @@
 import { createApiClient } from "../../api/client/api-client.js";
 import type { App } from "../types.js";
 import { EventEmitter } from "@shadow/common/features/core/events/event-emitter";
+import { MemoryLoggerService } from "@shadow/common/features/core/services/memory-logger-service";
 import type { ApiAccessEvent } from "../../api/client/access-events.js";
 import { FakeWindowFocusService } from "../../window-focus/services/fake-window-focus-service.js";
 
-/** Tests can drive fake Services directly. */
+/** Tests can drive fake Services and read the logged entries directly. */
 export interface TestApp extends App {
-  services: { windowFocus: FakeWindowFocusService };
+  services: {
+    logger: MemoryLoggerService;
+    windowFocus: FakeWindowFocusService;
+  };
 }
 
 interface TestAppProps {
@@ -23,7 +27,10 @@ export function createApp({
   const apiAccessEvents = new EventEmitter<ApiAccessEvent>();
   return {
     storage: {},
-    services: { windowFocus: new FakeWindowFocusService() },
+    services: {
+      logger: new MemoryLoggerService(),
+      windowFocus: new FakeWindowFocusService(),
+    },
     apiAccessEvents,
     api: createApiClient({
       fetch,

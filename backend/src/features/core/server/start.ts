@@ -6,6 +6,7 @@ import { initializeLogic } from "../logic/lifecycle.js";
 
 const config = readLiveConfig();
 const app = createApp({ config });
+const { logger } = app.services;
 
 try {
   await initializeLogic({ logic: app.logic });
@@ -22,7 +23,9 @@ const server = serve(
     port: config.server.port,
   },
   (info) => {
-    console.log(`Shadow API listening at http://${info.address}:${info.port}`);
+    logger.info("Server listening", {
+      url: `http://${info.address}:${info.port}`,
+    });
   },
 );
 
@@ -32,13 +35,13 @@ function shutdown() {
     server.close(() => resolve());
   }).then(() => app.close());
   void closing.catch((error) => {
-    console.error(error);
+    logger.error("Shutdown failed", { error });
     process.exitCode = 1;
   });
 }
 
 server.once("error", (error) => {
-  console.error(error);
+  logger.error("Server failed", { error });
   process.exitCode = 1;
   shutdown();
 });

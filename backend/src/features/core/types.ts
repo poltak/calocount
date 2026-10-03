@@ -1,3 +1,4 @@
+import type { LoggerServiceInterface } from "@shadow/common/features/core/services/types";
 import type { AIServiceInterface } from "../ai/services/types.js";
 import type { AuthServiceInterface } from "../auth/services/types.js";
 import type { AuthStorage } from "../auth/storage/auth-storage.js";
@@ -15,7 +16,15 @@ export interface BackendStorage {
   encounterLifecycle: EncounterLifecycleStorage;
 }
 
-export interface BackendServices {
+/**
+ * Core Services. Any Service, Storage, or Logic class may depend on one. See
+ * docs/agents/code-architecture.md (Class roles).
+ */
+interface BackendCoreServices {
+  logger: LoggerServiceInterface;
+}
+
+export interface BackendServices extends BackendCoreServices {
   auth: AuthServiceInterface;
   ai: AIServiceInterface;
   transcription: TranscriptionServiceInterface;

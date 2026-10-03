@@ -29,6 +29,13 @@ entry to the choice, the reason, and any rule that follows from it.
 - **All business routes sit under `/api` behind one authentication gate.** Only
   the session routes are outside it. Add new routes inside the gated app, so a
   route cannot be exposed by omission.
+- **Logging uses no library.** The logger is a Core Service with three
+  implementations: readable lines on the console, one JSON object for each
+  line on standard output, and entries kept in memory for tests. `LOG_FORMAT`
+  selects the first or the second, and JSON is the default so that a production
+  host needs no setting. Hono's `requestId` gives each request an ID, which the
+  request log and the `X-Request-Id` response header both carry. It keeps an ID
+  that the caller or a proxy sent.
 
 ## Authentication
 
@@ -42,6 +49,8 @@ entry to the choice, the reason, and any rule that follows from it.
   Service.** Its rate limits and origin checks only run on that path; calling
   its server functions directly would skip them. The Service returns only the
   session cookies, so the session token never appears in a response body.
+- **Better Auth logs through our logger.** Its own messages, such as a wrong
+  password, appear in the same format as ours.
 - **One owner account, created from the command line.** Registration is
   disabled. `auth:setup-owner` creates the account for `SHADOW_OWNER_EMAIL` and
   refuses to replace existing credentials. No default password exists.

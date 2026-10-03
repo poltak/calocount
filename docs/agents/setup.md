@@ -12,16 +12,18 @@ Backend commands read the root `.env`. Values already set in the process
 environment take precedence. Copy `.env.example` to `.env` and keep `.env`
 private and untracked.
 
-| Variable                 | Required | Meaning                                                                   |
-| ------------------------ | -------- | ------------------------------------------------------------------------- |
-| `DATABASE_URL`           | Yes      | PostgreSQL connection URL.                                                |
-| `BETTER_AUTH_SECRET`     | Yes      | Session secret, at least 32 characters. No default exists.                |
-| `BETTER_AUTH_URL`        | Yes      | The backend's HTTP(S) origin, without a path.                             |
-| `SHADOW_OWNER_EMAIL`     | Yes      | Email of the one account allowed to use the app.                          |
-| `SHADOW_TRUSTED_ORIGINS` | No       | Comma-separated frontend origins allowed to call the API.                 |
-| `HOST`                   | No       | Address the server binds to. Default `127.0.0.1`.                         |
-| `PORT`                   | No       | Port the server listens on. Default `3000`.                               |
-| `VITE_API_BASE_URL`      | No       | Frontend only. API location when it is not served from the page's origin. |
+| Variable                 | Required | Meaning                                                                     |
+| ------------------------ | -------- | --------------------------------------------------------------------------- |
+| `DATABASE_URL`           | Yes      | PostgreSQL connection URL.                                                  |
+| `BETTER_AUTH_SECRET`     | Yes      | Session secret, at least 32 characters. No default exists.                  |
+| `BETTER_AUTH_URL`        | Yes      | The backend's HTTP(S) origin, without a path.                               |
+| `SHADOW_OWNER_EMAIL`     | Yes      | Email of the one account allowed to use the app.                            |
+| `SHADOW_TRUSTED_ORIGINS` | No       | Comma-separated frontend origins allowed to call the API.                   |
+| `HOST`                   | No       | Address the server binds to. Default `127.0.0.1`.                           |
+| `PORT`                   | No       | Port the server listens on. Default `3000`.                                 |
+| `LOG_FORMAT`             | No       | `json` (default) or `pretty`. `.env.example` sets `pretty` for development. |
+| `LOG_LEVEL`              | No       | Lowest level to log: `debug`, `info` (default), `warn`, or `error`.         |
+| `VITE_API_BASE_URL`      | No       | Frontend only. API location when it is not served from the page's origin.   |
 
 Generate a secret with:
 
@@ -39,6 +41,15 @@ pnpm exec node --input-type=module -e 'import { randomBytes } from "node:crypto"
 4. Run `pnpm run build`, then `pnpm --filter backend start`.
 5. Run `pnpm --filter frontend dev` for the frontend. Its dev server forwards
    `/api` to the backend at `127.0.0.1:3000`.
+
+## Production
+
+The repository has no deployment files yet. These facts hold on any host:
+
+- Build with `pnpm run build`. Start the backend with
+  `pnpm --filter backend start`.
+- Leave `LOG_FORMAT` unset. The backend then writes one JSON object for each
+  log line to standard output.
 
 ## Commands
 

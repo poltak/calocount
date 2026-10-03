@@ -13,9 +13,24 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Logic } from "@shadow/common/features/core/logic/logic";
 import { LogicPlugin } from "@shadow/common/features/core/logic/logic-plugin";
+import { createApp } from "../tests/index.js";
+import { FrontendAppProvider } from "../ui/frontend-app-context.js";
 import { useLogic, useLogicInstance } from "./use-logic.js";
 
 afterEach(cleanup);
+
+/** `useLogic` takes its logger from the frontend app, so each view renders inside one. */
+function renderInApp(view: React.ReactElement) {
+  const app = createApp({
+    fetch: () => Promise.reject(new Error("These tests send no requests")),
+  });
+  const result = render(view, {
+    wrapper: ({ children }) => (
+      <FrontendAppProvider app={app}>{children}</FrontendAppProvider>
+    ),
+  });
+  return { ...result, app };
+}
 
 function createDeferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void;
@@ -218,7 +233,7 @@ describe("useLogic", () => {
     const view = (
       <CounterView LogicClass={CounterLogic} deps={deps} onLogic={onLogic} />
     );
-    const { rerender } = render(view);
+    const { rerender } = renderInApp(view);
 
     expect(screen.getByRole("button").textContent).toBe("0");
     await waitFor(() => expect(deps.trace).toContain("init:stable"));
@@ -251,7 +266,7 @@ describe("useLogic", () => {
     const onLogic = (logic: CounterLogic | AlternateCounterLogic) => {
       instances.push(logic);
     };
-    const { rerender, unmount } = render(
+    const { rerender, unmount } = renderInApp(
       <DynamicCounterView
         LogicClass={CounterLogic}
         deps={firstDeps}
@@ -296,7 +311,7 @@ describe("useLogic", () => {
 
   it("runs init and final cleanup once when Strict Mode replays effects", async () => {
     const deps = { label: "strict", trace: [] as string[] };
-    const { unmount } = render(
+    const { unmount } = renderInApp(
       <React.StrictMode>
         <CounterView LogicClass={CounterLogic} deps={deps} />
       </React.StrictMode>,
@@ -318,7 +333,7 @@ describe("useLogic", () => {
   it("reports initialization and cleanup errors without unhandled rejections", async () => {
     const deps = { label: "errors", trace: [] as string[] };
     const onError = vi.fn<(error: unknown) => void>();
-    const { unmount } = render(
+    const { unmount } = renderInApp(
       <CounterView
         LogicClass={FailingInitializationLogic}
         deps={deps}
@@ -338,7 +353,7 @@ describe("useLogic", () => {
 
     const cleanupDeps = { label: "cleanup-error", trace: [] as string[] };
     const cleanupErrorHandler = vi.fn<(error: unknown) => void>();
-    const cleanupView = render(
+    const cleanupView = renderInApp(
       <CounterView
         LogicClass={FailingCleanupLogic}
         deps={cleanupDeps}
@@ -353,6 +368,20 @@ describe("useLogic", () => {
     await waitFor(() => expect(cleanupErrorHandler).toHaveBeenCalledTimes(1));
     expect(cleanupErrorHandler.mock.calls[0]?.[0]).toMatchObject({
       message: "Logic cleanup failed",
+    });
+  });
+
+  it("logs an initialization error when the owner passes no error handler", async () => {
+    const deps = { label: "logged", trace: [] as string[] };
+    const { app } = renderInApp(
+      <CounterView LogicClass={FailingInitializationLogic} deps={deps} />,
+    );
+
+    await waitFor(() => expect(app.services.logger.entries).toHaveLength(1));
+    expect(app.services.logger.entries[0]).toMatchObject({
+      level: "error",
+      message: "A UI Logic failed to initialize or clean up",
+      fields: { error: { message: "initialization failed" } },
     });
   });
 
@@ -378,7 +407,7 @@ describe("useLogic", () => {
       return <output>{state.value}</output>;
     }
 
-    const { unmount } = render(<PendingView />);
+    const { unmount } = renderInApp(<PendingView />);
     await startSignal.promise;
     unmount();
     await act(async () => {
@@ -413,7 +442,7 @@ describe("useLogic cancellation", () => {
       return <output>{state.value}</output>;
     }
 
-    const { unmount } = render(<PendingView />);
+    const { unmount } = renderInApp(<PendingView />);
     await startSignal.promise;
     unmount();
     initialization.resolve(undefined);
