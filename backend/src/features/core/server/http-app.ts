@@ -1,11 +1,14 @@
 import { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import { cors } from "hono/cors";
 import { requestId } from "hono/request-id";
+import { secureHeaders } from "hono/secure-headers";
 import { requireSession } from "../../auth/handlers/require-session.js";
 import { requireTrustedOrigin } from "../../auth/handlers/require-trusted-origin.js";
 import { createProfileHandlers } from "../../auth/handlers/profile-handlers.js";
 import { createSessionHandlers } from "../../auth/handlers/session-handlers.js";
 import type { AuthEnvironment } from "../../auth/handlers/types.js";
+import { AppError } from "../errors/app-error.js";
 import {
   createErrorHandler,
   handleNotFound,
@@ -15,6 +18,9 @@ import type { RequestEnvironment } from "../handlers/types.js";
 import { createEncounterLifecycleHandlers } from "../../encounter-lifecycle/handlers/encounter-lifecycle-handlers.js";
 import { createHealthHandlers } from "../../health/handlers/health-handlers.js";
 import type { App } from "../types.js";
+
+/** The server refuses a larger request body. Raise it for a route that takes uploads. */
+const MAX_REQUEST_BODY_BYTES = 100 * 1024;
 
 interface HttpAppProps {
   app: Pick<App, "logic" | "services">;
@@ -46,6 +52,7 @@ export function createHttpApp({ app }: HttpAppProps) {
   return (
     new Hono<RequestEnvironment>()
       .use("*", requestId())
+      .use("*", secureHeaders())
       .use(
         "*",
         cors({
@@ -58,6 +65,18 @@ export function createHttpApp({ app }: HttpAppProps) {
       // the request log, so the probes do not fill it.
       .route("/health", createHealthHandlers({ logic: app.logic }))
       .use("*", logRequests({ services: app.services }))
+      .use(
+        "*",
+        bodyLimit({
+          maxSize: MAX_REQUEST_BODY_BYTES,
+          onError: () => {
+            throw new AppError({
+              code: "PAYLOAD_TOO_LARGE",
+              message: "The request is too large",
+            });
+          },
+        }),
+      )
       .route("/api", createApiHttpApp({ app }))
       .onError(createErrorHandler({ services: app.services }))
       .notFound(handleNotFound)

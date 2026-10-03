@@ -35,6 +35,12 @@ entry to the choice, the reason, and any rule that follows from it.
   stuck process, and the second to send traffic only to an instance that can
   serve it. The request log leaves both out, because probes arrive every few
   seconds.
+- **Every response has security headers, and request bodies have a size
+  limit.** Hono's `secureHeaders` sets its defaults on every response. The
+  limit is 100 kB, set in `http-app.ts`, and a larger body gets
+  `PAYLOAD_TOO_LARGE`. A route that takes uploads needs its own limit. A
+  content security policy for the page belongs to whatever serves the page,
+  which is not decided yet.
 - **Logging uses no library.** The logger is a Core Service with three
   implementations: readable lines on the console, one JSON object for each
   line on standard output, and entries kept in memory for tests. `LOG_FORMAT`

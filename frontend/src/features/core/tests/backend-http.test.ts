@@ -46,6 +46,19 @@ describe("backend HTTP app", () => {
     expect(live.status).toEqual(200);
   });
 
+  it("should set the security headers on every response", async () => {
+    const { transport } = await createFullApplication({ authenticated: false });
+
+    const response = await transport.fetch(`${ORIGIN}/api/me`);
+    expect(response.status).toEqual(401);
+    expect(response.headers.get("x-content-type-options")).toEqual("nosniff");
+    expect(response.headers.get("x-frame-options")).toEqual("SAMEORIGIN");
+    expect(response.headers.get("referrer-policy")).toEqual("no-referrer");
+    expect(response.headers.get("strict-transport-security")).toEqual(
+      "max-age=15552000; includeSubDomains",
+    );
+  });
+
   it("should give each request an ID and log the request with it", async () => {
     const { backend, transport } = await createFullApplication({
       authenticated: false,
@@ -78,6 +91,29 @@ describe("backend HTTP app", () => {
         fields: { requestId: "from-the-caller", status: 401 },
       },
     ]);
+  });
+
+  it("should refuse a request body that is larger than the limit", async () => {
+    const { backend, transport } = await createFullApplication({
+      authenticated: false,
+    });
+
+    const response = await transport.fetch(`${ORIGIN}/api/session`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        email: "owner@example.test",
+        password: "x".repeat(200 * 1024),
+      }),
+    });
+
+    expect(response.status).toEqual(413);
+    expect(await response.json()).toEqual({
+      error: { code: "PAYLOAD_TOO_LARGE", message: "The request is too large" },
+    });
+    expect(
+      await backend.db.selectFrom("session").selectAll().execute(),
+    ).toEqual([]);
   });
 
   it("should hide an unexpected error from the caller and log it with the request ID", async () => {
