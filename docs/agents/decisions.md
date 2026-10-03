@@ -147,6 +147,14 @@ entry to the choice, the reason, and any rule that follows from it.
 - **pnpm runs scripts on a pinned Node version.** `devEngines.runtime` makes pnpm
   download and use the version in `.nvmrc`, whatever `node` is on the PATH.
   Agents, people, and CI therefore run the same version.
+- **`pnpm run dev` runs compilers in watch mode, not a TypeScript runner.**
+  Node cannot run this source directly: imports name `.js` files, and classes
+  use parameter properties. So `tsc --watch` writes `dist`, and `node --watch`
+  restarts the server when `dist` changes. Builds are incremental, so the watch
+  build that starts after the first build writes nothing, and the server
+  starts once. The Vite dev server holds each API request until the backend
+  answers its health route, so a request during a restart waits and does not
+  fail.
 - **`pnpm run check` builds once, then runs every other step at the same time.**
   After `common` and the backend are built, no step depends on another. Each
   step is a `check:<name>` script. Every step runs to the end even when one

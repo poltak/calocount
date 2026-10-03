@@ -4,6 +4,11 @@
     "rootDir": "src",
     "outDir": "dist",
     "declaration": true,
+    // A build writes only the files that changed, so the watch build that
+    // `dev` starts after the first build does not restart the server. The
+    // record sits in `dist`, so that deleting `dist` also resets it.
+    "incremental": true,
+    "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo",
     // Lets the frontend's coverage report name backend source lines.
     "sourceMap": true,
     "lib": ["ES2022"],

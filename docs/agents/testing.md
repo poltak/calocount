@@ -118,7 +118,7 @@ hand when changing the code involved:
   (`credentials: "include"`).
 - The client joins a configured base URL correctly.
 - The error boundaries show their fallbacks. To check, throw an error in a page
-  component while the app runs.
+  component during `pnpm run dev`.
 
 ## Coverage
 

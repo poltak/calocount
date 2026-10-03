@@ -39,9 +39,25 @@ pnpm exec node --input-type=module -e 'import { randomBytes } from "node:crypto"
 3. Run `pnpm --filter backend auth:setup-owner` in a terminal. It creates the
    auth tables and prompts for the owner's name and password. It needs an
    interactive terminal; a password is never accepted as an argument.
-4. Run `pnpm run build`, then `pnpm --filter backend start`.
-5. Run `pnpm --filter frontend dev` for the frontend. Its dev server forwards
-   `/api` to the backend at `127.0.0.1:3000`.
+4. Run `pnpm run dev`, then open `http://localhost:5173`.
+
+## Development
+
+`pnpm run dev` builds `common` and the backend once, then keeps four processes
+running: a TypeScript compiler in watch mode for `common`, another for the
+backend, the backend server, and the Vite dev server.
+
+- A change in the backend restarts the server.
+- A change in `common` restarts the server and reloads the page.
+- A change in the frontend updates the page without a reload.
+
+The Vite dev server forwards `/api` to the backend. It reads `HOST` and `PORT`
+as the backend does, from the process environment and then from the root
+`.env`, so a changed port needs no other setting. It holds each API request
+until the backend answers its health route, so a request during a restart
+waits for up to 10 seconds and does not fail.
+
+A change to `.env` needs a restart of `pnpm run dev`.
 
 ## Production
 
@@ -65,16 +81,18 @@ The repository has no deployment files yet. These facts hold on any host:
 
 | Command                                  | Purpose                                                |
 | ---------------------------------------- | ------------------------------------------------------ |
+| `pnpm run dev`                           | Start the backend and the frontend in watch mode.      |
 | `pnpm run check`                         | Every check that CI runs, with the steps in parallel.  |
 | `pnpm run typecheck`                     | Type-check all workspaces.                             |
 | `pnpm run build`                         | Build all workspaces.                                  |
 | `pnpm run test`                          | Hook tests, then every workspace's tests.              |
 | `pnpm run lint`                          | Lint the workspaces.                                   |
 | `pnpm run format`                        | Format every file with Prettier.                       |
-| `pnpm --filter backend start`            | Start the built backend server.                        |
+| `pnpm --filter backend dev`              | Start only the backend in watch mode.                  |
+| `pnpm --filter backend start`            | Start the built backend server, without watch mode.    |
 | `pnpm --filter backend auth:migrate`     | Apply auth schema updates without creating an account. |
 | `pnpm --filter backend auth:setup-owner` | Create the owner account.                              |
-| `pnpm --filter frontend dev`             | Start the frontend dev server.                         |
+| `pnpm --filter frontend dev`             | Start only the frontend dev server.                    |
 | `pnpm --filter frontend test`            | Run the frontend tests and print the coverage report.  |
 
 Frontend development, type checks, and tests build the backend and `common`

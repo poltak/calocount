@@ -4,6 +4,9 @@
     "rootDir": "src",
     "outDir": "dist",
     "declaration": true,
+    // See the same options in backend/tsconfig.json.
+    "incremental": true,
+    "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo",
     "lib": ["ES2022"],
     "types": []
   },

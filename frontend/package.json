@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "pnpm --filter backend... run build && vite",
+    "dev": "pnpm --filter backend... run build && pnpm run watch",
+    "watch": "vite --clearScreen false",
     "build": "vite build",
     "typecheck": "pnpm --filter backend... run build && tsc -p tsconfig.json",
     "test": "pnpm --filter backend... run build && vitest run --coverage"

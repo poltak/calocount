@@ -14,6 +14,7 @@
     "check:unused": "pnpm run unused:check",
     "node-version:check": "node scripts/check-node-version.mjs",
     "build": "pnpm -r --if-present run build",
+    "dev": "pnpm --filter backend... run build && pnpm --parallel --filter backend --filter frontend run watch",
     "lint": "oxlint --deny-warnings backend frontend common",
     "unused:check": "knip",
     "typecheck": "pnpm --filter @shadow/common build && pnpm -r --if-present run typecheck",

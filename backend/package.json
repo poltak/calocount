@@ -14,6 +14,11 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "dev": "pnpm --filter backend... run build && pnpm run watch",
+    "watch": "pnpm run \"/^watch:/\"",
+    "watch:common": "pnpm --filter @shadow/common run dev",
+    "watch:build": "tsc -p tsconfig.json --watch --preserveWatchOutput",
+    "watch:server": "node --watch --watch-preserve-output --env-file-if-exists=../.env dist/features/core/server/start.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "start": "node --env-file-if-exists=../.env dist/features/core/server/start.js",
     "auth:migrate": "pnpm --filter backend... run build && node --env-file-if-exists=../.env dist/features/auth/scripts/migrate.js",
