@@ -14,7 +14,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "dev": "pnpm --filter backend... run build && pnpm run watch",
+    "dev": "pnpm --filter backend... run build && node ../scripts/dev-database.mjs --migrate -- pnpm run watch",
     "watch": "pnpm run \"/^watch:/\"",
     "watch:common": "pnpm --filter @shadow/common run dev",
     "watch:build": "tsc -p tsconfig.json --watch --preserveWatchOutput",

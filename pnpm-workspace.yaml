@@ -3,7 +3,13 @@ packages:
   - frontend
   - common
 
+# The embedded PostgreSQL for development has one package for each platform.
+# Its install script makes the symlinks that the binaries need.
 allowBuilds:
+  "@embedded-postgres/darwin-arm64": true
+  "@embedded-postgres/darwin-x64": true
+  "@embedded-postgres/linux-arm64": true
+  "@embedded-postgres/linux-x64": true
   simple-git-hooks: true
 
 engineStrict: true

@@ -177,6 +177,15 @@ entry to the choice, the reason, and any rule that follows from it.
   starts once. The Vite dev server holds each API request until the backend
   answers its health route, so a request during a restart waits and does not
   fail.
+- **Development uses an embedded PostgreSQL from the `embedded-postgres`
+  package.** It needs no setup on a new machine, its version is pinned in
+  `package.json`, and its data is in the checkout, so each Git worktree has
+  its own database. Docker is not used, because it is slow on the team's Macs.
+  PGlite is not used, because the tests already run on it, and development is
+  the only place where the `pg` driver runs before production. The costs: all
+  releases of the package are marked beta, its binaries come from a
+  third-party build, and it needs an install script, which
+  `pnpm-workspace.yaml` allows for four platforms.
 - **`pnpm run check` builds once, then runs every other step at the same time.**
   After `common` and the backend are built, no step depends on another. Each
   step is a `check:<name>` script. Every step runs to the end even when one

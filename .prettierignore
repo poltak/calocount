@@ -2,6 +2,7 @@ all-in-one-app-boilerplate/
 .agents/skills/
 .claude/worktrees/
 **/node_modules/
+.data/
 **/dist/
 **/coverage/
 pnpm-lock.yaml

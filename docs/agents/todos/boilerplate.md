@@ -127,8 +127,8 @@ start CI. On a private repository, each run uses the plan's Actions minutes.
 
 ## What the template still needs
 
-Checked items are done. Recommended order for the others: items 6 and 3, then
-item 2 as one "notes" feature, then item 18. Items 12 to 17 wait until the
+Checked items are done. Recommended order for the others: item 3, then item 2
+as one "notes" feature, then item 18. Items 12 to 17 wait until the
 template repository is made.
 
 ### Gaps that stop the first real feature
@@ -153,8 +153,8 @@ template repository is made.
 
 - [x] 5. **A development loop.** `pnpm run dev` starts the backend and the
       frontend in watch mode; see [setup](../setup.md).
-- [ ] 6. **A local database.** Developers must supply PostgreSQL and create
-      the database by hand. Do not use Docker; the team uses Macs.
+- [x] 6. **A local database.** `pnpm run dev` starts an embedded PostgreSQL
+      when no database answers at `DATABASE_URL`; see [setup](../setup.md).
 - [ ] 7. **A deployment path.** Host-specific files stay out of the template.
       Done: the health routes, JSON logs, and the production notes in
       [setup](../setup.md). Open: an option for the backend to serve the
@@ -222,17 +222,6 @@ These are proposals. The owner has not decided them.
   request schemas in `common` are a later option, because they add zod to the
   frontend. No form with several fields exists yet, so this can wait for the
   first one.
-- **6. Local database.** Use the `embedded-postgres` package as a dev
-  dependency. `pnpm run dev` then starts a real PostgreSQL from
-  `node_modules`, with its data in an ignored directory of the checkout, so
-  each Git worktree has its own database and a new machine needs no setup. A
-  `DATABASE_URL` in `.env` overrides it, for a developer who prefers Homebrew
-  or Postgres.app. Costs: all its releases are marked beta, its binaries come
-  from a third-party build (zonky), and it needs an install script, so
-  `pnpm-workspace.yaml` must allow that build. The alternative is Homebrew or
-  Postgres.app with a `setup` script that creates the database. Do not use
-  PGlite for development: tests already use it, and development is the only
-  place the `pg` driver runs before production.
 
 Do not add email, background jobs, file upload, or a component library to the
 template. Each project needs different ones, and each adds dependencies that
