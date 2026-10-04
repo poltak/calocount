@@ -24,6 +24,7 @@ project information. Read the documents that apply to the task.
   very hard-to-grok code.
 - Do not write unit tests for modules. Full app integration tests should be written which fit our standards.
   Read [docs/agents/testing.md](docs/agents/testing.md) for more context.
+- Do not add any new dependencies without explicit user authorization.
 
 ## Writing
 

@@ -8,7 +8,7 @@ Use class names to signal responsibility clearly:
 
 - Service class (e.g., `FooService`): thin wrapper around a stateful or I/O-based external service, API, SDK, or platform capability. Pure utility packages do not need Service wrappers. Each Service has an interface named after the capability, `FooServiceInterface`, and one or more implementations named after what backs them, such as `BetterAuthService`, `SupabaseAuthService`, or `FakeAuthService`. Other code depends only on the interface. Keep vendor types and details inside the implementation, so another one can replace it behind the same interface.
 - Storage class (e.g., `FooStorage`): thin persistence abstraction with query and data-mapping logic only. A feature has one Storage class for all its tables, not one class for each table. Persistence includes databases, database RPCs, object storage, browser storage, IndexedDB, AsyncStorage, secure storage, caches, cookies, and local files used as application data.
-- UI Logic class (e.g., `FooLogic`): frontend state, UI behavior, and business logic. A Logic class may be stateless; state features are available but not required.
+- UI Logic class (e.g., `FooLogic`): frontend state, UI behavior, and business logic. A Logic class may be stateless; state features are available but not required. Exists to hold **all** non-presentational logic for a part of the UI.
 - Backend Logic class (e.g., `FooLogic`): backend business logic.
 
 LogicPlugin classes encapsulate a reusable slice of state and the methods that
@@ -17,10 +17,11 @@ the same LogicPlugin class, but each Logic instance must receive its own
 LogicPlugin instance and its own plugin state. A LogicPlugin must not depend on
 another LogicPlugin or on a Logic class. Create each plugin instance through its
 consuming Logic's `plugins` factory.
+LogicPlugin extends Logic, so both share one state and lifecycle API; a LogicPlugin cannot own plugins.
 
 Service and Storage classes may hold injected clients and technical handles needed
-for their boundary. They must not own application or product state. Logic and
-LogicPlugin classes own that state.
+for their boundary. They must not own application or product state, and must
+not collect business rules. Logic and LogicPlugin classes own both.
 
 Name each role class's file after the class: `FooLogic` in `foo-logic.ts`,
 `FooPlugin` (a LogicPlugin) in `foo-plugin.ts`, `FooStorage` in
@@ -33,8 +34,8 @@ interfaces where implementations must be replaceable.
 ### Core Services
 
 A Core Service is a Service that classes in every layer need. The logger is
-one, and error tracking will be another. It has the shape of any Service: one
-interface, and implementations named after what backs them. Two rules differ:
+the only one at this time. It has the shape of any Service: one interface, and
+implementations named after what backs them. Two rules differ:
 
 - Any Service, Storage, Logic, or LogicPlugin class, and any handler or
   middleware, may depend on a Core Service's interface. No other rule lets a
@@ -107,16 +108,14 @@ Put each test file beside the file it tests, named `<file>.test.ts`. Tests that
 span features, and the fixtures they share, live in `features/core/tests/`.
 [Testing](testing.md) has the rules for what a test contains.
 
+### `common` workspace
+
 `common` exposes modules that other workspaces may import. Its features live in
 `common/src/features/<feature>/` and follow the same feature directory layout.
-Do not add barrel files that re-export many modules. Import modules from their
-defining files. Expose a shared module through an explicit package subpath export
-in `common/package.json` when another workspace needs to import it. Code that the
-frontend imports from `common` must work in a browser and must not depend on
-backend-only APIs or secrets. Apart from imports from `common`, the only
-cross-workspace imports are the frontend's type-only `backend/api` contract and
-Node test files' `backend/testing` fixture. Backend runtime modules must not
-enter the browser bundle.
+Expose a shared module through an explicit package subpath export in
+`common/package.json` when another workspace needs to import it.
+[AGENTS.md](../../AGENTS.md) has the rules for imports between workspaces and
+for barrel files.
 
 ## Logic and event infrastructure
 
@@ -126,13 +125,6 @@ Import these modules through their public package subpaths:
 - `@shadow/common/features/core/logic/logic-plugin`
 - `@shadow/common/features/core/events/event-emitter`
 - `@shadow/common/features/core/services/types`, for the logger interface
-
-Initialize the base Logic with explicit `deps` and `initialState`. Pass plugin
-factories in `plugins`; each factory receives the Logic's dependencies and must
-return a new plugin instance for that Logic. Each LogicPlugin instance owns its
-own state and takes explicit `deps` and `initialState`. LogicPlugin extends
-Logic, so both share one state and lifecycle API; a LogicPlugin cannot own
-plugins.
 
 Logic and LogicPlugin expose stable state snapshots through `getState()` and
 notify `subscribe()` listeners after a state change. Replace changed state with
@@ -199,20 +191,13 @@ Keep dependencies moving in one direction:
 - UI components -> UI Logic classes -> Storage classes -> persistent data
 - Logic classes -> LogicPlugin classes
 - LogicPlugin classes -> the same dependencies permitted for their consuming Logic layer
-- Any class, handler, or middleware -> Core Services
 - Logic, LogicPlugin, Service, and Storage classes -> pure same-feature or global utility functions
 
-These are the main permitted application dependency paths. The typed event
-rules below define additional paths. UI Logic and its LogicPlugins may use
-Storage for persistence. UI components must not call Storage directly.
+The typed event rules below define additional paths. UI components must not
+call Storage directly.
 
-Avoid circular dependencies.
-
-Avoid direct cross-feature imports. A feature's public surface is its `types.ts`
-files; every other file is private to the feature. A feature may import another
-feature's public types and interfaces, including event interfaces. If two
-features need the same utility function, hoist it to a shared location instead
-of importing it from one feature into the other.
+Avoid direct cross-feature imports. A feature's public surface (types and interfaces, including event interfaces) is its `types.ts`
+files; every other file is private to the feature.
 
 Two exceptions apply:
 
@@ -251,20 +236,15 @@ encapsulate them. Otherwise, coordinate them in Logic.
 
 Storage classes should not depend on other Storage, Service, or Logic classes.
 
-The one exception to both rules is a [Core Service](#core-services), which any
-class may depend on.
+[Core Services](#core-services) are the one exception to both rules.
 
 ## Where code belongs
 
-- Put business logic and stateful logic in UI or Backend Logic classes, or in LogicPlugin classes when the logic is shared by multiple Logic classes in the same layer.
-- Encapsulate external service+API usage in Service classes.
-- Encapsulate all persistence operations in Storage classes.
-- Keep Service and Storage classes thin. They hold no application state, and must not slowly accumulate application rules.
-
-When in doubt, ask which layer owns the decision:
+[Class roles](#class-roles) says what each class holds. When in doubt, ask
+which layer owns the decision:
 
 - External boundary details belong in Service or Storage classes.
-- State transitions and product behavior belong in UI or Backend Logic classes, or LogicPlugin classes (if shared between multiple Logic classes).
+- State transitions and product behavior belong in Logic or LogicPlugin classes.
 - Rendering and presentational logic belongs in UI components.
 
 Classify a boundary by what it does:
@@ -292,8 +272,7 @@ to wrapping platform capabilities in Services: the root needs the config before
 it can construct Services, and the environment is read once with no I/O worth
 faking. Tests pass config values directly and never read the environment.
 Feature modules may export schemas for their own settings, but must not read
-the environment themselves. If configuration later comes from an asynchronous
-source, such as a secrets manager, put that source behind a Service.
+the environment themselves.
 
 Backend Logic constructors accept a shared props type that selects the required
 Storage and Service instances by their keys. Feature
@@ -305,28 +284,25 @@ supply Storage or Service instances.
 Backend Logic instances are shared by every request for the life of the server.
 They must not hold per-request or per-user state, such as the current user,
 request data, or the progress of one caller's operation. Pass that data as
-method parameters; handlers pass the verified caller identity the same way. Backend Logic state is only for process-wide state, such as a
-cache.
+method parameters; handlers pass the verified caller identity the same way. Backend Logic state is only for process-wide state, such as a simple cache.
 
 Use separate live and test roots with the same application interface. Tests must
 not load live integration modules, apart from the embedded-framework exception
-above. Keep each Service implementation in its own file in the feature's
-`services/` directory, with the shared `FooServiceInterface` in `types.ts`. Name
-each file after its class: `BetterAuthService` lives in `better-auth-service.ts`
-and `FakeAuthService` in `fake-auth-service.ts`. A Service needs a fake only
-when tests cannot use the real implementation. Storage classes can share an implementation when the
-database client is injected. Give each test application isolated dependencies.
+above. A Service needs a fake only when tests cannot use the real
+implementation.
+
+A Storage class needs only one implementation, because a root injects the
+client or handle that it reads and writes through. A backend Storage class
+receives the database client. A frontend Storage class receives the browser's
+storage as a handle, and does not name a browser global such as `localStorage`.
+`main.tsx` passes the handle to the live root, and the test root passes one
+that keeps its values in memory.
 
 For a long-running server, construct one application at startup and initialize
 its Logic before accepting requests. Handlers reuse those instances. Cleanup
 must release Logic before its dependencies, and must still release the remaining
 resources if a cleanup step fails. Keep runtime startup separate from route
 definitions so tests can call handlers without starting a network server.
-
-A frontend Storage class does not name a browser global such as `localStorage`.
-It receives the browser's storage as an injected handle: `main.tsx` passes it
-to the live root, and the test root passes one that keeps its values in
-memory.
 
 For a frontend, create the API client, Storage, and Services once per application instance. UI
 Logic belongs to the component or provider that owns the UI state. Create it
@@ -373,8 +349,7 @@ check responses with `requireApiSuccess`.
 Backend handlers are transport entrypoints. New handlers should validate and
 normalize their input, apply transport-level authentication when required,
 delegate to a backend Logic entrypoint, and map the result to the transport
-response. Business logic belongs in backend Logic classes, while external calls
-and persistence remain in Service and Storage classes.
+response.
 
 Validate request input with the shared `validator()` helper, so failures use
 the shared error body. Register routes by chaining calls on the router, so the
@@ -397,8 +372,7 @@ the application shape or define a separate collection of Logic classes.
 Use the same typed API client in live and test setup. Live transport sends HTTP
 requests. Test transport may call the handler application directly with in-memory
 Request and Response objects, without starting a server. Keep validation, error
-mapping, and handler delegation in that path. Tests do not call backend Logic
-in place of the API path.
+mapping, and handler delegation in that path.
 
 ## Errors
 
@@ -406,13 +380,6 @@ Logic classes and handlers report expected failures by throwing `AppError` with
 a code from one central `AppErrorCode` list. The HTTP layer alone maps each code
 to a status and returns one JSON error body, so Logic never deals with HTTP and
 clients handle one known set of codes.
-
-The single list is a deliberate choice for simplicity. Codes are broad
-categories such as `NOT_FOUND` or `UNAVAILABLE`, not one code per feature
-failure, so the list should grow slowly. It may still become unwieldy in a
-large app. When a client needs to tell specific feature failures apart,
-consider a feature-specific reason alongside the category code before adding
-many codes.
 
 An error that is not an `AppError` is a defect. The HTTP layer logs it with the
 request ID and answers with `INTERNAL` and no detail. Every response carries
@@ -490,16 +457,3 @@ whose output is for the person who runs them.
 Use `error` for a defect or a failure that needs a person, `warn` for a problem
 the application handled, `info` for normal events such as one handled request,
 and `debug` for detail that helps only during development.
-
-## Practical check before shipping
-
-Before you hand off a structural change, check:
-
-- Is the dependency direction still obvious?
-- Did any business logic slip into a Service or Storage class?
-- Does every direct persistence operation pass through the appropriate UI or Backend Logic and Storage?
-- Did one Logic class start depending directly on another Logic class?
-- Does each Logic instance own a separate instance and state for each LogicPlugin it uses?
-- Did the change create a cross-feature dependency that should instead be modeled through a shared abstraction or event?
-- Does a Service or Storage class depend on a Service that is not a Core Service?
-- Does an operation with several writes run them in one transaction?
