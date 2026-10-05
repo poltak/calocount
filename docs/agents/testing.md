@@ -154,6 +154,26 @@ How they run:
 push. Run them yourself after a change to `routes.tsx`, `main.tsx`,
 `vite.config.ts`, the API client's request options, or an error boundary.
 
+## The live start check
+
+`pnpm run test:live-start` starts the built backend as a deployment does: the
+live composition root, the `pg` driver, and a real PostgreSQL. No other test
+runs these, because every other test uses the test root with an in-memory
+database. [`check-live-start.mjs`](../../scripts/check-live-start.mjs) checks
+that the server:
+
+- starts with the configuration in `.env.example`, so the check also fails
+  when that file lacks a variable that the server requires
+- answers the readiness route, and a route that needs the migrated tables
+- stays up and connects again after the database closes its connections
+- ends by itself with exit code 0 on `SIGTERM`
+
+It does not read `.env`. The database is a PostgreSQL that already answers at
+the URL in `.env.example`, or the embedded one. `pnpm run check` does not run
+it, and CI does. Run it yourself after a change to `server/start.ts`,
+`live/index.ts`, `live/config.ts`, the files in `core/database/`, or
+`.env.example`.
+
 ## Coverage
 
 `pnpm --filter frontend test` measures which code ran during the tests and

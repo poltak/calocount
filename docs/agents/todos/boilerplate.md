@@ -222,6 +222,10 @@ repository is made.
 - [x] 19. **Stricter TypeScript options.** `noUncheckedIndexedAccess`,
       `noImplicitOverride`, and `exactOptionalPropertyTypes` are on; see
       [decisions](../decisions.md#tooling).
+- [x] 21. **A start of the live server.** `pnpm run test:live-start` starts
+      the built backend on a real PostgreSQL, and CI runs it on every push;
+      see [testing](../testing.md#the-live-start-check). With item 18, every
+      production dependency now runs in a test.
 
 ### Out of scope
 

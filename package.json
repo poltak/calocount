@@ -25,6 +25,7 @@
     "test": "pnpm run test:hooks && pnpm run test:lint-rules && pnpm -r --if-present run test",
     "test:browser": "pnpm --filter frontend run test:browser",
     "test:browser:install": "pnpm --filter frontend exec playwright install --only-shell chromium",
+    "test:live-start": "pnpm --filter backend... run build && node scripts/check-live-start.mjs",
     "test:hooks": "node --test .agents/hooks/*.test.mjs",
     "test:lint-rules": "node --test lint/*.test.mjs",
     "format": "prettier --write .",

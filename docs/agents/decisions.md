@@ -196,7 +196,12 @@ entry to the choice, the reason, and any rule that follows from it.
   composition root needs a PostgreSQL, real secrets, and later the real
   third-party Services. The test root needs none of these, so the tests run
   the same way on any machine. The cost is that they do not run
-  `server/start.ts`, the live root, or the `pg` driver.
+  `server/start.ts`, the live root, or the `pg` driver. The live start check
+  covers those.
+- **One check starts the live server, with no browser.** It is a script, not a
+  test file, because it has one job: start the built backend against a real
+  PostgreSQL and see it answer, lose its database connections, and stop. Its
+  first run found that a failed connection in the pool stopped the server.
 - **In a browser test, the frontend and the backend have different origins.**
   The page then calls the API across origins, which also tests the CORS
   settings, the trusted origin check, the cookie across origins, and the base

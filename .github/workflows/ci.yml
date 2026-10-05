@@ -43,3 +43,6 @@ jobs:
 
       - name: Run browser tests
         run: pnpm run test:browser --forbid-only
+
+      - name: Start the live server
+        run: pnpm run test:live-start
