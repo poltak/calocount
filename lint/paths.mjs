@@ -34,7 +34,7 @@ export function describeFile(filename) {
   };
 }
 
-/** Resolve a relative import to an absolute path. Returns null for packages. */
+/** Returns null for the import of a package. */
 export function resolveImport(filename, source) {
   if (typeof source !== "string" || !source.startsWith(".")) {
     return null;
@@ -42,7 +42,7 @@ export function resolveImport(filename, source) {
   return path.resolve(path.dirname(filename), source);
 }
 
-/** True when the file is one of the listed paths, given relative to `src/`. */
+/** The listed paths are relative to `src/`. */
 export function isListed(description, list) {
   const withoutExtension = description.inSrc.replace(SOURCE_EXTENSION, "");
   return list.some(
@@ -50,7 +50,6 @@ export function isListed(description, list) {
   );
 }
 
-/** `window-focus` -> `windowFocus` */
 export function camelCase(name) {
   return name.replace(/-([a-z0-9])/g, (_match, letter) => letter.toUpperCase());
 }

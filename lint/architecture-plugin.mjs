@@ -33,7 +33,6 @@ function isCompositionFile(file, options) {
   return isListed(file, options.compositionFiles ?? []);
 }
 
-/** Which kind of role class a file holds, judged by its directory and name. */
 function roleClassKind(file) {
   if (file.role === "services" && file.base.endsWith("-service")) {
     return "Service";
@@ -561,24 +560,23 @@ const transactionScope = {
     },
   },
   create(context) {
-    // How many `this.deps.transaction(...)` calls enclose the current node.
-    let depth = 0;
+    let enclosingTransactionCalls = 0;
     const isTransactionCall = (node) =>
       isDepsMember(node.callee, "transaction");
 
     return {
       CallExpression(node) {
         if (isTransactionCall(node)) {
-          depth += 1;
+          enclosingTransactionCalls += 1;
         }
       },
       "CallExpression:exit"(node) {
         if (isTransactionCall(node)) {
-          depth -= 1;
+          enclosingTransactionCalls -= 1;
         }
       },
       MemberExpression(node) {
-        if (depth > 0 && isDepsMember(node, "storage")) {
+        if (enclosingTransactionCalls > 0 && isDepsMember(node, "storage")) {
           context.report({ node, messageId: "outside" });
         }
       },
