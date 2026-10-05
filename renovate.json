@@ -8,6 +8,7 @@
   },
   "minimumReleaseAge": "3 days",
   "platformAutomerge": false,
+  "assignees": ["poltak"],
   "packageRules": [
     {
       "matchUpdateTypes": ["minor", "patch", "pin", "digest"],

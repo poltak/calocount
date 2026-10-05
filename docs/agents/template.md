@@ -63,6 +63,8 @@ weekly updates replace one large update each year. The rules are in
   Better Auth update can change its schema, so compare `AuthTables` in
   `backend/src/features/auth/storage/types.ts` with the new schema.
 - An update is at least 3 days old before Renovate proposes it.
+- The weekly lock file update waits for a person. The 3 day rule does not
+  apply to the indirect dependencies that it changes.
 - Renovate starts new updates on Monday, from 00:00 to 12:00 UTC. The free
   hosted plan runs a repository every 4 hours. The usual weekly window is 4
   hours, so one late run could miss it and delay the updates for a week.
@@ -75,6 +77,23 @@ Facts to check on the first update of each kind:
 - A pnpm update must change `packageManager`, `devEngines.packageManager`, and
   the `version` input of `pnpm/action-setup` in the CI workflow.
 - `hono` is in two workspaces. Both must stay at the same version.
+
+### What a person does
+
+Renovate assigns a pull request to the person in `assignees` in
+`renovate.json` when it needs a person, and GitHub sends that person a
+notification. A pull request that merges by itself has no assignee, unless its
+CI fails.
+
+For each assigned pull request:
+
+1. Read the release notes in its description.
+2. If CI is green, merge it.
+3. If CI is red, fix the code on the branch of the pull request, or close the
+   pull request. Renovate then ignores that version. The dashboard has a
+   checkbox that opens it again.
+
+The "Dependency Dashboard" issue lists each update and its state.
 
 ### One-time setup of Renovate
 
