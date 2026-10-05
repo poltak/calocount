@@ -108,6 +108,22 @@ describe("NotesLogic tests", () => {
     expect(logic.state.notes).toEqual([]);
   });
 
+  it("should set the error state when a gateway answers in place of the backend", async () => {
+    const app = await setupTest({ skipInitialization: true });
+    const { logic, transport } = app;
+    await seedNote(app, FIRST);
+    transport.failNextRequestAtGateway(503);
+
+    expect(logic.state.loadState).toEqual("pristine");
+
+    await logic.initialize();
+
+    // The gateway's answer is plain text, so the message names the status.
+    expect(logic.state.loadState).toEqual("error");
+    expect(logic.state.loadError).toEqual("Request failed with status 503");
+    expect(logic.state.notes).toEqual([]);
+  });
+
   it("should not load a note that belongs to another user, and should not delete it", async () => {
     const { backend, logic } = await setupTest();
     // No route lets a second user sign in, so the trusted setup operation and

@@ -8,7 +8,6 @@ import {
   Routes,
   useLocation,
 } from "react-router";
-import { ApiExamplePage } from "../../examples/ui/api-example-page.js";
 import { CounterPage } from "../../examples/ui/counter-page.js";
 import { NoteEditPage } from "../../notes/ui/note-edit-page.js";
 import { NotesPage } from "../../notes/ui/notes-page.js";
@@ -37,7 +36,6 @@ function ProtectedLayout() {
           <NavLink to="/" end>
             Counter
           </NavLink>
-          <NavLink to="/examples/api/example-encounter">API example</NavLink>
           <NavLink to="/notes">Notes</NavLink>
         </nav>
         <div className="session-actions">
@@ -71,10 +69,6 @@ export function AppRoutes() {
           <Route element={<SessionGate />}>
             <Route element={<ProtectedLayout />}>
               <Route path="/" element={<CounterPage />} />
-              <Route
-                path="/examples/api/:encounterId?"
-                element={<ApiExamplePage />}
-              />
               <Route path="/notes" element={<NotesPage />} />
               <Route path="/notes/:noteId" element={<NoteEditPage />} />
               <Route

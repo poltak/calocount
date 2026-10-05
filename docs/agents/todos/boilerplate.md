@@ -160,12 +160,9 @@ template repository is made.
       in [code architecture](../code-architecture.md#database-schema).
 - [x] 2. **A complete example feature.** The `notes` feature lists, creates,
       changes, and deletes the signed-in user's notes. Its two forms share a
-      LogicPlugin that keeps unsaved text in a frontend Storage class. One
-      part is still open. The API example in `examples`
-      ([api-example-logic.ts](../../../frontend/src/features/examples/ui/api-example-logic.ts),
-      [api-client.test.ts](../../../frontend/src/features/api/client/api-client.test.ts))
-      calls the `encounters` routes, so the template must drop it or point it
-      at `notes`.
+      LogicPlugin that keeps unsaved text in a frontend Storage class. No
+      frontend code calls the `encounters` routes, so the template can remove
+      that feature.
 - [x] 3. **A transaction rule.** Backend Logic runs several writes in
       `this.deps.transaction()`, also across features; see
       [code architecture](../code-architecture.md#transactions).

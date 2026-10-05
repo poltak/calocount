@@ -107,6 +107,18 @@ describe("NoteEditLogic tests", () => {
     expect(logic.plugins.draft.state).toMatchObject({ title: "", body: "" });
   });
 
+  it("should reach the note route when the ID has reserved characters", async () => {
+    const { logic } = await setupTest({
+      seed: async () => "note/part?tag=#%",
+    });
+
+    // The route refuses the ID because it is not a UUID. An ID that was not
+    // encoded would miss the route, and the message would be "Route not found".
+    expect(logic.state.loadState).toEqual("error");
+    expect(logic.state.loadError).toEqual("The request is invalid");
+    expect(logic.plugins.draft.state).toMatchObject({ title: "", body: "" });
+  });
+
   it("should not open a note that belongs to another user", async () => {
     const { logic } = await setupTest({
       // No route lets a second user sign in, so the trusted setup operation
