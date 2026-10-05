@@ -49,6 +49,17 @@ function roleClassKind(file) {
   return null;
 }
 
+/** The string keys of `"a"` or `"a" | "b"`, as in the second argument of a `Pick`. */
+function literalKeys(type) {
+  if (type?.type === "TSLiteralType") {
+    return [type.literal.value];
+  }
+  if (type?.type === "TSUnionType") {
+    return type.types.flatMap(literalKeys);
+  }
+  return [];
+}
+
 const featureBoundaries = {
   meta: {
     type: "problem",
@@ -308,15 +319,6 @@ const ownStorage = {
     }
 
     const prefix = camelCase(file.feature);
-    const storageKeys = (type) => {
-      if (type?.type === "TSLiteralType") {
-        return [type.literal.value];
-      }
-      if (type?.type === "TSUnionType") {
-        return type.types.flatMap(storageKeys);
-      }
-      return [];
-    };
 
     return {
       TSTypeReference(node) {
@@ -324,7 +326,7 @@ const ownStorage = {
           return;
         }
         const typeArguments = node.typeArguments ?? node.typeParameters;
-        for (const key of storageKeys(typeArguments?.params[0])) {
+        for (const key of literalKeys(typeArguments?.params[0])) {
           if (typeof key === "string" && !key.startsWith(prefix)) {
             context.report({
               node,
@@ -332,6 +334,73 @@ const ownStorage = {
               data: { key, feature: file.feature, prefix },
             });
           }
+        }
+      },
+    };
+  },
+};
+
+const handlerDependencies = {
+  meta: {
+    type: "problem",
+    docs: {
+      description:
+        "A handler calls backend Logic. It takes no Storage, and no Service except a Core Service.",
+    },
+    schema: [{ type: "object" }],
+    messages: {
+      service:
+        "A handler must not use the Service '{{key}}'. Call a backend Logic class, which uses the Service. " +
+        DOC +
+        " (Backend handlers).",
+      collection:
+        "A handler must not take '{{name}}'. Select the Logic classes that it calls with Pick<BackendLogic, ...>. " +
+        DOC +
+        " (Backend handlers).",
+    },
+  },
+  create(context) {
+    const options = context.options[0] ?? {};
+    const file = currentFile(context);
+    if (file?.role !== "handlers" || file.isTest) {
+      return {};
+    }
+
+    const serviceCollections = options.serviceCollections ?? [];
+    const storageCollections = options.storageCollections ?? [];
+    const readsSession = isListed(file, options.sessionFiles ?? []);
+    // A `Pick` records where its Service collection starts. The visitor
+    // reaches that collection next, and must not report it as a whole one.
+    const pickedAt = new Set();
+    const startOf = (node) => node.range?.[0] ?? node.start;
+
+    return {
+      TSTypeReference(node) {
+        const name = node.typeName?.name;
+        if (storageCollections.includes(name)) {
+          context.report({ node, messageId: "collection", data: { name } });
+          return;
+        }
+        if (readsSession) {
+          return;
+        }
+
+        if (name === "Pick") {
+          const typeArguments = node.typeArguments ?? node.typeParameters;
+          const [collection, keys] = typeArguments?.params ?? [];
+          if (!serviceCollections.includes(collection?.typeName?.name)) {
+            return;
+          }
+          pickedAt.add(startOf(collection));
+          for (const key of literalKeys(keys)) {
+            if (!(options.coreServices ?? []).includes(key)) {
+              context.report({ node, messageId: "service", data: { key } });
+            }
+          }
+          return;
+        }
+        if (serviceCollections.includes(name) && !pickedAt.has(startOf(node))) {
+          context.report({ node, messageId: "collection", data: { name } });
         }
       },
     };
@@ -629,6 +698,7 @@ export default {
     "service-implementations": serviceImplementations,
     "no-construction": noConstruction,
     "own-storage": ownStorage,
+    "handler-dependencies": handlerDependencies,
     "role-naming": roleNaming,
     "constructor-deps": constructorDeps,
     "file-layout": fileLayout,

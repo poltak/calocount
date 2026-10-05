@@ -176,6 +176,35 @@ test("lets Logic use only its own feature's Storage", async (context) => {
   ]);
 });
 
+test("lets a handler take Logic and Core Services only", async (context) => {
+  const importCollections =
+    'import type { BackendLogic, BackendServices, BackendStorage } from "../../core/types.js";\n';
+  const problems = await lint(context, {
+    ...coreFiles("backend"),
+    [`${feature("notes")}/handlers/notes-handlers.ts`]:
+      importCollections +
+      'export type Props = {\n  logic: Pick<BackendLogic, "notes">;\n  services: Pick<BackendServices, "logger">;\n};\n',
+    // One problem for each property.
+    [`${feature("notes")}/handlers/mail-handlers.ts`]:
+      importCollections +
+      'export type Props = {\n  services: Pick<BackendServices, "logger" | "mail">;\n  all: BackendServices;\n  storage: Pick<BackendStorage, "notes">;\n};\n',
+    // The session middleware reads the session from the auth Service.
+    [`${feature("auth")}/handlers/require-session.ts`]:
+      importCollections +
+      'export type Props = {\n  logic: Pick<BackendLogic, "authAccess">;\n  services: Pick<BackendServices, "auth">;\n};\n',
+    [`${feature("auth")}/handlers/session-handlers.ts`]:
+      importCollections +
+      'export type Props = { services: Pick<BackendServices, "auth"> };\n',
+  });
+
+  assert.deepEqual(problems, [
+    "backend/src/features/auth/handlers/session-handlers.ts: architecture(handler-dependencies)",
+    "backend/src/features/notes/handlers/mail-handlers.ts: architecture(handler-dependencies)",
+    "backend/src/features/notes/handlers/mail-handlers.ts: architecture(handler-dependencies)",
+    "backend/src/features/notes/handlers/mail-handlers.ts: architecture(handler-dependencies)",
+  ]);
+});
+
 test("keeps a transaction on the Storage that it provides", async (context) => {
   const problems = await lint(context, {
     ...coreFiles("backend"),

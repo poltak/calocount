@@ -351,6 +351,13 @@ normalize their input, apply transport-level authentication when required,
 delegate to a backend Logic entrypoint, and map the result to the transport
 response.
 
+A handler takes no Storage, and no Service except a Core Service. The session
+middleware is the one exception. `requireSession` and `requireTrustedOrigin`
+call the auth Service, because they only read the session and the trusted
+origins. That is transport-level authentication, and it makes no business
+decision. `requireSession` still asks a Logic class who may enter. Lint checks
+this rule, and `.oxlintrc.json` names the two files.
+
 Validate request input with the shared `validator()` helper, so failures use
 the shared error body. Register routes by chaining calls on the router, so the
 typed client keeps each endpoint's types.

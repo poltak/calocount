@@ -106,6 +106,18 @@
         "exemptFeatures": ["core"]
       }
     ],
+    "architecture/handler-dependencies": [
+      "error",
+      {
+        "serviceCollections": ["BackendServices"],
+        "storageCollections": ["BackendStorage"],
+        "coreServices": ["logger"],
+        "sessionFiles": [
+          "features/auth/handlers/require-session.ts",
+          "features/auth/handlers/require-trusted-origin.ts"
+        ]
+      }
+    ],
     "architecture/role-naming": [
       "error",
       {
