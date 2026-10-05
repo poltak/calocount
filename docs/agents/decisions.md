@@ -132,8 +132,8 @@ entry to the choice, the reason, and any rule that follows from it.
 - **Better Auth logs through our logger.** Its own messages, such as a wrong
   password, appear in the same format as ours.
 - **Two account modes, and a project selects one with `APP_ACCOUNT_MODE`.**
-  This project needs one owner. Most projects made from this repository need
-  accounts for many people. Both modes are in the code and in the tests, so a
+  Some projects need one owner, and most need accounts for many people. Both
+  modes are in the code and in the tests, so a
   project changes one setting and no code. The mode is an `AccountPolicy`
   value that the composition root gives to the auth Logic classes.
 - **In single-owner mode, one account exists, created from the command

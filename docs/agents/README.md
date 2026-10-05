@@ -14,14 +14,14 @@ instructions.
   Read before changing a framework, authentication, the API transport, or test
   setup.
 - [Setup and commands](setup.md): read to run, configure, or check the project.
-- [TODOs from initial setup](todos/initial-setup.md): unfinished work and
-  temporary behavior. Read and update while initial setup continues.
+- [The template](template.md): how a project starts from this repository, how
+  it takes later changes, and how dependency updates work. Read before work on
+  the template itself.
+- [Open work](todos/initial-setup.md): unfinished work and temporary behavior.
+  Read and update it as work completes.
 - [Architecture lint rules](todos/architecture-lint-rules.md): which
   architecture rules lint enforces, and what is still open. Read before changing
   a rule in `lint/`, or when a lint error cites the architecture.
-- [Reusable boilerplate](todos/boilerplate.md): the plan to make a template
-  repository from this one, the Renovate setup, and what the template still
-  needs. Read before work on the template.
 
 ## Where to start reading the code
 

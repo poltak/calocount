@@ -1,23 +1,10 @@
-# TODOs from initial set up
+# Open work
 
-Keep this list current while initial setup continues. Add unresolved decisions
-and temporary behavior with links to the affected code. Close or remove items
-when they are resolved.
+Keep this list current. Add unresolved decisions and temporary behavior with
+links to the affected code. Close or remove items when they are resolved.
 
-- [ ] **Encounter ID format:** not defined yet. The temporary [`encounterParamsSchema`](../../../backend/src/features/encounter-lifecycle/handlers/encounter-lifecycle-handlers.ts) trims the ID and requires a non-empty string. Replace it when the ID contract is defined.
-- [ ] **Encounter operations:** [`EncounterLifecycleLogic`](../../../backend/src/features/encounter-lifecycle/logic/encounter-lifecycle-logic.ts) has stub `start`, `pause`, and `stop` methods. Define state transitions and persistence; valid HTTP requests currently return 501.
-- [ ] **API contracts:** define request bodies and final result/error contracts for the [lifecycle handlers](../../../backend/src/features/encounter-lifecycle/handlers/encounter-lifecycle-handlers.ts). Their success response is a placeholder 204.
-- [ ] **Storage and Service contracts:** add table types to [`DatabaseSchema`](../../../backend/src/features/core/database/database.ts), operations to [encounter Storage](../../../backend/src/features/encounter-lifecycle/storage/encounter-lifecycle-storage.ts), and methods to the existing feature Service interfaces as their operations are defined.
-- [x] **Authentication:** the [HTTP app](../../../backend/src/features/core/server/http-app.ts) protects business routes through shared session middleware. Session routes remain reachable while logged out; see [decisions](../decisions.md#authentication).
-- [x] **Full application tests:** the [shared fixture](../../../frontend/src/features/core/tests/full-application.ts) connects UI Logic, Hono, and PGlite in one process.
-- [x] **Documented full application integration test expectations + examples:** the rules are in [testing](../testing.md) and the model is the [auth Logic test](../../../frontend/src/features/auth/ui/auth-logic.test.ts).
-- [ ] **Encounter tests:** no frontend code calls the encounter routes, so no test reaches them. Write the tests with the first UI Logic that sends an encounter operation, with success cases and database assertions.
-- [x] **Frontend router:** React Router is installed with the notes pages. Replace the [example pages](../../../frontend/src/features/core/ui/routes.tsx) as real screens are added.
 - [ ] **API error contracts:** errors share one body and one [code-to-status map](../../../backend/src/features/core/handlers/error-responses.ts). Add codes to [`AppErrorCode`](../../../backend/src/features/core/errors/app-error.ts) as features need them. The client types do not validate responses at runtime; decide on response validation if independently deployed backends require it.
-- [ ] **Frontend persistence:** define browser Storage contracts when a feature needs persistence. Keep the frontend Storage collection empty until then.
 - [ ] **Account recovery:** configure a verified recovery path and email delivery when required. The [owner setup command](../../../backend/src/features/auth/scripts/setup-owner.ts) only creates a new account and never resets an existing password.
-- [ ] **Multiple users:** this project runs in single-owner mode. Open sign-up mode exists for other projects; see [decisions](../decisions.md#authentication). Before this project admits more accounts, add the rules for which user can read which record, and a way for the owner to add an account.
-- [ ] **Local installation:** add packaging, startup, and static file serving for a local Hono server when local deployment is implemented. Choosing React + Vite does not implement this deployment path.
-- [x] **Sign-in rate limiting:** the [auth Service](../../../backend/src/features/auth/services/better-auth-service.ts) turns Better Auth's rate limits on in every environment and keeps the counts in the database; see [decisions](../decisions.md#authentication).
+- [ ] **Email verification:** open sign-up mode does not verify email addresses; see [decisions](../decisions.md#authentication). Add it, with a Service that sends email, before a public release in that mode.
+- [ ] **Serving the frontend:** the backend does not serve the frontend build, and the page has no content security policy. Decide this with the hosting.
 - [ ] **Error tracking:** add it as a logger implementation that forwards each `error` entry to a service like Sentry, one in each workspace. The places that must report already log through the logger: the backend error handler, the frontend root's error callbacks in `main.tsx`, and `useLogic`. Each live composition root then gives the app a logger that writes to both the current logger and the new one. Make a separate Core Service only if tracking needs more than error entries, such as the user's identity or a trail of earlier events.
-- [ ] **Integrate Swamp club** to get rid of unnecessary agentic flows. Figure out what currently makese sense to move to swamp flows.
