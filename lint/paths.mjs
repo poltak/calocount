@@ -50,7 +50,7 @@ export function isListed(description, list) {
   );
 }
 
-/** `encounter-lifecycle` -> `encounterLifecycle` */
+/** `window-focus` -> `windowFocus` */
 export function camelCase(name) {
   return name.replace(/-([a-z0-9])/g, (_match, letter) => letter.toUpperCase());
 }

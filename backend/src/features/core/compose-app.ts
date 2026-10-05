@@ -7,8 +7,6 @@ import { AuthSignUpLogic } from "../auth/logic/auth-sign-up-logic.js";
 import { OwnerSetupLogic } from "../auth/logic/owner-setup-logic.js";
 import { AuthStorage } from "../auth/storage/auth-storage.js";
 import type { AccountPolicy } from "../auth/types.js";
-import { EncounterLifecycleLogic } from "../encounter-lifecycle/logic/encounter-lifecycle-logic.js";
-import { EncounterLifecycleStorage } from "../encounter-lifecycle/storage/encounter-lifecycle-storage.js";
 import { HealthLogic } from "../health/logic/health-logic.js";
 import { HealthStorage } from "../health/storage/health-storage.js";
 import { NotesLogic } from "../notes/logic/notes-logic.js";
@@ -35,7 +33,6 @@ function createStorage(db: Database): BackendStorage {
   return {
     activity: new ActivityStorage({ db }),
     auth: new AuthStorage({ db }),
-    encounterLifecycle: new EncounterLifecycleStorage({ db }),
     health: new HealthStorage({ db }),
     migration: new MigrationStorage({ db }),
     notes: new NotesStorage({ db }),
@@ -67,7 +64,6 @@ export function composeApp({
     authSession: new AuthSessionLogic({ storage: {}, services }),
     authSignUp: new AuthSignUpLogic({ storage: {}, services, accountPolicy }),
     ownerSetup: new OwnerSetupLogic({ storage, services, accountPolicy }),
-    encounterLifecycle: new EncounterLifecycleLogic({ storage, services }),
     health: new HealthLogic({ storage, services }),
     migration: new MigrationLogic({ storage, services }),
     notes: new NotesLogic({ storage, services, transaction }),

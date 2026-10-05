@@ -7,7 +7,6 @@ export type AppErrorCode =
   | "PAYLOAD_TOO_LARGE"
   | "RATE_LIMITED"
   | "INTERNAL"
-  | "NOT_IMPLEMENTED"
   | "UNAVAILABLE";
 
 export interface AppErrorIssue {

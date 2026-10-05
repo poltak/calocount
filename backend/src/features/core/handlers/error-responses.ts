@@ -17,7 +17,6 @@ const appErrorStatuses = {
   PAYLOAD_TOO_LARGE: 413,
   RATE_LIMITED: 429,
   INTERNAL: 500,
-  NOT_IMPLEMENTED: 501,
   UNAVAILABLE: 503,
 } as const satisfies Record<AppErrorCode, ContentfulStatusCode>;
 

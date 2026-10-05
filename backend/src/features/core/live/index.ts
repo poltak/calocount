@@ -1,10 +1,7 @@
 import { ConsoleLoggerService } from "@app/common/features/core/services/console-logger-service";
 import { composeApp } from "../compose-app.js";
 import { createDatabase } from "../database/postgres-database.js";
-import { PlaceholderAIService } from "../../ai/services/placeholder-ai-service.js";
 import { BetterAuthService } from "../../auth/services/better-auth-service.js";
-import { PlaceholderPatientRecordsService } from "../../patient-records/services/placeholder-patient-records-service.js";
-import { PlaceholderTranscriptionService } from "../../transcription/services/placeholder-transcription-service.js";
 import { JsonLoggerService } from "../services/json-logger-service.js";
 import type { App } from "../types.js";
 import { readLiveConfig, type LiveConfig } from "./config.js";
@@ -23,9 +20,6 @@ export function createApp({
     services: {
       logger,
       auth: new BetterAuthService({ db, logger, ...config.auth }),
-      ai: new PlaceholderAIService(),
-      transcription: new PlaceholderTranscriptionService(),
-      patientRecords: new PlaceholderPatientRecordsService(),
     },
   });
 }

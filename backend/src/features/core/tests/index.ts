@@ -3,11 +3,8 @@ import { MemoryLoggerService } from "@app/common/features/core/services/memory-l
 import { composeApp } from "../compose-app.js";
 import type { Database } from "../database/database.js";
 import { createDatabase } from "../database/pglite-database.js";
-import { FakeAIService } from "../../ai/services/fake-ai-service.js";
 import { BetterAuthService } from "../../auth/services/better-auth-service.js";
 import type { AccountPolicy } from "../../auth/types.js";
-import { FakePatientRecordsService } from "../../patient-records/services/fake-patient-records-service.js";
-import { FakeTranscriptionService } from "../../transcription/services/fake-transcription-service.js";
 import type { App, BackendServices } from "../types.js";
 
 export interface TestApp extends App {
@@ -44,9 +41,6 @@ export function createApp({
       trustedOrigins,
       allowSignUp: accountPolicy.mode === "openSignUp",
     }),
-    ai: new FakeAIService(),
-    transcription: new FakeTranscriptionService(),
-    patientRecords: new FakePatientRecordsService(),
   };
   const app = composeApp({ db, accountPolicy, services });
   return { ...app, db, services };
