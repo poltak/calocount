@@ -150,7 +150,7 @@ start CI. On a private repository, each run uses the plan's Actions minutes.
 
 ## What the template still needs
 
-Checked items are done. Items 12 and 14 to 17 wait until the template
+Checked items are done. Items 12, 14, 16, and 17 wait until the template
 repository is made.
 
 ### Gaps that stop the first real feature
@@ -204,9 +204,9 @@ repository is made.
 - [ ] 14. **Skills for template work.** Add a skill that adds a feature (about
       seven composition files change), a skill that renames a new project, and
       a skill that syncs changes from the template.
-- [ ] 15. **A decision on the default auth policy.** `ownerEmail` goes through
-      `composeApp` and the test fixture. Decide if the template default is one
-      owner or open sign-up, and document how to change it.
+- [x] 15. **The default auth policy.** One owner stays the default.
+      [Decisions](../decisions.md#authentication) lists the steps to open
+      sign-up.
 - [ ] 16. **A record of the template version.** Each project needs a file that
       names the template commit it started from, so that a later sync has a
       start point.

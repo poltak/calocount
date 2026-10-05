@@ -119,6 +119,21 @@ entry to the choice, the reason, and any rule that follows from it.
 - **Admission is checked on every request.** A valid session for any other email
   gets 403. Accounts and sessions stay ordinary Better Auth records, so a
   multi-user policy later needs no new auth system.
+- **One owner is the default, and open sign-up is an addition, not a
+  redesign.** The rule is one method, `AuthAccessLogic.isAllowed`. No table and
+  no route depends on it. To let people sign up:
+  - Make `isAllowed` return `true`, or replace it with the project's rule.
+  - Add a sign-up route in the auth feature that calls
+    `services.auth.createAccount`, a `signUp` operation in the frontend's
+    `AuthLogic`, and a page. The sign-in route, operation, and page are the
+    model, with their tests.
+  - Remove `OwnerSetupLogic`, the `auth:setup-owner` command, and
+    `APP_OWNER_EMAIL`, or keep them to create the first administrator.
+  - Limit each feature's queries to the signed-in user, as `NotesStorage`
+    does.
+  - A public app must also verify each email address and offer a password
+    reset. Both need a Service that sends email, which this repository does
+    not have.
 - **The server is the access boundary.** Frontend route guards only improve the
   experience; they are not a security control.
 - **Requests that change state must come from a trusted origin.** CORS allows
