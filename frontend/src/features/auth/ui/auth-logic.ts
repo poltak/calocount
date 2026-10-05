@@ -63,7 +63,7 @@ export class AuthLogic extends Logic<AuthProps, AuthState> {
     });
   }
 
-  protected async onInitialize(): Promise<void> {
+  protected override async onInitialize(): Promise<void> {
     this.registerCleanup(
       this.deps.apiAccessEvents.listen(() => {
         this.sessionChecks.cancel();

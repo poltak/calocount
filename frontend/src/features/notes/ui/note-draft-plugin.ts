@@ -32,7 +32,7 @@ export class NoteDraftPlugin extends LogicPlugin<
     super({ deps, initialState: EMPTY });
   }
 
-  protected async onInitialize(): Promise<void> {
+  protected override async onInitialize(): Promise<void> {
     const stored = this.deps.storage.notesDrafts.read(this.deps.owner);
     if (stored) {
       this.setState({ ...stored, isRestored: true });

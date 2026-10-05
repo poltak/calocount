@@ -45,9 +45,9 @@ interface ApiRequestIssue {
 
 export class ApiRequestError extends Error {
   readonly status: number;
-  readonly code?: string;
+  readonly code: string | undefined;
   /** Set when the backend refused single fields. A task shows them as field errors. */
-  readonly issues?: ApiRequestIssue[];
+  readonly issues: ApiRequestIssue[] | undefined;
 
   constructor({
     status,
@@ -56,9 +56,9 @@ export class ApiRequestError extends Error {
     issues,
   }: {
     status: number;
-    code?: string;
+    code?: string | undefined;
     message: string;
-    issues?: ApiRequestIssue[];
+    issues?: ApiRequestIssue[] | undefined;
   }) {
     super(message);
     this.name = "ApiRequestError";

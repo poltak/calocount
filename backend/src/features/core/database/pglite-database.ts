@@ -15,7 +15,7 @@ export function createDatabase({
 }: { snapshot?: DatabaseSnapshot } = {}): Database {
   return new Kysely<DatabaseSchema>({
     dialect: new PGliteDialect({
-      pglite: () => new PGlite({ loadDataDir: snapshot }),
+      pglite: () => new PGlite(snapshot ? { loadDataDir: snapshot } : {}),
     }),
   });
 }

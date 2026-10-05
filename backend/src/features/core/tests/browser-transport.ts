@@ -119,13 +119,13 @@ export function createBrowserTransport({
     }
     if (useCookies) {
       for (const value of response.headers.getSetCookie()) {
-        const [pair, ...attributes] = value.split(";");
+        const [pair = "", ...attributes] = value.split(";");
         const separator = pair.indexOf("=");
         const name = pair.slice(0, separator);
         const content = pair.slice(separator + 1);
         let expiresAt = Infinity;
         for (const attribute of attributes) {
-          const [key, ...parts] = attribute.trim().split("=");
+          const [key = "", ...parts] = attribute.trim().split("=");
           if (key.toLowerCase() === "max-age") {
             expiresAt = Date.now() + Number(parts.join("=")) * 1000;
           } else if (

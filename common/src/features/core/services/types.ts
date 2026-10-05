@@ -7,7 +7,7 @@ export type LogFields = Record<string, unknown>;
 export interface LogEntry {
   level: LogLevel;
   message: string;
-  fields?: LogFields;
+  fields?: LogFields | undefined;
 }
 
 /**

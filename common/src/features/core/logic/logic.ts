@@ -360,9 +360,10 @@ export abstract class Logic<
       errors.push(error);
     }
 
+    // The callback that was registered last runs first.
     const cleanupCallbacks = Array.from(this.cleanupCallbacks);
-    for (let index = cleanupCallbacks.length - 1; index >= 0; index -= 1) {
-      const cleanup = cleanupCallbacks[index];
+    cleanupCallbacks.reverse();
+    for (const cleanup of cleanupCallbacks) {
       this.cleanupCallbacks.delete(cleanup);
       try {
         cleanup();
@@ -373,9 +374,10 @@ export abstract class Logic<
 
     // Plugin cleanup is idempotent, so a plugin that already rolled back is safe.
     const plugins = Object.values(this.plugins);
-    for (let index = plugins.length - 1; index >= 0; index -= 1) {
+    plugins.reverse();
+    for (const plugin of plugins) {
       try {
-        await plugins[index].cleanup();
+        await plugin.cleanup();
       } catch (error) {
         errors.push(error);
       }

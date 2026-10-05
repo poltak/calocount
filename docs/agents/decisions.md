@@ -214,6 +214,16 @@ entry to the choice, the reason, and any rule that follows from it.
   After `common` and the backend are built, no step depends on another. Each
   step is a `check:<name>` script. Every step runs to the end even when one
   fails, and the output ends with a list of the steps that failed.
+- **Three TypeScript checks are on in addition to `strict`.** They are cheap
+  while the code is small, and each one finds a real class of defect.
+  - `noUncheckedIndexedAccess`: a value read by index or by key can be
+    `undefined`, so the code must handle a missing item.
+  - `noImplicitOverride`: a method that replaces a base class method, such as
+    `onInitialize`, needs `override`. A change to the base method's name is
+    then an error and not a method that never runs.
+  - `exactOptionalPropertyTypes`: `name?: string` means the property can be
+    absent, not that it can hold `undefined`. When a caller passes a value
+    through that can be `undefined`, declare `name?: string | undefined`.
 - **The project's name is in three locations.** They are `APP_NAME` in
   `common/src/features/core/utils/app-name.ts` for the name that users read,
   `name` in the root `package.json`, and the database name in `.env.example`.

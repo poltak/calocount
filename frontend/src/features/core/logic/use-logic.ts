@@ -29,7 +29,7 @@ export interface UseLogicOptions<Deps, Instance extends OwnedLogic<object>> {
   /** Keep this object stable. A new object creates a new Logic instance. */
   deps: Deps;
   /** Receives a failed initialization or cleanup. Without it, the logger does. */
-  onError?: LogicErrorHandler;
+  onError?: LogicErrorHandler | undefined;
 }
 
 interface LogicOwner {

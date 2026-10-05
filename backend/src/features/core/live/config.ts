@@ -47,7 +47,7 @@ export interface LiveConfig {
     host: string;
     port: number;
     /** The request header in which a proxy reports the caller's address. */
-    clientAddressHeader?: string;
+    clientAddressHeader?: string | undefined;
   };
   log: { format: "json" | "pretty"; level: LogLevel };
 }

@@ -11,7 +11,11 @@ import type { RequestEnvironment } from "./types.js";
  * last one counts: the nearest proxy added it, and a caller can forge the
  * others.
  */
-export function resolveClientAddress({ header }: { header?: string }) {
+export function resolveClientAddress({
+  header,
+}: {
+  header?: string | undefined;
+}) {
   return createMiddleware<RequestEnvironment>(async (context, next) => {
     // A request that a test sends in process has no socket and no bindings.
     const bindings = context.env as Partial<HttpBindings> | undefined;

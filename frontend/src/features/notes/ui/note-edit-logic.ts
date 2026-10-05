@@ -55,7 +55,7 @@ export class NoteEditLogic extends Logic<
     });
   }
 
-  protected async onInitialize(): Promise<void> {
+  protected override async onInitialize(): Promise<void> {
     await this.load();
   }
 

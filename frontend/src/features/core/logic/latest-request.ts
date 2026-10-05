@@ -4,7 +4,7 @@
  * overwrite newer state. Requests also stop when the owning Logic cleans up.
  */
 export class LatestRequest {
-  private controller?: AbortController;
+  private controller: AbortController | undefined;
 
   constructor(private readonly ownerSignal: AbortSignal) {}
 

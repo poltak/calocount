@@ -38,7 +38,7 @@ export type PasswordSignInResult =
  */
 export interface SessionRequest {
   requestHeaders: Headers;
-  clientAddress?: string;
+  clientAddress?: string | undefined;
 }
 
 /** Authentication boundary. Session identity belongs to the request, never this Service. */

@@ -30,7 +30,7 @@ interface ApiHttpAppProps {
 
 interface HttpAppProps extends ApiHttpAppProps {
   /** Set it only behind a proxy. See `resolveClientAddress`. */
-  clientAddressHeader?: string;
+  clientAddressHeader?: string | undefined;
 }
 
 /** Every business route, including future routes, shares the authentication gate. */

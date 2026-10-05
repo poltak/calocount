@@ -25,7 +25,7 @@ interface AppErrorProps {
 /** An expected failure that Logic and handlers throw for callers to handle. */
 export class AppError extends Error {
   readonly code: AppErrorCode;
-  readonly issues?: AppErrorIssue[];
+  readonly issues: AppErrorIssue[] | undefined;
 
   constructor({ code, message, issues, cause }: AppErrorProps) {
     super(message, { cause });

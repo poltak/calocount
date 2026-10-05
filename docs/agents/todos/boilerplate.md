@@ -218,9 +218,9 @@ template repository is made.
       still break the app. One Playwright test that signs in and opens a page
       catches this. It also covers the manual checks in
       [testing](../testing.md).
-- [ ] 19. **Stricter TypeScript options.** Only `strict` is on. Add
-      `noUncheckedIndexedAccess`, `noImplicitOverride`, and
-      `exactOptionalPropertyTypes` while the codebase is small.
+- [x] 19. **Stricter TypeScript options.** `noUncheckedIndexedAccess`,
+      `noImplicitOverride`, and `exactOptionalPropertyTypes` are on; see
+      [decisions](../decisions.md#tooling).
 
 ### Out of scope
 
