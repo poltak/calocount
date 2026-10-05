@@ -38,6 +38,19 @@ entry to the choice, the reason, and any rule that follows from it.
 - **Application tables and columns use camelCase, like Better Auth's.** One
   convention in the database needs no name mapping in Kysely. SQL must then
   quote each name.
+- **Every application table has `id`, `createdAt`, and `updatedAt`, and three
+  checks hold this.** The table types extend `BaseTable`, the `Database` type
+  does not compile for a table without the columns, and one test reads the
+  real schema, because the types cannot see the SQL of a migration. Tables
+  that the auth SDK owns are exempt. A table that only gets new records has no
+  `updatedAt`, and must be in a named list.
+- **A trigger sets `updatedAt`, not the Storage code.** A Storage method cannot
+  forget it, and the column's type refuses a value from code. The trigger does
+  not fire when an update changes nothing. Its cost is that it also fires in a
+  migration that changes many records.
+- **A migration writes the standard columns as plain SQL, without a helper.**
+  A helper that changes later would change what an old migration does on a new
+  database, and the schema test already finds a table that is wrong.
 - **Transactions start in backend Logic, and nowhere else.** The composition
   root gives Logic a `transaction` function whose callback receives every
   Storage class, bound to the transaction. One mechanism then covers a write

@@ -122,6 +122,9 @@ A few files that are not Logic classes have tests of their own:
   through the fixture's transport, so the whole backend still runs. Add a test
   there only for behavior of the HTTP app itself. A route that a UI Logic calls
   gets its tests through that Logic.
+- `database-schema.test.ts` reads the schema that the migrations made, and
+  checks that every application table has the standard columns and the
+  `updatedAt` trigger. Its failure message names the table and what it needs.
 
 ## Browser tests
 

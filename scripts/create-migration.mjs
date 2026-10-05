@@ -26,7 +26,9 @@ export const migration = defineMigration({
   file: import.meta.url,
   async up(db) {
     // Run each statement in its own call. Tables and columns use camelCase,
-    // so quote every name: "tableName" ("columnName").
+    // so quote every name: "tableName" ("columnName"). A new table needs the
+    // standard columns and the "updatedAt" trigger. Copy them from
+    // docs/agents/code-architecture.md (Database schema).
     await sql\`\`.execute(db);
   },
 });

@@ -1,4 +1,3 @@
-import { sql } from "kysely";
 import type { BackendStorageProps } from "../../core/storage/types.js";
 import type { Note } from "./types.js";
 
@@ -57,7 +56,7 @@ export class NotesStorage {
   }): Promise<Note | undefined> {
     return this.deps.db
       .updateTable("note")
-      .set({ title, body, updatedAt: sql<Date>`now()` })
+      .set({ title, body })
       .where("id", "=", id)
       .where("userId", "=", userId)
       .returning(NOTE_COLUMNS)

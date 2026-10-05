@@ -439,6 +439,41 @@ by hand.
   add it to `DatabaseSchema`, in the same change as the migration.
 - Migrations only go forward. To undo a change, write a new migration.
 
+Every application table has the same three columns, and the database makes
+their values. Code never sets them.
+
+```sql
+create table "note" (
+  "id" uuid primary key default gen_random_uuid(),
+  "createdAt" timestamptz not null default now(),
+  "updatedAt" timestamptz not null default now()
+)
+```
+
+```sql
+create trigger "note_setUpdatedAt_trigger"
+  before update on "note"
+  for each row
+  when (old.* is distinct from new.*)
+  execute function "setUpdatedAt"()
+```
+
+- Write both statements in the migration that creates the table, with the
+  table's other columns. The trigger sets `updatedAt` when an update changes
+  the record. Its condition leaves the value as it is when nothing changed.
+- Make the table's type extend `BaseTable` from
+  `core/database/standard-columns.ts`. `Database` does not compile when an
+  application table's type lacks the three columns, and
+  `database-schema.test.ts` checks the columns and the trigger in the real
+  database.
+- A table whose records never change, such as a log, has no `updatedAt` and no
+  trigger. Make its type extend `AppendOnlyTable`, and add its name to
+  `APPEND_ONLY_TABLES` in the same file. This is the only exception.
+- A migration that changes many records, such as one that fills a new column,
+  also changes their `updatedAt`. When that is wrong, turn the trigger off in
+  that migration with `alter table … disable trigger`, and turn it on again
+  after the change.
+
 ## Logging
 
 Write diagnostic output through the logger Core Service. Do not call `console`.

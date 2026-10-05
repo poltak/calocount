@@ -51,6 +51,15 @@ function readNotes(db: TestDatabase) {
     .execute();
 }
 
+/** When the note was made and when it last changed, as the database holds them. */
+function readNoteTimes(db: TestDatabase, id: string) {
+  return db
+    .selectFrom("note")
+    .select(["createdAt", "updatedAt"])
+    .where("id", "=", id)
+    .executeTakeFirstOrThrow();
+}
+
 async function readActions(db: TestDatabase) {
   const rows = await db
     .selectFrom("activity")
@@ -158,6 +167,8 @@ describe("NoteEditLogic tests", () => {
       JSON.stringify(CHANGED),
     );
     expect(await readNotes(backend.db)).toEqual([{ id: noteId, ...SAVED }]);
+    const timesBefore = await readNoteTimes(backend.db, noteId);
+    expect(timesBefore.updatedAt).toEqual(timesBefore.createdAt);
 
     const held = transport.holdNextRequest();
     const saveP = logic.save();
@@ -173,10 +184,33 @@ describe("NoteEditLogic tests", () => {
     expect(logic.state.isDone).toEqual(true);
     expect(frontend.browserStorage.getItem(draftKey)).toEqual(null);
     expect(await readNotes(backend.db)).toEqual([{ id: noteId, ...CHANGED }]);
+    // The database sets the time of the change. No code sets it.
+    const timesAfter = await readNoteTimes(backend.db, noteId);
+    expect(timesAfter.createdAt).toEqual(timesBefore.createdAt);
+    expect(timesAfter.updatedAt.getTime()).toBeGreaterThan(
+      timesBefore.updatedAt.getTime(),
+    );
     expect(await readActions(backend.db)).toEqual([
       "note.created",
       "note.updated",
     ]);
+  });
+
+  it("should keep the time of the last change when a save changes nothing", async () => {
+    const { backend, logic, noteId } = await setupTest();
+    const timesBefore = await readNoteTimes(backend.db, noteId);
+
+    expect(logic.state.saveState).toEqual("pristine");
+    expect(logic.plugins.draft.state).toMatchObject(SAVED);
+
+    const saveP = logic.save();
+    expect(logic.state.saveState).toEqual("running");
+    await saveP;
+
+    expect(logic.state.saveState).toEqual("success");
+    expect(logic.state.isDone).toEqual(true);
+    expect(await readNotes(backend.db)).toEqual([{ id: noteId, ...SAVED }]);
+    expect(await readNoteTimes(backend.db, noteId)).toEqual(timesBefore);
   });
 
   it("should set a message at the title and keep the draft when the title is too long", async () => {
