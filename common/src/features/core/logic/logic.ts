@@ -140,10 +140,6 @@ export abstract class Logic<
     return this.currentState;
   }
 
-  getState(): Readonly<State> {
-    return this.currentState;
-  }
-
   /**
    * Aborts when cleanup starts. Pass it to requests and other async work so
    * teardown cancels them.

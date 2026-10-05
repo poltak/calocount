@@ -126,8 +126,8 @@ Import these modules through their public package subpaths:
 - `@app/common/features/core/events/event-emitter`
 - `@app/common/features/core/services/types`, for the logger interface
 
-Logic and LogicPlugin expose stable state snapshots through `getState()` and
-notify `subscribe()` listeners after a state change. Replace changed state with
+Logic and LogicPlugin expose a stable state snapshot as `state` and notify
+`subscribe()` listeners after a state change. Replace changed state with
 the protected `setState()`; do not mutate a snapshot in place. Other code
 changes state by calling the Logic's methods. Each plugin's state is observed
 separately from its consuming Logic's state.

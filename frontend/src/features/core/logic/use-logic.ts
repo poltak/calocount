@@ -11,7 +11,7 @@ import type { LoggerServiceInterface } from "@app/common/features/core/services/
 import { useFrontendApp } from "../ui/frontend-app-context.js";
 
 export interface LogicStateStore<State extends object> {
-  getState(): Readonly<State>;
+  readonly state: Readonly<State>;
   subscribe(listener: () => void): Unsubscribe;
 }
 
@@ -93,7 +93,7 @@ export function useLogic<Deps, Instance extends OwnedLogic<object>>({
   onError,
 }: UseLogicOptions<Deps, Instance>): {
   logic: Instance;
-  state: ReturnType<Instance["getState"]>;
+  state: Instance["state"];
 } {
   const logic = useMemo(() => new LogicClass(deps), [LogicClass, deps]);
   const ownersRef = useRef(new WeakMap<object, LogicOwner>());
@@ -104,7 +104,7 @@ export function useLogic<Deps, Instance extends OwnedLogic<object>>({
     [logic],
   );
   const getSnapshot = useCallback(
-    () => logic.getState() as ReturnType<Instance["getState"]>,
+    () => logic.state as Instance["state"],
     [logic],
   );
   const state = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
@@ -171,7 +171,7 @@ export function useLogicInstance<State extends object>(
     (listener: () => void) => logic.subscribe(listener),
     [logic],
   );
-  const getSnapshot = useCallback(() => logic.getState(), [logic]);
+  const getSnapshot = useCallback(() => logic.state, [logic]);
 
   return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 }

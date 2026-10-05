@@ -4,7 +4,7 @@ import { useLogic } from "../../core/logic/use-logic.js";
 import { AuthLogic } from "./auth-logic.js";
 type AuthContextValue = {
   logic: AuthLogic;
-  state: ReturnType<AuthLogic["getState"]>;
+  state: AuthLogic["state"];
 };
 const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {

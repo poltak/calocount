@@ -456,7 +456,6 @@ describe("useLogicInstance", () => {
   it("supports concurrent observers of one Logic without changing its methods", () => {
     const deps = { label: "shared", trace: [] };
     const logic = new CounterLogic(deps);
-    const originalGetState = logic.getState;
     const originalSubscribe = logic.subscribe;
 
     const { unmount } = render(
@@ -469,7 +468,6 @@ describe("useLogicInstance", () => {
     act(() => logic.increment());
     expect(screen.getByTestId("first-observer").textContent).toBe("1");
     expect(screen.getByTestId("second-observer").textContent).toBe("1");
-    expect(logic.getState).toBe(originalGetState);
     expect(logic.subscribe).toBe(originalSubscribe);
 
     unmount();
