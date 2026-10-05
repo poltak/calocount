@@ -93,6 +93,11 @@ entry to the choice, the reason, and any rule that follows from it.
 - **The frontend never uses Better Auth's client.** Our own `/api/session`
   routes wrap sign-in and sign-out, so replacing Better Auth changes one backend
   Service. Its own routes are not mounted, which exposes only what we wrap.
+- **A user ID is `text`, not `uuid`.** This keeps the schema independent of
+  one auth provider. Better Auth can make UUIDs, but some providers have user
+  IDs that are not UUIDs, and a `text` column accepts the IDs of all of them.
+  Columns that point at a user are `text` for the same reason, while the IDs
+  of our own tables are `uuid`.
 - **Sign-in and sign-out pass through Better Auth's request handler inside the
   Service.** Its rate limits and origin checks only run on that path; calling
   its server functions directly would skip them. The Service returns only the
