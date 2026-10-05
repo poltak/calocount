@@ -44,8 +44,18 @@ and keeps it.
   any other email is refused.
 - `open-sign-up`: each visitor can make an account at `/sign-up`, and every
   account is admitted. `APP_OWNER_EMAIL` and `auth:setup-owner` have no use.
-  This mode does not verify email addresses and has no password reset; see
-  [decisions](decisions.md#authentication).
+  This mode does not verify email addresses, and a user cannot reset a
+  password without an operator; see [decisions](decisions.md#authentication).
+
+### A lost password
+
+`pnpm run auth:reset-password` sets a new password for an account, and ends
+each session of that account. It asks for the password in an interactive
+terminal, as `auth:setup-owner` does.
+
+- In single-owner mode, give no argument. The account is the owner's.
+- In open sign-up mode, give the email address of the account:
+  `pnpm run auth:reset-password person@example.com`.
 
 ## First run
 
@@ -125,6 +135,9 @@ The repository has no deployment files yet. These facts hold on any host:
 - Use an HTTPS `BETTER_AUTH_URL`. Session cookies are then `Secure`.
 - Run `pnpm run db:migrate` before the first start and before the start of
   each new version. The server does not migrate by itself.
+- When a user lost the password, run
+  `pnpm --filter backend run auth:reset-password` on the host, in an
+  interactive terminal and with the server's environment.
 
 ## Commands
 
@@ -143,6 +156,7 @@ The repository has no deployment files yet. These facts hold on any host:
 | `pnpm run db:migration:create <name>` | Create a schema migration file.                       |
 | `pnpm run db:reset`                   | Delete the embedded development database.             |
 | `pnpm run auth:setup-owner`           | Create the owner account.                             |
+| `pnpm run auth:reset-password`        | Set a new password for an account.                    |
 | `pnpm --filter frontend dev`          | Start only the frontend dev server.                   |
 | `pnpm --filter frontend test`         | Run the frontend tests and print the coverage report. |
 | `pnpm run test:browser`               | Run the browser tests of the built frontend.          |

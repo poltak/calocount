@@ -11,6 +11,7 @@
         "src/features/core/server/start.ts",
         "src/features/core/scripts/migrate.ts",
         "src/features/auth/scripts/setup-owner.ts",
+        "src/features/auth/scripts/reset-password.ts",
       ],
     },
     "frontend": {

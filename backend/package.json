@@ -22,7 +22,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "start": "node --env-file-if-exists=../.env dist/features/core/server/start.js",
     "db:migrate": "pnpm --filter backend... run build && node --env-file-if-exists=../.env dist/features/core/scripts/migrate.js",
-    "auth:setup-owner": "pnpm --filter backend... run build && node --env-file-if-exists=../.env dist/features/auth/scripts/setup-owner.js"
+    "auth:setup-owner": "pnpm --filter backend... run build && node --env-file-if-exists=../.env dist/features/auth/scripts/setup-owner.js",
+    "auth:reset-password": "pnpm --filter backend... run build && node --env-file-if-exists=../.env dist/features/auth/scripts/reset-password.js"
   },
   "dependencies": {
     "@hono/node-server": "2.1.1",

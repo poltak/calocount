@@ -239,6 +239,118 @@ describe("AuthLogic tests", () => {
     expect(await readSessionUserIds(backend.db)).toEqual([otherUser.id]);
   });
 
+  it("should end the session and accept only the new password after an operator resets it", async () => {
+    const { backend, logic, owner } = await setupTest();
+    const newPassword = "a-new-test-password";
+
+    expect(logic.state.isSignedIn).toEqual(true);
+    expect(await readSessionUserIds(backend.db)).toEqual([owner.id]);
+
+    // The operator command has no route, so the test calls its backend Logic.
+    await backend.logic.authPasswordReset.resetPassword({
+      password: newPassword,
+    });
+
+    expect(await readSessionUserIds(backend.db)).toEqual([]);
+    await logic.refresh();
+    expect(logic.state.isSignedIn).toEqual(false);
+
+    logic.setEmail(owner.email);
+    logic.setPassword(TEST_OWNER_CREDENTIALS.password);
+    await logic.signIn();
+
+    expect(logic.state.signInState).toEqual("error");
+    expect(logic.state.signInError).toEqual("Invalid email or password");
+    expect(logic.state.isSignedIn).toEqual(false);
+
+    logic.setPassword(newPassword);
+    await logic.signIn();
+
+    expect(logic.state.signInState).toEqual("success");
+    expect(logic.state.isSignedIn).toEqual(true);
+    // The account is the same one, so its records are still the user's.
+    expect(logic.state.userId).toEqual(owner.id);
+    expect(await readUser(backend.db, owner.email)).toEqual(owner);
+  });
+
+  it("should change nothing when an operator's password reset is refused", async () => {
+    const { backend, logic, owner } = await setupTest();
+    const { authPasswordReset } = backend.logic;
+
+    await expect(
+      authPasswordReset.resetPassword({ password: "short" }),
+    ).rejects.toThrow("Use a password of 8 to 128 characters");
+    await expect(
+      authPasswordReset.resetPassword({
+        email: "other@example.test",
+        password: "a-new-test-password",
+      }),
+    ).rejects.toThrow(
+      `In single-owner mode the only account is ${owner.email}. Give no email address`,
+    );
+
+    expect(await readSessionUserIds(backend.db)).toEqual([owner.id]);
+    await logic.refresh();
+    expect(logic.state.isSignedIn).toEqual(true);
+
+    // The password is the one from before.
+    await logic.signOut();
+    logic.setEmail(owner.email);
+    logic.setPassword(TEST_OWNER_CREDENTIALS.password);
+    await logic.signIn();
+
+    expect(logic.state.signInState).toEqual("success");
+    expect(logic.state.isSignedIn).toEqual(true);
+  });
+
+  it("should reset the password of the account with the given email in open sign-up mode", async () => {
+    const { backend, logic, owner } = await setupTest({
+      authenticated: false,
+      accountMode: "openSignUp",
+    });
+    const { authPasswordReset } = backend.logic;
+    const other = {
+      email: "other@example.test",
+      name: "Other",
+      password: "another-test-password",
+    };
+    const otherUser = await backend.services.auth.createAccount(other);
+    const newPassword = "a-new-test-password";
+
+    await expect(
+      authPasswordReset.resetPassword({ password: newPassword }),
+    ).rejects.toThrow("Give the email address of the account");
+    await expect(
+      authPasswordReset.resetPassword({
+        email: "nobody@example.test",
+        password: newPassword,
+      }),
+    ).rejects.toThrow("No account has the email address nobody@example.test");
+
+    await authPasswordReset.resetPassword({
+      email: other.email,
+      password: newPassword,
+    });
+
+    logic.setEmail(other.email);
+    logic.setPassword(other.password);
+    await logic.signIn();
+    expect(logic.state.signInError).toEqual("Invalid email or password");
+
+    logic.setPassword(newPassword);
+    await logic.signIn();
+    expect(logic.state.signInState).toEqual("success");
+    expect(logic.state.userId).toEqual(otherUser.id);
+
+    // The reset of one account does not change another account.
+    await logic.signOut();
+    logic.setEmail(owner.email);
+    logic.setPassword(TEST_OWNER_CREDENTIALS.password);
+    await logic.signIn();
+    expect(logic.state.signInState).toEqual("success");
+    expect(logic.state.userId).toEqual(owner.id);
+  });
+
   it("should load that sign-up is open in open sign-up mode", async () => {
     const { logic } = await setupSignUpTest({ skipInitialization: true });
 

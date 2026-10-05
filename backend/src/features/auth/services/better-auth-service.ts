@@ -10,6 +10,7 @@ import type {
   AuthConfiguration,
   AuthServiceInterface,
   AuthUser,
+  PasswordResetResult,
   PasswordSignInResult,
   PasswordSignUpResult,
   SessionChange,
@@ -229,6 +230,55 @@ export class BetterAuthService implements AuthServiceInterface {
     });
     const { user } = await provisioning.api.signUpEmail({ body: props });
     return { id: user.id, email: user.email, name: user.name };
+  }
+
+  async resetPassword({
+    email,
+    password,
+  }: {
+    email: string;
+    password: string;
+  }): Promise<PasswordResetResult> {
+    const context = await this.instance().$context;
+    // The SDK starts a schema check in the background when it starts. A
+    // command can end before that check does, and a database that closes
+    // under the check keeps the process alive.
+    await context.checkSchema?.();
+    const { internalAdapter, password: passwords } = context;
+    // The SDK checks the length only on its own routes, and this path uses
+    // none of them.
+    const { minPasswordLength, maxPasswordLength } = passwords.config;
+    if (
+      password.length < minPasswordLength ||
+      password.length > maxPasswordLength
+    ) {
+      return {
+        ok: false,
+        reason: "passwordLength",
+        minLength: minPasswordLength,
+        maxLength: maxPasswordLength,
+      };
+    }
+
+    const found = await internalAdapter.findUserByEmail(email);
+    // Without a password record the update below changes nothing, and the
+    // operator must not get a success.
+    if (
+      !found ||
+      !(await internalAdapter.findCredentialAccount(found.user.id))
+    ) {
+      return { ok: false, reason: "noAccount" };
+    }
+    const { user } = found;
+    await internalAdapter.updatePassword(
+      user.id,
+      await passwords.hash(password),
+    );
+    await internalAdapter.deleteUserSessions(user.id);
+    return {
+      ok: true,
+      user: { id: user.id, email: user.email, name: user.name },
+    };
   }
 }
 

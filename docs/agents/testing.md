@@ -60,6 +60,9 @@ are covered through these tests.
 - **Seed data through the application when a path exists.** Use a trusted
   backend operation when no route exists, such as creating an account. Write
   rows directly only for a condition that no operation can produce.
+- **An operator command has no route.** Its test calls the backend Logic of
+  the command, and asserts the effect through a UI Logic method. The password
+  reset tests in `auth-logic.test.ts` show this.
 - **Write no teardown.** The fixture cleans up the Logic and then closes the
   backend when the test finishes. A test body has no `try`/`finally` and the
   file has no `afterEach`.

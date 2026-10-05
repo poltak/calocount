@@ -18,6 +18,7 @@
     "db:migrate": "node scripts/dev-database.mjs -- pnpm --filter backend run db:migrate",
     "db:reset": "node scripts/dev-database.mjs --reset",
     "auth:setup-owner": "node scripts/dev-database.mjs -- pnpm --filter backend run auth:setup-owner",
+    "auth:reset-password": "node scripts/dev-database.mjs -- pnpm --filter backend run auth:reset-password",
     "db:migration:create": "node scripts/create-migration.mjs",
     "lint": "oxlint --deny-warnings backend frontend common",
     "unused:check": "knip",

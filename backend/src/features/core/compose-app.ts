@@ -1,6 +1,7 @@
 import type { Database } from "./database/database.js";
 import { ActivityStorage } from "../activity/storage/activity-storage.js";
 import { AuthAccessLogic } from "../auth/logic/auth-access-logic.js";
+import { AuthPasswordResetLogic } from "../auth/logic/auth-password-reset-logic.js";
 import { AuthSessionLogic } from "../auth/logic/auth-session-logic.js";
 import { AuthSignUpLogic } from "../auth/logic/auth-sign-up-logic.js";
 import { OwnerSetupLogic } from "../auth/logic/owner-setup-logic.js";
@@ -57,6 +58,11 @@ export function composeApp({
     authAccess: new AuthAccessLogic({
       storage: {},
       services: {},
+      accountPolicy,
+    }),
+    authPasswordReset: new AuthPasswordResetLogic({
+      storage: {},
+      services,
       accountPolicy,
     }),
     authSession: new AuthSessionLogic({ storage: {}, services }),

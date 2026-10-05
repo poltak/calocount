@@ -3,6 +3,7 @@ import type { ActivityStorage } from "../activity/storage/activity-storage.js";
 import type { AuthServiceInterface } from "../auth/services/types.js";
 import type { AuthStorage } from "../auth/storage/auth-storage.js";
 import type { AuthAccessLogic } from "../auth/logic/auth-access-logic.js";
+import type { AuthPasswordResetLogic } from "../auth/logic/auth-password-reset-logic.js";
 import type { AuthSessionLogic } from "../auth/logic/auth-session-logic.js";
 import type { AuthSignUpLogic } from "../auth/logic/auth-sign-up-logic.js";
 import type { OwnerSetupLogic } from "../auth/logic/owner-setup-logic.js";
@@ -35,6 +36,7 @@ export interface BackendServices extends BackendCoreServices {
 
 export interface BackendLogic {
   authAccess: AuthAccessLogic;
+  authPasswordReset: AuthPasswordResetLogic;
   authSession: AuthSessionLogic;
   authSignUp: AuthSignUpLogic;
   ownerSetup: OwnerSetupLogic;

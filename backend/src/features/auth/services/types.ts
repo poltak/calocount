@@ -41,6 +41,16 @@ export type PasswordSignUpResult =
       reason: "closed" | "emailTaken" | "rateLimited" | "untrustedOrigin";
     };
 
+export type PasswordResetResult =
+  | { ok: true; user: AuthUser }
+  | { ok: false; reason: "noAccount" }
+  | {
+      ok: false;
+      reason: "passwordLength";
+      minLength: number;
+      maxLength: number;
+    };
+
 /**
  * What the provider needs to know about the caller of a session route. The
  * request headers carry the caller's origin for the provider's origin check.
@@ -74,4 +84,13 @@ export interface AuthServiceInterface {
     name: string;
     password: string;
   }): Promise<AuthUser>;
+  /**
+   * Trusted operator code only. It has no public HTTP endpoint and asks for
+   * no proof that the caller is the account's user. It also ends each session
+   * of the account.
+   */
+  resetPassword(props: {
+    email: string;
+    password: string;
+  }): Promise<PasswordResetResult>;
 }

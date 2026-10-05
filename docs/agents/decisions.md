@@ -140,6 +140,13 @@ entry to the choice, the reason, and any rule that follows from it.
   line.** Nobody can sign up. `auth:setup-owner` creates the account for
   `APP_OWNER_EMAIL` and refuses to replace existing credentials. No default
   password exists.
+- **An operator resets a lost password from the command line.**
+  `auth:reset-password` sets a new password and ends each session of the
+  account. The person who runs it has the server and the database, so it asks
+  for no other proof, and it has no route. Without it, the only way back in is
+  to delete the account, and that also deletes the records of the user. A
+  reset by email needs a Service that sends email, which this repository does
+  not have.
 - **In open sign-up mode, a visitor makes an account at `/sign-up`.** The
   request goes through Better Auth's request handler, as sign-in does, so the
   same rate limit applies: 3 attempts in 10 seconds for one caller address.
@@ -150,7 +157,8 @@ entry to the choice, the reason, and any rule that follows from it.
 - **Open sign-up mode does not verify email addresses.** A person can make an
   account with an address that is not theirs, and the sign-up page tells a
   visitor when an address has an account. A public app must add email
-  verification and a password reset. Both need a Service that sends email,
+  verification, and a password reset that the user starts. Both need a Service
+  that sends email,
   which this repository does not have. Roles are also absent: all accounts
   are equal.
 - **Admission is checked on every request.** In single-owner mode, a valid
