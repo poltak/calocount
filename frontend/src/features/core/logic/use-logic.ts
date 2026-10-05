@@ -22,7 +22,7 @@ export interface OwnedLogic<
   cleanup(): Promise<void>;
 }
 
-export type LogicErrorHandler = (error: unknown) => void | Promise<void>;
+type LogicErrorHandler = (error: unknown) => void | Promise<void>;
 
 export interface UseLogicOptions<Deps, Instance extends OwnedLogic<object>> {
   LogicClass: new (deps: Deps) => Instance;
