@@ -303,6 +303,13 @@ entry to the choice, the reason, and any rule that follows from it.
   step is a `check:<name>` script, or `test:app` for the tests. Every step
   runs to the end even when one fails, and the output ends with a list of the
   steps that failed.
+- **CI runs three jobs at the same time: the checks, the tests, and the
+  browser tests with the live start.** With one job, a run took the sum of
+  the three. Now it takes as long as the tests job, which is the slowest. In
+  four pairs of runs on one commit, the wait went from about 93 seconds to
+  about 69. The cost is 4 billed minutes for each run in place of 2, because
+  each job repeats the setup and GitHub rounds each job up to a full minute.
+  That is far below the free limit at the present number of runs.
 - **The workspaces are TypeScript project references.** The frontend takes
   types from the backend and from `common` through their package `exports`,
   which point at `dist`. Without references, an editor showed false errors
