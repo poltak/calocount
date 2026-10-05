@@ -1,7 +1,10 @@
 name: CI
 
+# A branch gets CI through its pull request. With a push trigger for each
+# branch, a pull request runs every check two times.
 on:
   push:
+    branches: [main]
   pull_request:
 
 permissions:
