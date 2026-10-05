@@ -28,13 +28,9 @@ jobs:
         with:
           version: 12.8.2
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
-
+      # No step sets up Node. pnpm downloads the Node version in
+      # `devEngines.runtime` and runs each script on it. pnpm itself runs on the
+      # Node of the runner image.
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 

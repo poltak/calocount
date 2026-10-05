@@ -264,9 +264,12 @@ entry to the choice, the reason, and any rule that follows from it.
 - **CI installs the test browser without its system packages, and without a
   cache.** On the GitHub runner, `--with-deps` took 21 of the step's 26
   seconds and added only fonts, which no test needs. The download takes 4
-  seconds, and a cache of that size takes as long to restore. The dependency
-  cache has the same limit: a run with a cache hit and a run that downloads
-  each package take the same time.
+  seconds, and a cache of that size takes as long to restore.
+- **CI has no step that sets up Node, and no dependency cache.** pnpm
+  downloads the pinned Node by itself, so a setup step downloaded Node a
+  second time and took about 10 seconds. That step also kept the dependency
+  cache. The cache gave nothing: a run with a cache hit and a run that
+  downloaded each package took the same time.
 - **In a browser test, the frontend and the backend have different origins.**
   The page then calls the API across origins, which also tests the CORS
   settings, the trusted origin check, the cookie across origins, and the base
