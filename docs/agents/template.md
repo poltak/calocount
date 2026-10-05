@@ -75,13 +75,18 @@ Facts to check on the first update of each kind:
 
 A person with admin rights on the template repository does this:
 
-1. Install the Mend Renovate GitHub App on the template repository only. The
-   hosted Community Cloud is free for private repositories.
-2. Merge the onboarding pull request that the app opens. The repository
-   already has `renovate.json`, so the app uses it.
-3. In the repository settings, turn on "Allow auto-merge". Make the CI check a
+1. Install the Mend Renovate GitHub App. Select "Only select repositories"
+   and then the template repository. The hosted Community Cloud is free for
+   private repositories. Do not install it on all repositories. The app then
+   starts in silent mode and opens no pull requests.
+2. In the repository settings, turn on "Allow auto-merge". Make the CI check a
    required status check on `main`. Without a required check, GitHub can merge
    a Renovate pull request before CI finishes.
+
+The app opens no onboarding pull request, because the repository already has
+`renovate.json`. Its first run opens an issue named "Dependency Dashboard",
+which lists every update that Renovate found. The log of each run is at
+<https://developer.mend.io>.
 
 Keep Dependabot alerts on. They are free and do not conflict with Renovate.
 Renovate, not Dependabot, updates the versions: Dependabot does not update
