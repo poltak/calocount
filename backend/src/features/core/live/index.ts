@@ -13,11 +13,11 @@ import { readLiveConfig, type LiveConfig } from "./config.js";
 export function createApp({
   config = readLiveConfig(),
 }: { config?: LiveConfig } = {}): App {
-  const db = createDatabase({ connectionString: config.databaseUrl });
   const logger =
     config.log.format === "json"
       ? new JsonLoggerService({ minLevel: config.log.level })
       : new ConsoleLoggerService({ minLevel: config.log.level });
+  const db = createDatabase({ connectionString: config.databaseUrl, logger });
   return composeApp({
     db,
     ownerEmail: config.ownerEmail,

@@ -183,9 +183,11 @@ if (options.includes("--migrate") && isLocal) {
 }
 
 const child = spawn(command, commandArguments, { stdio: "inherit" });
-// A terminal sends these signals to the command as well. Wait for the command
-// to end, so that the database outlives it, and pass the signal on when only
-// this process received it.
+// A terminal sends these signals to the command as well. Pass the signal on,
+// for when only this process received it, and wait for the command to end.
+// The embedded PostgreSQL does not wait. It stops at once on these signals,
+// so the command loses its database connections while it shuts down. The
+// backend logs that and continues; see `postgres-database.ts`.
 for (const signal of ["SIGINT", "SIGTERM"]) {
   process.on(signal, () => child.kill(signal));
 }
