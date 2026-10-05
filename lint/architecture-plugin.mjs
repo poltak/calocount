@@ -141,6 +141,9 @@ const layerImports = {
         });
         return;
       }
+      // A Service must not depend on a second Service of its own feature
+      // either. This rule cannot check that, because the feature's `types.ts`
+      // has that interface beside the one that the class implements.
       if (
         isolated &&
         target.feature !== file.feature &&

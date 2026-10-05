@@ -19,9 +19,6 @@ instructions.
   the template itself.
 - [Open work](todos/initial-setup.md): unfinished work and temporary behavior.
   Read and update it as work completes.
-- [Architecture lint rules](todos/architecture-lint-rules.md): which
-  architecture rules lint enforces, and what is still open. Read before changing
-  a rule in `lint/`, or when a lint error cites the architecture.
 
 ## Where to start reading the code
 
@@ -42,6 +39,7 @@ instructions.
 | A LogicPlugin that two Logic classes share     | `frontend/src/features/notes/ui/note-draft-plugin.ts`         |
 | A frontend Storage class                       | `frontend/src/features/notes/storage/notes-draft-storage.ts`  |
 | A write across two features in one transaction | `backend/src/features/notes/logic/notes-logic.ts`             |
+| The architecture lint rules and their options  | `lint/`, `.oxlintrc.json`                                     |
 | The test fixture                               | `frontend/src/features/core/tests/full-application.ts`        |
 | A model integration test                       | `frontend/src/features/notes/ui/notes-logic.test.ts`          |
 | The browser tests                              | `frontend/src/features/core/tests/browser/`                   |
