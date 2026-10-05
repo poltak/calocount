@@ -58,6 +58,9 @@ weekly updates replace one large update each year. The rules are in
   Better Auth update can change its schema, so compare `AuthTables` in
   `backend/src/features/auth/storage/types.ts` with the new schema.
 - An update is at least 3 days old before Renovate proposes it.
+- Renovate starts new updates on Monday, from 00:00 to 12:00 UTC. The free
+  hosted plan runs a repository every 4 hours. The usual weekly window is 4
+  hours, so one late run could miss it and delay the updates for a week.
 
 Facts to check on the first update of each kind:
 
