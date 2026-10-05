@@ -138,6 +138,11 @@ test("keeps Storage and Services independent of other layers", async (context) =
     // A Service may depend on a Core Service, but not on another feature's Service.
     [`${feature("notes")}/services/push-mail-service.ts`]:
       'import type { LoggerServiceInterface } from "../../core/services/types.js";\nimport type { BillingServiceInterface } from "../../billing/services/types.js";\nimport type { MailServiceInterface } from "./types.js";\nexport class PushMailService implements MailServiceInterface {\n  constructor(\n    private readonly deps: {\n      logger: LoggerServiceInterface;\n      billing: BillingServiceInterface;\n    },\n  ) {}\n}\n',
+    // The clock is a second Service of the same feature.
+    [`${feature("notes")}/services/queue-mail-service.ts`]:
+      'import type { ClockServiceInterface, MailServiceInterface } from "./types.js";\nexport class QueueMailService implements MailServiceInterface {\n  constructor(private readonly deps: { clock: ClockServiceInterface }) {}\n}\n',
+    [`${feature("notes")}/storage/archive-storage.ts`]:
+      'import type { MailServiceInterface } from "../services/types.js";\nexport class ArchiveStorage {\n  constructor(private readonly deps: { mail: MailServiceInterface }) {}\n}\n',
     [`${feature("notes")}/logic/notes-logic.ts`]:
       importLogic +
       'import { ArchiveLogic } from "./archive-logic.js";\nimport { SmtpMailService } from "../services/smtp-mail-service.js";\nexport class NotesLogic extends Logic {\n  other?: ArchiveLogic;\n  mail = new SmtpMailService();\n}\n',
@@ -148,7 +153,9 @@ test("keeps Storage and Services independent of other layers", async (context) =
     "backend/src/features/notes/logic/notes-logic.ts: architecture(no-construction)",
     "backend/src/features/notes/logic/notes-logic.ts: architecture(service-implementations)",
     "backend/src/features/notes/services/push-mail-service.ts: architecture(layer-imports)",
+    "backend/src/features/notes/services/queue-mail-service.ts: architecture(layer-imports)",
     "backend/src/features/notes/services/smtp-mail-service.ts: architecture(layer-imports)",
+    "backend/src/features/notes/storage/archive-storage.ts: architecture(layer-imports)",
     "backend/src/features/notes/storage/notes-storage.ts: architecture(layer-imports)",
     "backend/src/features/notes/storage/notes-storage.ts: architecture(layer-imports)",
   ]);

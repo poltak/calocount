@@ -108,6 +108,10 @@ const layerImports = {
         "A file in {{from}}/ may depend on a Service of another feature only when it is a Core Service. Coordinate other Services in a Logic class. " +
         DOC +
         " (Class roles).",
+      ownService:
+        "A file in {{from}}/ must not depend on '{{name}}', a Service of its own feature that it does not implement. Coordinate Services in a Logic class. " +
+        DOC +
+        " (Dependency flow).",
       collections:
         "A file in {{from}}/ must not use the App's Storage, Service, or Logic collections. " +
         DOC +
@@ -126,12 +130,25 @@ const layerImports = {
     }
 
     const isolated = file.role === "storage" || file.role === "services";
-    return importVisitors((node, source, names) => {
+    const ownFeatureServices = [];
+    const implemented = new Set();
+    const imports = importVisitors((node, source, names) => {
       const target = importedFile(context, source);
       if (!target?.feature) {
         return;
       }
 
+      if (
+        isolated &&
+        file.base !== "types" &&
+        target.feature === file.feature
+      ) {
+        for (const name of names ?? []) {
+          if (name?.endsWith("ServiceInterface")) {
+            ownFeatureServices.push({ node, name });
+          }
+        }
+      }
       if (isolated && isListed(target, options.collectionTypeFiles ?? [])) {
         context.report({
           node,
@@ -140,9 +157,6 @@ const layerImports = {
         });
         return;
       }
-      // A Service must not depend on a second Service of its own feature
-      // either. This rule cannot check that, because the feature's `types.ts`
-      // has that interface beside the one that the class implements.
       if (
         isolated &&
         target.feature !== file.feature &&
@@ -173,6 +187,29 @@ const layerImports = {
         context.report({ node, messageId: "logic" });
       }
     });
+
+    return {
+      ...imports,
+      ClassDeclaration(node) {
+        for (const item of node.implements ?? []) {
+          implemented.add(item.expression?.name);
+        }
+      },
+      // A Service file imports the interface that its class implements from
+      // the same `types.ts` as a second Service's interface. Only the class
+      // tells the two apart, so the check waits for the whole file.
+      "Program:exit"() {
+        for (const { node, name } of ownFeatureServices) {
+          if (!implemented.has(name)) {
+            context.report({
+              node,
+              messageId: "ownService",
+              data: { from: file.role, name },
+            });
+          }
+        }
+      },
+    };
   },
 };
 
