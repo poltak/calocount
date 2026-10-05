@@ -145,6 +145,7 @@ The repository has no deployment files yet. These facts hold on any host:
 | ------------------------------------- | ----------------------------------------------------- |
 | `pnpm run dev`                        | Start the backend and the frontend in watch mode.     |
 | `pnpm run check`                      | Every check that CI runs, with the steps in parallel. |
+| `pnpm run ci:checks`                  | The same without the tests. CI runs the two apart.    |
 | `pnpm run typecheck`                  | Type-check all workspaces.                            |
 | `pnpm run build`                      | Build all workspaces.                                 |
 | `pnpm run test`                       | Hook tests, then every workspace's tests.             |

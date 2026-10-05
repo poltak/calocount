@@ -300,8 +300,9 @@ entry to the choice, the reason, and any rule that follows from it.
   `pnpm-workspace.yaml` allows for four platforms.
 - **`pnpm run check` builds once, then runs every other step at the same time.**
   After `common` and the backend are built, no step depends on another. Each
-  step is a `check:<name>` script. Every step runs to the end even when one
-  fails, and the output ends with a list of the steps that failed.
+  step is a `check:<name>` script, or `test:app` for the tests. Every step
+  runs to the end even when one fails, and the output ends with a list of the
+  steps that failed.
 - **The workspaces are TypeScript project references.** The frontend takes
   types from the backend and from `common` through their package `exports`,
   which point at `dist`. Without references, an editor showed false errors

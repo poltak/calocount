@@ -14,9 +14,11 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# The three jobs run at the same time, so a run takes as long as its slowest
+# job and not as long as their sum. Each job must do the setup steps itself.
 jobs:
-  check:
-    name: Check
+  checks:
+    name: Checks
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -35,7 +37,42 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Run checks
-        run: pnpm run check
+        run: pnpm run ci:checks
+
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 12.8.2
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run tests
+        run: pnpm --filter frontend run test
+
+  browser:
+    name: Browser tests and live start
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 12.8.2
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       # This command has no `--with-deps`. The runner image has each system
       # library that the browser needs, and the flag adds only fonts there and

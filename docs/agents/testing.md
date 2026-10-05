@@ -167,8 +167,8 @@ How they run:
   answer that the real backend never sends, such as the malformed data that
   makes a component throw.
 
-`pnpm run check` does not run them. CI runs them after the check, on each
-pull request and on each push to `main`. Run them yourself after a change to `routes.tsx`, `main.tsx`,
+`pnpm run check` does not run them. CI runs them in a job of their own, on
+each pull request and on each push to `main`. Run them yourself after a change to `routes.tsx`, `main.tsx`,
 `vite.config.ts`, the API client's request options, or an error boundary.
 
 ## The live start check
