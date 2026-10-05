@@ -8,6 +8,10 @@ The template is a runnable application: auth, the notes example feature, and
 their tests. A passing `pnpm run check` is therefore the evidence that a
 dependency update is safe.
 
+The repository is private and only for use in the company, so it has no
+license file. Add a license before the repository becomes public or goes to a
+person outside the company.
+
 ## Start a project
 
 Use the `start-project` skill. It has the full steps. In short:
@@ -97,7 +101,6 @@ take the template's dependency updates with the `sync-template` skill.
 
 ## Open work
 
-- **A license.** The repository has no `LICENSE` file.
 - **One origin in production.** The backend cannot serve the frontend build
   yet, and the page has no content security policy. Both wait for a decision
   on the hosting.
