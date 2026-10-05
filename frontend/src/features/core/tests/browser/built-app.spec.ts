@@ -28,6 +28,15 @@ test.afterAll(async () => {
   await page.close();
 });
 
+/** The keys of the unsaved note text that the browser keeps for this app. */
+async function readDraftKeys(): Promise<string[]> {
+  const { origins } = await page.context().storageState();
+  return origins
+    .flatMap((origin) => origin.localStorage)
+    .map((entry) => entry.name)
+    .filter((name) => name.startsWith("notes.draft."));
+}
+
 test("should send a visitor without a session to the sign-in page", async () => {
   // A static host must also answer a path that is not a file with the app.
   await page.goto("/notes");
@@ -143,10 +152,16 @@ test("should show a fallback in place of the app when the header fails to render
   await expect(page.getByRole("button", { name: "Sign out" })).toBeEnabled();
 });
 
-test("should sign the owner out, and ask for sign-in again", async () => {
+test("should sign the owner out, forget the unsaved text, and ask for sign-in again", async () => {
+  // The Logic of the page hears the sign-out from the Logic of the header.
+  // Only the route table connects the two, and no UI Logic test runs it.
+  await page.getByLabel("Title").fill("Unsaved text");
+  await expect.poll(readDraftKeys).toHaveLength(1);
+
   await page.getByRole("button", { name: "Sign out" }).click();
 
   await expect(page).toHaveURL(/\/login$/);
+  await expect.poll(readDraftKeys).toEqual([]);
 
   await page.goto("/notes");
 

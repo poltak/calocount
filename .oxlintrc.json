@@ -59,6 +59,7 @@
         "compositionFiles": [
           "features/core/live/index.ts",
           "features/core/tests/index.ts",
+          "features/core/tests/full-application.ts",
           "features/core/compose-app.ts",
           "features/core/types.ts",
           "features/core/server/http-app.ts",
@@ -79,6 +80,7 @@
         "compositionFiles": [
           "features/core/live/index.ts",
           "features/core/tests/index.ts",
+          "features/core/tests/full-application.ts",
           "features/core/compose-app.ts",
           "features/core/types.ts",
           "features/core/server/http-app.ts",
@@ -92,6 +94,7 @@
         "compositionFiles": [
           "features/core/live/index.ts",
           "features/core/tests/index.ts",
+          "features/core/tests/full-application.ts",
           "features/core/compose-app.ts",
           "features/core/types.ts",
           "features/core/server/http-app.ts",

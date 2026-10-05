@@ -1,6 +1,7 @@
 import { InitializationCancelledError } from "@app/common/features/core/logic/logic";
 import { describe, expect, it, vi } from "vitest";
 import { AuthLogic } from "./auth-logic.js";
+import type { AuthEvent } from "../types.js";
 import {
   setupLogicTest,
   type LogicTestParams,
@@ -59,6 +60,15 @@ function setupSignUpTest(params: LogicTestParams = {}) {
     accountMode: "openSignUp",
     ...params,
   });
+}
+
+/** Every event that the Logic sends from now on, in order. */
+function hearEvents(logic: AuthLogic): AuthEvent[] {
+  const heard: AuthEvent[] = [];
+  logic.events.listen((event) => {
+    heard.push(event);
+  });
+  return heard;
 }
 
 function fillSignUpForm(logic: AuthLogic, fields: typeof VISITOR = VISITOR) {
@@ -493,8 +503,9 @@ describe("AuthLogic tests", () => {
     expect(await readSessionUserIds(backend.db)).toEqual([logic.state.userId]);
   });
 
-  it("should afford successful sign-out", async () => {
+  it("should afford successful sign-out, and tell its listeners", async () => {
     const { backend, logic, owner } = await setupTest();
+    const heard = hearEvents(logic);
 
     expect(logic.state.signOutState).toEqual("pristine");
     expect(logic.state.isSignedIn).toEqual(true);
@@ -502,8 +513,10 @@ describe("AuthLogic tests", () => {
 
     const signOutP = logic.signOut();
     expect(logic.state.signOutState).toEqual("running");
+    expect(heard).toEqual([]);
     await signOutP;
 
+    expect(heard).toEqual([{ type: "signedOut", userId: owner.id }]);
     expect(logic.state.signOutState).toEqual("success");
     expect(logic.state.signOutError).toEqual(null);
     expect(logic.state.isSignedIn).toEqual(false);
@@ -515,6 +528,7 @@ describe("AuthLogic tests", () => {
 
   it("should set the error state and stay signed in when sign-out cannot reach the backend", async () => {
     const { backend, logic, owner, transport } = await setupTest();
+    const heard = hearEvents(logic);
     transport.goOffline();
 
     const signOutP = logic.signOut();
@@ -525,6 +539,7 @@ describe("AuthLogic tests", () => {
     expect(logic.state.signOutError).toEqual("Failed to fetch");
     expect(logic.state.isSignedIn).toEqual(true);
     expect(logic.state.userName).toEqual(owner.name);
+    expect(heard).toEqual([]);
     expect(await readSessionUserIds(backend.db)).toEqual([owner.id]);
   });
 
@@ -593,6 +608,7 @@ describe("AuthLogic tests", () => {
 
   it("should sign out when another request finds that the session has ended", async () => {
     const { backend, frontend, logic } = await setupTest();
+    const heard = hearEvents(logic);
     await backend.db
       .updateTable("session")
       .set({ expiresAt: new Date(0) })
@@ -611,6 +627,8 @@ describe("AuthLogic tests", () => {
     expect(logic.state.userEmail).toEqual(null);
     expect(logic.state.userName).toEqual(null);
     expect(logic.state.loadSessionState).toEqual("success");
+    // The user did not sign out, so no listener removes the user's data.
+    expect(heard).toEqual([]);
   });
 
   it("should cancel a session check that is in flight when cleanup starts", async () => {

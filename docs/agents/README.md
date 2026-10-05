@@ -37,6 +37,7 @@ instructions.
 | A complete backend feature                     | `backend/src/features/health/`                                |
 | A feature with its own table and pages         | `backend/src/features/notes/`, `frontend/src/features/notes/` |
 | A LogicPlugin that two Logic classes share     | `frontend/src/features/notes/ui/note-draft-plugin.ts`         |
+| A Logic that reacts to another Logic's event   | `…/auth/ui/auth-logic.ts`, `…/notes/ui/note-draft-plugin.ts`  |
 | A frontend Storage class                       | `frontend/src/features/notes/storage/notes-draft-storage.ts`  |
 | A write across two features in one transaction | `backend/src/features/notes/logic/notes-logic.ts`             |
 | The architecture lint rules and their options  | `lint/`, `.oxlintrc.json`                                     |

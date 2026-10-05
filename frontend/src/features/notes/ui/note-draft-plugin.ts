@@ -1,9 +1,11 @@
 import { LogicPlugin } from "@app/common/features/core/logic/logic-plugin";
+import type { AuthEvents } from "../../auth/types.js";
 import type { FrontendLogicProps } from "../../core/logic/types.js";
 import type { NoteDraft, NoteDraftOwner } from "../storage/types.js";
 
 type NoteDraftProps = Pick<FrontendLogicProps<"notesDrafts">, "storage"> & {
   owner: NoteDraftOwner;
+  authEvents: AuthEvents;
 };
 
 interface NoteDraftState {
@@ -33,6 +35,13 @@ export class NoteDraftPlugin extends LogicPlugin<
   }
 
   protected override async onInitialize(): Promise<void> {
+    // Only the form on the open page hears this event. That is sufficient
+    // while each page behind the session gate has a note form. A project with
+    // other pages must listen in a Logic that lives as long as the session.
+    this.listen(this.deps.authEvents, ({ userId }) => {
+      this.deps.storage.notesDrafts.removeAllOf({ userId });
+      this.setState(EMPTY);
+    });
     const stored = this.deps.storage.notesDrafts.read(this.deps.owner);
     if (stored) {
       this.setState({ ...stored, isRestored: true });

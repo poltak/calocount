@@ -10,6 +10,7 @@ import {
 import type { App } from "../../core/types.js";
 import type { FrontendLogicProps } from "../../core/logic/types.js";
 import { LatestRequest } from "../../core/logic/latest-request.js";
+import type { AuthEvent } from "../types.js";
 
 type AuthProps = FrontendLogicProps<
   never,
@@ -49,7 +50,7 @@ const SIGNED_OUT = {
 } satisfies Partial<AuthState>;
 
 /** Owned by the session provider. The protected backend profile decides access. */
-export class AuthLogic extends Logic<AuthProps, AuthState> {
+export class AuthLogic extends Logic<AuthProps, AuthState, AuthEvent> {
   private readonly sessionChecks = new LatestRequest(this.signal);
 
   constructor(deps: AuthProps) {
@@ -190,6 +191,12 @@ export class AuthLogic extends Logic<AuthProps, AuthState> {
         init: { signal: this.signal },
       });
       await requireApiSuccess(response);
+      const { userId } = this.state;
+      if (userId !== null) {
+        // Before the state change, which unmounts the pages whose Logic
+        // listens.
+        this.events.emitDetached({ type: "signedOut", userId });
+      }
       this.setState({ ...SIGNED_OUT, password: "" });
     });
   }

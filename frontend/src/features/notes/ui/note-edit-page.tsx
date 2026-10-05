@@ -1,7 +1,10 @@
 import { useMemo } from "react";
 import { Link, Navigate, useParams } from "react-router";
 import { useFrontendApp } from "../../core/ui/frontend-app-context.js";
-import { useSignedInUser } from "../../core/ui/signed-in-user.js";
+import {
+  useAuthEvents,
+  useSignedInUser,
+} from "../../core/ui/signed-in-user.js";
 import { useLogic } from "../../core/logic/use-logic.js";
 import { NoteEditLogic } from "./note-edit-logic.js";
 import { NoteFormFields } from "./note-form-fields.js";
@@ -9,6 +12,7 @@ import { NoteFormFields } from "./note-form-fields.js";
 export function NoteEditPage() {
   const app = useFrontendApp();
   const user = useSignedInUser();
+  const authEvents = useAuthEvents();
   const { noteId = "" } = useParams();
   const deps = useMemo(
     () => ({
@@ -16,9 +20,10 @@ export function NoteEditPage() {
       services: app.services,
       api: { notes: app.api.notes },
       userId: user.id,
+      authEvents,
       noteId,
     }),
-    [app, user.id, noteId],
+    [app, user.id, authEvents, noteId],
   );
   const { logic, state } = useLogic({ LogicClass: NoteEditLogic, deps });
   const saving = state.saveState === "running";

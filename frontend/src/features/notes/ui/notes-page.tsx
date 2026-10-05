@@ -1,7 +1,10 @@
 import { useMemo } from "react";
 import { Link } from "react-router";
 import { useFrontendApp } from "../../core/ui/frontend-app-context.js";
-import { useSignedInUser } from "../../core/ui/signed-in-user.js";
+import {
+  useAuthEvents,
+  useSignedInUser,
+} from "../../core/ui/signed-in-user.js";
 import { useLogic } from "../../core/logic/use-logic.js";
 import { NoteFormFields } from "./note-form-fields.js";
 import { NotesLogic } from "./notes-logic.js";
@@ -9,14 +12,16 @@ import { NotesLogic } from "./notes-logic.js";
 export function NotesPage() {
   const app = useFrontendApp();
   const user = useSignedInUser();
+  const authEvents = useAuthEvents();
   const deps = useMemo(
     () => ({
       storage: app.storage,
       services: app.services,
       api: { notes: app.api.notes },
       userId: user.id,
+      authEvents,
     }),
-    [app, user.id],
+    [app, user.id, authEvents],
   );
   const { logic, state } = useLogic({ LogicClass: NotesLogic, deps });
   const loading =

@@ -5,5 +5,5 @@
  */
 export type BrowserKeyValueStore = Pick<
   Storage,
-  "getItem" | "setItem" | "removeItem"
+  "getItem" | "setItem" | "removeItem" | "key" | "length"
 >;

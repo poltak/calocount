@@ -17,15 +17,15 @@ import { LoginPage } from "../../auth/ui/login-page.js";
 import { SignUpPage } from "../../auth/ui/sign-up-page.js";
 import { ErrorBoundary } from "./error-boundary.js";
 import { PageErrorFallback } from "./error-fallbacks.js";
-import type { SignedInUser } from "./signed-in-user.js";
+import type { ProtectedPageContext } from "./signed-in-user.js";
 
 function ProtectedLayout() {
   const { logic, state } = useAuth();
   const location = useLocation();
   // The session gate renders this layout only for a signed-in user.
-  const signedInUser = useMemo<SignedInUser>(
-    () => ({ id: state.userId ?? "" }),
-    [state.userId],
+  const pageContext = useMemo<ProtectedPageContext>(
+    () => ({ user: { id: state.userId ?? "" }, authEvents: logic.events }),
+    [state.userId, logic.events],
   );
   return (
     <>
@@ -50,7 +50,7 @@ function ProtectedLayout() {
       <main>
         {/* A page that fails leaves the header usable. Navigation clears the failure. */}
         <ErrorBoundary resetKey={location.key} Fallback={PageErrorFallback}>
-          <Outlet context={signedInUser} />
+          <Outlet context={pageContext} />
         </ErrorBoundary>
       </main>
     </>

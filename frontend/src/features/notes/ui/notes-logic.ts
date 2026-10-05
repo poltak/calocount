@@ -7,12 +7,14 @@ import {
   encodeApiParam,
   requireApiSuccess,
 } from "../../api/client/api-client.js";
+import type { AuthEvents } from "../../auth/types.js";
 import type { FrontendLogicProps } from "../../core/logic/types.js";
 import { NoteDraftPlugin } from "./note-draft-plugin.js";
 
 type NotesProps = FrontendLogicProps<"notesDrafts", never, "notes"> & {
   /** The signed-in user, who owns the drafts in browser storage. */
   userId: string;
+  authEvents: AuthEvents;
 };
 
 interface Note {
@@ -60,8 +62,12 @@ export class NotesLogic extends Logic<
         removeError: null,
       },
       plugins: {
-        draft: ({ storage, userId }) =>
-          new NoteDraftPlugin({ storage, owner: { userId, noteId: null } }),
+        draft: ({ storage, userId, authEvents }) =>
+          new NoteDraftPlugin({
+            storage,
+            authEvents,
+            owner: { userId, noteId: null },
+          }),
       },
     });
   }

@@ -81,9 +81,14 @@ returns:
 | `backend`                                                | The backend app. `backend.db` is the test's own database.                                                   |
 | `backend.services.logger` and `frontend.services.logger` | Loggers that keep what each app logged in `entries`.                                                        |
 | `owner`                                                  | The owner account as stored when the test starts.                                                           |
+| `auth`                                                   | The session's Logic, not initialized. A Logic under test takes its `events` in `deps`.                      |
 | `transport`                                              | Controls for the requests the frontend sends. See below.                                                    |
 
 The owner is signed in unless the test passes `authenticated: false`.
+
+`auth` is the Logic that the auth provider owns in a browser. To test what a
+Logic does when the user signs out, call `auth.initialize()` and then
+`auth.signOut()`. `note-draft-plugin.test.ts` shows this.
 
 The backend runs in single-owner mode unless the test passes
 `accountMode: "openSignUp"`. In that mode a visitor can sign up, and the owner

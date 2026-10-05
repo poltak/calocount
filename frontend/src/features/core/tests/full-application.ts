@@ -1,5 +1,6 @@
 import { createTestBackend } from "backend/testing";
 import { inject, onTestFinished } from "vitest";
+import { AuthLogic } from "../../auth/ui/auth-logic.js";
 import type { OwnedLogic } from "../logic/use-logic.js";
 import { createApp } from "./index.js";
 import { TEST_OWNER_CREDENTIALS } from "./test-owner.js";
@@ -40,8 +41,18 @@ export async function createFullApplication({
       throw new Error("Test owner sign-in failed");
     }
   }
+  const frontend = createApp({ fetch: transport.fetch });
+  // In a browser, the auth provider owns this Logic for the life of the app.
+  const auth = new AuthLogic(frontend);
+  onTestFinished(() => auth.cleanup());
   return {
-    frontend: createApp({ fetch: transport.fetch }),
+    frontend,
+    /**
+     * The session's Logic. A Logic under test takes its `events` in `deps`.
+     * It is not initialized. A test that needs it to act, for example to sign
+     * out, initializes it first.
+     */
+    auth,
     backend: backend.app,
     transport,
     /** The owner account as the database holds it at the start of the test. */

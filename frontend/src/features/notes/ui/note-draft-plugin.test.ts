@@ -15,6 +15,7 @@ async function setupTest(params: LogicTestParams = {}) {
     (app) =>
       new NoteDraftPlugin({
         storage: app.frontend.storage,
+        authEvents: app.auth.events,
         owner: { userId: app.owner.id, noteId: NOTE_ID },
       }),
   );
@@ -122,5 +123,74 @@ describe("NoteDraftPlugin tests", () => {
 
     expect(logic.state).toEqual({ title: "", body: "", isRestored: false });
     expect(frontend.browserStorage.getItem(draftKey)).toEqual(null);
+  });
+
+  it("should remove each draft of the user from the browser when the user signs out", async () => {
+    const { auth, frontend, logic, owner, draftKey } = await setupTest();
+    await auth.initialize();
+    logic.setTitle(TYPED.title);
+    logic.setBody(TYPED.body);
+    // The form that creates a note, and a form of another user of this browser.
+    const newNoteKey = `notes.draft.${owner.id}.new`;
+    const otherUserKey = `notes.draft.another-user.${NOTE_ID}`;
+    frontend.browserStorage.setItem(newNoteKey, JSON.stringify(TYPED));
+    frontend.browserStorage.setItem(otherUserKey, JSON.stringify(TYPED));
+
+    expect(auth.state.isSignedIn).toEqual(true);
+    expect(logic.state).toEqual({ ...TYPED, isRestored: false });
+    expect(frontend.browserStorage.getItem(draftKey)).toEqual(
+      JSON.stringify(TYPED),
+    );
+
+    await auth.signOut();
+
+    expect(auth.state.signOutState).toEqual("success");
+    expect(logic.state).toEqual({ title: "", body: "", isRestored: false });
+    expect(frontend.browserStorage.getItem(draftKey)).toEqual(null);
+    expect(frontend.browserStorage.getItem(newNoteKey)).toEqual(null);
+    expect(frontend.browserStorage.getItem(otherUserKey)).toEqual(
+      JSON.stringify(TYPED),
+    );
+  });
+
+  it("should keep the drafts when sign-out cannot reach the backend", async () => {
+    const { auth, frontend, logic, draftKey, transport } = await setupTest();
+    await auth.initialize();
+    logic.setTitle(TYPED.title);
+    logic.setBody(TYPED.body);
+    transport.goOffline();
+
+    await auth.signOut();
+
+    expect(auth.state.signOutState).toEqual("error");
+    expect(auth.state.isSignedIn).toEqual(true);
+    expect(logic.state).toEqual({ ...TYPED, isRestored: false });
+    expect(frontend.browserStorage.getItem(draftKey)).toEqual(
+      JSON.stringify(TYPED),
+    );
+  });
+
+  it("should keep the drafts when the session ends without a sign-out", async () => {
+    const { auth, backend, frontend, logic, draftKey } = await setupTest();
+    await auth.initialize();
+    logic.setTitle(TYPED.title);
+    logic.setBody(TYPED.body);
+    await backend.db
+      .updateTable("session")
+      .set({ expiresAt: new Date(0) })
+      .execute();
+
+    expect(auth.state.isSignedIn).toEqual(true);
+
+    // A request finds that the session ended. The user did not sign out, so
+    // the text is there after the next sign-in.
+    const response = await frontend.api.notes.$get();
+
+    expect(response.status).toEqual(401);
+    expect(auth.state.isSignedIn).toEqual(false);
+    expect(logic.state).toEqual({ ...TYPED, isRestored: false });
+    expect(frontend.browserStorage.getItem(draftKey)).toEqual(
+      JSON.stringify(TYPED),
+    );
   });
 });

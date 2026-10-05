@@ -10,7 +10,12 @@ import {
 function setupTest(params: LogicTestParams = {}) {
   return setupLogicTest(
     params,
-    (app) => new NotesLogic({ ...app.frontend, userId: app.owner.id }),
+    (app) =>
+      new NotesLogic({
+        ...app.frontend,
+        userId: app.owner.id,
+        authEvents: app.auth.events,
+      }),
   );
 }
 

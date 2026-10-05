@@ -19,4 +19,12 @@ export class MemoryKeyValueStore implements BrowserKeyValueStore {
   removeItem(key: string): void {
     this.values.delete(key);
   }
+
+  get length(): number {
+    return this.values.size;
+  }
+
+  key(index: number): string | null {
+    return Array.from(this.values.keys())[index] ?? null;
+  }
 }

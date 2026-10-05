@@ -5,8 +5,12 @@ interface NotesDraftStorageDeps {
   store: BrowserKeyValueStore;
 }
 
+function userKeyPrefix(userId: string): string {
+  return `notes.draft.${userId}.`;
+}
+
 function storeKey({ userId, noteId }: NoteDraftOwner): string {
-  return `notes.draft.${userId}.${noteId ?? "new"}`;
+  return `${userKeyPrefix(userId)}${noteId ?? "new"}`;
 }
 
 /** Unsaved note text, kept in the browser so that a reload does not lose it. */
@@ -43,5 +47,21 @@ export class NotesDraftStorage {
 
   remove(owner: NoteDraftOwner): void {
     this.deps.store.removeItem(storeKey(owner));
+  }
+
+  removeAllOf({ userId }: Pick<NoteDraftOwner, "userId">): void {
+    const { store } = this.deps;
+    const prefix = userKeyPrefix(userId);
+    // A removal changes the index of each later key, so find the keys first.
+    const keys: string[] = [];
+    for (let index = 0; index < store.length; index += 1) {
+      const key = store.key(index);
+      if (key?.startsWith(prefix)) {
+        keys.push(key);
+      }
+    }
+    for (const key of keys) {
+      store.removeItem(key);
+    }
   }
 }

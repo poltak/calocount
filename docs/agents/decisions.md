@@ -181,8 +181,16 @@ entry to the choice, the reason, and any rule that follows from it.
 - **The notes example keeps unsaved text in `localStorage`.** `NoteDraftPlugin`
   holds the fields of a note form, and the create form and the edit form each
   own an instance. Each user and each form has a separate entry, so one user
-  does not get another user's draft on a shared browser. This is an example. A
-  real feature must decide if its text may stay in the browser after sign-out.
+  does not get another user's draft on a shared browser.
+- **Sign-out removes that text, and a session that expires does not.**
+  `AuthLogic` sends a `signedOut` event, and the `NoteDraftPlugin` of the open
+  page removes each draft of that user. A user who signs out on a shared
+  browser then leaves no text there. A session that the backend ends sends no
+  event, so the text is there after the next sign-in. This is also the example
+  of one Logic that reacts to another through an event. Only a Logic on the
+  open page hears the event. That is sufficient here, because each page behind
+  the session gate has a note form. A project with other pages must listen in
+  a Logic that lives as long as the session.
 - **The error boundary is our own class component.** It is about 50 lines, so
   a package is not necessary. Its fallback offers "Try again", which mounts the
   failed part again from a new start. It does not reload the page, because

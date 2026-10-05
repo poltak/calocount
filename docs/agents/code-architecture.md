@@ -225,7 +225,11 @@ that component supplies event interfaces through `deps`:
   on the frontend App as a listen-only interface, such as `apiAccessEvents`.
 - Events from another component-owned Logic come from that Logic's `events`. The
   component reads the Logic from the provider that owns it and passes its
-  `events` typed as a listen-only interface.
+  `events` typed as a listen-only interface. The event types are in the
+  `types.ts` of the feature that sends them.
+- A page cannot import the provider of another feature. For the session's
+  Logic, the protected layout in `routes.tsx` reads the `events`, and a page
+  gets them with `useAuthEvents()`.
 
 Subscribe in `onInitialize()`, so cleanup removes the listener. Use `listen()`
 for an event interface, and `registerCleanup()` for another kind of
@@ -321,7 +325,7 @@ long periods, because a Logic cannot restart after cleanup.
 
 A page behind the session gate reads the signed-in user with
 `useSignedInUser()`, and passes what a Logic needs, such as the user's ID, in
-`deps`.
+`deps`. It reads the events of the session's Logic with `useAuthEvents()`.
 
 The owning hook needs the App provider above it. A failed initialization or
 cleanup goes to the hook's `onError`, or to the logger when the owner passes

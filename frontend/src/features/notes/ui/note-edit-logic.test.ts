@@ -32,7 +32,12 @@ async function setupTest({
   let noteId = "";
   const test = await setupLogicTest(params, async (app) => {
     noteId = await seed(app);
-    return new NoteEditLogic({ ...app.frontend, userId: app.owner.id, noteId });
+    return new NoteEditLogic({
+      ...app.frontend,
+      userId: app.owner.id,
+      authEvents: app.auth.events,
+      noteId,
+    });
   });
   return {
     ...test,
