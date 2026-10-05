@@ -1,7 +1,7 @@
 import { createApiClient } from "../../api/client/api-client.js";
 import type { App } from "../types.js";
-import { EventEmitter } from "@shadow/common/features/core/events/event-emitter";
-import { MemoryLoggerService } from "@shadow/common/features/core/services/memory-logger-service";
+import { EventEmitter } from "@app/common/features/core/events/event-emitter";
+import { MemoryLoggerService } from "@app/common/features/core/services/memory-logger-service";
 import type { ApiAccessEvent } from "../../api/client/access-events.js";
 import { NotesDraftStorage } from "../../notes/storage/notes-draft-storage.js";
 import { FakeWindowFocusService } from "../../window-focus/services/fake-window-focus-service.js";

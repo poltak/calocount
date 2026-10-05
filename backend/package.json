@@ -16,7 +16,7 @@
     "build": "tsc -p tsconfig.json",
     "dev": "pnpm --filter backend... run build && node ../scripts/dev-database.mjs --migrate -- pnpm run watch",
     "watch": "pnpm run \"/^watch:/\"",
-    "watch:common": "pnpm --filter @shadow/common run dev",
+    "watch:common": "pnpm --filter @app/common run dev",
     "watch:build": "tsc -p tsconfig.json --watch --preserveWatchOutput",
     "watch:server": "node --watch --watch-preserve-output --env-file-if-exists=../.env dist/features/core/server/start.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
@@ -27,7 +27,7 @@
   "dependencies": {
     "@hono/node-server": "2.1.1",
     "@hono/zod-validator": "0.9.1",
-    "@shadow/common": "workspace:*",
+    "@app/common": "workspace:*",
     "better-auth": "1.7.6",
     "hono": "4.13.10",
     "kysely": "0.29.6",

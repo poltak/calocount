@@ -1,4 +1,4 @@
-import type { LoggerServiceInterface } from "@shadow/common/features/core/services/types";
+import type { LoggerServiceInterface } from "@app/common/features/core/services/types";
 import type { BackendApi } from "../api/client/api-client.js";
 import type { ApiAccessEvents } from "../api/client/access-events.js";
 import type { NotesDraftStorage } from "../notes/storage/notes-draft-storage.js";

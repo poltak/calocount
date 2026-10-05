@@ -3,8 +3,8 @@ import type {
   LogFields,
   LoggerServiceInterface,
   LogLevel,
-} from "@shadow/common/features/core/services/types";
-import { isLogLevelEnabled } from "@shadow/common/features/core/utils/log-level";
+} from "@app/common/features/core/services/types";
+import { isLogLevelEnabled } from "@app/common/features/core/utils/log-level";
 
 interface JsonLoggerServiceDeps {
   /** The logger drops entries below this level. */

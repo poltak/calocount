@@ -11,7 +11,7 @@
     "test": "pnpm --filter backend... run build && vitest run --coverage"
   },
   "dependencies": {
-    "@shadow/common": "workspace:*",
+    "@app/common": "workspace:*",
     "hono": "4.13.10",
     "react": "19.3.0",
     "react-dom": "19.3.0",

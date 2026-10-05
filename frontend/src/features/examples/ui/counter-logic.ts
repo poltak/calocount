@@ -1,4 +1,4 @@
-import { Logic } from "@shadow/common/features/core/logic/logic";
+import { Logic } from "@app/common/features/core/logic/logic";
 import type { FrontendLogicProps } from "../../core/logic/types.js";
 
 /** Local state example. It has no API or persistence operations. */

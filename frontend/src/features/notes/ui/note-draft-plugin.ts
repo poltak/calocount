@@ -1,4 +1,4 @@
-import { LogicPlugin } from "@shadow/common/features/core/logic/logic-plugin";
+import { LogicPlugin } from "@app/common/features/core/logic/logic-plugin";
 import type { FrontendLogicProps } from "../../core/logic/types.js";
 import type { NoteDraft, NoteDraftOwner } from "../storage/types.js";
 

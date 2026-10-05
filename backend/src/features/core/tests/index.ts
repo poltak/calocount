@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { MemoryLoggerService } from "@shadow/common/features/core/services/memory-logger-service";
+import { MemoryLoggerService } from "@app/common/features/core/services/memory-logger-service";
 import { composeApp } from "../compose-app.js";
 import type { Database } from "../database/database.js";
 import { createDatabase } from "../database/pglite-database.js";

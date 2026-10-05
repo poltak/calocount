@@ -11,8 +11,8 @@ import * as React from "react";
 import { useEffect } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { Logic } from "@shadow/common/features/core/logic/logic";
-import { LogicPlugin } from "@shadow/common/features/core/logic/logic-plugin";
+import { Logic } from "@app/common/features/core/logic/logic";
+import { LogicPlugin } from "@app/common/features/core/logic/logic-plugin";
 import { createApp } from "../tests/index.js";
 import { FrontendAppProvider } from "../ui/frontend-app-context.js";
 import { useLogic, useLogicInstance } from "./use-logic.js";

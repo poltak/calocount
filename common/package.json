@@ -1,5 +1,5 @@
 {
-  "name": "@shadow/common",
+  "name": "@app/common",
   "version": "1.0.0",
   "private": true,
   "type": "module",

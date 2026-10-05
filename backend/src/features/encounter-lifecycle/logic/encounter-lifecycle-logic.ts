@@ -1,4 +1,4 @@
-import { Logic } from "@shadow/common/features/core/logic/logic";
+import { Logic } from "@app/common/features/core/logic/logic";
 import { AppError } from "../../core/errors/app-error.js";
 import type { BackendLogicProps } from "../../core/logic/types.js";
 

@@ -2,7 +2,7 @@ import {
   Logic,
   type TaskFieldErrors,
   type TaskState,
-} from "@shadow/common/features/core/logic/logic";
+} from "@app/common/features/core/logic/logic";
 import {
   ApiRequestError,
   requireApiSuccess,

@@ -1,4 +1,4 @@
-import { InitializationCancelledError } from "@shadow/common/features/core/logic/logic";
+import { InitializationCancelledError } from "@app/common/features/core/logic/logic";
 import { describe, expect, it, vi } from "vitest";
 import { AuthLogic } from "./auth-logic.js";
 import {

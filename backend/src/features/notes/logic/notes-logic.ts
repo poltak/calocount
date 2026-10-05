@@ -1,4 +1,4 @@
-import { Logic } from "@shadow/common/features/core/logic/logic";
+import { Logic } from "@app/common/features/core/logic/logic";
 import type { AuthUser } from "../../auth/services/types.js";
 import { AppError } from "../../core/errors/app-error.js";
 import type {

@@ -202,7 +202,7 @@ importers:
       '@hono/zod-validator':
         specifier: 0.9.1
         version: 0.9.1(hono@4.13.10)(zod@4.6.5)
-      '@shadow/common':
+      '@app/common':
         specifier: workspace:*
         version: link:../common
       better-auth:
@@ -235,7 +235,7 @@ importers:
 
   frontend:
     dependencies:
-      '@shadow/common':
+      '@app/common':
         specifier: workspace:*
         version: link:../common
       hono:

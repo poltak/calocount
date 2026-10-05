@@ -5,9 +5,9 @@ import {
   useRef,
   useSyncExternalStore,
 } from "react";
-import type { Unsubscribe } from "@shadow/common/features/core/events/event-emitter";
-import { InitializationCancelledError } from "@shadow/common/features/core/logic/logic";
-import type { LoggerServiceInterface } from "@shadow/common/features/core/services/types";
+import type { Unsubscribe } from "@app/common/features/core/events/event-emitter";
+import { InitializationCancelledError } from "@app/common/features/core/logic/logic";
+import type { LoggerServiceInterface } from "@app/common/features/core/services/types";
 import { useFrontendApp } from "../ui/frontend-app-context.js";
 
 export interface LogicStateStore<State extends object> {

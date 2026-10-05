@@ -1,7 +1,7 @@
 import type {
   LoggerServiceInterface,
   LogLevel,
-} from "@shadow/common/features/core/services/types";
+} from "@app/common/features/core/services/types";
 import { betterAuth } from "better-auth";
 import { getMigrations } from "better-auth/db/migration";
 import type { Database } from "../../core/database/database.js";

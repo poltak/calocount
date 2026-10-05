@@ -226,7 +226,7 @@
           {
             "patterns": [
               {
-                "regex": "^(?:backend|@shadow/backend)(?:/|$)",
+                "regex": "^(?:backend|@app/backend)(?:/|$)",
                 "message": "Frontend and common code must not import the backend workspace."
               },
               {
@@ -261,7 +261,7 @@
                 "message": "Only the public backend/api type may be imported by frontend code."
               },
               {
-                "group": ["@shadow/backend", "@shadow/backend/*"],
+                "group": ["@app/backend", "@app/backend/*"],
                 "message": "Use the explicit backend/api type export."
               },
               {
@@ -299,7 +299,7 @@
                 "message": "Frontend tests may load only backend/testing and the backend/api type."
               },
               {
-                "group": ["@shadow/backend", "@shadow/backend/*"],
+                "group": ["@app/backend", "@app/backend/*"],
                 "message": "Use the explicit backend/testing export."
               },
               {

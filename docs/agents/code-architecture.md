@@ -121,10 +121,10 @@ for barrel files.
 
 Import these modules through their public package subpaths:
 
-- `@shadow/common/features/core/logic/logic`
-- `@shadow/common/features/core/logic/logic-plugin`
-- `@shadow/common/features/core/events/event-emitter`
-- `@shadow/common/features/core/services/types`, for the logger interface
+- `@app/common/features/core/logic/logic`
+- `@app/common/features/core/logic/logic-plugin`
+- `@app/common/features/core/events/event-emitter`
+- `@app/common/features/core/services/types`, for the logger interface
 
 Logic and LogicPlugin expose stable state snapshots through `getState()` and
 notify `subscribe()` listeners after a state change. Replace changed state with

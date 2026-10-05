@@ -3,9 +3,9 @@ import {
   type ApiClientProps,
 } from "../../api/client/api-client.js";
 import type { App, FrontendServices, FrontendStorage } from "../types.js";
-import { EventEmitter } from "@shadow/common/features/core/events/event-emitter";
-import { ConsoleLoggerService } from "@shadow/common/features/core/services/console-logger-service";
-import type { LogLevel } from "@shadow/common/features/core/services/types";
+import { EventEmitter } from "@app/common/features/core/events/event-emitter";
+import { ConsoleLoggerService } from "@app/common/features/core/services/console-logger-service";
+import type { LogLevel } from "@app/common/features/core/services/types";
 import type { ApiAccessEvent } from "../../api/client/access-events.js";
 import { NotesDraftStorage } from "../../notes/storage/notes-draft-storage.js";
 import { BrowserWindowFocusService } from "../../window-focus/services/browser-window-focus-service.js";

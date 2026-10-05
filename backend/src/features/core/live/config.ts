@@ -1,5 +1,5 @@
-import type { LogLevel } from "@shadow/common/features/core/services/types";
-import { LOG_LEVELS } from "@shadow/common/features/core/utils/log-level";
+import type { LogLevel } from "@app/common/features/core/services/types";
+import { LOG_LEVELS } from "@app/common/features/core/utils/log-level";
 import { z } from "zod";
 import type { AuthConfiguration } from "../../auth/services/types.js";
 

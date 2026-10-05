@@ -21,7 +21,7 @@
     "db:migration:create": "node scripts/create-migration.mjs",
     "lint": "oxlint --deny-warnings backend frontend common",
     "unused:check": "knip",
-    "typecheck": "pnpm --filter @shadow/common build && pnpm -r --if-present run typecheck",
+    "typecheck": "pnpm --filter @app/common build && pnpm -r --if-present run typecheck",
     "test": "pnpm run test:hooks && pnpm run test:lint-rules && pnpm -r --if-present run test",
     "test:hooks": "node --test .agents/hooks/*.test.mjs",
     "test:lint-rules": "node --test lint/*.test.mjs",

@@ -1,4 +1,4 @@
-import { Logic } from "@shadow/common/features/core/logic/logic";
+import { Logic } from "@app/common/features/core/logic/logic";
 import type { BackendLogicProps } from "./types.js";
 
 type MigrationProps = BackendLogicProps<"migration", "auth">;

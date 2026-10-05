@@ -1,4 +1,4 @@
-import type { Unsubscribe } from "@shadow/common/features/core/events/event-emitter";
+import type { Unsubscribe } from "@app/common/features/core/events/event-emitter";
 
 /** Browser capability: notifies listeners when the user returns to the window. */
 export interface WindowFocusServiceInterface {

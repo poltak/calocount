@@ -1,4 +1,4 @@
-import type { LoggerServiceInterface } from "@shadow/common/features/core/services/types";
+import type { LoggerServiceInterface } from "@app/common/features/core/services/types";
 import type { ActivityStorage } from "../activity/storage/activity-storage.js";
 import type { AIServiceInterface } from "../ai/services/types.js";
 import type { AuthServiceInterface } from "../auth/services/types.js";

@@ -1,4 +1,4 @@
-import type { TaskFieldErrors } from "@shadow/common/features/core/logic/logic";
+import type { TaskFieldErrors } from "@app/common/features/core/logic/logic";
 import { useLogicInstance } from "../../core/logic/use-logic.js";
 import type { NoteDraftPlugin } from "./note-draft-plugin.js";
 

@@ -1,4 +1,4 @@
-import { ConsoleLoggerService } from "@shadow/common/features/core/services/console-logger-service";
+import { ConsoleLoggerService } from "@app/common/features/core/services/console-logger-service";
 import { composeApp } from "../compose-app.js";
 import { createDatabase } from "../database/postgres-database.js";
 import { PlaceholderAIService } from "../../ai/services/placeholder-ai-service.js";

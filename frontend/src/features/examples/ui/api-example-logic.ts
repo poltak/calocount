@@ -1,7 +1,4 @@
-import {
-  Logic,
-  type TaskState,
-} from "@shadow/common/features/core/logic/logic";
+import { Logic, type TaskState } from "@app/common/features/core/logic/logic";
 import {
   encodeApiParam,
   requireApiSuccess,
