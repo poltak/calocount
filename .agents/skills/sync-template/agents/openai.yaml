@@ -1,0 +1,4 @@
+interface:
+    display_name: 'Sync Template'
+    short_description: 'Take later changes from the template repository'
+    default_prompt: 'Use $sync-template to bring the template changes into this project.'
