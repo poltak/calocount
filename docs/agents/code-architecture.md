@@ -227,8 +227,9 @@ that component supplies event interfaces through `deps`:
   component reads the Logic from the provider that owns it and passes its
   `events` typed as a listen-only interface.
 
-Subscribe in `onInitialize()` through `listen()` or `registerCleanup()`, so
-cleanup removes the listener.
+Subscribe in `onInitialize()`, so cleanup removes the listener. Use `listen()`
+for an event interface, and `registerCleanup()` for another kind of
+subscription, such as one that a Service returns.
 
 Service classes should not depend on other Service, Storage, or Logic classes. If
 several external capabilities form one integration boundary, one Service class may

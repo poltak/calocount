@@ -252,7 +252,7 @@ export abstract class Logic<
   protected async onCleanup(): Promise<void> {}
 
   protected listen<OtherEvent>(
-    emitter: EventEmitter<OtherEvent>,
+    emitter: Pick<EventEmitter<OtherEvent>, "listen">,
     listener: EventListener<OtherEvent>,
   ): Unsubscribe {
     return this.registerCleanup(emitter.listen(listener));

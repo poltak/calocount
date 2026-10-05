@@ -78,12 +78,10 @@ export class AuthLogic extends Logic<AuthProps, AuthState> {
   }
 
   protected override async onInitialize(): Promise<void> {
-    this.registerCleanup(
-      this.deps.apiAccessEvents.listen(() => {
-        this.sessionChecks.cancel();
-        this.setState({ ...SIGNED_OUT, password: "" });
-      }),
-    );
+    this.listen(this.deps.apiAccessEvents, () => {
+      this.sessionChecks.cancel();
+      this.setState({ ...SIGNED_OUT, password: "" });
+    });
     this.registerCleanup(
       this.deps.services.windowFocus.listen(() => {
         // Only an open session can end while the user is away.
