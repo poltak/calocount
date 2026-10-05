@@ -68,117 +68,6 @@ function fillSignUpForm(logic: AuthLogic, fields: typeof VISITOR = VISITOR) {
 }
 
 describe("AuthLogic tests", () => {
-  it("should afford successful updating existing user's name", async () => {
-    const { backend, logic, owner } = await setupTest();
-
-    const NEXT_NAME = "pre_" + owner.name + "_changed";
-
-    expect(logic.state.setNameState).toEqual("pristine");
-    expect(logic.state.setNameError).toEqual(null);
-    expect(logic.state.userName).toEqual(owner.name);
-    expect(await readUser(backend.db, owner.email)).toEqual(owner);
-
-    const setNameP = logic.setName(NEXT_NAME);
-    expect(logic.state.setNameState).toEqual("running");
-    await setNameP;
-
-    expect(logic.state.setNameState).toEqual("success");
-    expect(logic.state.setNameError).toEqual(null);
-    expect(logic.state.userName).toEqual(NEXT_NAME);
-    expect(await readUser(backend.db, owner.email)).toEqual({
-      ...owner,
-      name: NEXT_NAME,
-    });
-  });
-
-  it("should set the error state and change nothing when the new name is empty", async () => {
-    const { backend, logic, owner } = await setupTest();
-
-    expect(logic.state.setNameState).toEqual("pristine");
-    expect(logic.state.userName).toEqual(owner.name);
-    expect(await readUser(backend.db, owner.email)).toEqual(owner);
-
-    const setNameP = logic.setName("   ");
-    expect(logic.state.setNameState).toEqual("running");
-    await setNameP;
-
-    expect(logic.state.setNameState).toEqual("error");
-    expect(logic.state.setNameError).toEqual("The request is invalid");
-    expect(logic.state.userName).toEqual(owner.name);
-    expect(await readUser(backend.db, owner.email)).toEqual(owner);
-  });
-
-  it("should set the error state and sign out when the session has expired", async () => {
-    const { backend, logic, owner } = await setupTest();
-    await backend.db
-      .updateTable("session")
-      .set({ expiresAt: new Date(0) })
-      .execute();
-
-    expect(logic.state.isSignedIn).toEqual(true);
-    expect(logic.state.setNameState).toEqual("pristine");
-
-    const setNameP = logic.setName("Changed");
-    expect(logic.state.setNameState).toEqual("running");
-    await setNameP;
-
-    expect(logic.state.setNameState).toEqual("error");
-    expect(logic.state.setNameError).toEqual("Sign in to continue");
-    expect(logic.state.isSignedIn).toEqual(false);
-    expect(logic.state.userName).toEqual(null);
-    expect(await readUser(backend.db, owner.email)).toEqual(owner);
-  });
-
-  it("should set the error state when the connection fails, then succeed on the next attempt", async () => {
-    const { backend, logic, owner, transport } = await setupTest();
-    transport.goOffline();
-
-    const failedP = logic.setName("Changed");
-    expect(logic.state.setNameState).toEqual("running");
-    await failedP;
-
-    expect(logic.state.setNameState).toEqual("error");
-    expect(logic.state.setNameError).toEqual("Failed to fetch");
-    expect(logic.state.isSignedIn).toEqual(true);
-    expect(logic.state.userName).toEqual(owner.name);
-    expect(await readUser(backend.db, owner.email)).toEqual(owner);
-
-    transport.goOnline();
-    const retriedP = logic.setName("Changed");
-    expect(logic.state.setNameState).toEqual("running");
-    expect(logic.state.setNameError).toEqual(null);
-    await retriedP;
-
-    expect(logic.state.setNameState).toEqual("success");
-    expect(logic.state.userName).toEqual("Changed");
-    expect(await readUser(backend.db, owner.email)).toEqual({
-      ...owner,
-      name: "Changed",
-    });
-  });
-
-  it("should ignore a second name update while the first is running", async () => {
-    const { backend, logic, owner, transport } = await setupTest();
-    const held = transport.holdNextRequest();
-
-    const firstP = logic.setName("First");
-    const secondP = logic.setName("Second");
-    await held.reached;
-    expect(logic.state.setNameState).toEqual("running");
-    expect(logic.state.userName).toEqual(owner.name);
-    expect(await readUser(backend.db, owner.email)).toEqual(owner);
-
-    held.release();
-    await Promise.all([firstP, secondP]);
-
-    expect(logic.state.setNameState).toEqual("success");
-    expect(logic.state.userName).toEqual("First");
-    expect(await readUser(backend.db, owner.email)).toEqual({
-      ...owner,
-      name: "First",
-    });
-  });
-
   it("should afford successful sign-in", async () => {
     const { backend, logic, owner } = await setupTest({ authenticated: false });
     logic.setEmail(TEST_OWNER_CREDENTIALS.email);
@@ -700,6 +589,28 @@ describe("AuthLogic tests", () => {
 
     expect(logic.state.isSignedIn).toEqual(false);
     expect(logic.state.userName).toEqual(null);
+  });
+
+  it("should sign out when another request finds that the session has ended", async () => {
+    const { backend, frontend, logic } = await setupTest();
+    await backend.db
+      .updateTable("session")
+      .set({ expiresAt: new Date(0) })
+      .execute();
+
+    expect(logic.state.isSignedIn).toEqual(true);
+    expect(logic.state.loadSessionState).toEqual("success");
+
+    // A page's Logic sends a request like this one. This Logic sends nothing,
+    // and only hears from the API client that the backend refused the session.
+    const response = await frontend.api.notes.$get();
+
+    expect(response.status).toEqual(401);
+    expect(logic.state.isSignedIn).toEqual(false);
+    expect(logic.state.userId).toEqual(null);
+    expect(logic.state.userEmail).toEqual(null);
+    expect(logic.state.userName).toEqual(null);
+    expect(logic.state.loadSessionState).toEqual("success");
   });
 
   it("should cancel a session check that is in flight when cleanup starts", async () => {

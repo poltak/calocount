@@ -7,8 +7,8 @@ description: Write integration tests for a UI Logic operation against the full a
 
 Tests here call a UI Logic method and let the request run through the real
 backend into an isolated database. Read `docs/agents/testing.md` for the rules
-and `frontend/src/features/auth/ui/auth-logic.test.ts` for the model before you
-start. This skill is the order of work.
+and `frontend/src/features/notes/ui/notes-logic.test.ts` for the model before
+you start. This skill is the order of work.
 
 ## Workflow
 

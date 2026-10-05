@@ -1,7 +1,6 @@
 import type { Database } from "./database/database.js";
 import { ActivityStorage } from "../activity/storage/activity-storage.js";
 import { AuthAccessLogic } from "../auth/logic/auth-access-logic.js";
-import { AuthProfileLogic } from "../auth/logic/auth-profile-logic.js";
 import { AuthSessionLogic } from "../auth/logic/auth-session-logic.js";
 import { AuthSignUpLogic } from "../auth/logic/auth-sign-up-logic.js";
 import { OwnerSetupLogic } from "../auth/logic/owner-setup-logic.js";
@@ -60,7 +59,6 @@ export function composeApp({
       services: {},
       accountPolicy,
     }),
-    authProfile: new AuthProfileLogic({ storage: {}, services }),
     authSession: new AuthSessionLogic({ storage: {}, services }),
     authSignUp: new AuthSignUpLogic({ storage: {}, services, accountPolicy }),
     ownerSetup: new OwnerSetupLogic({ storage, services, accountPolicy }),

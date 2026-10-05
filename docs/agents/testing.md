@@ -12,15 +12,17 @@ Services, and an isolated in-memory PostgreSQL database, all in one process.
 Nothing on that path is replaced/mocked.
 
 The canonical example is
-[`auth-logic.test.ts`](../../frontend/src/features/auth/ui/auth-logic.test.ts).
-Copy its shape. Its first test, for `AuthLogic.setName`, is the model for a
-success case; the tests after it are the model for failure cases. For a
-feature with its own table, see
-[`notes-logic.test.ts`](../../frontend/src/features/notes/ui/notes-logic.test.ts),
-which also shows how to seed rows through the API.
+[`notes-logic.test.ts`](../../frontend/src/features/notes/ui/notes-logic.test.ts).
+Copy its shape. Its test "should afford creating a note from the draft, and
+empty the draft" is the model for a success case. The tests of `create` after
+it are the model for failure cases. The file also shows how to seed rows
+through the API.
 [`note-edit-logic.test.ts`](../../frontend/src/features/notes/ui/note-edit-logic.test.ts)
 shows a Logic whose `deps` name a record: its `setupTest` seeds the record in
-an async `createLogic`. A LogicPlugin has a test file of its own, such as
+an async `createLogic`.
+[`auth-logic.test.ts`](../../frontend/src/features/auth/ui/auth-logic.test.ts)
+shows tests of the session, and of a Logic that reacts to an event. A
+LogicPlugin has a test file of its own, such as
 [`note-draft-plugin.test.ts`](../../frontend/src/features/notes/ui/note-draft-plugin.test.ts).
 
 Backend code has no test runner of its own. Handlers, backend Logic, and Storage
@@ -204,5 +206,5 @@ the backend as well as the frontend.
 | `testing/ui-logic-tested` | Every `*-logic.ts` and `*-plugin.ts` file in a feature's `ui/` directory has a test file beside it.                                                                |
 | `testing/logic-tests`     | A UI Logic test builds its Logic with `setupLogicTest`, uses no `vi` test doubles and no `.concurrent`, and does not import React, a renderer, or a bare test app. |
 
-Type checking enforces the task fields: `executeTask("setName", …)` compiles
-only when the state declares `setNameState` and `setNameError`.
+Type checking enforces the task fields: `executeTask("create", …)` compiles
+only when the state declares `createState` and `createError`.

@@ -262,6 +262,42 @@ describe("NotesLogic tests", () => {
     expect(await readNotes(backend.db)).toEqual([]);
   });
 
+  it("should set the error state and keep the draft when the connection fails, then create the note on the next attempt", async () => {
+    const app = await setupTest();
+    const { backend, frontend, logic, transport } = app;
+    const { draft } = logic.plugins;
+    draft.setTitle(FIRST.title);
+    draft.setBody(FIRST.body);
+    transport.goOffline();
+
+    expect(logic.state.createState).toEqual("pristine");
+
+    const failedP = logic.create();
+    expect(logic.state.createState).toEqual("running");
+    await failedP;
+
+    expect(logic.state.createState).toEqual("error");
+    expect(logic.state.createError).toEqual("Failed to fetch");
+    expect(logic.state.createFieldErrors).toEqual(null);
+    expect(logic.state.notes).toEqual([]);
+    expect(draft.state).toMatchObject(FIRST);
+    expect(frontend.browserStorage.getItem(newNoteDraftKey(app))).toEqual(
+      JSON.stringify(FIRST),
+    );
+    expect(await readNotes(backend.db)).toEqual([]);
+
+    transport.goOnline();
+    const retriedP = logic.create();
+    expect(logic.state.createState).toEqual("running");
+    expect(logic.state.createError).toEqual(null);
+    await retriedP;
+
+    expect(logic.state.createState).toEqual("success");
+    expect(logic.state.notes).toMatchObject([FIRST]);
+    expect(frontend.browserStorage.getItem(newNoteDraftKey(app))).toEqual(null);
+    expect(await readNotes(backend.db)).toMatchObject([FIRST]);
+  });
+
   it("should create one note when create is called again while it runs", async () => {
     const { backend, logic, transport } = await setupTest();
     logic.plugins.draft.setTitle(FIRST.title);

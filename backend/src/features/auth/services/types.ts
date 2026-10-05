@@ -64,7 +64,6 @@ export interface AuthServiceInterface {
   ): Promise<PasswordSignUpResult>;
   /** End the caller's session. Succeeds when there is no session. */
   signOut(props: SessionRequest): Promise<SessionChange>;
-  updateName(props: { name: string; requestHeaders: Headers }): Promise<void>;
   migrate(): Promise<void>;
   /**
    * Trusted setup code only. It has no public HTTP endpoint, no rate limit,

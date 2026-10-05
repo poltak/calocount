@@ -39,8 +39,6 @@ interface AuthState {
   signUpFieldErrors: TaskFieldErrors | null;
   signOutState: TaskState;
   signOutError: string | null;
-  setNameState: TaskState;
-  setNameError: string | null;
 }
 
 const SIGNED_OUT = {
@@ -75,8 +73,6 @@ export class AuthLogic extends Logic<AuthProps, AuthState> {
         signUpFieldErrors: null,
         signOutState: "pristine",
         signOutError: null,
-        setNameState: "pristine",
-        setNameError: null,
       },
     });
   }
@@ -109,21 +105,6 @@ export class AuthLogic extends Logic<AuthProps, AuthState> {
 
   setSignUpName(signUpName: string): void {
     this.setState({ signUpName });
-  }
-
-  async setName(name: string): Promise<void> {
-    await this.executeTask("setName", async () => {
-      const response = await this.deps.api.me.$patch(
-        { json: { name } },
-        { init: { signal: this.signal } },
-      );
-      await requireApiSuccess(response);
-      if (response.status !== 200) {
-        throw new Error("Unexpected profile response");
-      }
-      const { user } = await response.json();
-      this.setState({ userName: user.name });
-    });
   }
 
   async refresh(): Promise<void> {

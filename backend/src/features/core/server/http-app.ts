@@ -37,7 +37,7 @@ interface HttpAppProps extends ApiHttpAppProps {
 function createBusinessHttpApp({ app }: ApiHttpAppProps) {
   return new Hono<AuthEnvironment>()
     .use("*", requireSession({ services: app.services, logic: app.logic }))
-    .route("/me", createProfileHandlers({ logic: app.logic }))
+    .route("/me", createProfileHandlers())
     .route("/notes", createNotesHandlers({ logic: app.logic }));
 }
 
