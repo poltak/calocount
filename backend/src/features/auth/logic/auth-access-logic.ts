@@ -1,10 +1,11 @@
 import { Logic } from "@app/common/features/core/logic/logic";
 import type { BackendLogicProps } from "../../core/logic/types.js";
 import type { AuthUser } from "../services/types.js";
+import type { AccountPolicy } from "../types.js";
 
-type AuthAccessProps = BackendLogicProps & { ownerEmail: string };
+type AuthAccessProps = BackendLogicProps & { accountPolicy: AccountPolicy };
 
-/** Current admission policy; a valid session alone does not admit other users. */
+/** The admission rule. In single-owner mode, a valid session alone does not admit a user. */
 export class AuthAccessLogic extends Logic<
   AuthAccessProps,
   Record<string, never>
@@ -14,6 +15,10 @@ export class AuthAccessLogic extends Logic<
   }
 
   isAllowed({ user }: { user: AuthUser }): boolean {
-    return user.email.toLowerCase() === this.deps.ownerEmail;
+    const { accountPolicy } = this.deps;
+    return (
+      accountPolicy.mode === "openSignUp" ||
+      user.email.toLowerCase() === accountPolicy.ownerEmail
+    );
   }
 }

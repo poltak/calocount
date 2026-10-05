@@ -1,5 +1,5 @@
 import { APP_NAME } from "@app/common/features/core/utils/app-name";
-import { Navigate, useLocation } from "react-router";
+import { Link, Navigate, useLocation } from "react-router";
 import { useAuth } from "./auth-context.js";
 export function LoginPage() {
   const { logic, state } = useAuth();
@@ -64,6 +64,12 @@ export function LoginPage() {
           {signingIn ? "Signing in…" : "Sign in"}
         </button>
       </form>
+      {state.isSignUpOpen && (
+        <p>
+          Do you not have an account?{" "}
+          <Link to="/sign-up">Create an account</Link>
+        </p>
+      )}
     </section>
   );
 }

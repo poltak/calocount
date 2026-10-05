@@ -14,6 +14,7 @@ import { NotesPage } from "../../notes/ui/notes-page.js";
 import { AuthProvider, useAuth } from "../../auth/ui/auth-context.js";
 import { SessionGate } from "../../auth/ui/session-gate.js";
 import { LoginPage } from "../../auth/ui/login-page.js";
+import { SignUpPage } from "../../auth/ui/sign-up-page.js";
 import { ErrorBoundary } from "./error-boundary.js";
 import { PageErrorFallback } from "./error-fallbacks.js";
 import type { SignedInUser } from "./signed-in-user.js";
@@ -66,6 +67,7 @@ export function AppRoutes() {
       <div className="app-shell">
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/sign-up" element={<SignUpPage />} />
           <Route element={<SessionGate />}>
             <Route element={<ProtectedLayout />}>
               <Route path="/" element={<CounterPage />} />

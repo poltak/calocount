@@ -2,8 +2,9 @@ import type { LogLevel } from "@app/common/features/core/services/types";
 import { LOG_LEVELS } from "@app/common/features/core/utils/log-level";
 import { z } from "zod";
 import type { AuthConfiguration } from "../../auth/services/types.js";
+import type { AccountPolicy } from "../../auth/types.js";
 
-const environmentSchema = z.object({
+const environmentVariablesSchema = z.object({
   DATABASE_URL: z.string().trim().min(1),
   BETTER_AUTH_SECRET: z.string().min(32),
   BETTER_AUTH_URL: z.url().refine((value) => {
@@ -22,8 +23,19 @@ const environmentSchema = z.object({
         : [],
     )
     .pipe(z.array(z.url())),
-  // The single admitted account. Compared case-insensitively.
-  APP_OWNER_EMAIL: z.string().trim().toLowerCase().pipe(z.email()),
+  // Who can have an account. See `AccountPolicy`.
+  APP_ACCOUNT_MODE: z
+    .enum(["single-owner", "open-sign-up"])
+    .default("single-owner"),
+  // The one admitted account in single-owner mode. Compared
+  // case-insensitively. An empty value counts as unset.
+  APP_OWNER_EMAIL: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .optional()
+    .transform((value) => value || undefined)
+    .pipe(z.email().optional()),
   // Set it only behind a proxy. An empty value counts as unset.
   APP_CLIENT_ADDRESS_HEADER: z
     .string()
@@ -38,11 +50,34 @@ const environmentSchema = z.object({
   LOG_LEVEL: z.enum(LOG_LEVELS).default("info"),
 });
 
+const environmentSchema = environmentVariablesSchema.transform(
+  (environment, context) => {
+    const { APP_ACCOUNT_MODE, APP_OWNER_EMAIL, ...rest } = environment;
+    if (APP_ACCOUNT_MODE === "open-sign-up") {
+      const accountPolicy: AccountPolicy = { mode: "openSignUp" };
+      return { ...rest, accountPolicy };
+    }
+    if (!APP_OWNER_EMAIL) {
+      context.addIssue({
+        code: "custom",
+        path: ["APP_OWNER_EMAIL"],
+        message: "Single-owner mode needs the owner's email address",
+      });
+      return z.NEVER;
+    }
+    const accountPolicy: AccountPolicy = {
+      mode: "singleOwner",
+      ownerEmail: APP_OWNER_EMAIL,
+    };
+    return { ...rest, accountPolicy };
+  },
+);
+
 /** Live settings, parsed once from the environment and passed to the App. */
 export interface LiveConfig {
   databaseUrl: string;
   auth: AuthConfiguration;
-  ownerEmail: string;
+  accountPolicy: AccountPolicy;
   server: {
     host: string;
     port: number;
@@ -62,8 +97,9 @@ export function readLiveConfig(
       secret: parsed.BETTER_AUTH_SECRET,
       baseUrl: parsed.BETTER_AUTH_URL,
       trustedOrigins: parsed.APP_TRUSTED_ORIGINS,
+      allowSignUp: parsed.accountPolicy.mode === "openSignUp",
     },
-    ownerEmail: parsed.APP_OWNER_EMAIL,
+    accountPolicy: parsed.accountPolicy,
     server: {
       host: parsed.HOST,
       port: parsed.PORT,

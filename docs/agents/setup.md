@@ -13,19 +13,20 @@ Backend commands read the root `.env`. Values already set in the process
 environment take precedence. Copy `.env.example` to `.env` and keep `.env`
 private and untracked.
 
-| Variable                    | Required | Meaning                                                                               |
-| --------------------------- | -------- | ------------------------------------------------------------------------------------- |
-| `DATABASE_URL`              | Yes      | PostgreSQL connection URL.                                                            |
-| `BETTER_AUTH_SECRET`        | Yes      | Session secret, at least 32 characters. No default exists.                            |
-| `BETTER_AUTH_URL`           | Yes      | The backend's HTTP(S) origin, without a path.                                         |
-| `APP_OWNER_EMAIL`           | Yes      | Email of the one account allowed to use the app.                                      |
-| `APP_TRUSTED_ORIGINS`       | No       | Comma-separated frontend origins allowed to call the API.                             |
-| `APP_CLIENT_ADDRESS_HEADER` | No       | Set only behind a proxy: the request header in which it reports the caller's address. |
-| `HOST`                      | No       | Address the server binds to. Default `127.0.0.1`.                                     |
-| `PORT`                      | No       | Port the server listens on. Default `3000`.                                           |
-| `LOG_FORMAT`                | No       | `json` (default) or `pretty`. `.env.example` sets `pretty` for development.           |
-| `LOG_LEVEL`                 | No       | Lowest level to log: `debug`, `info` (default), `warn`, or `error`.                   |
-| `VITE_API_BASE_URL`         | No       | Frontend only. API location when it is not served from the page's origin.             |
+| Variable                    | Required             | Meaning                                                                               |
+| --------------------------- | -------------------- | ------------------------------------------------------------------------------------- |
+| `DATABASE_URL`              | Yes                  | PostgreSQL connection URL.                                                            |
+| `BETTER_AUTH_SECRET`        | Yes                  | Session secret, at least 32 characters. No default exists.                            |
+| `BETTER_AUTH_URL`           | Yes                  | The backend's HTTP(S) origin, without a path.                                         |
+| `APP_ACCOUNT_MODE`          | No                   | `single-owner` (default) or `open-sign-up`. See "Account modes" below.                |
+| `APP_OWNER_EMAIL`           | In single-owner mode | Email of the one account allowed to use the app.                                      |
+| `APP_TRUSTED_ORIGINS`       | No                   | Comma-separated frontend origins allowed to call the API.                             |
+| `APP_CLIENT_ADDRESS_HEADER` | No                   | Set only behind a proxy: the request header in which it reports the caller's address. |
+| `HOST`                      | No                   | Address the server binds to. Default `127.0.0.1`.                                     |
+| `PORT`                      | No                   | Port the server listens on. Default `3000`.                                           |
+| `LOG_FORMAT`                | No                   | `json` (default) or `pretty`. `.env.example` sets `pretty` for development.           |
+| `LOG_LEVEL`                 | No                   | Lowest level to log: `debug`, `info` (default), `warn`, or `error`.                   |
+| `VITE_API_BASE_URL`         | No                   | Frontend only. API location when it is not served from the page's origin.             |
 
 Generate a secret with:
 
@@ -33,14 +34,29 @@ Generate a secret with:
 pnpm exec node --input-type=module -e 'import { randomBytes } from "node:crypto"; console.log(randomBytes(32).toString("base64"))'
 ```
 
+### Account modes
+
+`APP_ACCOUNT_MODE` selects who can have an account. A project selects one mode
+and keeps it.
+
+- `single-owner`: one account exists, for `APP_OWNER_EMAIL`. The
+  `auth:setup-owner` command creates it. Nobody can sign up, and a session for
+  any other email is refused.
+- `open-sign-up`: each visitor can make an account at `/sign-up`, and every
+  account is admitted. `APP_OWNER_EMAIL` and `auth:setup-owner` have no use.
+  This mode does not verify email addresses and has no password reset; see
+  [decisions](decisions.md#authentication).
+
 ## First run
 
 1. Run `pnpm install`.
 2. Create `.env` as described above.
-3. Run `pnpm run auth:setup-owner` in a terminal. It applies the schema
-   migrations and prompts for the owner's name and password. It needs an
-   interactive terminal; a password is never accepted as an argument.
-4. Run `pnpm run dev`, then open `http://localhost:5173`.
+3. In single-owner mode, run `pnpm run auth:setup-owner` in a terminal. It
+   applies the schema migrations and prompts for the owner's name and
+   password. It needs an interactive terminal; a password is never accepted as
+   an argument. In open sign-up mode, skip this step.
+4. Run `pnpm run dev`, then open `http://localhost:5173`. In open sign-up
+   mode, make the first account there.
 
 ## Development
 

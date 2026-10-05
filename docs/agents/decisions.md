@@ -113,27 +113,37 @@ entry to the choice, the reason, and any rule that follows from it.
   derives this from the base URL, so production needs no extra setting.
 - **Better Auth logs through our logger.** Its own messages, such as a wrong
   password, appear in the same format as ours.
-- **One owner account, created from the command line.** Registration is
-  disabled. `auth:setup-owner` creates the account for `APP_OWNER_EMAIL` and
-  refuses to replace existing credentials. No default password exists.
-- **Admission is checked on every request.** A valid session for any other email
-  gets 403. Accounts and sessions stay ordinary Better Auth records, so a
-  multi-user policy later needs no new auth system.
-- **One owner is the default, and open sign-up is an addition, not a
-  redesign.** The rule is one method, `AuthAccessLogic.isAllowed`. No table and
-  no route depends on it. To let people sign up:
-  - Make `isAllowed` return `true`, or replace it with the project's rule.
-  - Add a sign-up route in the auth feature that calls
-    `services.auth.createAccount`, a `signUp` operation in the frontend's
-    `AuthLogic`, and a page. The sign-in route, operation, and page are the
-    model, with their tests.
-  - Remove `OwnerSetupLogic`, the `auth:setup-owner` command, and
-    `APP_OWNER_EMAIL`, or keep them to create the first administrator.
-  - Limit each feature's queries to the signed-in user, as `NotesStorage`
-    does.
-  - A public app must also verify each email address and offer a password
-    reset. Both need a Service that sends email, which this repository does
-    not have.
+- **Two account modes, and a project selects one with `APP_ACCOUNT_MODE`.**
+  This project needs one owner. Most projects made from this repository need
+  accounts for many people. Both modes are in the code and in the tests, so a
+  project changes one setting and no code. The mode is an `AccountPolicy`
+  value that the composition root gives to the auth Logic classes.
+- **In single-owner mode, one account exists, created from the command
+  line.** Nobody can sign up. `auth:setup-owner` creates the account for
+  `APP_OWNER_EMAIL` and refuses to replace existing credentials. No default
+  password exists.
+- **In open sign-up mode, a visitor makes an account at `/sign-up`.** The
+  request goes through Better Auth's request handler, as sign-in does, so the
+  same rate limit applies: 3 attempts in 10 seconds for one caller address.
+  The new account is signed in at once.
+- **Sign-up is refused in two places when the mode does not permit it.**
+  `AuthSignUpLogic` decides and gives the caller the reason. Better Auth is
+  also configured with sign-up off, so a defect in our code cannot open it.
+- **Open sign-up mode does not verify email addresses.** A person can make an
+  account with an address that is not theirs, and the sign-up page tells a
+  visitor when an address has an account. A public app must add email
+  verification and a password reset. Both need a Service that sends email,
+  which this repository does not have. Roles are also absent: all accounts
+  are equal.
+- **Admission is checked on every request.** In single-owner mode, a valid
+  session for any other email gets 403. The rule is one method,
+  `AuthAccessLogic.isAllowed`, so a project with its own rule changes that
+  method. Accounts and sessions are ordinary Better Auth records in both
+  modes.
+- **Each feature decides which records a user can read.** The account mode
+  decides who can sign in, and nothing more. `NotesStorage` limits each query
+  to the signed-in user, which is the model for records that are private to
+  one user.
 - **The server is the access boundary.** Frontend route guards only improve the
   experience; they are not a security control.
 - **Requests that change state must come from a trusted origin.** CORS allows

@@ -1,6 +1,6 @@
 import { serve, type ServerType } from "@hono/node-server";
 import { createHttpApp } from "../server/http-app.js";
-import { createApp } from "./index.js";
+import { createApp, type AccountMode } from "./index.js";
 import { createBrowserTransport } from "./browser-transport.js";
 import { initializeLogic } from "../logic/lifecycle.js";
 import {
@@ -46,10 +46,16 @@ export async function createTestBackend({
   template,
   baseUrl = "http://app.test",
   trustedOrigins = [],
+  accountMode = "singleOwner",
 }: {
   template: DatabaseTemplate;
   baseUrl?: string;
   trustedOrigins?: string[];
+  /**
+   * Who can have an account. In `openSignUp` mode, the owner in the template
+   * is one user among others.
+   */
+  accountMode?: AccountMode;
 }) {
   const app = createApp({
     db: createDatabase({
@@ -57,6 +63,7 @@ export async function createTestBackend({
     }),
     authBaseUrl: baseUrl,
     trustedOrigins,
+    accountMode,
   });
   try {
     await initializeLogic({ logic: app.logic });
@@ -95,17 +102,21 @@ export async function startTestBackendServer({
   owner,
   port,
   trustedOrigins,
+  accountMode = "singleOwner",
 }: {
   owner: OwnerCredentials;
   port: number;
   /** The origins of the pages that may call this backend. */
   trustedOrigins: string[];
+  /** Who can have an account. Use the mode that the project runs in. */
+  accountMode?: AccountMode;
 }) {
   const hostname = "127.0.0.1";
   const backend = await createTestBackend({
     template: await createDatabaseTemplate(owner),
     baseUrl: `http://${hostname}:${port}`,
     trustedOrigins,
+    accountMode,
   });
 
   let server: ServerType;

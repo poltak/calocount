@@ -16,6 +16,11 @@ export interface AuthConfiguration {
   /** The server's HTTP(S) origin, without a path. */
   baseUrl: string;
   trustedOrigins: string[];
+  /**
+   * Lets a visitor make an account with `signUpWithPassword`. The auth Logic
+   * decides this first. The provider refuses a second time when it is false.
+   */
+  allowSignUp: boolean;
 }
 
 /** A session change, with headers (such as cookies) the HTTP response must carry. */
@@ -28,6 +33,13 @@ export type PasswordSignInResult =
   | {
       ok: false;
       reason: "invalidCredentials" | "rateLimited" | "untrustedOrigin";
+    };
+
+export type PasswordSignUpResult =
+  | ({ ok: true; user: AuthUser } & SessionChange)
+  | {
+      ok: false;
+      reason: "closed" | "emailTaken" | "rateLimited" | "untrustedOrigin";
     };
 
 /**
@@ -48,12 +60,19 @@ export interface AuthServiceInterface {
   signInWithPassword(
     props: SessionRequest & { email: string; password: string },
   ): Promise<PasswordSignInResult>;
+  /** Make an account for a visitor and start its session. */
+  signUpWithPassword(
+    props: SessionRequest & { email: string; name: string; password: string },
+  ): Promise<PasswordSignUpResult>;
   /** End the caller's session. Succeeds when there is no session. */
   signOut(props: SessionRequest): Promise<SessionChange>;
   /** Rename the user who owns the session in the request headers. */
   updateName(props: { name: string; requestHeaders: Headers }): Promise<void>;
   migrate(): Promise<void>;
-  /** Trusted local setup only; this operation has no public HTTP endpoint. */
+  /**
+   * Trusted setup code only. It has no public HTTP endpoint, no rate limit,
+   * and no check of the account policy.
+   */
   createAccount(props: {
     email: string;
     name: string;

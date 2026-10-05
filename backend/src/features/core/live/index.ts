@@ -20,7 +20,7 @@ export function createApp({
   const db = createDatabase({ connectionString: config.databaseUrl, logger });
   return composeApp({
     db,
-    ownerEmail: config.ownerEmail,
+    accountPolicy: config.accountPolicy,
     services: {
       logger,
       auth: new BetterAuthService({ db, logger, ...config.auth }),

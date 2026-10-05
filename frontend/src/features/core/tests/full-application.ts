@@ -7,6 +7,11 @@ import { TEST_OWNER_CREDENTIALS } from "./test-owner.js";
 interface FullApplicationParams {
   /** Sign the owner in before the test starts. Defaults to true. */
   authenticated?: boolean;
+  /**
+   * Who can have an account. Defaults to `singleOwner`. In `openSignUp` mode,
+   * a visitor can sign up, and the owner is one user among others.
+   */
+  accountMode?: "singleOwner" | "openSignUp";
 }
 
 /**
@@ -16,10 +21,12 @@ interface FullApplicationParams {
  */
 export async function createFullApplication({
   authenticated = true,
+  accountMode = "singleOwner",
 }: FullApplicationParams = {}) {
   // `global-setup.ts` built the template once for the whole test run.
   const backend = await createTestBackend({
     template: inject("databaseTemplate"),
+    accountMode,
   });
   onTestFinished(() => backend.close());
   const transport = backend.createBrowserTransport();

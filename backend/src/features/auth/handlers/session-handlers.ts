@@ -1,8 +1,9 @@
-import { Hono, type Context } from "hono";
+import { Hono } from "hono";
 import { z } from "zod";
 import type { BackendLogic } from "../../core/types.js";
 import type { RequestEnvironment } from "../../core/handlers/types.js";
 import { validator } from "../../core/handlers/validator.js";
+import { applySessionCookies } from "./session-cookies.js";
 
 const signInSchema = z.object({
   email: z.string().trim().pipe(z.email()),
@@ -11,12 +12,6 @@ const signInSchema = z.object({
 
 interface SessionHandlerProps {
   logic: Pick<BackendLogic, "authSession">;
-}
-
-function applyResponseHeaders(context: Context, headers: Headers): void {
-  for (const cookie of headers.getSetCookie()) {
-    context.header("set-cookie", cookie, { append: true });
-  }
 }
 
 /** Public routes that start and end the caller's session. */
@@ -28,7 +23,7 @@ export function createSessionHandlers({ logic }: SessionHandlerProps) {
         requestHeaders: context.req.raw.headers,
         clientAddress: context.get("clientAddress"),
       });
-      applyResponseHeaders(context, responseHeaders);
+      applySessionCookies(context, responseHeaders);
       return context.json({ user });
     })
     .delete("/", async (context) => {
@@ -36,7 +31,7 @@ export function createSessionHandlers({ logic }: SessionHandlerProps) {
         requestHeaders: context.req.raw.headers,
         clientAddress: context.get("clientAddress"),
       });
-      applyResponseHeaders(context, responseHeaders);
+      applySessionCookies(context, responseHeaders);
       return context.body(null, 204);
     });
 }

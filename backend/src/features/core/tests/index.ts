@@ -5,6 +5,7 @@ import type { Database } from "../database/database.js";
 import { createDatabase } from "../database/pglite-database.js";
 import { FakeAIService } from "../../ai/services/fake-ai-service.js";
 import { BetterAuthService } from "../../auth/services/better-auth-service.js";
+import type { AccountPolicy } from "../../auth/types.js";
 import { FakePatientRecordsService } from "../../patient-records/services/fake-patient-records-service.js";
 import { FakeTranscriptionService } from "../../transcription/services/fake-transcription-service.js";
 import type { App, BackendServices } from "../types.js";
@@ -15,16 +16,25 @@ export interface TestApp extends App {
   services: BackendServices & { logger: MemoryLoggerService };
 }
 
+/** The mode of the account policy. A test selects one; see `AccountPolicy`. */
+export type AccountMode = AccountPolicy["mode"];
+
 /** Compose one backend app with isolated test dependencies. */
 export function createApp({
   db = createDatabase(),
   authBaseUrl = "http://app.test",
   trustedOrigins = [],
+  accountMode = "singleOwner",
 }: {
   db?: Database;
   authBaseUrl?: string;
   trustedOrigins?: string[];
+  accountMode?: AccountMode;
 } = {}): TestApp {
+  const accountPolicy: AccountPolicy =
+    accountMode === "openSignUp"
+      ? { mode: "openSignUp" }
+      : { mode: "singleOwner", ownerEmail: "owner@example.test" };
   const logger = new MemoryLoggerService();
   const services = {
     logger,
@@ -35,11 +45,12 @@ export function createApp({
       secret: randomBytes(32).toString("base64"),
       baseUrl: authBaseUrl,
       trustedOrigins,
+      allowSignUp: accountPolicy.mode === "openSignUp",
     }),
     ai: new FakeAIService(),
     transcription: new FakeTranscriptionService(),
     patientRecords: new FakePatientRecordsService(),
   };
-  const app = composeApp({ db, ownerEmail: "owner@example.test", services });
+  const app = composeApp({ db, accountPolicy, services });
   return { ...app, db, services };
 }

@@ -11,6 +11,7 @@ import type {
   AuthServiceInterface,
   AuthUser,
   PasswordSignInResult,
+  PasswordSignUpResult,
   SessionChange,
   SessionRequest,
 } from "./types.js";
@@ -36,6 +37,9 @@ const CLIENT_ADDRESS_HEADER = "x-client-address";
 const FALSE_RATE_LIMIT_TYPE_WARNING =
   "Field lastRequest in table rateLimit has a different type in the database";
 
+/** The SDK's error code for a sign-up with an email that has an account. */
+const EMAIL_TAKEN_CODE = "USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL";
+
 /** Embedded authentication. Better Auth owns its auth-table persistence. */
 export class BetterAuthService implements AuthServiceInterface {
   private auth?: ReturnType<BetterAuthService["createInstance"]>;
@@ -54,7 +58,10 @@ export class BetterAuthService implements AuthServiceInterface {
       secret: this.deps.secret,
       baseURL: this.deps.baseUrl,
       trustedOrigins: [...this.trustedOrigins],
-      emailAndPassword: { enabled: true, disableSignUp: true },
+      emailAndPassword: {
+        enabled: true,
+        disableSignUp: !this.deps.allowSignUp,
+      },
       // The SDK turns its rate limits on only when NODE_ENV is "production",
       // and counts in process memory. Here they are always on, and the counts
       // are in the database, so every server instance shares them.
@@ -122,6 +129,47 @@ export class BetterAuthService implements AuthServiceInterface {
     throw new Error(`Sign-in failed with status ${response.status}`);
   }
 
+  async signUpWithPassword({
+    email,
+    name,
+    password,
+    ...request
+  }: SessionRequest & {
+    email: string;
+    name: string;
+    password: string;
+  }): Promise<PasswordSignUpResult> {
+    if (!this.deps.allowSignUp) {
+      return { ok: false, reason: "closed" };
+    }
+    const response = await this.dispatch("/sign-up/email", {
+      ...request,
+      body: { email, name, password },
+    });
+    if (response.ok) {
+      const { user } = (await response.json()) as { user: AuthUser };
+      return {
+        ok: true,
+        user: { id: user.id, email: user.email, name: user.name },
+        responseHeaders: cookieHeaders(response),
+      };
+    }
+    if (response.status === 429) {
+      return { ok: false, reason: "rateLimited" };
+    }
+    if (response.status === 403) {
+      return { ok: false, reason: "untrustedOrigin" };
+    }
+    // The SDK uses this status for other failures also, so the code decides.
+    if (response.status === 422) {
+      const { code } = (await response.json()) as { code?: string };
+      if (code === EMAIL_TAKEN_CODE) {
+        return { ok: false, reason: "emailTaken" };
+      }
+    }
+    throw new Error(`Sign-up failed with status ${response.status}`);
+  }
+
   async signOut(request: SessionRequest): Promise<SessionChange> {
     const response = await this.dispatch("/sign-out", {
       ...request,
@@ -183,7 +231,8 @@ export class BetterAuthService implements AuthServiceInterface {
     password: string;
   }): Promise<AuthUser> {
     // This private SDK instance is used only by trusted setup code. Its handler
-    // is never mounted. The public instance always has registration disabled.
+    // is never mounted. The other instance lets a visitor sign up only when
+    // `allowSignUp` is set.
     const provisioning = betterAuth({
       ...this.options(),
       emailAndPassword: {

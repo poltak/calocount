@@ -20,19 +20,54 @@ function readUser(db: TestDatabase, email: string) {
     .executeTakeFirst();
 }
 
+/** The email of every account, oldest first. */
+async function readUserEmails(db: TestDatabase) {
+  const users = await db
+    .selectFrom("user")
+    .select("email")
+    .orderBy("createdAt")
+    .execute();
+  return users.map((user) => user.email);
+}
+
 async function readSessionUserIds(db: TestDatabase) {
   const sessions = await db.selectFrom("session").select("userId").execute();
   return sessions.map((session) => session.userId);
 }
 
-/** The auth SDK counts sign-in attempts in one row for each caller address. */
-async function readSignInAttemptCounts(db: TestDatabase) {
+/**
+ * The auth SDK counts the attempts on one of its routes, such as
+ * `/sign-in/email`, in one row for each caller address.
+ */
+async function readAttemptCounts(db: TestDatabase, route: string) {
   const rows = await db
     .selectFrom("rateLimit")
     .select("count")
-    .where("key", "like", "%/sign-in/email")
+    .where("key", "like", `%${route}`)
     .execute();
   return rows.map((row) => row.count);
+}
+
+/** A visitor who has no account. */
+const VISITOR = {
+  name: "New User",
+  email: "new-user@example.test",
+  password: "a-test-password-for-sign-up",
+};
+
+/** A visitor at the sign-up form, in the mode that lets a visitor sign up. */
+function setupSignUpTest(params: LogicTestParams = {}) {
+  return setupTest({
+    authenticated: false,
+    accountMode: "openSignUp",
+    ...params,
+  });
+}
+
+function fillSignUpForm(logic: AuthLogic, fields: typeof VISITOR = VISITOR) {
+  logic.setSignUpName(fields.name);
+  logic.setEmail(fields.email);
+  logic.setPassword(fields.password);
 }
 
 describe("AuthLogic tests", () => {
@@ -234,7 +269,7 @@ describe("AuthLogic tests", () => {
     logic.setPassword(TEST_OWNER_CREDENTIALS.password);
 
     expect(logic.state.isSignedIn).toEqual(false);
-    expect(await readSignInAttemptCounts(backend.db)).toEqual([3]);
+    expect(await readAttemptCounts(backend.db, "/sign-in/email")).toEqual([3]);
 
     const signInP = logic.signIn();
     expect(logic.state.signInState).toEqual("running");
@@ -247,7 +282,7 @@ describe("AuthLogic tests", () => {
     expect(logic.state.isSignedIn).toEqual(false);
     expect(logic.state.password).toEqual("");
     expect(await readSessionUserIds(backend.db)).toEqual([]);
-    expect(await readSignInAttemptCounts(backend.db)).toEqual([3]);
+    expect(await readAttemptCounts(backend.db, "/sign-in/email")).toEqual([3]);
   });
 
   it("should not admit another account even when its password is correct", async () => {
@@ -257,7 +292,8 @@ describe("AuthLogic tests", () => {
       name: "Other",
       password: "another-test-password",
     };
-    // No route can create an account, so the trusted setup operation seeds it.
+    // In single-owner mode no route can create an account, so the trusted
+    // setup operation seeds it.
     const otherUser = await backend.services.auth.createAccount(other);
     logic.setEmail(other.email);
     logic.setPassword(other.password);
@@ -275,6 +311,300 @@ describe("AuthLogic tests", () => {
     expect(logic.state.userId).toEqual(null);
     // The SDK accepted the password; the backend refuses every request after it.
     expect(await readSessionUserIds(backend.db)).toEqual([otherUser.id]);
+  });
+
+  it("should admit another account in open sign-up mode", async () => {
+    const { backend, logic } = await setupTest({
+      authenticated: false,
+      accountMode: "openSignUp",
+    });
+    const other = {
+      email: "other@example.test",
+      name: "Other",
+      password: "another-test-password",
+    };
+    const otherUser = await backend.services.auth.createAccount(other);
+    logic.setEmail(other.email);
+    logic.setPassword(other.password);
+
+    expect(logic.state.signInState).toEqual("pristine");
+    expect(logic.state.isSignedIn).toEqual(false);
+    expect(await readSessionUserIds(backend.db)).toEqual([]);
+
+    const signInP = logic.signIn();
+    expect(logic.state.signInState).toEqual("running");
+    await signInP;
+
+    expect(logic.state.signInState).toEqual("success");
+    expect(logic.state.signInError).toEqual(null);
+    expect(logic.state.isSignedIn).toEqual(true);
+    expect(logic.state.userId).toEqual(otherUser.id);
+    expect(logic.state.userName).toEqual(other.name);
+    expect(await readSessionUserIds(backend.db)).toEqual([otherUser.id]);
+  });
+
+  it("should load that sign-up is open in open sign-up mode", async () => {
+    const { logic } = await setupSignUpTest({ skipInitialization: true });
+
+    expect(logic.state.loadSignUpStatusState).toEqual("pristine");
+    expect(logic.state.loadSignUpStatusError).toEqual(null);
+    expect(logic.state.isSignUpOpen).toEqual(false);
+
+    await logic.initialize();
+
+    expect(logic.state.loadSignUpStatusState).toEqual("success");
+    expect(logic.state.loadSignUpStatusError).toEqual(null);
+    expect(logic.state.isSignUpOpen).toEqual(true);
+
+    // A later load shows the running state at once.
+    const loadP = logic.loadSignUpStatus();
+    expect(logic.state.loadSignUpStatusState).toEqual("running");
+    await loadP;
+    expect(logic.state.loadSignUpStatusState).toEqual("success");
+    expect(logic.state.isSignUpOpen).toEqual(true);
+  });
+
+  it("should load that sign-up is closed in single-owner mode", async () => {
+    const { logic } = await setupTest({
+      authenticated: false,
+      skipInitialization: true,
+    });
+
+    expect(logic.state.loadSignUpStatusState).toEqual("pristine");
+    expect(logic.state.isSignUpOpen).toEqual(false);
+
+    await logic.initialize();
+
+    expect(logic.state.loadSignUpStatusState).toEqual("success");
+    expect(logic.state.loadSignUpStatusError).toEqual(null);
+    expect(logic.state.isSignUpOpen).toEqual(false);
+  });
+
+  it("should show sign-up as closed when the connection fails, then load it on the next attempt", async () => {
+    const { logic, transport } = await setupSignUpTest({
+      skipInitialization: true,
+    });
+    transport.goOffline();
+
+    await logic.initialize();
+
+    expect(logic.state.loadSignUpStatusState).toEqual("error");
+    expect(logic.state.loadSignUpStatusError).toEqual("Failed to fetch");
+    expect(logic.state.isSignUpOpen).toEqual(false);
+
+    transport.goOnline();
+    const loadP = logic.loadSignUpStatus();
+    expect(logic.state.loadSignUpStatusState).toEqual("running");
+    expect(logic.state.loadSignUpStatusError).toEqual(null);
+    await loadP;
+
+    expect(logic.state.loadSignUpStatusState).toEqual("success");
+    expect(logic.state.isSignUpOpen).toEqual(true);
+  });
+
+  it("should afford successful sign-up", async () => {
+    const { backend, logic, owner, transport } = await setupSignUpTest();
+    fillSignUpForm(logic);
+
+    expect(logic.state.signUpState).toEqual("pristine");
+    expect(logic.state.signUpError).toEqual(null);
+    expect(logic.state.signUpFieldErrors).toEqual(null);
+    expect(logic.state.isSignedIn).toEqual(false);
+    expect(await readUserEmails(backend.db)).toEqual([owner.email]);
+    expect(await readSessionUserIds(backend.db)).toEqual([]);
+
+    const held = transport.holdNextRequest();
+    const signUpP = logic.signUp();
+    await held.reached;
+    expect(logic.state.signUpState).toEqual("running");
+    expect(logic.state.isSignedIn).toEqual(false);
+    expect(await readUserEmails(backend.db)).toEqual([owner.email]);
+    held.release();
+    await signUpP;
+
+    expect(logic.state.signUpState).toEqual("success");
+    expect(logic.state.signUpError).toEqual(null);
+    expect(logic.state.signUpFieldErrors).toEqual(null);
+    // The backend also started the session, so the new user is signed in.
+    expect(logic.state.isSignedIn).toEqual(true);
+    expect(logic.state.userEmail).toEqual(VISITOR.email);
+    expect(logic.state.userName).toEqual(VISITOR.name);
+    expect(logic.state.signUpName).toEqual("");
+    expect(logic.state.password).toEqual("");
+    expect(await readUserEmails(backend.db)).toEqual([
+      owner.email,
+      VISITOR.email,
+    ]);
+    expect(await readUser(backend.db, VISITOR.email)).toEqual({
+      id: logic.state.userId,
+      email: VISITOR.email,
+      name: VISITOR.name,
+    });
+    expect(await readSessionUserIds(backend.db)).toEqual([logic.state.userId]);
+  });
+
+  it("should set a message for each sign-up field that the backend refuses", async () => {
+    const { backend, logic, owner } = await setupSignUpTest();
+    fillSignUpForm(logic, {
+      name: "   ",
+      email: "not-an-email",
+      password: "short",
+    });
+
+    expect(logic.state.signUpState).toEqual("pristine");
+    expect(logic.state.signUpFieldErrors).toEqual(null);
+
+    const signUpP = logic.signUp();
+    expect(logic.state.signUpState).toEqual("running");
+    await signUpP;
+
+    expect(logic.state.signUpState).toEqual("error");
+    expect(logic.state.signUpError).toEqual("The request is invalid");
+    expect(logic.state.signUpFieldErrors).toEqual({
+      name: "Enter your name",
+      email: "Enter a valid email address",
+      password: "Use at least 8 characters",
+    });
+    expect(logic.state.isSignedIn).toEqual(false);
+    // The fields stay after a refusal, so the user corrects them.
+    expect(logic.state.email).toEqual("not-an-email");
+    expect(logic.state.password).toEqual("short");
+    expect(await readUserEmails(backend.db)).toEqual([owner.email]);
+
+    // The next attempt clears the messages.
+    fillSignUpForm(logic);
+    await logic.signUp();
+
+    expect(logic.state.signUpState).toEqual("success");
+    expect(logic.state.signUpFieldErrors).toEqual(null);
+    expect(logic.state.isSignedIn).toEqual(true);
+  });
+
+  it("should set a message at the email when the email has an account already", async () => {
+    const { backend, logic, owner } = await setupSignUpTest();
+    fillSignUpForm(logic, { ...VISITOR, email: owner.email });
+
+    expect(logic.state.signUpState).toEqual("pristine");
+    expect(await readUserEmails(backend.db)).toEqual([owner.email]);
+
+    const signUpP = logic.signUp();
+    expect(logic.state.signUpState).toEqual("running");
+    await signUpP;
+
+    expect(logic.state.signUpState).toEqual("error");
+    expect(logic.state.signUpError).toEqual("The request is invalid");
+    expect(logic.state.signUpFieldErrors).toEqual({
+      email: "An account with this email address exists already",
+    });
+    expect(logic.state.isSignedIn).toEqual(false);
+    expect(await readUserEmails(backend.db)).toEqual([owner.email]);
+    // The owner's account is as it was: the name of the attempt is not in it.
+    expect(await readUser(backend.db, owner.email)).toEqual(owner);
+    expect(await readSessionUserIds(backend.db)).toEqual([]);
+  });
+
+  it("should refuse sign-up in single-owner mode", async () => {
+    const { backend, logic, owner } = await setupTest({
+      authenticated: false,
+    });
+    fillSignUpForm(logic);
+
+    expect(logic.state.signUpState).toEqual("pristine");
+    expect(logic.state.isSignUpOpen).toEqual(false);
+    expect(await readUserEmails(backend.db)).toEqual([owner.email]);
+
+    const signUpP = logic.signUp();
+    expect(logic.state.signUpState).toEqual("running");
+    await signUpP;
+
+    expect(logic.state.signUpState).toEqual("error");
+    expect(logic.state.signUpError).toEqual("Sign-up is closed");
+    expect(logic.state.signUpFieldErrors).toEqual(null);
+    expect(logic.state.isSignedIn).toEqual(false);
+    expect(await readUserEmails(backend.db)).toEqual([owner.email]);
+    expect(await readSessionUserIds(backend.db)).toEqual([]);
+  });
+
+  it("should refuse a fourth sign-up attempt in a short time", async () => {
+    const { backend, logic, owner } = await setupSignUpTest();
+    // Three attempts that the backend refuses for another reason.
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      fillSignUpForm(logic, { ...VISITOR, email: owner.email });
+      await logic.signUp();
+      expect(logic.state.signUpFieldErrors).toEqual({
+        email: "An account with this email address exists already",
+      });
+    }
+    fillSignUpForm(logic);
+
+    expect(await readAttemptCounts(backend.db, "/sign-up/email")).toEqual([3]);
+    expect(await readUserEmails(backend.db)).toEqual([owner.email]);
+
+    const signUpP = logic.signUp();
+    expect(logic.state.signUpState).toEqual("running");
+    await signUpP;
+
+    expect(logic.state.signUpState).toEqual("error");
+    expect(logic.state.signUpError).toEqual(
+      "Too many sign-up attempts. Try again later.",
+    );
+    expect(logic.state.signUpFieldErrors).toEqual(null);
+    expect(logic.state.isSignedIn).toEqual(false);
+    expect(await readUserEmails(backend.db)).toEqual([owner.email]);
+    expect(await readAttemptCounts(backend.db, "/sign-up/email")).toEqual([3]);
+  });
+
+  it("should set the error state when the connection fails, then sign up on the next attempt", async () => {
+    const { backend, logic, owner, transport } = await setupSignUpTest();
+    fillSignUpForm(logic);
+    transport.goOffline();
+
+    const failedP = logic.signUp();
+    expect(logic.state.signUpState).toEqual("running");
+    await failedP;
+
+    expect(logic.state.signUpState).toEqual("error");
+    expect(logic.state.signUpError).toEqual("Failed to fetch");
+    expect(logic.state.isSignedIn).toEqual(false);
+    expect(logic.state.password).toEqual(VISITOR.password);
+    expect(await readUserEmails(backend.db)).toEqual([owner.email]);
+
+    transport.goOnline();
+    const retriedP = logic.signUp();
+    expect(logic.state.signUpState).toEqual("running");
+    expect(logic.state.signUpError).toEqual(null);
+    await retriedP;
+
+    expect(logic.state.signUpState).toEqual("success");
+    expect(logic.state.isSignedIn).toEqual(true);
+    expect(logic.state.userEmail).toEqual(VISITOR.email);
+    expect(await readUserEmails(backend.db)).toEqual([
+      owner.email,
+      VISITOR.email,
+    ]);
+  });
+
+  it("should make one account when sign-up is called again while it runs", async () => {
+    const { backend, logic, owner, transport } = await setupSignUpTest();
+    fillSignUpForm(logic);
+    const held = transport.holdNextRequest();
+
+    const firstP = logic.signUp();
+    const secondP = logic.signUp();
+    await held.reached;
+    expect(logic.state.signUpState).toEqual("running");
+    expect(await readUserEmails(backend.db)).toEqual([owner.email]);
+
+    held.release();
+    await Promise.all([firstP, secondP]);
+
+    expect(logic.state.signUpState).toEqual("success");
+    expect(logic.state.isSignedIn).toEqual(true);
+    expect(await readUserEmails(backend.db)).toEqual([
+      owner.email,
+      VISITOR.email,
+    ]);
+    expect(await readSessionUserIds(backend.db)).toEqual([logic.state.userId]);
   });
 
   it("should afford successful sign-out", async () => {

@@ -204,9 +204,11 @@ repository is made.
 - [ ] 14. **Skills for template work.** Add a skill that adds a feature (about
       seven composition files change), a skill that renames a new project, and
       a skill that syncs changes from the template.
-- [x] 15. **The default auth policy.** One owner stays the default.
-      [Decisions](../decisions.md#authentication) lists the steps to open
-      sign-up.
+- [x] 15. **The auth policy.** `APP_ACCOUNT_MODE` selects single-owner mode,
+      which is the default, or open sign-up mode. See
+      [setup](../setup.md#account-modes) for the two modes and
+      [decisions](../decisions.md#authentication) for what open sign-up mode
+      does not include.
 - [ ] 16. **A record of the template version.** Each project needs a file that
       names the template commit it started from, so that a later sync has a
       start point.

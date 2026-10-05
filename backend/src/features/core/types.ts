@@ -6,6 +6,7 @@ import type { AuthStorage } from "../auth/storage/auth-storage.js";
 import type { AuthAccessLogic } from "../auth/logic/auth-access-logic.js";
 import type { AuthProfileLogic } from "../auth/logic/auth-profile-logic.js";
 import type { AuthSessionLogic } from "../auth/logic/auth-session-logic.js";
+import type { AuthSignUpLogic } from "../auth/logic/auth-sign-up-logic.js";
 import type { OwnerSetupLogic } from "../auth/logic/owner-setup-logic.js";
 import type { EncounterLifecycleLogic } from "../encounter-lifecycle/logic/encounter-lifecycle-logic.js";
 import type { EncounterLifecycleStorage } from "../encounter-lifecycle/storage/encounter-lifecycle-storage.js";
@@ -46,6 +47,7 @@ export interface BackendLogic {
   authAccess: AuthAccessLogic;
   authProfile: AuthProfileLogic;
   authSession: AuthSessionLogic;
+  authSignUp: AuthSignUpLogic;
   ownerSetup: OwnerSetupLogic;
   encounterLifecycle: EncounterLifecycleLogic;
   health: HealthLogic;

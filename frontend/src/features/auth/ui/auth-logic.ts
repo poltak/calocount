@@ -11,21 +11,34 @@ import type { App } from "../../core/types.js";
 import type { FrontendLogicProps } from "../../core/logic/types.js";
 import { LatestRequest } from "../../core/logic/latest-request.js";
 
-type AuthProps = FrontendLogicProps<never, "windowFocus", "me" | "session"> &
+type AuthProps = FrontendLogicProps<
+  never,
+  "windowFocus",
+  "me" | "session" | "sign-up"
+> &
   Pick<App, "apiAccessEvents">;
 interface AuthState {
   isSignedIn: boolean;
   userId: string | null;
   userEmail: string | null;
   userName: string | null;
-  /** The sign-in form's fields. */
+  /** The fields that the sign-in form and the sign-up form share. */
   email: string;
   password: string;
+  /** The name field, which only the sign-up form has. */
+  signUpName: string;
+  /** True when the backend lets a visitor make an account. */
+  isSignUpOpen: boolean;
   loadSessionState: TaskState;
   loadSessionError: string | null;
+  loadSignUpStatusState: TaskState;
+  loadSignUpStatusError: string | null;
   signInState: TaskState;
   signInError: string | null;
   signInFieldErrors: TaskFieldErrors | null;
+  signUpState: TaskState;
+  signUpError: string | null;
+  signUpFieldErrors: TaskFieldErrors | null;
   signOutState: TaskState;
   signOutError: string | null;
   setNameState: TaskState;
@@ -50,11 +63,18 @@ export class AuthLogic extends Logic<AuthProps, AuthState> {
         ...SIGNED_OUT,
         email: "",
         password: "",
+        signUpName: "",
+        isSignUpOpen: false,
         loadSessionState: "pristine",
         loadSessionError: null,
+        loadSignUpStatusState: "pristine",
+        loadSignUpStatusError: null,
         signInState: "pristine",
         signInError: null,
         signInFieldErrors: null,
+        signUpState: "pristine",
+        signUpError: null,
+        signUpFieldErrors: null,
         signOutState: "pristine",
         signOutError: null,
         setNameState: "pristine",
@@ -78,7 +98,7 @@ export class AuthLogic extends Logic<AuthProps, AuthState> {
         }
       }),
     );
-    await this.refresh();
+    await Promise.all([this.refresh(), this.loadSignUpStatus()]);
   }
 
   setEmail(email: string): void {
@@ -87,6 +107,10 @@ export class AuthLogic extends Logic<AuthProps, AuthState> {
 
   setPassword(password: string): void {
     this.setState({ password });
+  }
+
+  setSignUpName(signUpName: string): void {
+    this.setState({ signUpName });
   }
 
   async setName(name: string): Promise<void> {
@@ -138,6 +162,48 @@ export class AuthLogic extends Logic<AuthProps, AuthState> {
     });
   }
 
+  /** Ask the backend if a visitor can make an account. */
+  async loadSignUpStatus(): Promise<void> {
+    await this.executeTask("loadSignUpStatus", async () => {
+      const response = await this.deps.api["sign-up"].$get(undefined, {
+        init: { signal: this.signal },
+      });
+      await requireApiSuccess(response);
+      if (response.status !== 200) {
+        throw new Error("Unexpected sign-up status response");
+      }
+      const { isOpen } = await response.json();
+      this.setState({ isSignUpOpen: isOpen });
+    });
+  }
+
+  /** Make an account from the form's fields. The backend also starts its session. */
+  async signUp(): Promise<void> {
+    if (this.isChangingSession()) {
+      return;
+    }
+    await this.executeTask("signUp", async () => {
+      this.sessionChecks.cancel();
+      const response = await this.deps.api["sign-up"].$post(
+        {
+          json: {
+            name: this.state.signUpName.trim(),
+            email: this.state.email.trim(),
+            password: this.state.password,
+          },
+        },
+        { init: { signal: this.signal } },
+      );
+      await requireApiSuccess(response);
+      await this.checkSession();
+      if (!this.state.isSignedIn) {
+        throw new Error("Sign-up did not start a session");
+      }
+      // After a refusal the fields stay, so the user corrects only one of them.
+      this.setState({ signUpName: "", password: "" });
+    });
+  }
+
   async signOut(): Promise<void> {
     if (this.isChangingSession()) {
       return;
@@ -152,10 +218,11 @@ export class AuthLogic extends Logic<AuthProps, AuthState> {
     });
   }
 
-  /** Signing in and out each replace the session, so neither overlaps the other. */
+  /** Sign-in, sign-up, and sign-out each replace the session, so none overlaps another. */
   private isChangingSession(): boolean {
     return (
       this.state.signInState === "running" ||
+      this.state.signUpState === "running" ||
       this.state.signOutState === "running"
     );
   }

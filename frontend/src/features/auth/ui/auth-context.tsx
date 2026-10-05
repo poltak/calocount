@@ -13,7 +13,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       storage: {},
       services: { windowFocus: app.services.windowFocus },
-      api: { me: app.api.me, session: app.api.session },
+      api: {
+        me: app.api.me,
+        session: app.api.session,
+        "sign-up": app.api["sign-up"],
+      },
       apiAccessEvents: app.apiAccessEvents,
     }),
     [app],

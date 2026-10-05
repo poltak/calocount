@@ -83,6 +83,10 @@ returns:
 
 The owner is signed in unless the test passes `authenticated: false`.
 
+The backend runs in single-owner mode unless the test passes
+`accountMode: "openSignUp"`. In that mode a visitor can sign up, and the owner
+is one user among others. The sign-up tests in `auth-logic.test.ts` use it.
+
 ### Transport controls
 
 The transport is the function the frontend uses to send a request to the

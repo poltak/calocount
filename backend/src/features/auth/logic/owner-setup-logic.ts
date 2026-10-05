@@ -1,11 +1,15 @@
 import { Logic } from "@app/common/features/core/logic/logic";
 import type { BackendLogicProps } from "../../core/logic/types.js";
+import type { AccountPolicy } from "../types.js";
 
 type OwnerSetupProps = BackendLogicProps<"auth", "auth"> & {
-  ownerEmail: string;
+  accountPolicy: AccountPolicy;
 };
 
-/** Trusted operator workflow. It is never registered as an HTTP endpoint. */
+/**
+ * Trusted operator workflow for single-owner mode. It is never registered as
+ * an HTTP endpoint.
+ */
 export class OwnerSetupLogic extends Logic<
   OwnerSetupProps,
   Record<string, never>
@@ -15,6 +19,12 @@ export class OwnerSetupLogic extends Logic<
   }
 
   async createOwner({ name, password }: { name: string; password: string }) {
+    const { accountPolicy } = this.deps;
+    if (accountPolicy.mode !== "singleOwner") {
+      throw new Error(
+        "Owner setup is for single-owner mode. In open sign-up mode, each person makes an account on the sign-up page.",
+      );
+    }
     if (await this.deps.storage.auth.getUserCount()) {
       throw new Error(
         "An account already exists; owner setup does not replace credentials",
@@ -26,7 +36,7 @@ export class OwnerSetupLogic extends Logic<
     // Concurrent attempts use the same configured email. The SDK's unique
     // email constraint prevents creation of a second account.
     return this.deps.services.auth.createAccount({
-      email: this.deps.ownerEmail,
+      email: accountPolicy.ownerEmail,
       name: name.trim(),
       password,
     });

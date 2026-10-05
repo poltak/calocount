@@ -7,6 +7,7 @@ import { requireSession } from "../../auth/handlers/require-session.js";
 import { requireTrustedOrigin } from "../../auth/handlers/require-trusted-origin.js";
 import { createProfileHandlers } from "../../auth/handlers/profile-handlers.js";
 import { createSessionHandlers } from "../../auth/handlers/session-handlers.js";
+import { createSignUpHandlers } from "../../auth/handlers/sign-up-handlers.js";
 import type { AuthEnvironment } from "../../auth/handlers/types.js";
 import { AppError } from "../errors/app-error.js";
 import { resolveClientAddress } from "../handlers/client-address.js";
@@ -46,13 +47,15 @@ function createBusinessHttpApp({ app }: ApiHttpAppProps) {
 }
 
 /**
- * Routes under `/api`. Session routes come first so they stay reachable
- * without a session; every other route passes the authentication gate.
+ * Routes under `/api`. The session and sign-up routes come first so they stay
+ * reachable without a session; every other route passes the authentication
+ * gate.
  */
 export function createApiHttpApp({ app }: ApiHttpAppProps) {
   return new Hono()
     .use("*", requireTrustedOrigin({ services: app.services }))
     .route("/session", createSessionHandlers({ logic: app.logic }))
+    .route("/sign-up", createSignUpHandlers({ logic: app.logic }))
     .route("/", createBusinessHttpApp({ app }));
 }
 
