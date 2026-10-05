@@ -251,6 +251,11 @@ entry to the choice, the reason, and any rule that follows from it.
   - `exactOptionalPropertyTypes`: `name?: string` means the property can be
     absent, not that it can hold `undefined`. When a caller passes a value
     through that can be `undefined`, declare `name?: string | undefined`.
+- **No code uses the `any` type.** `strict` rejects an `any` that TypeScript
+  would infer, and the lint rule `typescript/no-explicit-any` rejects one that
+  code writes. Use `unknown` and narrow it. An `any` that comes out of a
+  library, such as the result of `JSON.parse`, is not rejected: the rules for
+  that need type-aware linting, which is not set up.
 - **The project's name is in three locations.** They are `APP_NAME` in
   `common/src/features/core/utils/app-name.ts` for the name that users read,
   `name` in the root `package.json`, and the database name in `.env.example`.

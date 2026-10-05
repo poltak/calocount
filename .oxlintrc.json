@@ -51,6 +51,7 @@
     ],
     "node/no-process-env": "error",
     "no-console": "error",
+    "typescript/no-explicit-any": "error",
     "architecture/feature-boundaries": [
       "error",
       {
