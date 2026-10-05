@@ -53,7 +53,8 @@ Renovate opens one pull request for each dependency update, and CI runs
 weekly updates replace one large update each year. The rules are in
 [`renovate.json`](../../renovate.json):
 
-- Minor and patch updates merge by themselves when CI passes.
+- Minor and patch updates merge by themselves when CI passes. Renovate does
+  the merge, not GitHub.
 - A major update, and each update of a dependency with a 0.x version, waits
   for a person. A minor version of a 0.x dependency can break its API. These
   are `kysely`, `@hono/zod-validator`, and `@electric-sql/pglite` now.
@@ -77,20 +78,31 @@ Facts to check on the first update of each kind:
 
 ### One-time setup of Renovate
 
-A person with admin rights on the template repository does this:
-
-1. Install the Mend Renovate GitHub App. Select "Only select repositories"
-   and then the template repository. The hosted Community Cloud is free for
-   private repositories. Do not install it on all repositories. The app then
-   starts in silent mode and opens no pull requests.
-2. In the repository settings, turn on "Allow auto-merge". Make the CI check a
-   required status check on `main`. Without a required check, GitHub can merge
-   a Renovate pull request before CI finishes.
+A person with admin rights on the template repository installs the Mend
+Renovate GitHub App. Select "Only select repositories" and then the template
+repository. The hosted Community Cloud is free for private repositories. Do
+not install it on all repositories. The app then starts in silent mode and
+opens no pull requests.
 
 The app opens no onboarding pull request, because the repository already has
 `renovate.json`. Its first run opens an issue named "Dependency Dashboard",
 which lists every update that Renovate found. The log of each run is at
 <https://developer.mend.io>.
+
+No repository setting is necessary. Renovate merges its own pull requests at
+one of its runs, after it sees that each check is green. `renovate.json` turns
+off GitHub's auto-merge with `platformAutomerge`, for two reasons:
+
+- For a private repository, GitHub has "Allow auto-merge" and required status
+  checks only on a paid plan. This organization is on the free plan.
+- GitHub's auto-merge is safe only with a required status check. Without one,
+  GitHub can merge a pull request before CI finishes.
+
+The cost is time. Renovate merges only a branch that is up to date with
+`main`. After each merge it rebases the next pull request, CI runs again, and
+the merge comes at a later run. A week with many updates can take a day or
+more. A project on a paid plan can set `platformAutomerge` to `true`, after it
+makes the CI check a required status check on `main`.
 
 Keep Dependabot alerts on. They are free and do not conflict with Renovate.
 Renovate, not Dependabot, updates the versions: Dependabot does not update
