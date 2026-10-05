@@ -373,9 +373,5 @@
       }
     }
   ],
-  "ignorePatterns": [
-    "all-in-one-app-boilerplate/**",
-    "**/dist/**",
-    "**/coverage/**"
-  ]
+  "ignorePatterns": ["**/dist/**", "**/coverage/**"]
 }

@@ -1,5 +1,4 @@
 {
-  "ignore": ["all-in-one-app-boilerplate/**"],
   "workspaces": {
     ".": {
       "entry": [".agents/hooks/format-edited-files.mjs"],
