@@ -14,7 +14,7 @@ feature must be added to.
 
 ## Workflow
 
-1. Name the feature in kebab-case, such as `patient-records`. Its key in the
+1. Name the feature in kebab-case, such as `reading-lists`. Its key in the
    Storage, Logic, and API collections is the camelCase form.
 2. Create the table, if the feature stores data.
    - Run `pnpm run db:migration:create create-<table>`.
