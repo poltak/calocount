@@ -131,4 +131,10 @@ The repository has no deployment files yet. These facts hold on any host:
 | `pnpm --filter frontend test`         | Run the frontend tests and print the coverage report. |
 
 Frontend development, type checks, and tests build the backend and `common`
-first, because the frontend takes its API types from the backend's build output.
+first, because the commands take the backend's API types and the shared code
+from the build output in `dist`.
+
+An editor needs no build. Each `tsconfig.json` names the other workspaces in
+`references`, so the editor's TypeScript server reads their source. It shows
+correct types after a clone, a checkout, or a pull, also when `dist` is old or
+absent.

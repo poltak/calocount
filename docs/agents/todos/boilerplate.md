@@ -190,6 +190,9 @@ template repository is made.
       page is open, and belongs with item 7.
 - [x] 11. **A React error boundary.** One around the route outlet and one
       around the app. No automated test covers them; item 18 can.
+- [x] 20. **Editor types without a build.** The workspaces are TypeScript
+      project references, so an editor reads their source; see
+      [setup](../setup.md#commands).
 
 ### Template mechanics
 
