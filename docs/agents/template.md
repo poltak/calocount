@@ -48,13 +48,18 @@ After that, cherry-pick single commits.
 
 ## Dependency updates
 
-Renovate opens one pull request for each dependency update, and CI runs
-`pnpm run check`, the browser tests, and the live start check on it. Small
-weekly updates replace one large update each year. The rules are in
+Renovate opens pull requests for dependency updates, and CI runs
+`pnpm run check`, the browser tests, and the live start check on each one.
+Small weekly updates replace one large update each year. The rules are in
 [`renovate.json`](../../renovate.json):
 
-- Minor and patch updates merge by themselves when CI passes. Renovate does
+- Minor and patch updates go into one pull request each week, named "Update
+  minor and patch versions". It merges by itself when CI passes. Renovate does
   the merge, not GitHub.
+- They are one pull request because Renovate merges one branch at a time, and
+  rebases each other branch after a merge. With a pull request for each
+  update, ten updates need ten merges one after the other, and a new CI run
+  on each branch that is left after each merge.
 - A major update, and each update of a dependency with a 0.x version, waits
   for a person. A minor version of a 0.x dependency can break its API. These
   are `kysely`, `@hono/zod-validator`, and `@electric-sql/pglite` now.
@@ -68,6 +73,8 @@ weekly updates replace one large update each year. The rules are in
 - Renovate starts new updates on Monday, from 00:00 to 12:00 UTC. The free
   hosted plan runs a repository every 4 hours. The usual weekly window is 4
   hours, so one late run could miss it and delay the updates for a week.
+- Renovate's limit of 2 new pull requests each hour is off. With only a few
+  runs in the weekly window, the limit left most updates for a later week.
 
 Facts to check on the first update of each kind:
 
@@ -92,6 +99,11 @@ For each assigned pull request:
 3. If CI is red, fix the code on the branch of the pull request, or close the
    pull request. Renovate then ignores that version. The dashboard has a
    checkbox that opens it again.
+
+When the weekly pull request has a red CI, one update in it holds back the
+others. Find the package in the CI log, and add a rule for it at the end of
+`packageRules`: `{ "matchPackageNames": ["<name>"], "groupName": null }`.
+That update then gets a pull request of its own, and the others merge.
 
 The "Dependency Dashboard" issue lists each update and its state.
 

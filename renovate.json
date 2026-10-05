@@ -8,21 +8,9 @@
   },
   "minimumReleaseAge": "3 days",
   "platformAutomerge": false,
+  "prHourlyLimit": 0,
   "assignees": ["poltak"],
   "packageRules": [
-    {
-      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
-      "automerge": true
-    },
-    {
-      "matchCurrentVersion": "<1.0.0",
-      "automerge": false
-    },
-    {
-      "matchPackageNames": ["oxlint", "better-auth", "typescript"],
-      "automerge": false,
-      "labels": ["review-upgrade"]
-    },
     {
       "groupName": "React",
       "matchPackageNames": [
@@ -43,6 +31,22 @@
     {
       "groupName": "Node",
       "matchPackageNames": ["node", "@types/node"]
+    },
+    {
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "groupName": "minor and patch versions",
+      "automerge": true
+    },
+    {
+      "matchCurrentVersion": "<1.0.0",
+      "groupName": null,
+      "automerge": false
+    },
+    {
+      "matchPackageNames": ["oxlint", "better-auth", "typescript"],
+      "groupName": null,
+      "automerge": false,
+      "labels": ["review-upgrade"]
     }
   ]
 }
