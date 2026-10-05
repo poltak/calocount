@@ -1,0 +1,45 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    "schedule:weekly",
+    ":maintainLockFilesWeekly"
+  ],
+  "minimumReleaseAge": "3 days",
+  "packageRules": [
+    {
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "automerge": true
+    },
+    {
+      "matchCurrentVersion": "<1.0.0",
+      "automerge": false
+    },
+    {
+      "matchPackageNames": ["oxlint", "better-auth", "typescript"],
+      "automerge": false,
+      "labels": ["review-upgrade"]
+    },
+    {
+      "groupName": "React",
+      "matchPackageNames": [
+        "react",
+        "react-dom",
+        "@types/react",
+        "@types/react-dom"
+      ]
+    },
+    {
+      "groupName": "Vitest",
+      "matchPackageNames": ["vitest", "@vitest/*"]
+    },
+    {
+      "groupName": "pg",
+      "matchPackageNames": ["pg", "@types/pg"]
+    },
+    {
+      "groupName": "Node",
+      "matchPackageNames": ["node", "@types/node"]
+    }
+  ]
+}
