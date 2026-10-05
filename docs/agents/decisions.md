@@ -106,7 +106,7 @@ entry to the choice, the reason, and any rule that follows from it.
 - **The transport decides the caller's address, not the caller.** Better Auth
   reads the address from request headers, which a caller can forge when no
   proxy is in front. A middleware takes the address from the socket, or from
-  the header named in `SHADOW_CLIENT_ADDRESS_HEADER` behind a proxy. The
+  the header named in `APP_CLIENT_ADDRESS_HEADER` behind a proxy. The
   Service passes it to Better Auth in a private header and removes any value
   the caller sent there. Callers without an address share one count.
 - **Session cookies are `Secure` when `BETTER_AUTH_URL` is HTTPS.** Better Auth
@@ -114,7 +114,7 @@ entry to the choice, the reason, and any rule that follows from it.
 - **Better Auth logs through our logger.** Its own messages, such as a wrong
   password, appear in the same format as ours.
 - **One owner account, created from the command line.** Registration is
-  disabled. `auth:setup-owner` creates the account for `SHADOW_OWNER_EMAIL` and
+  disabled. `auth:setup-owner` creates the account for `APP_OWNER_EMAIL` and
   refuses to replace existing credentials. No default password exists.
 - **Admission is checked on every request.** A valid session for any other email
   gets 403. Accounts and sessions stay ordinary Better Auth records, so a

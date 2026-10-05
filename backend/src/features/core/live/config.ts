@@ -10,7 +10,7 @@ const environmentSchema = z.object({
     const url = new URL(value);
     return ["http:", "https:"].includes(url.protocol) && url.pathname === "/";
   }, "Auth URL must be an HTTP(S) origin without a path"),
-  SHADOW_TRUSTED_ORIGINS: z
+  APP_TRUSTED_ORIGINS: z
     .string()
     .optional()
     .transform((value) =>
@@ -23,9 +23,9 @@ const environmentSchema = z.object({
     )
     .pipe(z.array(z.url())),
   // The single admitted account. Compared case-insensitively.
-  SHADOW_OWNER_EMAIL: z.string().trim().toLowerCase().pipe(z.email()),
+  APP_OWNER_EMAIL: z.string().trim().toLowerCase().pipe(z.email()),
   // Set it only behind a proxy. An empty value counts as unset.
-  SHADOW_CLIENT_ADDRESS_HEADER: z
+  APP_CLIENT_ADDRESS_HEADER: z
     .string()
     .trim()
     .toLowerCase()
@@ -61,13 +61,13 @@ export function readLiveConfig(
     auth: {
       secret: parsed.BETTER_AUTH_SECRET,
       baseUrl: parsed.BETTER_AUTH_URL,
-      trustedOrigins: parsed.SHADOW_TRUSTED_ORIGINS,
+      trustedOrigins: parsed.APP_TRUSTED_ORIGINS,
     },
-    ownerEmail: parsed.SHADOW_OWNER_EMAIL,
+    ownerEmail: parsed.APP_OWNER_EMAIL,
     server: {
       host: parsed.HOST,
       port: parsed.PORT,
-      clientAddressHeader: parsed.SHADOW_CLIENT_ADDRESS_HEADER,
+      clientAddressHeader: parsed.APP_CLIENT_ADDRESS_HEADER,
     },
     log: { format: parsed.LOG_FORMAT, level: parsed.LOG_LEVEL },
   };
