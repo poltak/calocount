@@ -150,3 +150,6 @@ vite.config.ts.timestamp-*
 
 # The embedded PostgreSQL for development
 .data/
+
+# The build and the results of the browser tests
+.browser-test/

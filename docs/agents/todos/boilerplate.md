@@ -150,8 +150,8 @@ start CI. On a private repository, each run uses the plan's Actions minutes.
 
 ## What the template still needs
 
-Checked items are done. Item 18 is the next one to do. Items 12 to 17 wait until the
-template repository is made.
+Checked items are done. Items 12 and 14 to 17 wait until the template
+repository is made.
 
 ### Gaps that stop the first real feature
 
@@ -189,7 +189,7 @@ template repository is made.
       address that the caller cannot forge. A content security policy for the
       page is open, and belongs with item 7.
 - [x] 11. **A React error boundary.** One around the route outlet and one
-      around the app. No automated test covers them; item 18 can.
+      around the app. The browser tests cover both.
 - [x] 20. **Editor types without a build.** The workspaces are TypeScript
       project references, so an editor reads their source; see
       [setup](../setup.md#commands).
@@ -216,11 +216,9 @@ template repository is made.
 
 ### Protection for automatic updates
 
-- [ ] 18. **A browser test of the built app.** No test renders `routes.tsx` or
-      `main.tsx`, so a React Router or Vite major update can pass the check and
-      still break the app. One Playwright test that signs in and opens a page
-      catches this. It also covers the manual checks in
-      [testing](../testing.md).
+- [x] 18. **A browser test of the built app.** `pnpm run test:browser` opens
+      the built frontend in a real browser, and CI runs it on every push; see
+      [testing](../testing.md#browser-tests).
 - [x] 19. **Stricter TypeScript options.** `noUncheckedIndexedAccess`,
       `noImplicitOverride`, and `exactOptionalPropertyTypes` are on; see
       [decisions](../decisions.md#tooling).

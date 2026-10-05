@@ -3,6 +3,7 @@ all-in-one-app-boilerplate/
 .claude/worktrees/
 **/node_modules/
 .data/
+**/.browser-test/
 **/dist/
 **/coverage/
 pnpm-lock.yaml

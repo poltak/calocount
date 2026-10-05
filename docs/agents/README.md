@@ -44,6 +44,7 @@ instructions.
 | A write across two features in one transaction | `backend/src/features/notes/logic/notes-logic.ts`             |
 | The test fixture                               | `frontend/src/features/core/tests/full-application.ts`        |
 | A model integration test                       | `frontend/src/features/auth/ui/auth-logic.test.ts`            |
+| The browser tests                              | `frontend/src/features/core/tests/browser/`                   |
 
 ## Where to add information
 

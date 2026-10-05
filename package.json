@@ -23,6 +23,8 @@
     "unused:check": "knip",
     "typecheck": "pnpm --filter @app/common build && pnpm -r --if-present run typecheck",
     "test": "pnpm run test:hooks && pnpm run test:lint-rules && pnpm -r --if-present run test",
+    "test:browser": "pnpm --filter frontend run test:browser",
+    "test:browser:install": "pnpm --filter frontend exec playwright install --only-shell chromium",
     "test:hooks": "node --test .agents/hooks/*.test.mjs",
     "test:lint-rules": "node --test lint/*.test.mjs",
     "format": "prettier --write .",

@@ -119,14 +119,40 @@ A few files that are not Logic classes have tests of their own:
   there only for behavior of the HTTP app itself. A route that a UI Logic calls
   gets its tests through that Logic.
 
-No test covers these things, which only a real browser can show. Check them by
-hand when changing the code involved:
+## Browser tests
 
-- The client sends cookies to a backend on another origin
-  (`credentials: "include"`).
-- The client joins a configured base URL correctly.
-- The error boundaries show their fallbacks. To check, throw an error in a page
-  component during `pnpm run dev`.
+`pnpm run test:browser` opens the built frontend in a real browser, with
+Playwright. The tests are the `*.spec.ts` files in
+[`frontend/src/features/core/tests/browser/`](../../frontend/src/features/core/tests/browser/).
+Before the first run, `pnpm run test:browser:install` downloads the browser.
+
+They cover what only a real browser can show:
+
+- The build output loads and starts, and React Router changes pages.
+- The browser stores the session cookie from an API on another origin and
+  sends it again, and the client joins the configured base URL correctly.
+- The two error boundaries show their fallbacks and recover.
+
+They do not cover behavior. A UI Logic test does that, with the database
+assertions that a browser test cannot make. Add a browser test only for
+something that no UI Logic test can reach.
+
+How they run:
+
+- The frontend is built with `VITE_API_BASE_URL` set and served as static
+  files on one origin. The test backend listens on another origin. It is the
+  same backend as in the UI Logic tests, with an in-memory database and fake
+  Services for third-party systems, so a run needs no database and no secrets.
+- One backend with one database serves the whole run. The tests in a file
+  therefore run in order, share one page, and each starts where the test
+  before it ended.
+- A test may answer a request itself with `page.route`, but only to produce an
+  answer that the real backend never sends, such as the malformed data that
+  makes a component throw.
+
+`pnpm run check` does not run them. CI runs them after the check, on every
+push. Run them yourself after a change to `routes.tsx`, `main.tsx`,
+`vite.config.ts`, the API client's request options, or an error boundary.
 
 ## Coverage
 

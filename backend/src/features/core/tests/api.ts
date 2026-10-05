@@ -1,3 +1,4 @@
+import { serve, type ServerType } from "@hono/node-server";
 import { createHttpApp } from "../server/http-app.js";
 import { createApp } from "./index.js";
 import { createBrowserTransport } from "./browser-transport.js";
@@ -82,5 +83,56 @@ export async function createTestBackend({
     createBrowserTransport: () =>
       createBrowserTransport({ fetch, origin: new URL(baseUrl).origin }),
     close: () => app.close(),
+  };
+}
+
+/**
+ * Node-only fixture for a test in a real browser, which needs a socket to
+ * call. It is the same test backend, with one new database that holds the
+ * owner, on a port of this machine.
+ */
+export async function startTestBackendServer({
+  owner,
+  port,
+  trustedOrigins,
+}: {
+  owner: OwnerCredentials;
+  port: number;
+  /** The origins of the pages that may call this backend. */
+  trustedOrigins: string[];
+}) {
+  const hostname = "127.0.0.1";
+  const backend = await createTestBackend({
+    template: await createDatabaseTemplate(owner),
+    baseUrl: `http://${hostname}:${port}`,
+    trustedOrigins,
+  });
+
+  let server: ServerType;
+  try {
+    server = await new Promise<ServerType>((resolve, reject) => {
+      const starting = serve(
+        { fetch: backend.httpApp.fetch, hostname, port },
+        () => resolve(starting),
+      );
+      // The usual cause is another process on the port.
+      starting.once("error", reject);
+    });
+  } catch (error) {
+    await backend.close();
+    throw error;
+  }
+
+  return {
+    close: async () => {
+      await new Promise<void>((resolve) => {
+        server.close(() => resolve());
+        // A browser keeps its connections open, and `close` waits for them.
+        if ("closeAllConnections" in server) {
+          server.closeAllConnections();
+        }
+      });
+      await backend.close();
+    },
   };
 }

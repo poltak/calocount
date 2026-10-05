@@ -129,6 +129,8 @@ The repository has no deployment files yet. These facts hold on any host:
 | `pnpm run auth:setup-owner`           | Create the owner account.                             |
 | `pnpm --filter frontend dev`          | Start only the frontend dev server.                   |
 | `pnpm --filter frontend test`         | Run the frontend tests and print the coverage report. |
+| `pnpm run test:browser`               | Run the browser tests of the built frontend.          |
+| `pnpm run test:browser:install`       | Download the browser for the browser tests, once.     |
 
 Frontend development, type checks, and tests build the backend and `common`
 first, because the commands take the backend's API types and the shared code

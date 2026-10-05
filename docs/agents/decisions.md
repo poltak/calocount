@@ -187,6 +187,21 @@ entry to the choice, the reason, and any rule that follows from it.
   in reverse order, so the Logic is cleaned up before the backend closes and no
   request outlives the database. This needs one test at a time within a file,
   so `it.concurrent` is not used.
+- **A few browser tests cover what the other tests cannot.** No other test
+  loads the build output, the route table, or `main.tsx`, so an update to
+  React Router or Vite could pass the check and still break the app.
+  Playwright opens the built frontend and makes one visit: sign in, add a
+  note, reload, change page, see both error boundaries, sign out.
+- **The browser tests use the test backend, not the live one.** The live
+  composition root needs a PostgreSQL, real secrets, and later the real
+  third-party Services. The test root needs none of these, so the tests run
+  the same way on any machine. The cost is that they do not run
+  `server/start.ts`, the live root, or the `pg` driver.
+- **In a browser test, the frontend and the backend have different origins.**
+  The page then calls the API across origins, which also tests the CORS
+  settings, the trusted origin check, the cookie across origins, and the base
+  URL. A setup with one origin tests none of these. That build is in
+  `frontend/.browser-test/`, apart from the build in `frontend/dist`.
 
 ## Tooling
 
