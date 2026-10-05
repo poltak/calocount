@@ -1,0 +1,4 @@
+interface:
+    display_name: 'Start Project'
+    short_description: 'Start a new project from the template repository'
+    default_prompt: 'Use $start-project to set up a new project from this template.'
