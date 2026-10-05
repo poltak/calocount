@@ -29,7 +29,7 @@
     "@hono/node-server": "2.1.1",
     "@hono/zod-validator": "0.9.1",
     "@app/common": "workspace:*",
-    "better-auth": "1.7.6",
+    "better-auth": "1.7.7",
     "hono": "4.13.10",
     "kysely": "0.29.6",
     "pg": "8.23.0",
