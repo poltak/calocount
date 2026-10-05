@@ -4,7 +4,8 @@
   "schedule": ["* 0-11 * * 1"],
   "lockFileMaintenance": {
     "enabled": true,
-    "schedule": ["* 0-11 * * 1"]
+    "schedule": ["* 0-11 * * 1"],
+    "minimumReleaseAge": null
   },
   "minimumReleaseAge": "3 days",
   "platformAutomerge": false,

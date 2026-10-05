@@ -68,8 +68,10 @@ Small weekly updates replace one large update each year. The rules are in
   Better Auth update can change its schema, so compare `AuthTables` in
   `backend/src/features/auth/storage/types.ts` with the new schema.
 - An update is at least 3 days old before Renovate proposes it.
-- The weekly lock file update waits for a person. The 3 day rule does not
-  apply to the indirect dependencies that it changes.
+- The weekly lock file update waits for a person. Renovate cannot apply the 3
+  day rule to the indirect dependencies that it changes, so the config turns
+  the rule off for that pull request. With the rule on, the pull request has
+  a `renovate/stability-days` status that stays pending without end.
 - Renovate starts new updates on Monday, from 00:00 to 12:00 UTC. The free
   hosted plan runs a repository every 4 hours. The usual weekly window is 4
   hours, so one late run could miss it and delay the updates for a week.
