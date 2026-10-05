@@ -300,6 +300,11 @@ entry to the choice, the reason, and any rule that follows from it.
   and `references` in the projects that use them, the editor's TypeScript
   server maps each `dist` declaration file to its source file. `tsc -p` still
   reads `dist`, so every script builds first, as before.
+- **The Node types are a root dependency, as TypeScript is.** One declaration
+  serves each workspace. When only the backend declared them, the frontend
+  used a copy that it got as a peer of Vite. An update of the backend's copy
+  then left the frontend with the old one, and two copies in one type check
+  are an error.
 - **Three TypeScript checks are on in addition to `strict`.** They are cheap
   while the code is small, and each one finds a real class of defect.
   - `noUncheckedIndexedAccess`: a value read by index or by key can be
