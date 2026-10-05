@@ -269,7 +269,7 @@ describe("AuthLogic tests", () => {
 
     expect(logic.state.signInState).toEqual("error");
     expect(logic.state.signInError).toEqual(
-      "This account cannot access Shadow",
+      "This account does not have access",
     );
     expect(logic.state.isSignedIn).toEqual(false);
     expect(logic.state.userId).toEqual(null);

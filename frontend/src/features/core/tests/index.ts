@@ -28,7 +28,7 @@ interface TestAppProps {
 /** Test composition never defaults to a real network request. */
 export function createApp({
   fetch,
-  baseUrl = "http://shadow.test",
+  baseUrl = "http://app.test",
 }: TestAppProps): TestApp {
   const apiAccessEvents = new EventEmitter<ApiAccessEvent>();
   const browserStorage = new MemoryKeyValueStore();

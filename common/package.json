@@ -28,6 +28,10 @@
       "types": "./dist/features/core/services/types.d.ts",
       "default": "./dist/features/core/services/types.js"
     },
+    "./features/core/utils/app-name": {
+      "types": "./dist/features/core/utils/app-name.d.ts",
+      "default": "./dist/features/core/utils/app-name.js"
+    },
     "./features/core/utils/log-level": {
       "types": "./dist/features/core/utils/log-level.d.ts",
       "default": "./dist/features/core/utils/log-level.js"

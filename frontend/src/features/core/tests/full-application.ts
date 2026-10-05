@@ -24,7 +24,7 @@ export async function createFullApplication({
   onTestFinished(() => backend.close());
   const transport = backend.createBrowserTransport();
   if (authenticated) {
-    const signIn = await transport.fetch("http://shadow.test/api/session", {
+    const signIn = await transport.fetch("http://app.test/api/session", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(TEST_OWNER_CREDENTIALS),

@@ -1,3 +1,4 @@
+import { APP_NAME } from "@app/common/features/core/utils/app-name";
 import { Navigate, useLocation } from "react-router";
 import { useAuth } from "./auth-context.js";
 export function LoginPage() {
@@ -22,7 +23,7 @@ export function LoginPage() {
   const error = state.signInError ?? state.loadSessionError;
   return (
     <section className="login-panel">
-      <h1>Sign in to Shadow</h1>
+      <h1>Sign in to {APP_NAME}</h1>
       <form
         onSubmit={(event) => {
           event.preventDefault();

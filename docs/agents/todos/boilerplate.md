@@ -198,9 +198,9 @@ template repository is made.
 
 - [ ] 12. **A `README.md` and a `LICENSE`.** All current documents are for
       agents.
-- [ ] 13. **One location for the name.** `shadow` is in 36 files. Use a neutral
-      package scope such as `@app/common`, and keep the display name and the
-      environment variable prefix in one location each.
+- [x] 13. **Few locations for the name.** The name is in three locations, and
+      everything else uses a neutral name; see
+      [decisions](../decisions.md#tooling).
 - [ ] 14. **Skills for template work.** Add a skill that adds a feature (about
       seven composition files change), a skill that renames a new project, and
       a skill that syncs changes from the template.

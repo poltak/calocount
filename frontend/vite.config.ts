@@ -1,4 +1,5 @@
 import { fileURLToPath } from "node:url";
+import { APP_NAME } from "@app/common/features/core/utils/app-name";
 import react from "@vitejs/plugin-react";
 import { loadEnv, type Plugin } from "vite";
 import { defineConfig } from "vitest/config";
@@ -35,6 +36,14 @@ function holdApiRequestsUntilBackendAnswers(origin: string): Plugin {
   };
 }
 
+/** Write the product name into the page, so `index.html` does not repeat it. */
+function writeAppName(): Plugin {
+  return {
+    name: "write-app-name",
+    transformIndexHtml: (html) => html.replaceAll("%APP_NAME%", APP_NAME),
+  };
+}
+
 export default defineConfig(({ mode }) => {
   // The backend takes HOST and PORT from the process environment, then from
   // the root `.env`. Read them the same way, so the proxy follows the backend.
@@ -45,7 +54,11 @@ export default defineConfig(({ mode }) => {
   const backendOrigin = `http://${env.HOST || "127.0.0.1"}:${env.PORT || "3000"}`;
 
   return {
-    plugins: [react(), holdApiRequestsUntilBackendAnswers(backendOrigin)],
+    plugins: [
+      react(),
+      writeAppName(),
+      holdApiRequestsUntilBackendAnswers(backendOrigin),
+    ],
     server: {
       proxy: {
         "/api": { target: backendOrigin, changeOrigin: true },

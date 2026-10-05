@@ -18,7 +18,7 @@ export interface TestApp extends App {
 /** Compose one backend app with isolated test dependencies. */
 export function createApp({
   db = createDatabase(),
-  authBaseUrl = "http://shadow.test",
+  authBaseUrl = "http://app.test",
   trustedOrigins = [],
 }: {
   db?: Database;

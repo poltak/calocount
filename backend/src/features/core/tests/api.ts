@@ -43,7 +43,7 @@ export async function createDatabaseTemplate(
 /** Node-only fixture: real handlers and validation, with no listening socket. */
 export async function createTestBackend({
   template,
-  baseUrl = "http://shadow.test",
+  baseUrl = "http://app.test",
   trustedOrigins = [],
 }: {
   template: DatabaseTemplate;

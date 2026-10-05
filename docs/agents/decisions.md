@@ -214,6 +214,13 @@ entry to the choice, the reason, and any rule that follows from it.
   After `common` and the backend are built, no step depends on another. Each
   step is a `check:<name>` script. Every step runs to the end even when one
   fails, and the output ends with a list of the steps that failed.
+- **The project's name is in three locations.** They are `APP_NAME` in
+  `common/src/features/core/utils/app-name.ts` for the name that users read,
+  `name` in the root `package.json`, and the database name in `.env.example`.
+  Everything else uses a neutral name: the `@app` package scope, the `APP_`
+  prefix of environment variables, and the `app.test` host in tests. A project
+  made from this repository then changes three lines, and a later change can
+  move between the two repositories without a conflict on the name.
 - **Prettier chosen for formatting** with Agent hooks, format-on-save for popular editors,
   and pre-commit hooks set up. Main reason is for consistently formatted code for ease of reading.
 - **oxlint chosen for linting.** One blank-line rule comes from the stylistic ESLint

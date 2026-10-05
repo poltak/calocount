@@ -2,6 +2,7 @@ import type {
   LoggerServiceInterface,
   LogLevel,
 } from "@app/common/features/core/services/types";
+import { APP_NAME } from "@app/common/features/core/utils/app-name";
 import { betterAuth } from "better-auth";
 import { getMigrations } from "better-auth/db/migration";
 import type { Database } from "../../core/database/database.js";
@@ -48,7 +49,7 @@ export class BetterAuthService implements AuthServiceInterface {
 
   private options() {
     return {
-      appName: "Shadow",
+      appName: APP_NAME,
       database: { db: this.deps.db, type: "postgres" as const },
       secret: this.deps.secret,
       baseURL: this.deps.baseUrl,

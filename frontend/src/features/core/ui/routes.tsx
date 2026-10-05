@@ -1,3 +1,4 @@
+import { APP_NAME } from "@app/common/features/core/utils/app-name";
 import { useMemo } from "react";
 import {
   Link,
@@ -30,7 +31,7 @@ function ProtectedLayout() {
     <>
       <header>
         <Link className="brand" to="/">
-          Shadow
+          {APP_NAME}
         </Link>
         <nav aria-label="Main navigation">
           <NavLink to="/" end>

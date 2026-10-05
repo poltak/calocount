@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createFullApplication } from "./full-application.js";
 
-const ORIGIN = "http://shadow.test";
+const ORIGIN = "http://app.test";
 
 // No UI Logic reaches this behavior of the backend's HTTP app, so these tests
 // send requests through the same transport that the frontend uses.

@@ -24,7 +24,7 @@ export function requireSession({
     if (!logic.authAccess.isAllowed({ user: auth.user })) {
       throw new AppError({
         code: "FORBIDDEN",
-        message: "This account cannot access Shadow",
+        message: "This account does not have access",
       });
     }
 
