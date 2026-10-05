@@ -84,7 +84,6 @@ export class NotesLogic extends Logic<
     });
   }
 
-  /** Create a note from the draft, then empty the draft. */
   async create(): Promise<void> {
     await this.executeTask("create", async () => {
       const { title, body } = this.plugins.draft.state;

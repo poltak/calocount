@@ -74,7 +74,6 @@ export class NoteEditLogic extends Logic<
     });
   }
 
-  /** Save the draft as the note's content, then forget the draft. */
   async save(): Promise<void> {
     await this.executeTask("save", async () => {
       const { title, body } = this.plugins.draft.state;
@@ -91,7 +90,6 @@ export class NoteEditLogic extends Logic<
     });
   }
 
-  /** Give up the unsaved changes. */
   cancel(): void {
     this.plugins.draft.discard();
     this.setState({ isDone: true });

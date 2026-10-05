@@ -18,7 +18,6 @@ function notImplemented(): AppError {
   });
 }
 
-/** Backend lifecycle boundary. No encounter state or operations exist yet. */
 export class EncounterLifecycleLogic extends Logic<
   EncounterLifecycleLogicProps,
   Record<string, never>

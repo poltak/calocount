@@ -4,7 +4,6 @@ import type { AuthUser } from "../services/types.js";
 
 type AuthProfileProps = BackendLogicProps<never, "auth">;
 
-/** Changes to the signed-in user's own profile. */
 export class AuthProfileLogic extends Logic<
   AuthProfileProps,
   Record<string, never>

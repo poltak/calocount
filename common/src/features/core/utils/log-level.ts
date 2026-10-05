@@ -8,7 +8,6 @@ export const LOG_LEVELS = [
   "error",
 ] as const satisfies readonly LogLevel[];
 
-/** True when a logger whose lowest level is `minLevel` keeps an entry at `level`. */
 export function isLogLevelEnabled({
   level,
   minLevel,

@@ -23,7 +23,6 @@ interface OwnerCredentials {
  */
 export interface DatabaseTemplate {
   snapshot: ArrayBuffer;
-  /** The owner account as the template holds it. */
   owner: AuthUser;
 }
 
@@ -109,7 +108,6 @@ export async function startTestBackendServer({
 }: {
   owner: OwnerCredentials;
   port: number;
-  /** The origins of the pages that may call this backend. */
   trustedOrigins: string[];
   /** Who can have an account. Use the mode that the project runs in. */
   accountMode?: AccountMode;

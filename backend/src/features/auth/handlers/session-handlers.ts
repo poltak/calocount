@@ -14,7 +14,6 @@ interface SessionHandlerProps {
   logic: Pick<BackendLogic, "authSession">;
 }
 
-/** Public routes that start and end the caller's session. */
 export function createSessionHandlers({ logic }: SessionHandlerProps) {
   return new Hono<RequestEnvironment>()
     .post("/", validator("json", signInSchema), async (context) => {

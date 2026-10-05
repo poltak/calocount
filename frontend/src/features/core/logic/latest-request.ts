@@ -16,7 +16,6 @@ export class LatestRequest {
     return AbortSignal.any([this.ownerSignal, controller.signal]);
   }
 
-  /** Cancel the request in flight, if there is one. */
   cancel(): void {
     this.controller?.abort();
     this.controller = undefined;

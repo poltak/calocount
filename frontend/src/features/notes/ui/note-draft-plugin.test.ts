@@ -20,7 +20,6 @@ async function setupTest(params: LogicTestParams = {}) {
   );
   return {
     ...test,
-    /** The browser storage entry of this draft. */
     draftKey: `notes.draft.${test.owner.id}.${NOTE_ID}`,
   };
 }

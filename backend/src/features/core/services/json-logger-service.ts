@@ -7,7 +7,6 @@ import type {
 import { isLogLevelEnabled } from "@app/common/features/core/utils/log-level";
 
 interface JsonLoggerServiceDeps {
-  /** The logger drops entries below this level. */
   minLevel: LogLevel;
 }
 

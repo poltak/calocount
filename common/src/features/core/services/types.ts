@@ -1,4 +1,3 @@
-/** Severity of a log entry, from least to most severe. */
 export type LogLevel = "debug" | "info" | "warn" | "error";
 
 /** Details of a log entry. Pass an `Error` as a value to keep its stack. */

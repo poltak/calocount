@@ -2,5 +2,4 @@
 
 import type { AIServiceInterface } from "./types.js";
 
-/** Placeholder for the live AI integration. */
 export class PlaceholderAIService implements AIServiceInterface {}

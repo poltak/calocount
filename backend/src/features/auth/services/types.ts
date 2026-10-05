@@ -9,7 +9,6 @@ export interface AuthSession {
   session: { id: string; userId: string; expiresAt: Date };
 }
 
-/** Settings the auth implementation needs. The live root reads them from the environment. */
 export interface AuthConfiguration {
   /** Session secret, at least 32 characters. */
   secret: string;
@@ -60,13 +59,11 @@ export interface AuthServiceInterface {
   signInWithPassword(
     props: SessionRequest & { email: string; password: string },
   ): Promise<PasswordSignInResult>;
-  /** Make an account for a visitor and start its session. */
   signUpWithPassword(
     props: SessionRequest & { email: string; name: string; password: string },
   ): Promise<PasswordSignUpResult>;
   /** End the caller's session. Succeeds when there is no session. */
   signOut(props: SessionRequest): Promise<SessionChange>;
-  /** Rename the user who owns the session in the request headers. */
   updateName(props: { name: string; requestHeaders: Headers }): Promise<void>;
   migrate(): Promise<void>;
   /**

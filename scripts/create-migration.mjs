@@ -34,7 +34,6 @@ export const migration = defineMigration({
 });
 `;
 
-/** The list module's source for the given migration files, oldest first. */
 function listSource(files) {
   const entries = files.map((file) => {
     const [, timestamp, name] = file.match(MIGRATION_FILE);

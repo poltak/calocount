@@ -25,6 +25,14 @@ project information. Read the documents that apply to the task.
 - Do not write unit tests for modules. Full app integration tests should be written which fit our standards.
   Read [docs/agents/testing.md](docs/agents/testing.md) for more context.
 - Do not add any new dependencies without explicit user authorization.
+- Write a comment only for what the code cannot say: the reason for a choice,
+  a constraint that other code relies on, or what breaks when the code changes.
+  Do not write a comment that the name, the types, or the next line already
+  say. This applies to JSDoc also.
+  - Keep: `// Without this listener, a failed connection stops the process.`
+  - Do not write: `/** Create the account. */` on `createAccount()`.
+  - When a comment only says what the code does, delete it, or give the code a
+    better name.
 
 ## Writing
 

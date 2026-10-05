@@ -4,7 +4,6 @@ import { TEST_OWNER_CREDENTIALS } from "./test-owner.js";
 
 declare module "vitest" {
   export interface ProvidedContext {
-    /** The database that every test database starts from. */
     databaseTemplate: DatabaseTemplate;
   }
 }

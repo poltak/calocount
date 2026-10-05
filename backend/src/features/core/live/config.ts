@@ -73,7 +73,6 @@ const environmentSchema = environmentVariablesSchema.transform(
   },
 );
 
-/** Live settings, parsed once from the environment and passed to the App. */
 export interface LiveConfig {
   databaseUrl: string;
   auth: AuthConfiguration;
@@ -81,7 +80,6 @@ export interface LiveConfig {
   server: {
     host: string;
     port: number;
-    /** The request header in which a proxy reports the caller's address. */
     clientAddressHeader?: string | undefined;
   };
   log: { format: "json" | "pretty"; level: LogLevel };

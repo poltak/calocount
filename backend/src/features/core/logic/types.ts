@@ -1,6 +1,5 @@
 import type { BackendServices, BackendStorage } from "../types.js";
 
-/** Constructor dependencies shared by backend Logic classes. */
 export interface BackendLogicProps<
   StorageKeys extends keyof BackendStorage = never,
   ServiceKeys extends keyof BackendServices = never,

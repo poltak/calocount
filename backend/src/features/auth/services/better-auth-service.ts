@@ -37,7 +37,6 @@ const CLIENT_ADDRESS_HEADER = "x-client-address";
 const FALSE_RATE_LIMIT_TYPE_WARNING =
   "Field lastRequest in table rateLimit has a different type in the database";
 
-/** The SDK's error code for a sign-up with an email that has an account. */
 const EMAIL_TAKEN_CODE = "USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL";
 
 /** Embedded authentication. Better Auth owns its auth-table persistence. */

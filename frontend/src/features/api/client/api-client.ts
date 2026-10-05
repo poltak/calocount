@@ -37,7 +37,6 @@ export function encodeApiParam(value: string): string {
   return encodeURIComponent(value);
 }
 
-/** One field of the request that the backend refused, with a message for the user. */
 interface ApiRequestIssue {
   path: string;
   message: string;

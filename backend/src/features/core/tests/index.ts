@@ -10,16 +10,13 @@ import { FakePatientRecordsService } from "../../patient-records/services/fake-p
 import { FakeTranscriptionService } from "../../transcription/services/fake-transcription-service.js";
 import type { App, BackendServices } from "../types.js";
 
-/** Tests may inspect the isolated database and the logged entries directly. */
 export interface TestApp extends App {
   db: Database;
   services: BackendServices & { logger: MemoryLoggerService };
 }
 
-/** The mode of the account policy. A test selects one; see `AccountPolicy`. */
 export type AccountMode = AccountPolicy["mode"];
 
-/** Compose one backend app with isolated test dependencies. */
 export function createApp({
   db = createDatabase(),
   authBaseUrl = "http://app.test",

@@ -9,7 +9,6 @@ import { JsonLoggerService } from "../services/json-logger-service.js";
 import type { App } from "../types.js";
 import { readLiveConfig, type LiveConfig } from "./config.js";
 
-/** Compose one backend app with live dependencies. */
 export function createApp({
   config = readLiveConfig(),
 }: { config?: LiveConfig } = {}): App {

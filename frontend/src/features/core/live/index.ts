@@ -14,11 +14,9 @@ import type { BrowserKeyValueStore } from "../storage/types.js";
 interface LiveAppProps extends ApiClientProps {
   /** The browser's `localStorage`. Only `main.tsx` may name that global. */
   browserStorage: BrowserKeyValueStore;
-  /** The browser console shows entries at this level and above. */
   logLevel?: LogLevel;
 }
 
-/** Compose one frontend app with live dependencies. */
 export function createApp({
   browserStorage,
   logLevel = "warn",

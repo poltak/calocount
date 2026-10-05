@@ -2,5 +2,4 @@
 
 import type { PatientRecordsServiceInterface } from "./types.js";
 
-/** Placeholder for a deterministic patient records implementation in tests. */
 export class FakePatientRecordsService implements PatientRecordsServiceInterface {}

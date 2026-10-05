@@ -10,7 +10,6 @@ export class FakeWindowFocusService implements WindowFocusServiceInterface {
     return () => this.listeners.delete(onFocus);
   }
 
-  /** Simulate the user returning to the window. */
   focus(): void {
     for (const listener of Array.from(this.listeners)) {
       listener();

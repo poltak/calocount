@@ -10,7 +10,6 @@ import {
 const SAVED = { title: "Saved title", body: "Saved body" };
 const CHANGED = { title: "Changed title", body: "Changed body" };
 
-/** Create a note as the signed-in user does, through the API, and return its ID. */
 async function seedNote({ frontend }: FullApplication): Promise<string> {
   const response = await frontend.api.notes.$post({ json: SAVED });
   if (response.status !== 201) {
@@ -38,7 +37,6 @@ async function setupTest({
   return {
     ...test,
     noteId,
-    /** The browser storage entry of this note's draft. */
     draftKey: `notes.draft.${test.owner.id}.${noteId}`,
   };
 }
@@ -51,7 +49,6 @@ function readNotes(db: TestDatabase) {
     .execute();
 }
 
-/** When the note was made and when it last changed, as the database holds them. */
 function readNoteTimes(db: TestDatabase, id: string) {
   return db
     .selectFrom("note")

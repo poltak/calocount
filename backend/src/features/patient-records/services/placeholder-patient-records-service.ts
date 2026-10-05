@@ -2,5 +2,4 @@
 
 import type { PatientRecordsServiceInterface } from "./types.js";
 
-/** Placeholder for the live patient records integration. */
 export class PlaceholderPatientRecordsService implements PatientRecordsServiceInterface {}

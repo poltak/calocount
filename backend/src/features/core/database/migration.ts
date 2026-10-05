@@ -1,6 +1,5 @@
 import type { Kysely } from "kysely";
 
-/** One step in the history of the database schema. */
 export interface DatabaseMigration {
   /**
    * The migration file's name without its extension, such as

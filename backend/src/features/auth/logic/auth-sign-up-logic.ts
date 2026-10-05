@@ -17,7 +17,6 @@ const SIGN_UP_CLOSED = new AppError({
   message: "Sign-up is closed",
 });
 
-/** Lets a visitor make an account, when the account policy permits it. */
 export class AuthSignUpLogic extends Logic<
   AuthSignUpProps,
   Record<string, never>
@@ -31,7 +30,6 @@ export class AuthSignUpLogic extends Logic<
     return { isOpen: this.deps.accountPolicy.mode === "openSignUp" };
   }
 
-  /** Make the account and start its session. */
   async signUp(
     props: SessionRequest & { email: string; name: string; password: string },
   ): Promise<{ user: AuthUser } & SessionChange> {

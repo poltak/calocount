@@ -1,14 +1,9 @@
-/** A request the test is holding back. It continues when the test releases it. */
 interface HeldRequest {
   /** Resolves when a request has arrived at the hold. */
   reached: Promise<void>;
   release(): void;
 }
 
-/**
- * The function a simulated browser uses to send requests to the backend, plus
- * controls for the timing and failure cases a test needs to reproduce.
- */
 export interface BrowserTransport {
   fetch: typeof globalThis.fetch;
   /** Hold the next request before the backend receives it. */
@@ -31,7 +26,6 @@ interface Hold {
   released: Promise<void>;
 }
 
-/** Minimal same-origin cookie transport for in-process application tests. */
 export function createBrowserTransport({
   fetch,
   origin,

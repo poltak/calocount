@@ -1,7 +1,6 @@
 import type { AppendOnlyTable } from "../../core/database/standard-columns.js";
 
 interface ActivityTable extends AppendOnlyTable {
-  /** The user who did the action. */
   userId: string;
   /** What the user did, as `<subject>.<verb>`, such as `note.created`. */
   action: string;

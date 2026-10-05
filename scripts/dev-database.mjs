@@ -65,7 +65,6 @@ function isListening({ host, port }) {
   });
 }
 
-/** Start the embedded PostgreSQL for the URL's port, user, and database. */
 async function startEmbeddedPostgres(url) {
   const user = decodeURIComponent(url.username);
   const password = decodeURIComponent(url.password);
@@ -111,7 +110,6 @@ async function startEmbeddedPostgres(url) {
   return postgres;
 }
 
-/** Stop the embedded PostgreSQL if it runs, and delete its data. */
 async function resetEmbeddedPostgres() {
   const pidFile = path.join(dataDirectory, "postmaster.pid");
   if (existsSync(pidFile)) {

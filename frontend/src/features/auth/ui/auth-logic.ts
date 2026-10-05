@@ -25,9 +25,7 @@ interface AuthState {
   /** The fields that the sign-in form and the sign-up form share. */
   email: string;
   password: string;
-  /** The name field, which only the sign-up form has. */
   signUpName: string;
-  /** True when the backend lets a visitor make an account. */
   isSignUpOpen: boolean;
   loadSessionState: TaskState;
   loadSessionError: string | null;
@@ -162,7 +160,6 @@ export class AuthLogic extends Logic<AuthProps, AuthState> {
     });
   }
 
-  /** Ask the backend if a visitor can make an account. */
   async loadSignUpStatus(): Promise<void> {
     await this.executeTask("loadSignUpStatus", async () => {
       const response = await this.deps.api["sign-up"].$get(undefined, {

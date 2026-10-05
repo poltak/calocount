@@ -48,7 +48,6 @@ interface ColumnRow {
   default: string | null;
 }
 
-/** The tables that the standard columns do not apply to. */
 function isExemptTable(table: string): boolean {
   return (
     (SDK_TABLES as readonly string[]).includes(table) ||

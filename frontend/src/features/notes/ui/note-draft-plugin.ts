@@ -56,7 +56,6 @@ export class NoteDraftPlugin extends LogicPlugin<
     }
   }
 
-  /** Empty the form and forget the draft, after its content was saved or given up. */
   discard(): void {
     this.deps.storage.notesDrafts.remove(this.deps.owner);
     this.setState(EMPTY);

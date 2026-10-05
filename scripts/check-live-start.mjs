@@ -30,7 +30,6 @@ const WITH_DATABASE = "--with-database";
 // then counts for this address, not for a person who uses the same database.
 const CALLER_ADDRESS = "192.0.2.10";
 
-/** Run this file again behind the database script, with the example configuration. */
 function runBehindDatabase() {
   const example = parseEnv(
     readFileSync(path.join(root, ".env.example"), "utf8"),
@@ -66,7 +65,6 @@ function runBehindDatabase() {
   child.once("exit", (code) => process.exit(code ?? 1));
 }
 
-/** Resolve with the server's URL when its log reports that it listens. */
 function waitForServerUrl({ server, exited }) {
   return new Promise((resolve, reject) => {
     let pending = "";
@@ -119,7 +117,6 @@ async function closeDatabaseConnections() {
   }
 }
 
-/** Ask the readiness route until it answers 200, for up to 5 seconds. */
 async function waitUntilReady(url) {
   let status;
   for (let attempt = 0; attempt < 50; attempt += 1) {
@@ -173,7 +170,6 @@ async function checkServer({ server, exited }) {
   }
 }
 
-/** Start the server against the database that answers now, and check it. */
 async function runCheck() {
   const server = spawn(
     process.execPath,

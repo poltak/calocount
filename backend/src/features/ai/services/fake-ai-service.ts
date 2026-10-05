@@ -2,5 +2,4 @@
 
 import type { AIServiceInterface } from "./types.js";
 
-/** Placeholder for a deterministic AI implementation in tests. */
 export class FakeAIService implements AIServiceInterface {}

@@ -20,7 +20,6 @@ export interface FrontendServices extends FrontendCoreServices {
   windowFocus: WindowFocusServiceInterface;
 }
 
-/** Services and Storage shared by one running frontend app. */
 export interface App {
   api: BackendApi;
   apiAccessEvents: ApiAccessEvents;

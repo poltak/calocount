@@ -7,7 +7,6 @@ export interface ErrorFallbackProps {
 
 interface ErrorBoundaryProps {
   children: ReactNode;
-  /** Shown in place of the children after one of them fails to render. */
   Fallback: ComponentType<ErrorFallbackProps>;
   /** The children render again when this value changes, such as on navigation. */
   resetKey?: unknown;

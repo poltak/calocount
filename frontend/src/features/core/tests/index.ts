@@ -7,10 +7,6 @@ import { NotesDraftStorage } from "../../notes/storage/notes-draft-storage.js";
 import { FakeWindowFocusService } from "../../window-focus/services/fake-window-focus-service.js";
 import { MemoryKeyValueStore } from "./memory-key-value-store.js";
 
-/**
- * Tests can drive fake Services, read the logged entries, and read and write
- * the browser storage directly.
- */
 export interface TestApp extends App {
   browserStorage: MemoryKeyValueStore;
   services: {

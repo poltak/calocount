@@ -16,7 +16,6 @@ interface SignUpHandlerProps {
   logic: Pick<BackendLogic, "authSignUp">;
 }
 
-/** Public routes for a visitor who has no account. */
 export function createSignUpHandlers({ logic }: SignUpHandlerProps) {
   return new Hono<RequestEnvironment>()
     .get("/", (context) => context.json(logic.authSignUp.getStatus()))

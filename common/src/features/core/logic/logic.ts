@@ -38,7 +38,6 @@ export class InitializationCancelledError extends Error {
 type LifecycleState =
   "new" | "initializing" | "initialized" | "failed" | "cleaning" | "cleaned";
 
-/** The progress of one async operation, held in Logic state for the UI. */
 export type TaskState = "pristine" | "running" | "success" | "error";
 
 type Exactly<Actual, Expected> = [Actual] extends [Expected]
@@ -111,7 +110,6 @@ function readFieldErrors(error: unknown): TaskFieldErrors | null {
   return Object.keys(fieldErrors).length > 0 ? fieldErrors : null;
 }
 
-/** Stateful application logic with explicit state, dependencies, and lifecycle. */
 export abstract class Logic<
   Deps,
   State extends object,

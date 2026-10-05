@@ -7,7 +7,6 @@ import type {
 } from "./types.js";
 
 interface ConsoleLoggerServiceDeps {
-  /** The logger drops entries below this level. */
   minLevel: LogLevel;
 }
 

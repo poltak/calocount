@@ -7,7 +7,6 @@ const NOTE_COLUMNS = ["id", "title", "body", "createdAt", "updatedAt"] as const;
 export class NotesStorage {
   constructor(private readonly deps: BackendStorageProps) {}
 
-  /** The user's notes, with the most recently changed one first. */
   listForUser({ userId }: { userId: string }): Promise<Note[]> {
     return this.deps.db
       .selectFrom("note")
@@ -18,7 +17,6 @@ export class NotesStorage {
       .execute();
   }
 
-  /** Returns `undefined` when the user has no such note. */
   findForUser({
     userId,
     id,
@@ -42,7 +40,6 @@ export class NotesStorage {
       .executeTakeFirstOrThrow();
   }
 
-  /** Returns the changed note, or `undefined` when the user has no such note. */
   update({
     userId,
     id,

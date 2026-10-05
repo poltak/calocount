@@ -1,6 +1,5 @@
 import { useOutletContext } from "react-router";
 
-/** What each page behind the session gate knows about the signed-in user. */
 export interface SignedInUser {
   id: string;
 }

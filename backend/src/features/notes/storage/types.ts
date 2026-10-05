@@ -12,5 +12,4 @@ export interface NotesTables {
   note: NoteTable;
 }
 
-/** A note as its owner sees it. */
 export type Note = Omit<Selectable<NoteTable>, "userId">;

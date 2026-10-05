@@ -20,7 +20,6 @@ function readUser(db: TestDatabase, email: string) {
     .executeTakeFirst();
 }
 
-/** The email of every account, oldest first. */
 async function readUserEmails(db: TestDatabase) {
   const users = await db
     .selectFrom("user")
@@ -48,14 +47,12 @@ async function readAttemptCounts(db: TestDatabase, route: string) {
   return rows.map((row) => row.count);
 }
 
-/** A visitor who has no account. */
 const VISITOR = {
   name: "New User",
   email: "new-user@example.test",
   password: "a-test-password-for-sign-up",
 };
 
-/** A visitor at the sign-up form, in the mode that lets a visitor sign up. */
 function setupSignUpTest(params: LogicTestParams = {}) {
   return setupTest({
     authenticated: false,

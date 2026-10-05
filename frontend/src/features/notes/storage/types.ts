@@ -1,4 +1,3 @@
-/** The fields of a note form that the user has not saved yet. */
 export interface NoteDraft {
   title: string;
   body: string;

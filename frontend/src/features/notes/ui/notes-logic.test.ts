@@ -22,7 +22,6 @@ function readNotes(db: TestDatabase) {
     .execute();
 }
 
-/** What the activity feature recorded, oldest first. */
 function readActivity(db: TestDatabase) {
   return db
     .selectFrom("activity")
@@ -31,7 +30,6 @@ function readActivity(db: TestDatabase) {
     .execute();
 }
 
-/** Create a note as the signed-in user does, through the API. */
 async function seedNote(
   { frontend }: Pick<FullApplication, "frontend">,
   content: { title: string; body: string },
@@ -44,7 +42,6 @@ async function seedNote(
   return note;
 }
 
-/** The browser storage entry of the draft for a new note. */
 function newNoteDraftKey({ owner }: Pick<FullApplication, "owner">) {
   return `notes.draft.${owner.id}.new`;
 }

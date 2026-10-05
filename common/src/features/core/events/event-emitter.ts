@@ -2,7 +2,6 @@ export type EventListener<Event> = (event: Event) => void | Promise<void>;
 
 export type Unsubscribe = () => void;
 
-/** A small typed event emitter for application logic. */
 export class EventEmitter<Event> {
   private readonly listeners = new Set<EventListener<Event>>();
 

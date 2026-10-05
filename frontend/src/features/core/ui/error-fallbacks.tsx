@@ -1,6 +1,5 @@
 import type { ErrorFallbackProps } from "./error-boundary.js";
 
-/** Replaces one page after it failed to render. The header and navigation stay usable. */
 export function PageErrorFallback({ reset }: ErrorFallbackProps) {
   return (
     <section>
@@ -11,7 +10,6 @@ export function PageErrorFallback({ reset }: ErrorFallbackProps) {
   );
 }
 
-/** Replaces the whole app after a failure that no page boundary caught. */
 export function AppErrorFallback({ reset }: ErrorFallbackProps) {
   return (
     <div className="app-shell">

@@ -3,7 +3,6 @@ import { Kysely, PGliteDialect } from "kysely";
 
 import type { Database, DatabaseSchema } from "./database.js";
 
-/** A copy of one database's files, used to start other databases. */
 export type DatabaseSnapshot = Awaited<ReturnType<PGlite["dumpDataDir"]>>;
 
 /**
@@ -20,7 +19,6 @@ export function createDatabase({
   });
 }
 
-/** Build a database with `prepare` and return a snapshot of the result. */
 export async function createDatabaseSnapshot(
   prepare: (db: Database) => Promise<void>,
 ): Promise<DatabaseSnapshot> {

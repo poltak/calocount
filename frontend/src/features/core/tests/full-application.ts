@@ -43,7 +43,6 @@ export async function createFullApplication({
   return {
     frontend: createApp({ fetch: transport.fetch }),
     backend: backend.app,
-    /** Controls for the requests the frontend sends. */
     transport,
     /** The owner account as the database holds it at the start of the test. */
     owner: backend.owner,
@@ -52,7 +51,6 @@ export async function createFullApplication({
 
 export type FullApplication = Awaited<ReturnType<typeof createFullApplication>>;
 
-/** The test's own database, for reading and changing rows directly. */
 export type TestDatabase = FullApplication["backend"]["db"];
 
 export interface LogicTestParams extends FullApplicationParams {

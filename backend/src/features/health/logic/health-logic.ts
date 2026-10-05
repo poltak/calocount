@@ -4,7 +4,6 @@ import type { BackendLogicProps } from "../../core/logic/types.js";
 
 type HealthProps = BackendLogicProps<"health", "logger">;
 
-/** Reports whether this instance can serve requests. */
 export class HealthLogic extends Logic<HealthProps, Record<string, never>> {
   constructor(deps: HealthProps) {
     super({ deps, initialState: {} });

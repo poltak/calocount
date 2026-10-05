@@ -9,7 +9,6 @@ interface NoteFormFieldsProps {
   disabled: boolean;
 }
 
-/** The title and text fields that the create form and the edit form share. */
 export function NoteFormFields({
   draft,
   fieldErrors,
