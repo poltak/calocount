@@ -53,12 +53,6 @@ h1 {
 p {
   line-height: 1.6;
 }
-.counter {
-  display: block;
-  font-size: 56px;
-  font-variant-numeric: tabular-nums;
-  margin: 24px 0;
-}
 button {
   font: inherit;
   cursor: pointer;

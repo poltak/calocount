@@ -2,13 +2,13 @@ import { APP_NAME } from "@app/common/features/core/utils/app-name";
 import { useMemo } from "react";
 import {
   Link,
+  Navigate,
   NavLink,
   Outlet,
   Route,
   Routes,
   useLocation,
 } from "react-router";
-import { CounterPage } from "../../examples/ui/counter-page.js";
 import { NoteEditPage } from "../../notes/ui/note-edit-page.js";
 import { NotesPage } from "../../notes/ui/notes-page.js";
 import { AuthProvider, useAuth } from "../../auth/ui/auth-context.js";
@@ -34,9 +34,6 @@ function ProtectedLayout() {
           {APP_NAME}
         </Link>
         <nav aria-label="Main navigation">
-          <NavLink to="/" end>
-            Counter
-          </NavLink>
           <NavLink to="/notes">Notes</NavLink>
         </nav>
         <div className="session-actions">
@@ -70,7 +67,8 @@ export function AppRoutes() {
           <Route path="/sign-up" element={<SignUpPage />} />
           <Route element={<SessionGate />}>
             <Route element={<ProtectedLayout />}>
-              <Route path="/" element={<CounterPage />} />
+              {/* The app has no start page of its own yet. */}
+              <Route path="/" element={<Navigate to="/notes" replace />} />
               <Route path="/notes" element={<NotesPage />} />
               <Route path="/notes/:noteId" element={<NoteEditPage />} />
               <Route
@@ -78,7 +76,7 @@ export function AppRoutes() {
                 element={
                   <section>
                     <h1>Page not found</h1>
-                    <Link to="/">Go to the counter example</Link>
+                    <Link to="/notes">Go to your notes</Link>
                   </section>
                 }
               />

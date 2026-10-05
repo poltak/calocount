@@ -70,20 +70,15 @@ test("should keep the session and a new note across a reload", async () => {
   await expect(note).toContainText(NOTE.body);
 });
 
-test("should open another page from the navigation without a page load", async () => {
+test("should open another page from a link without a page load", async () => {
   let pageLoads = 0;
   page.on("load", () => (pageLoads += 1));
 
-  await page.getByRole("link", { name: "Counter" }).click();
+  await page.getByRole("link", { name: "Edit" }).click();
 
-  await expect(page).toHaveURL(/\/$/);
-  await expect(
-    page.getByRole("heading", { name: "Counter example" }),
-  ).toBeVisible();
-
-  await page.getByRole("button", { name: "Increase" }).click();
-
-  await expect(page.getByLabel("Count")).toHaveText("1");
+  await expect(page).toHaveURL(/\/notes\/[0-9a-f-]{36}$/);
+  await expect(page.getByRole("heading", { name: "Edit note" })).toBeVisible();
+  await expect(page.getByLabel("Title")).toHaveValue(NOTE.title);
   expect(pageLoads).toEqual(0);
   expect(uncaughtErrors).toEqual([]);
 });
@@ -101,13 +96,15 @@ test("should show a fallback in place of a page that fails to render", async () 
     }),
   );
 
-  await page.getByRole("link", { name: "Notes" }).click();
+  await page.getByRole("link", { name: "Notes", exact: true }).click();
 
   await expect(
     page.getByRole("heading", { name: "This page failed to load" }),
   ).toBeVisible();
   // The header is outside the failed page, so it still works.
-  await expect(page.getByRole("link", { name: "Counter" })).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Notes", exact: true }),
+  ).toBeVisible();
   await expect(page.getByRole("button", { name: "Sign out" })).toBeEnabled();
 
   await page.unroute("**/api/notes");
