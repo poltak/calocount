@@ -139,7 +139,9 @@ Facts to check on the first update of each kind:
   one pull request. `scripts/check-node-version.mjs` fails the check when they
   differ.
 - A pnpm update must change `packageManager`, `devEngines.packageManager`, and
-  the `version` input of `pnpm/action-setup` in the CI workflow.
+  the `version` input of `pnpm/action-setup` in each CI workflow.
+  `scripts/check-pnpm-version.mjs` fails the check when a `version` input
+  differs from `packageManager`. It does not read `devEngines.packageManager`.
 - `hono` is in two workspaces. Both must stay at the same version.
 
 ### What a person does

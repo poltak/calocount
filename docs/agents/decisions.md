@@ -334,6 +334,12 @@ entry to the choice, the reason, and any rule that follows from it.
   direct dependencies. The cost is that the project does not get the
   template's updates of indirect dependencies. A project with dependencies of
   its own has a different lockfile, and no merge of the two files is correct.
+- **`pnpm run check` compares the pnpm version in each CI workflow with
+  `packageManager`.** A cherry-pick can change one of several equal lines and
+  report no conflict. A project took the template's three CI jobs before the
+  template's pnpm update. The sync then gave the new version to one job of
+  three, and the pnpm setup step failed in the other two. Only CI found it,
+  because no other check reads a workflow file.
 - **Swamp's telemetry is off for the repository.** `telemetryDisabled: true`
   in `.swamp.yaml` applies to each person who runs Swamp here. With telemetry
   on, Swamp sends the names of commands, workflows, and steps to

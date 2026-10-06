@@ -84,6 +84,10 @@ what the template changed, and its message gives the reason.
   project, such as one that removes a file that the project uses. Run
   `pnpm run template:sync plan` first when you do not know the new commits,
   and leave a commit out with `skip` before `apply`.
+- A project can have a template commit before an older one. The change of
+  the older commit can then go to only one of several equal lines, with no
+  conflict. After a sync that changed a configuration file, compare the file
+  with the template's file: `git diff <template remote>/main -- <file>`.
 - A template migration has a timestamp. The project's migrator accepts one
   that is older than a migration that already ran, so take it as it is. Do not
   rename it.
