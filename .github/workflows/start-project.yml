@@ -1,0 +1,84 @@
+name: Start project
+
+# `scripts/start-project.mjs` changes files of the template by their text, so a
+# change to one of those files can break it. This workflow makes a project
+# from the commit and runs each check on the project. It uses the open sign-up
+# mode, because that mode makes every change of the other mode and two more.
+#
+# It runs only for the files that the script reads or changes. Add a file to
+# both lists below when the script gets a change for it.
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/start-project.yml
+      - scripts/start-project.mjs
+      - scripts/template-files.mjs
+      - scripts/template-paths.json
+      - package.json
+      - .swamp.yaml
+      - .env.example
+      - README.md
+      - common/src/features/core/utils/app-name.ts
+      - docs/agents/README.md
+      - frontend/src/features/core/tests/browser/global-setup.ts
+  pull_request:
+    paths:
+      - .github/workflows/start-project.yml
+      - scripts/start-project.mjs
+      - scripts/template-files.mjs
+      - scripts/template-paths.json
+      - package.json
+      - .swamp.yaml
+      - .env.example
+      - README.md
+      - common/src/features/core/utils/app-name.ts
+      - docs/agents/README.md
+      - frontend/src/features/core/tests/browser/global-setup.ts
+
+permissions:
+  contents: read
+
+concurrency:
+  group: start-project-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  start-project:
+    name: Start a project and check it
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          # The script records the last commit of `main` that the clone has.
+          fetch-depth: 0
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 12.8.2
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Turn the clone into a project
+        run: >-
+          pnpm exec node scripts/start-project.mjs prepare
+          --project-name ci-project
+          --product-name "CI Project"
+          --origin-url https://example.invalid/ci-project.git
+          --account-mode open-sign-up
+
+      - name: Run checks
+        run: pnpm run check
+
+      - name: Install the browser for the browser tests
+        run: pnpm run test:browser:install
+
+      - name: Run browser tests
+        run: pnpm run test:browser --forbid-only
+
+      - name: Start the live server
+        run: pnpm run test:live-start

@@ -1,0 +1,145 @@
+# Run it in a new clone of the template, from the root of the clone:
+#
+#   swamp workflow run start-project \
+#     --input projectName=<name> --input productName="<name>" \
+#     --input originUrl=<url>
+#
+# Each step runs a script of this repository, and the logic is in the scripts.
+# `scripts/start-project.mjs` describes them. The last step removes that
+# script and this file, because a project has no use for them.
+id: 9b16d14a-6c99-4bec-8762-a1a8cd19fe13
+name: start-project
+description: >-
+  Turn a new clone of the template into a project: set its remotes, its names,
+  and its account mode, remove the files that only the template needs, run
+  each check, and commit the result.
+version: 1
+inputs:
+  properties:
+    projectName:
+      type: string
+      pattern: "^[a-z][a-z0-9-]*[a-z0-9]$"
+      description: >-
+        The name of the package and of the database: lowercase letters,
+        digits, and hyphens.
+    productName:
+      type: string
+      description: The name that users read.
+    originUrl:
+      type: string
+      description: The URL of the project's new, empty repository.
+    accountMode:
+      type: string
+      enum: ["single-owner", "open-sign-up"]
+      default: single-owner
+      description: Who can have an account. A project keeps the mode it starts with.
+    renovate:
+      type: string
+      enum: ["delete", "keep"]
+      default: delete
+      description: >-
+        Keep renovate.json only when the project runs Renovate itself. If it
+        does not, the project takes its dependency updates from the template.
+  required: ["projectName", "productName", "originUrl"]
+# Swamp runs the steps of a job at the same time, and also the jobs. Each
+# `dependsOn` here makes one step or job wait for the one before it.
+jobs:
+  - name: prepare
+    description: Change the clone into the project.
+    steps:
+      - name: install
+        description: Install the packages. The next step formats files with Prettier.
+        task:
+          type: model_method
+          modelType: command/shell
+          modelName: start-project-install
+          methodName: execute
+          inputs:
+            run: pnpm install --frozen-lockfile
+      - name: prepare-project
+        description: Set the remotes and the names, and remove the template's own files.
+        dependsOn:
+          - step: install
+            condition:
+              type: succeeded
+        task:
+          type: model_method
+          modelType: command/shell
+          modelName: start-project-prepare
+          methodName: execute
+          inputs:
+            run: pnpm exec node scripts/start-project.mjs prepare
+            # The values go through the environment, so the shell does not
+            # read them as part of the command.
+            env:
+              PROJECT_NAME: ${{ inputs.projectName }}
+              PRODUCT_NAME: ${{ inputs.productName }}
+              ORIGIN_URL: ${{ inputs.originUrl }}
+              ACCOUNT_MODE: ${{ inputs.accountMode }}
+              RENOVATE: ${{ inputs.renovate }}
+  - name: verify
+    description: Run each check that CI runs, on the new project.
+    dependsOn:
+      - job: prepare
+        condition:
+          type: succeeded
+    steps:
+      - name: check
+        task:
+          type: model_method
+          modelType: command/shell
+          modelName: start-project-check
+          methodName: execute
+          inputs:
+            run: pnpm run check
+      - name: install-browser
+        dependsOn:
+          - step: check
+            condition:
+              type: succeeded
+        task:
+          type: model_method
+          modelType: command/shell
+          modelName: start-project-install-browser
+          methodName: execute
+          inputs:
+            run: pnpm run test:browser:install
+      - name: browser-tests
+        dependsOn:
+          - step: install-browser
+            condition:
+              type: succeeded
+        task:
+          type: model_method
+          modelType: command/shell
+          modelName: start-project-browser-tests
+          methodName: execute
+          inputs:
+            run: pnpm run test:browser
+      - name: live-start
+        dependsOn:
+          - step: browser-tests
+            condition:
+              type: succeeded
+        task:
+          type: model_method
+          modelType: command/shell
+          modelName: start-project-live-start
+          methodName: execute
+          inputs:
+            run: pnpm run test:live-start
+  - name: finish
+    description: Commit the project. The person pushes it.
+    dependsOn:
+      - job: verify
+        condition:
+          type: succeeded
+    steps:
+      - name: commit-project
+        task:
+          type: model_method
+          modelType: command/shell
+          modelName: start-project-finish
+          methodName: execute
+          inputs:
+            run: pnpm exec node scripts/start-project.mjs finish

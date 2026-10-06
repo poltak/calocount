@@ -18,6 +18,9 @@ changes.
   of the built frontend, and a start of the live server. CI runs all of them.
 - **Dependency updates.** Renovate opens the pull requests, and CI decides if
   they merge.
+- **Two workflows for the template.** One starts a project from a clone, and
+  one takes later template changes into a project. Each one is a script with
+  tests, and a [Swamp](https://github.com/swamp-club/swamp) workflow runs it.
 
 ## Run it
 
@@ -40,8 +43,10 @@ Open `http://localhost:5173` and sign in.
 
 ## Start a project from it
 
-Read [the template](docs/agents/template.md). Do not use GitHub's "Use this
-template" button and do not fork: a project needs the template's history.
+Clone this repository, and run the `start-project` workflow in the clone.
+[The template](docs/agents/template.md) has the steps. Do not use GitHub's
+"Use this template" button and do not fork: a project needs the template's
+history.
 
 ## Documents
 

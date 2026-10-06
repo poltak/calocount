@@ -17,12 +17,20 @@ person outside the company.
 Use the `start-project` skill. It has the full steps. In short:
 
 1. Make a new, empty repository for the project.
-2. Clone the template. Rename its remote from `origin` to `template`, add the
-   new repository as `origin`, and push.
-3. Replace the three names, select the account mode, and remove the example
-   feature if the project does not need it.
-4. Record the template commit that the project started from, in
-   `template-version.json`.
+2. Clone the template.
+3. In the clone, run the `start-project` workflow with the project's name, the
+   product name, the URL of the new repository, and the account mode.
+4. Create `.env`, and push.
+
+[`scripts/start-project.mjs`](../../scripts/start-project.mjs) makes each
+change. It renames the remote `origin` to `template`, adds the new repository
+as `origin`, sets the three names and the account mode, and removes the files
+that only the template needs. It records the template commit that the project
+started from, in `template-version.json`. The workflow runs the script, then
+each check, and then makes one commit.
+
+A new project keeps the notes example, because it is the model for a feature.
+Use the `remove-example` skill to remove it later.
 
 Do not use GitHub's "Use this template" button. It makes a repository without
 the template's history, so no later sync is possible. Do not use a GitHub
@@ -40,28 +48,31 @@ rules, and its header describes each command.
 A sync reads the `main` branch of the template, and uses cherry-picks only.
 The [decisions](decisions.md#tooling) give the reason.
 
-## The script and its Swamp workflow
+## The two workflows
 
-An agent that followed a skill took template changes before, and no two runs
+An agent that followed a skill made these changes before, and no two runs
 were the same. Now each step and each rule is in a script, and a
 [Swamp](https://github.com/swamp-club/swamp) workflow in `workflows/` gives
 the order of the script's commands. A run uses no language model.
 
-- The logic is in the script, not in Swamp models. Each Swamp command needs
-  an account at swamp-club.com, so CI cannot run a workflow without a secret,
-  and a person without an account cannot run one. The script runs with Node
-  alone, and its tests in `scripts/` are part of `pnpm run check`.
-- Without Swamp, a person or an agent runs the commands of the script in the
+- The logic is in the two scripts, not in Swamp models. Each Swamp command
+  needs an account at swamp-club.com, so CI cannot run a workflow without a
+  secret, and a person without an account cannot run one. The scripts run
+  with Node alone, and their tests in `scripts/` are part of
+  `pnpm run check`.
+- Without Swamp, a person or an agent runs the commands of a script in the
   order that its skill gives. The result is the same.
 - What Swamp adds is one command for the full flow, a record of each run, and
   a retry that starts at the step that failed.
-- One part needs judgment, and the script does not do it. That part is a
-  conflict that no rule of `sync-template.mjs` resolves, and the workflow
-  stops there.
+- Two parts need judgment, and no script does them. One is a conflict that no
+  rule of `sync-template.mjs` resolves, and the workflow stops there. The
+  other is the removal of the notes example, because what replaces the
+  example depends on the project's own code.
 
 [Setup](setup.md#swamp) has the commands that install Swamp and run a
 workflow. `.swamp.yaml` makes this repository a Swamp repository, so a new
-clone can run a workflow at once.
+clone can run a workflow at once. The file has an ID of the repository, and
+`start-project.mjs` gives each project a new one.
 
 `scripts/workflows.test.mjs` checks that each command in a workflow file
 names a script that exists. It does not run Swamp. After a change to a
@@ -82,6 +93,10 @@ workflow file, run `swamp workflow validate`.
   remove an entry, because a project that is behind still needs it.
   [`scripts/template-files.mjs`](../../scripts/template-files.mjs) describes
   the lists.
+- `start-project.mjs` finds each place that it changes by the text of the
+  file. When a commit changes one of those files, the "Start project" workflow
+  of CI makes a project from the commit and runs each check on the project.
+  When that workflow fails, correct the edit in the script.
 - Do not add email, background jobs, file upload, or a component library. Each
   project needs different ones, and each adds dependencies that must stay
   current.
