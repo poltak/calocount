@@ -43,8 +43,8 @@ Read `docs/agents/template.md` first.
    - Delete `renovate.json`, unless the project will run Renovate itself.
    - Delete this skill: `.agents/skills/start-project/` and the symlink
      `.claude/skills/start-project`.
-5. Remove the notes example, if the person does not want it. See the list
-   below.
+5. Remove the notes example, if the person does not want it. The
+   `remove-example` skill has the steps.
 6. Run the first-run steps in `docs/agents/setup.md`, then the checks:
    ```sh
    pnpm run check
@@ -69,32 +69,7 @@ updates it.
 
 Add its line to the document list in `docs/agents/README.md`.
 
-## Remove the notes example
-
-The example is two backend features, `notes` and `activity`, and one frontend
-feature, `notes`.
-
-- Delete `backend/src/features/notes/`, `backend/src/features/activity/`, and
-  `frontend/src/features/notes/`.
-- Delete the migrations `create-note`, `create-activity`, and
-  `set-note-updated-at-with-a-trigger`. Keep `create-set-updated-at-function`.
-  Then run `pnpm run db:migration:create --sync`.
-- Remove their lines from `core/database/database.ts`, from
-  `APPEND_ONLY_TABLES` in `core/database/standard-columns.ts`, from
-  `core/types.ts`, `core/compose-app.ts`, and `core/server/http-app.ts` in the
-  backend.
-- Remove `notesDrafts` from `core/types.ts`, `core/live/index.ts`, and
-  `core/tests/index.ts` in the frontend, and the routes and the link from
-  `core/ui/routes.tsx`. Give the start path a page.
-- `api-client.test.ts` and the browser test use a notes route. Point them at a
-  route of the project.
-- Remove the notes rows from the tables in `docs/agents/README.md` and
-  `docs/agents/testing.md`.
-- Run `pnpm run check`. It names each reference that is left.
-
 ## Gotchas
 
 - Do not use GitHub's "Use this template" button or a fork. Both lose what a
   later merge needs.
-- Do not delete a migration in a project that has a database with real data.
-  This skill is for a project that has none.
