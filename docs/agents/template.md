@@ -140,8 +140,8 @@ Facts to check on the first update of each kind:
   differ.
 - A pnpm update must change `packageManager`, `devEngines.packageManager`, and
   the `version` input of `pnpm/action-setup` in each CI workflow.
-  `scripts/check-pnpm-version.mjs` fails the check when a `version` input
-  differs from `packageManager`. It does not read `devEngines.packageManager`.
+  `scripts/check-pnpm-version.mjs` fails the check when one of them differs
+  from `packageManager`.
 - `hono` is in two workspaces. Both must stay at the same version.
 
 ### What a person does

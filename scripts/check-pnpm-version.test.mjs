@@ -24,7 +24,7 @@ ${version ? `        with:\n          version: ${version}\n` : ""}
 `;
 
 /** Run the check in a repository that has these CI jobs. */
-async function check({ context, versions }) {
+async function check({ context, versions, engineVersion = "12.8.2" }) {
   const directory = await mkdtemp(path.join(os.tmpdir(), "pnpm-version-"));
   context.after(() => rm(directory, { recursive: true, force: true }));
   await mkdir(path.join(directory, "scripts"));
@@ -35,7 +35,13 @@ async function check({ context, versions }) {
   );
   await writeFile(
     path.join(directory, "package.json"),
-    JSON.stringify({ packageManager: "pnpm@12.8.2" }),
+    JSON.stringify({
+      packageManager: "pnpm@12.8.2",
+      devEngines: {
+        packageManager: { name: "pnpm", version: engineVersion },
+        runtime: { name: "node", version: "26.10.0" },
+      },
+    }),
   );
   await writeFile(
     path.join(directory, ".github/workflows/ci.yml"),
@@ -68,8 +74,25 @@ test("names each CI job that has another pnpm version", async (context) => {
   assert.equal(result.status, 1);
   assert.equal(
     result.output,
-    'Each pnpm version in a CI workflow must be 12.8.2, the version in "packageManager" of package.json:\n' +
+    'Each pnpm version must be 12.8.2, the version in "packageManager" of package.json:\n' +
       "  .github/workflows/ci.yml, line 26: 12.6.0\n" +
       "  .github/workflows/ci.yml, line 40: 12.6.0\n",
+  );
+});
+
+// pnpm runs the version in this field. Renovate changed `packageManager` and
+// the CI jobs one time, and left this field at the old version.
+test("names the version that pnpm runs when it is another one", async (context) => {
+  const result = await check({
+    context,
+    versions: ["12.8.2"],
+    engineVersion: "12.6.0",
+  });
+
+  assert.equal(result.status, 1);
+  assert.equal(
+    result.output,
+    'Each pnpm version must be 12.8.2, the version in "packageManager" of package.json:\n' +
+      "  package.json, devEngines.packageManager: 12.6.0\n",
   );
 });

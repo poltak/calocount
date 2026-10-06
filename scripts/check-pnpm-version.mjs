@@ -1,8 +1,13 @@
-// Checks that each CI workflow sets up the pnpm version in `package.json`.
+// Checks that the repository has the same pnpm version in each location.
 //
-// The `pnpm/action-setup` step fails when its `version` input differs from
-// `packageManager`. No other check reads the workflow files, so without this
-// check only CI finds the difference.
+// - `packageManager` in `package.json` is the version that the
+//   `pnpm/action-setup` step reads.
+// - `devEngines.packageManager` is the version that pnpm downloads and runs.
+//   When it differs, people and CI run another version than the first field
+//   names, and nothing reports it.
+// - The `pnpm/action-setup` step of a CI workflow fails when its `version`
+//   input differs from `packageManager`. No other check reads the workflow
+//   files, so without this check only CI finds that difference.
 import { existsSync } from "node:fs";
 import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
@@ -11,7 +16,7 @@ import { fileURLToPath } from "node:url";
 const root = fileURLToPath(new URL("..", import.meta.url));
 const WORKFLOWS = ".github/workflows";
 
-const { packageManager } = JSON.parse(
+const { packageManager, devEngines } = JSON.parse(
   await readFile(path.join(root, "package.json"), "utf8"),
 );
 // Without `packageManager`, the step uses its own input, and no version can
@@ -19,6 +24,14 @@ const { packageManager } = JSON.parse(
 const expected = packageManager?.match(/^pnpm@([^+]+)/)?.[1];
 
 const different = [];
+const engine = [devEngines?.packageManager]
+  .flat()
+  .find((entry) => entry?.name === "pnpm");
+if (expected && engine?.version && engine.version !== expected) {
+  different.push(
+    `  package.json, devEngines.packageManager: ${engine.version}`,
+  );
+}
 const files =
   expected && existsSync(path.join(root, WORKFLOWS))
     ? (await readdir(path.join(root, WORKFLOWS))).filter((file) =>
@@ -46,7 +59,7 @@ for (const file of files.sort()) {
 
 if (different.length > 0) {
   console.error(
-    `Each pnpm version in a CI workflow must be ${expected}, the version in "packageManager" of package.json:\n${different.join("\n")}`,
+    `Each pnpm version must be ${expected}, the version in "packageManager" of package.json:\n${different.join("\n")}`,
   );
   process.exit(1);
 }
