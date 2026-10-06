@@ -6,8 +6,8 @@ description: Start a new project from the template repository, keeping its Git h
 # Start a project from the template
 
 A project is a clone of the template with a second remote. It keeps the
-template's history, which is what lets it take later template changes. Read
-`docs/agents/template.md` first.
+template's history, and with that history it can take later template changes.
+Read `docs/agents/template.md` first.
 
 ## Ask the person first
 
@@ -39,7 +39,7 @@ template's history, which is what lets it take later template changes. Read
    - Write a new root `README.md` for the project.
    - Delete `docs/agents/template.md`, and remove its line from
      `docs/agents/README.md`.
-   - Create `docs/agents/template-version.md`, as described below.
+   - Create `template-version.json`, as described below.
    - Delete `renovate.json`, unless the project will run Renovate itself.
    - Delete this skill: `.agents/skills/start-project/` and the symlink
      `.claude/skills/start-project`.
@@ -55,15 +55,16 @@ template's history, which is what lets it take later template changes. Read
 
 ## The template version file
 
-`docs/agents/template-version.md` records where the project is in the
-template's history. The `sync-template` skill reads and updates it.
+`template-version.json`, in the root of the project, records where the
+project is in the template's history. `scripts/sync-template.mjs` reads and
+updates it.
 
-```md
-# Template version
-
-This project started from the template at <template URL>.
-
-Last template commit that this project has: `<output of git rev-parse template/main>`
+```json
+{
+  "template": "<template URL>",
+  "commit": "<output of git rev-parse template/main>",
+  "skipped": []
+}
 ```
 
 Add its line to the document list in `docs/agents/README.md`.

@@ -41,6 +41,7 @@ instructions.
 | A frontend Storage class                       | `frontend/src/features/notes/storage/notes-draft-storage.ts`  |
 | A write across two features in one transaction | `backend/src/features/notes/logic/notes-logic.ts`             |
 | The architecture lint rules and their options  | `lint/`, `.oxlintrc.json`                                     |
+| How a project takes template changes           | `scripts/sync-template.mjs`, `workflows/`                     |
 | The test fixture                               | `frontend/src/features/core/tests/full-application.ts`        |
 | A model integration test                       | `frontend/src/features/notes/ui/notes-logic.test.ts`          |
 | The browser tests                              | `frontend/src/features/core/tests/browser/`                   |
@@ -62,3 +63,7 @@ Keep always-needed instructions in the root `AGENTS.md`. Do not create another
 `AGENTS.md` or a `CLAUDE.md` for this repository. Put repeatable task workflows
 in skills. Codex discovers repository skills in `.agents/skills/`; Claude Code
 discovers them in `.claude/skills/`.
+
+A workflow whose steps need no judgment is a script in `scripts/`, and a Swamp
+workflow in `workflows/` runs it. Its skill names the workflow, and has only
+the steps that need judgment. [Setup](setup.md#swamp) describes Swamp.

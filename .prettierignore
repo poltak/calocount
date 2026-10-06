@@ -6,3 +6,5 @@
 **/dist/
 **/coverage/
 pnpm-lock.yaml
+.swamp/
+.swamp.yaml

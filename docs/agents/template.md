@@ -2,7 +2,7 @@
 
 This repository is a template. A new project starts from its latest commit and
 keeps its Git history, so that the project can take later template changes
-with a merge or a cherry-pick.
+with cherry-picks.
 
 The template is a runnable application: auth, the notes example feature, and
 their tests. A passing `pnpm run check` is therefore the evidence that a
@@ -22,18 +22,50 @@ Use the `start-project` skill. It has the full steps. In short:
 3. Replace the three names, select the account mode, and remove the example
    feature if the project does not need it.
 4. Record the template commit that the project started from, in
-   `docs/agents/template-version.md`.
+   `template-version.json`.
 
 Do not use GitHub's "Use this template" button. It makes a repository without
-the template's history, so no merge is possible later. Do not use a GitHub
+the template's history, so no later sync is possible. Do not use a GitHub
 fork. An organization can have only one fork of a repository, and a fork's pull
 requests go to the template by default.
 
 ## Take a later template change
 
-Use the `sync-template` skill. `git fetch template` shows what changed. Merge
-`template/main` while the project has changed few of the template's files.
-After that, cherry-pick single commits.
+Use the `sync-template` skill, in the project. It runs the `sync-template`
+workflow, which cherry-picks each new template commit, runs each check, and
+records the new template version in `template-version.json`.
+[`scripts/sync-template.mjs`](../../scripts/sync-template.mjs) has the
+rules, and its header describes each command.
+
+A sync reads the `main` branch of the template, and uses cherry-picks only.
+The [decisions](decisions.md#tooling) give the reason.
+
+## The script and its Swamp workflow
+
+An agent that followed a skill took template changes before, and no two runs
+were the same. Now each step and each rule is in a script, and a
+[Swamp](https://github.com/swamp-club/swamp) workflow in `workflows/` gives
+the order of the script's commands. A run uses no language model.
+
+- The logic is in the script, not in Swamp models. Each Swamp command needs
+  an account at swamp-club.com, so CI cannot run a workflow without a secret,
+  and a person without an account cannot run one. The script runs with Node
+  alone, and its tests in `scripts/` are part of `pnpm run check`.
+- Without Swamp, a person or an agent runs the commands of the script in the
+  order that its skill gives. The result is the same.
+- What Swamp adds is one command for the full flow, a record of each run, and
+  a retry that starts at the step that failed.
+- One part needs judgment, and the script does not do it. That part is a
+  conflict that no rule of `sync-template.mjs` resolves, and the workflow
+  stops there.
+
+[Setup](setup.md#swamp) has the commands that install Swamp and run a
+workflow. `.swamp.yaml` makes this repository a Swamp repository, so a new
+clone can run a workflow at once.
+
+`scripts/workflows.test.mjs` checks that each command in a workflow file
+names a script that exists. It does not run Swamp. After a change to a
+workflow file, run `swamp workflow validate`.
 
 ## Change the template
 
@@ -42,6 +74,14 @@ After that, cherry-pick single commits.
   the project when only that project needs it.
 - Keep the application runnable and its checks passing. The checks are what
   make automatic dependency updates safe.
+- When you add a file that only the template needs, add it to `templateOnly`
+  in [`scripts/template-paths.json`](../../scripts/template-paths.json), in
+  the same commit. Add a new migration of the notes example to `withExample`
+  there. Without the entry, a project gets a file in its next sync that it
+  must not have. Do not
+  remove an entry, because a project that is behind still needs it.
+  [`scripts/template-files.mjs`](../../scripts/template-files.mjs) describes
+  the lists.
 - Do not add email, background jobs, file upload, or a component library. Each
   project needs different ones, and each adds dependencies that must stay
   current.
@@ -141,8 +181,8 @@ Keep Dependabot alerts on. They are free and do not conflict with Renovate.
 Renovate, not Dependabot, updates the versions: Dependabot does not update
 `.nvmrc` or `devEngines`, and it has no lockfile maintenance.
 
-A project decides for itself if it runs Renovate. A project that does not can
-take the template's dependency updates with the `sync-template` skill.
+A project decides for itself if it runs Renovate. A project that does not
+takes the template's dependency updates with the `sync-template` workflow.
 
 ## Open work
 

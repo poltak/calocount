@@ -54,4 +54,5 @@ project information. Read the documents that apply to the task.
 - Use [docs/agents/README.md](docs/agents/README.md) to find project reference documents.
 - Add stable project facts and decisions under `docs/agents/`. Update the relevant document when those facts change.
 - Use a `SKILL.md` only for a repeatable task workflow. Keep general project rules and reference documents out of skills.
+- When each step of a workflow needs no judgment, put the steps in a script in `scripts/`, with tests, and add a Swamp workflow in `workflows/` that runs it. Its skill then names the workflow, and has only the steps that need judgment. The `sync-template` skill is the model, and [setup](docs/agents/setup.md#swamp) describes Swamp.
 - Put new repository skills in `.agents/skills/<name>/`. For each skill, add a Git-tracked symlink at `.claude/skills/<name>` that points to `../../.agents/skills/<name>`, so Codex and Claude Code use the same files.

@@ -153,3 +153,12 @@ vite.config.ts.timestamp-*
 
 # The build and the results of the browser tests
 .browser-test/
+
+# BEGIN swamp managed section - DO NOT EDIT
+
+# Runtime data (not needed in version control)
+.swamp/
+
+# Local extension sources (developer-specific, not shared)
+.swamp-sources.yaml
+# END swamp managed section

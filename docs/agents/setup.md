@@ -118,6 +118,43 @@ database user and password in `.env.example` are for this local database only.
   `DATABASE_URL=postgresql://… pnpm run db:migrate`. The other required
   variables still come from `.env`.
 
+## Changes from the template
+
+`template-version.json` is in a project that started from the template. It
+names the template, and the last template commit that the project has.
+
+`pnpm run template:sync <command>` takes the later commits of the template
+into the project. The `sync-template` skill has the order of its commands, and
+[`scripts/sync-template.mjs`](../../scripts/sync-template.mjs) describes each
+one. `pnpm run template:sync plan` changes no file. It fetches the template
+and lists the new commits.
+
+### Swamp
+
+The workflows in `workflows/` run those commands in order, with
+[Swamp](https://github.com/swamp-club/swamp). Swamp is optional. Without it, a
+person or an agent runs the same commands, and the result is the same.
+
+- Install Swamp one time on each machine:
+  `curl -fsSL https://swamp-club.com/install.sh | sh`.
+- Each Swamp command needs an account at swamp-club.com, also for a run on
+  your own machine. `swamp auth login` signs in, and makes the account the
+  first time.
+- A clone needs no other setup. `.swamp.yaml` in the repository makes it a
+  Swamp repository, and has the ID of the repository for Swamp.
+- Run a workflow from the root of the repository:
+  `swamp workflow run sync-template`.
+- When a step fails, correct the cause. Then run that step again, and each
+  step after it, with the command that Swamp prints:
+  `swamp workflow resume sync-template --run <run id>`.
+- Swamp keeps a record of each run in `.swamp/`, which Git ignores.
+  `swamp workflow history get sync-template` shows the last run.
+- Swamp's telemetry is off for this repository, with
+  `telemetryDisabled: true` in `.swamp.yaml`. With telemetry on, Swamp sends
+  usage data for each command to swamp-club.com, with the key of your
+  account. The data has the command, the names of the workflow and its steps,
+  the duration, and the error when a command fails.
+
 ## Production
 
 The repository has no deployment files yet. These facts hold on any host:
@@ -156,6 +193,7 @@ The repository has no deployment files yet. These facts hold on any host:
 | `pnpm run db:migrate`                 | Apply the schema migrations to the database.          |
 | `pnpm run db:migration:create <name>` | Create a schema migration file.                       |
 | `pnpm run db:reset`                   | Delete the embedded development database.             |
+| `pnpm run template:sync plan`         | List the new commits of the template.                 |
 | `pnpm run auth:setup-owner`           | Create the owner account.                             |
 | `pnpm run auth:reset-password`        | Set a new password for an account.                    |
 | `pnpm --filter frontend dev`          | Start only the frontend dev server.                   |

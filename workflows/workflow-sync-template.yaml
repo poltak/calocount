@@ -1,0 +1,110 @@
+# Run it in a project that started from the template, from the root:
+#
+#   swamp workflow run sync-template
+#
+# Each step runs `scripts/sync-template.mjs`, which has the logic and
+# describes each command. The `apply-commits` step fails when a template
+# commit has a conflict that no rule resolves. Resolve the conflict, stage the
+# files, and then retry the failed step with the command that Swamp prints:
+#
+#   swamp workflow resume sync-template --run <run id>
+id: 1e00e196-b9f6-45dc-a835-3a812817d8d8
+name: sync-template
+description: >-
+  Take the later commits of the template into this project: cherry-pick each
+  new commit, run each check, and record the new template version.
+version: 1
+# Swamp runs the steps of a job at the same time, and also the jobs. Each
+# `dependsOn` here makes one step or job wait for the one before it.
+jobs:
+  - name: take
+    description: Cherry-pick the new template commits, oldest first.
+    steps:
+      - name: plan
+        description: Fetch the template, and list each new commit.
+        task:
+          type: model_method
+          modelType: command/shell
+          modelName: sync-template-plan
+          methodName: execute
+          inputs:
+            run: pnpm run template:sync plan
+      - name: apply-commits
+        dependsOn:
+          - step: plan
+            condition:
+              type: succeeded
+        task:
+          type: model_method
+          modelType: command/shell
+          modelName: sync-template-apply
+          methodName: execute
+          inputs:
+            run: pnpm run template:sync apply
+  # Each of these steps does nothing when the project took no commit.
+  - name: verify
+    description: Run each check that CI runs.
+    dependsOn:
+      - job: take
+        condition:
+          type: succeeded
+    steps:
+      - name: install
+        task:
+          type: model_method
+          modelType: command/shell
+          modelName: sync-template-install
+          methodName: execute
+          inputs:
+            run: pnpm run template:sync verify install
+      - name: check
+        dependsOn:
+          - step: install
+            condition:
+              type: succeeded
+        task:
+          type: model_method
+          modelType: command/shell
+          modelName: sync-template-check
+          methodName: execute
+          inputs:
+            run: pnpm run template:sync verify check
+      - name: browser-tests
+        dependsOn:
+          - step: check
+            condition:
+              type: succeeded
+        task:
+          type: model_method
+          modelType: command/shell
+          modelName: sync-template-browser-tests
+          methodName: execute
+          inputs:
+            run: pnpm run template:sync verify browser
+      - name: live-start
+        dependsOn:
+          - step: browser-tests
+            condition:
+              type: succeeded
+        task:
+          type: model_method
+          modelType: command/shell
+          modelName: sync-template-live-start
+          methodName: execute
+          inputs:
+            run: pnpm run template:sync verify live-start
+  - name: finish
+    description: Commit the lockfile and the new template version.
+    dependsOn:
+      - job: verify
+        condition:
+          type: succeeded
+    steps:
+      - name: record-version
+        task:
+          type: model_method
+          modelType: command/shell
+          modelName: sync-template-finish
+          methodName: execute
+          inputs:
+            run: pnpm run template:sync finish

@@ -310,6 +310,37 @@ entry to the choice, the reason, and any rule that follows from it.
   about 69. The cost is 4 billed minutes for each run in place of 2, because
   each job repeats the setup and GitHub rounds each job up to a full minute.
   That is far below the free limit at the present number of runs.
+- **A script takes template changes, and a Swamp workflow runs the script.**
+  An agent that followed a skill did this work before, and no two runs were
+  the same. `scripts/sync-template.mjs` now has each step and each rule, and
+  has tests. The workflow in `workflows/` only gives the order of its
+  commands. The rules are not in Swamp models, because each Swamp command
+  needs an account at swamp-club.com. CI and a person without an account can
+  run a Node script, and cannot run Swamp. One step still needs judgment, a
+  conflict that no rule resolves, and the script stops there.
+- **A sync is a list of cherry-picks, and never a merge.** A project is
+  without some of the template's files, and a person can leave one commit
+  out. A merge cannot do that, and it marks each template commit as
+  taken. A cherry-pick also shows one conflict with the one commit that
+  caused it. Git does not record which commits a project took, so
+  `template-version.json` does.
+- **A sync merges `package.json` by its keys.** Git merges by lines, and the
+  dependencies are one line each, in order. A template update of one
+  dependency and a dependency that the project added on the next line are
+  then a conflict, in each weekly update. By keys, they are changes to two
+  different keys, and no conflict.
+- **A sync keeps the project's lockfile when the template's change does not
+  apply to it.** `pnpm install` then brings the lockfile up to date with the
+  direct dependencies. The cost is that the project does not get the
+  template's updates of indirect dependencies. A project with dependencies of
+  its own has a different lockfile, and no merge of the two files is correct.
+- **Swamp's telemetry is off for the repository.** `telemetryDisabled: true`
+  in `.swamp.yaml` applies to each person who runs Swamp here. With telemetry
+  on, Swamp sends the names of commands, workflows, and steps to
+  swamp-club.com, with the key of the person's account. No part of the
+  project needs that data flow, and a project with strict rules for its data
+  must be able to name each flow to a third party. Swamp still contacts
+  swamp-club.com to check the account.
 - **The workspaces are TypeScript project references.** The frontend takes
   types from the backend and from `common` through their package `exports`,
   which point at `dist`. Without references, an editor showed false errors

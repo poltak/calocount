@@ -1,0 +1,19 @@
+{
+  "templateOnly": [
+    "docs/agents/template.md",
+    "renovate.json",
+    ".agents/skills/start-project/",
+    ".claude/skills/start-project"
+  ],
+  "example": [
+    "backend/src/features/notes/",
+    "backend/src/features/activity/",
+    "frontend/src/features/notes/"
+  ],
+  "withExample": [
+    "backend/src/features/core/database/migrations/1791009406-create-note.ts",
+    "backend/src/features/core/database/migrations/1791009729-create-activity.ts",
+    "backend/src/features/core/database/migrations/1791175626-set-note-updated-at-with-a-trigger.ts"
+  ],
+  "projectOwned": ["README.md"]
+}
