@@ -4,6 +4,7 @@ import {
   DEFAULT_MIGRATION_TABLE,
 } from "kysely/migration";
 import type { AuthTables } from "../../auth/storage/types.js";
+import { DatabaseNames } from "./database-names.js";
 
 /**
  * The columns that every application table has. The database makes all three
@@ -38,7 +39,8 @@ export const SDK_TABLES = [
 /** Application tables whose records never change. See `AppendOnlyTable`. */
 export const APPEND_ONLY_TABLES = ["activity"] as const;
 
-const SET_UPDATED_AT_FUNCTION = "setUpdatedAt";
+// The name in the database. A migration writes it in raw SQL.
+const SET_UPDATED_AT_FUNCTION = "set_updated_at";
 
 interface ColumnRow {
   table: string;
@@ -46,14 +48,6 @@ interface ColumnRow {
   type: string;
   isNullable: string;
   default: string | null;
-}
-
-function isExemptTable(table: string): boolean {
-  return (
-    (SDK_TABLES as readonly string[]).includes(table) ||
-    table === DEFAULT_MIGRATION_TABLE ||
-    table === DEFAULT_MIGRATION_LOCK_TABLE
-  );
 }
 
 /**
@@ -85,13 +79,27 @@ export async function findStandardColumnProblems<Schema>(
       and action_timing = 'BEFORE'
       and event_manipulation = 'UPDATE'
       and action_orientation = 'ROW'
-      and action_statement like ${`%"${SET_UPDATED_AT_FUNCTION}"()`}
+      and action_statement like ${`%${SET_UPDATED_AT_FUNCTION.replaceAll("_", "\\_")}()`}
   `.execute(db);
+
+  // The lists and the column names in this file are the TypeScript names. The
+  // rows above have the names of the database.
+  const names = new DatabaseNames();
+  const exemptTables = new Set([
+    ...SDK_TABLES.map((table) => names.inDatabase(table)),
+    DEFAULT_MIGRATION_TABLE,
+    DEFAULT_MIGRATION_LOCK_TABLE,
+  ]);
+  const appendOnlyTables = new Set(
+    APPEND_ONLY_TABLES.map((table) => names.inDatabase(table)),
+  );
+  const createdAt = names.inDatabase("createdAt");
+  const updatedAt = names.inDatabase("updatedAt");
 
   const problems: string[] = [];
   const tables = new Set(columns.map((column) => column.table));
   for (const table of tables) {
-    if (isExemptTable(table)) {
+    if (exemptTables.has(table)) {
       continue;
     }
     const find = (name: string) =>
@@ -125,20 +133,20 @@ export async function findStandardColumnProblems<Schema>(
       defaultValue: "gen_random_uuid()",
     });
     requireColumn({
-      name: "createdAt",
+      name: createdAt,
       type: "timestamp with time zone",
       defaultValue: "now()",
     });
-    if ((APPEND_ONLY_TABLES as readonly string[]).includes(table)) {
-      if (find("updatedAt")) {
+    if (appendOnlyTables.has(table)) {
+      if (find(updatedAt)) {
         problems.push(
-          `"${table}" is in APPEND_ONLY_TABLES, so it must not have "updatedAt"`,
+          `"${table}" is in APPEND_ONLY_TABLES, so it must not have "${updatedAt}"`,
         );
       }
       continue;
     }
     requireColumn({
-      name: "updatedAt",
+      name: updatedAt,
       type: "timestamp with time zone",
       defaultValue: "now()",
     });

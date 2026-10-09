@@ -19,8 +19,9 @@ feature must be added to.
 2. Create the table, if the feature stores data.
    - Run `pnpm run db:migration:create create-<table>`.
    - Write the `create table` statement with the three standard columns, and
-     the `updatedAt` trigger. Copy both from `code-architecture.md` (Database
-     schema).
+     the `updated_at` trigger. Copy both from `code-architecture.md` (Database
+     schema). The migration has the snake_case names of the database, and the
+     table type has the camelCase names.
    - Declare the table type in `backend/src/features/<feature>/storage/types.ts`.
      Extend `BaseTable`.
    - Add the feature's tables to `DatabaseSchema` in

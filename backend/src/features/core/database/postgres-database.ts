@@ -2,6 +2,7 @@ import type { LoggerServiceInterface } from "@app/common/features/core/services/
 import { Kysely, PostgresDialect } from "kysely";
 import { Pool } from "pg";
 
+import { DatabaseNames } from "./database-names.js";
 import type { Database, DatabaseSchema } from "./database.js";
 
 interface PostgresDatabaseParams {
@@ -23,5 +24,6 @@ export function createDatabase({
   });
   return new Kysely<DatabaseSchema>({
     dialect: new PostgresDialect({ pool }),
+    plugins: [new DatabaseNames()],
   });
 }

@@ -134,7 +134,7 @@ A few files that are not Logic classes have tests of their own:
   gets its tests through that Logic.
 - `database-schema.test.ts` reads the schema that the migrations made, and
   checks that every application table has the standard columns and the
-  `updatedAt` trigger. Its failure message names the table and what it needs.
+  `updated_at` trigger. Its failure message names the table and what it needs.
 
 ## Browser tests
 

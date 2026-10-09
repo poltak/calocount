@@ -7,10 +7,10 @@ export const migration = defineMigration({
     await sql`
       create table "activity" (
         "id" uuid primary key default gen_random_uuid(),
-        "userId" text not null references "user" ("id") on delete cascade,
+        "user_id" text not null references "user" ("id") on delete cascade,
         "action" text not null,
-        "subjectId" text not null,
-        "createdAt" timestamptz not null default now()
+        "subject_id" text not null,
+        "created_at" timestamptz not null default now()
       )
     `.execute(db);
   },

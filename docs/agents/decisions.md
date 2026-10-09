@@ -35,9 +35,14 @@ entry to the choice, the reason, and any rule that follows from it.
   writes `migrations.ts` from the directory instead.
 - **Migrations only go forward.** There is no `down`. To undo a change, write a
   new migration.
-- **Application tables and columns use camelCase, like Better Auth's.** One
-  convention in the database needs no name mapping in Kysely. SQL must then
-  quote each name.
+- **The database uses snake_case, and TypeScript uses camelCase.** PostgreSQL
+  changes a name with no quotes to lower case, so a camelCase name needs
+  quotes in each SQL statement and in each database tool. One Kysely plugin,
+  `DatabaseNames`, maps the names. The auth SDK uses the same query builder,
+  so its tables get snake_case too, and the database has one style. The cost
+  is that a column has two names: `createdAt` in TypeScript, and `created_at`
+  in a migration. The plugin leaves the keys inside a JSON value as they are,
+  so a stored document comes back as it went in.
 - **Every application table has `id`, `createdAt`, and `updatedAt`, and three
   checks hold this.** The table types extend `BaseTable`, the `Database` type
   does not compile for a table without the columns, and one test reads the

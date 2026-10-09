@@ -1,6 +1,7 @@
 import { PGlite } from "@electric-sql/pglite";
 import { Kysely, PGliteDialect } from "kysely";
 
+import { DatabaseNames } from "./database-names.js";
 import type { Database, DatabaseSchema } from "./database.js";
 
 export type DatabaseSnapshot = Awaited<ReturnType<PGlite["dumpDataDir"]>>;
@@ -16,6 +17,7 @@ export function createDatabase({
     dialect: new PGliteDialect({
       pglite: () => new PGlite(snapshot ? { loadDataDir: snapshot } : {}),
     }),
+    plugins: [new DatabaseNames()],
   });
 }
 
@@ -25,6 +27,7 @@ export async function createDatabaseSnapshot(
   const pglite = new PGlite();
   const db = new Kysely<DatabaseSchema>({
     dialect: new PGliteDialect({ pglite: () => pglite }),
+    plugins: [new DatabaseNames()],
   });
   try {
     await prepare(db);
