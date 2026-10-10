@@ -1557,10 +1557,14 @@ export async function getDailyHistory(db: AppDb, ownerKey: string, options: Dail
  * entries, with days counted in the given timezone. `firstDate` is the day of
  * the owner's first entry or weight, so a calendar knows where the log starts.
  */
-export async function getMonthTotals({ db, ownerKey, month, timezone }: {
+export async function getMonthTotals({ db, ownerKey, month, timezone, useSavedTimezone }: {
   db: AppDb; ownerKey: string; month: string; timezone?: string;
+  /** Count days in the owner's saved timezone and ignore `timezone`. */
+  useSavedTimezone?: boolean;
 }) {
-  const calendar = zonedCalendar(resolveTimeZone(timezone));
+  const calendar = zonedCalendar(resolveTimeZone(
+    useSavedTimezone ? (await getSettings(db, ownerKey))?.timezone : timezone,
+  ));
   const fromMs = calendar.firstInstant(`${month}-01`);
   const toMs = calendar.firstInstant(`${shiftMonthKey(month, 1)}-01`);
   const completeMeals = and(eq(mealLogs.ownerKey, ownerKey), eq(mealLogs.status, "complete"));
@@ -1600,12 +1604,15 @@ export async function getMonthTotals({ db, ownerKey, month, timezone }: {
 }
 
 /** The entries, weight and protein goal of one day, with the day counted in the given timezone. */
-export async function getDayLog({ db, ownerKey, date, timezone }: {
+export async function getDayLog({ db, ownerKey, date, timezone, useSavedTimezone }: {
   db: AppDb; ownerKey: string; date: string; timezone?: string;
+  /** Count the day in the owner's saved timezone and ignore `timezone`. */
+  useSavedTimezone?: boolean;
 }) {
-  const calendar = zonedCalendar(resolveTimeZone(timezone));
+  const savedSettings = useSavedTimezone ? await getSettings(db, ownerKey) : undefined;
+  const calendar = zonedCalendar(resolveTimeZone(useSavedTimezone ? savedSettings?.timezone : timezone));
   const [settingsRow, meals, weight] = await Promise.all([
-    getSettings(db, ownerKey),
+    useSavedTimezone ? savedSettings : getSettings(db, ownerKey),
     listMealsInRange({
       db, ownerKey, from: calendar.firstInstant(date), to: calendar.firstInstant(shiftDateKey(date, 1)),
     }),

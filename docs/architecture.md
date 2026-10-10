@@ -24,7 +24,9 @@ that key is absent, returns `Cache-Control: no-store`, and removes owner keys,
 captions, notes, photo storage metadata, AI fields, and other private data. It
 exposes only a `hasPhoto` flag for a safe projected image. With `?view=daily`
 the same path returns a small daily view for agents: one row for each day since
-tracking began, with totals and weight and no food items. The public
+tracking began, with totals and weight and no food items. `?view=month` and
+`?view=day` serve the public calendar: the totals of each day of one month, and
+the completed entries, weight and protein goal of one day of any age. The public
 `/meal-photos/<mealId>` route rechecks the configured owner's current seven-day
 projection, streams only completed JPEG, PNG, or WebP meals from private R2, and
 requires cache revalidation. All `/api/*` routes other than the reviewed summary

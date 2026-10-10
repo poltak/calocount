@@ -6,9 +6,10 @@ import {
   parsePublicSummaryView,
   PublicSummaryConfigError,
 } from "../app/api/_lib/public-summary";
-import type { getDailyHistory, getDashboardSummary } from "../db/repository";
+import { getDayLog, getMonthTotals, type getDailyHistory, type getDashboardSummary } from "../db/repository";
 import { resolveNutrientGoals } from "../domain/nutrient-goals";
 import { aggregateNutrients, emptyNutrientValues } from "../domain/nutrients";
+import { createSqliteTestDb } from "./helpers/sqlite-db";
 
 type DashboardSummary = Awaited<ReturnType<typeof getDashboardSummary>>;
 type DailyHistory = Awaited<ReturnType<typeof getDailyHistory>>;
@@ -23,6 +24,8 @@ test("public summary fails closed when the owner key is missing", async () => {
       ownerKey: "  ",
       loadSummary: mustNotLoad,
       loadDailyHistory: mustNotLoad,
+      loadMonth: mustNotLoad,
+      loadDay: mustNotLoad,
     }),
     (error: unknown) => error instanceof PublicSummaryConfigError
       && error.status === 503
@@ -142,6 +145,8 @@ test("public summary returns a no-store projection without private fields", asyn
       return summary;
     },
     loadDailyHistory: mustNotLoad,
+    loadMonth: mustNotLoad,
+    loadDay: mustNotLoad,
   });
 
   assert.deepEqual(requestedOwnerKeys, ["owner-1"]);
@@ -195,6 +200,8 @@ test("the daily view returns small rounded day rows and nothing else from the hi
       // A field added to the repository result must not reach the public response by default.
       return { ...history, ownerKey, notes: "private notes" };
     },
+    loadMonth: mustNotLoad,
+    loadDay: mustNotLoad,
   });
 
   assert.deepEqual(requestedOwnerKeys, ["owner-1"]);
@@ -228,6 +235,101 @@ test("the view query selects the dashboard by default and rejects an unknown vie
   assert.equal(parsePublicSummaryView(null), "dashboard");
   assert.equal(parsePublicSummaryView("dashboard"), "dashboard");
   assert.equal(parsePublicSummaryView("daily"), "daily");
+  assert.equal(parsePublicSummaryView("month"), "month");
+  assert.equal(parsePublicSummaryView("day"), "day");
   assert.equal(parsePublicSummaryView("everything"), null);
   assert.equal(parsePublicSummaryView(""), null);
+});
+
+/** A database with a saved timezone, entries on 20 August 2026 in that timezone, and one entry of today. */
+function publicHistoryFixture() {
+  const fixture = createSqliteTestDb();
+  fixture.sqlite.prepare("INSERT INTO settings (id, owner_key, timezone, daily_protein_target_g) VALUES ('settings', 'owner-1', 'Asia/Ho_Chi_Minh', 140)").run();
+  const insertMeal = fixture.sqlite.prepare(`
+    INSERT INTO meal_logs (id, owner_key, consumed_at, status, caption, notes, meal_type, photo_key, photo_mime_type, total_calories, total_protein_g, total_carbs_g, total_fat_g)
+    VALUES (?, ?, ?, ?, 'Private caption', 'Private notes', 'dinner', ?, 'image/jpeg', ?, ?, 60, 20)
+  `);
+  const insertItem = fixture.sqlite.prepare("INSERT INTO meal_items (id, meal_id, owner_key, name, calories, protein_g, fiber_g) VALUES (?, ?, ?, ?, ?, ?, 4)");
+  const add = (id: string, eatenAt: string, calories: number, proteinG: number, { ownerKey = "owner-1", status = "complete" } = {}) => {
+    insertMeal.run(id, ownerKey, Date.parse(eatenAt), status, `meals/${ownerKey}/${id}`, calories, proteinG);
+    insertItem.run(`item-${id}`, id, ownerKey, `Item of ${id}`, calories, proteinG);
+  };
+  // 00:30 on 20 August in Ho Chi Minh City is 17:30 on 19 August in UTC.
+  add("breakfast", "2026-08-19T17:30:00Z", 400.0004, 20);
+  add("dinner", "2026-08-20T12:00:00Z", 700, 45.1234567);
+  add("pending", "2026-08-20T13:00:00Z", 50, 5, { status: "pending" });
+  add("foreign", "2026-08-20T06:00:00Z", 999, 99, { ownerKey: "owner-2" });
+  add("today", "2026-09-12T05:00:00Z", 500, 30);
+  fixture.sqlite.prepare("INSERT INTO daily_weights (id, owner_key, logical_date, weight_kg, recorded_at) VALUES ('weight', 'owner-1', '2026-08-20', 71.2, 5)").run();
+  return fixture;
+}
+
+test("the public month view gives the totals of each day in the owner's saved timezone", async () => {
+  const fixture = publicHistoryFixture();
+  try {
+    const response = await buildPublicSummaryResponse({
+      ownerKey: "owner-1",
+      view: "month",
+      loadSummary: mustNotLoad,
+      loadDailyHistory: mustNotLoad,
+      loadMonth: (ownerKey) => getMonthTotals({ db: fixture.db, ownerKey, month: "2026-08", useSavedTimezone: true }),
+      loadDay: mustNotLoad,
+    });
+
+    assert.equal(response.headers.get("cache-control"), "no-store");
+    assert.deepEqual(await response.json(), {
+      view: "month",
+      month: "2026-08",
+      timezone: "Asia/Ho_Chi_Minh",
+      firstDate: "2026-08-20",
+      days: [{ date: "2026-08-20", calories: 1_100, proteinG: 65.123, mealCount: 2 }],
+    });
+  } finally {
+    fixture.sqlite.close();
+  }
+});
+
+test("the public day view lists completed entries without private fields or old photos", async () => {
+  const fixture = publicHistoryFixture();
+  try {
+    const now = new Date("2026-09-12T12:00:00Z");
+    const dayView = async (date: string) => {
+      const response = await buildPublicSummaryResponse({
+        ownerKey: "owner-1",
+        view: "day",
+        now,
+        loadSummary: mustNotLoad,
+        loadDailyHistory: mustNotLoad,
+        loadMonth: mustNotLoad,
+        loadDay: (ownerKey) => getDayLog({ db: fixture.db, ownerKey, date, useSavedTimezone: true }),
+      });
+      assert.equal(response.headers.get("cache-control"), "no-store");
+      const text = await response.text();
+      return { text, body: JSON.parse(text) };
+    };
+
+    const older = await dayView("2026-08-20");
+    assert.deepEqual(Object.keys(older.body), ["view", "date", "timezone", "meals", "weight", "proteinGoal"]);
+    assert.equal(older.body.date, "2026-08-20");
+    assert.equal(older.body.timezone, "Asia/Ho_Chi_Minh");
+    // Newest first. The pending entry and the entry of another owner are left out.
+    assert.deepEqual(older.body.meals.map((meal: { id: string }) => meal.id), ["dinner", "breakfast"]);
+    assert.deepEqual(Object.keys(older.body.meals[0]), ["id", "consumedAt", "mealType", "hasPhoto", "totalCalories", "totalProteinG", "totalCarbsG", "totalFatG", "items"]);
+    assert.equal(older.body.meals[0].totalProteinG, 45.123);
+    assert.equal(older.body.meals[1].totalCalories, 400);
+    assert.deepEqual(Object.keys(older.body.meals[0].items[0]), ["name", "quantity", "unit", "calories", "proteinG", "carbsG", "fatG", "nutrients"]);
+    assert.equal(older.body.meals[0].items[0].name, "Item of dinner");
+    assert.equal(older.body.meals[0].items[0].nutrients.fiberG, 4);
+    // The photo route serves the last seven days only, so an older entry reports no photo.
+    assert.deepEqual(older.body.meals.map((meal: { hasPhoto: boolean }) => meal.hasPhoto), [false, false]);
+    assert.deepEqual(older.body.weight, { logicalDate: "2026-08-20", weightKg: 71.2, recordedAt: 5 });
+    assert.deepEqual(older.body.proteinGoal, { date: "2026-08-20", targetG: 140, weightKg: null, weightDate: null });
+    assert.doesNotMatch(older.text, /owner-1|Private|photoKey|meals\/|image\/jpeg/);
+
+    const today = await dayView("2026-09-12");
+    assert.deepEqual(today.body.meals.map((meal: { id: string; hasPhoto: boolean }) => [meal.id, meal.hasPhoto]), [["today", true]]);
+    assert.equal(today.body.weight, null);
+  } finally {
+    fixture.sqlite.close();
+  }
 });

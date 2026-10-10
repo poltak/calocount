@@ -39,6 +39,14 @@ function requestPath(title) {
   return match[1];
 }
 
+/** The request of a section, with its example month or date replaced by the current one. */
+function currentRequestPath(title) {
+  const today = new Date().toISOString().slice(0, 10);
+  return requestPath(title)
+    .replace(/month=\d{4}-\d{2}/, `month=${today.slice(0, 7)}`)
+    .replace(/date=\d{4}-\d{2}-\d{2}/, `date=${today}`);
+}
+
 /** Follow a documented name into a response. `name[]` steps into the first element of an array. */
 function valueAt(body, name) {
   let value = body;
@@ -76,10 +84,11 @@ test("each public view returns every field llms.txt documents, and documents eve
   const worker = await startWorker(LOCAL, { storage: true });
   try {
     await seed(worker);
-    for (const title of ["Daily view", "Dashboard view"]) {
+    for (const title of ["Daily view", "Dashboard view", "Month view", "Day view"]) {
       const names = documentedNames(title);
-      assert.ok(names.length >= 10, `the "${title}" section documents its fields`);
-      const response = await worker.request({ path: requestPath(title) });
+      assert.ok(names.length >= 6, `the "${title}" section documents its fields`);
+      // The seeded entry is of today, so the month and day views are read for today.
+      const response = await worker.request({ path: currentRequestPath(title) });
       assert.equal(response.status, 200, title);
       for (const name of names) valueAt(response.body, name);
 
@@ -95,6 +104,14 @@ test("each public view returns every field llms.txt documents, and documents eve
       assert.deepEqual(undocumented, [], `${list}: fields missing from llms.txt`);
     }
     assert.deepEqual(Object.keys(daily.units).sort(), ["calories", "carbsG", "fatG", "proteinG", "weightKg"]);
+
+    // The month rows are small enough to document field by field. A day entry has the fields of a dashboard entry.
+    const month = (await worker.request({ path: currentRequestPath("Month view") })).body;
+    const monthNames = new Set(documentedNames("Month view"));
+    assert.deepEqual(Object.keys(month.days[0]).filter((key) => !monthNames.has(`days[].${key}`)), [], "days: fields missing from llms.txt");
+    const day = (await worker.request({ path: currentRequestPath("Day view") })).body;
+    const dashboard = (await worker.request({ path: requestPath("Dashboard view") })).body;
+    assert.deepEqual(Object.keys(day.meals[0]), Object.keys(dashboard.recentMeals[0]));
   } finally {
     await worker.dispose();
   }
@@ -104,7 +121,7 @@ test("every path llms.txt links to or names under /api/ answers without sign-in"
   const links = [...guide.matchAll(/\]\((\/[^)\s]*)\)/g)].map((match) => match[1]);
   const apiPaths = [...guide.matchAll(/\/api\/[A-Za-z0-9_./?=&-]+/g)].map((match) => match[0]);
   const paths = [...new Set([...links, ...apiPaths])];
-  assert.ok(paths.includes(requestPath("Daily view")) && paths.includes(requestPath("Dashboard view")));
+  for (const title of ["Daily view", "Dashboard view", "Month view", "Day view"]) assert.ok(paths.includes(requestPath(title)), title);
 
   const worker = await startWorker(ACCESS);
   try {

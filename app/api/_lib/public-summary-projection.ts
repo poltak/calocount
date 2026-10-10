@@ -1,4 +1,4 @@
-import type { getDailyHistory, getDashboardSummary } from "../../../db/repository";
+import type { getDailyHistory, getDashboardSummary, getDayLog, getMonthTotals } from "../../../db/repository";
 import { roundAmount, roundNullableAmount } from "../../../domain/amounts";
 import { resolveNutrientGoals } from "../../../domain/nutrient-goals";
 import { resolveTimeZone, shiftDateKey, zonedCalendar, type ZonedCalendar } from "../../../domain/logical-date";
@@ -7,6 +7,8 @@ import { isPublicPhotoMimeType, isWithinPublicDateRange } from "./public-photo-p
 
 type DashboardSummary = Awaited<ReturnType<typeof getDashboardSummary>>;
 type DailyHistory = Awaited<ReturnType<typeof getDailyHistory>>;
+type MonthTotals = Awaited<ReturnType<typeof getMonthTotals>>;
+type DayLog = Awaited<ReturnType<typeof getDayLog>>;
 
 type PublicMealItem = {
   name: string;
@@ -285,5 +287,55 @@ export function projectPublicDailyHistory(history: DailyHistory) {
       mealCount: day.mealCount,
       weightKg: day.weightKg,
     })),
+  };
+}
+
+/**
+ * Build the month view for the calendar: the totals of each day that has
+ * entries. Keep the field list explicit, as in the projections above.
+ */
+export function projectPublicMonthTotals(totals: MonthTotals) {
+  return {
+    view: "month" as const,
+    month: totals.month,
+    // The timezone that sets the day boundaries of every date in this response.
+    timezone: totals.timezone,
+    firstDate: totals.firstDate,
+    days: totals.days.map((day) => ({
+      date: day.date,
+      calories: roundAmount(day.calories),
+      proteinG: roundAmount(day.proteinG),
+      mealCount: day.mealCount,
+    })),
+  };
+}
+
+/**
+ * Build the day view: the completed entries of one day in the shape of
+ * `recentMeals`, with the weight and protein goal of that day.
+ */
+export function projectPublicDayLog(day: DayLog, now: Date) {
+  const summaryDate = zonedCalendar(day.timezone).dateKey(now.getTime());
+  return {
+    view: "day" as const,
+    date: day.date,
+    // The timezone that sets the day boundaries of the date.
+    timezone: day.timezone,
+    meals: day.meals.filter((entry) => entry.meal.status === "complete").map((entry) => {
+      const meal = publicMeal(entry);
+      return {
+        ...meal,
+        // The photo route serves the entries of the last seven days only.
+        hasPhoto: meal.hasPhoto
+          && isWithinPublicDateRange({ consumedAt: entry.meal.consumedAt, summaryDate, timeZone: day.timezone }),
+      };
+    }),
+    weight: day.weight ? publicWeight(day.weight) : null,
+    proteinGoal: {
+      date: day.proteinGoal.date,
+      targetG: day.proteinGoal.targetG,
+      weightKg: day.proteinGoal.weightKg,
+      weightDate: day.proteinGoal.weightDate,
+    },
   };
 }

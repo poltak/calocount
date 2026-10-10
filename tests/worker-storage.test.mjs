@@ -143,6 +143,25 @@ test("the owner can read the totals of a past month and the entries of a past da
     assert.equal(emptyDay.status, 200);
     assert.deepEqual(emptyDay.body.meals, []);
     assert.equal(emptyDay.body.weight, null);
+
+    // The public calendar reads the same data on the summary path, in the saved timezone and without private fields.
+    const timezoneSaved = await worker.request({ path: "/api/settings", method: "PATCH", body: { timezone: "Asia/Ho_Chi_Minh" } });
+    assert.equal(timezoneSaved.status, 200);
+    const publicMonth = await worker.request({ path: "/api/public/summary?view=month&month=2025-03" });
+    assert.equal(publicMonth.status, 200);
+    assert.match(publicMonth.headers.get("cache-control") ?? "", /no-store/);
+    assert.deepEqual(publicMonth.body, { view: "month", ...month.body });
+    const publicDay = await worker.request({ path: "/api/public/summary?view=day&date=2025-03-20" });
+    assert.equal(publicDay.status, 200);
+    assert.equal(publicDay.body.timezone, "Asia/Ho_Chi_Minh");
+    assert.deepEqual(publicDay.body.meals.map((meal) => [meal.items[0].name, meal.totalCalories, meal.hasPhoto]), [["Rice bowl", 610, false], ["Late pho", 520.5, false]]);
+    assert.equal(publicDay.body.weight.weightKg, 68.4);
+    assert.doesNotMatch(publicDay.text, /ownerKey|caption|photoKey|notes/);
+    for (const path of ["/api/public/summary?view=month", "/api/public/summary?view=month&month=2025-13", "/api/public/summary?view=day", "/api/public/summary?view=day&date=2025-02-30"]) {
+      const invalid = await worker.request({ path });
+      assert.equal(invalid.status, 400, path);
+      assert.equal(invalid.body.error.code, "invalid_query");
+    }
   } finally {
     await worker.dispose();
   }

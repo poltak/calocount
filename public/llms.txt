@@ -3,7 +3,7 @@
 > One person's nutrition and weight log. The data is public and read-only as
 > JSON. You need no sign-in and no API key.
 
-All paths are on this host. Both public views are `GET` requests that return
+All paths are on this host. Every public view is a `GET` request that returns
 JSON. This file contains no live data.
 
 ## Start here
@@ -16,6 +16,13 @@ JSON. This file contains no live data.
   and 24 nutrients. It can be several hundred kilobytes. Use it only when you
   need food items, nutrient amounts or meal times. Save it to a file and query
   the file; do not read it whole.
+- [Month view](/api/public/summary?view=month&month=2026-09): the calories,
+  protein and entry count of each day of one month. Use it to find the days
+  that have entries.
+- [Day view](/api/public/summary?view=day&date=2026-09-12): every entry of one
+  day with its food items and 24 nutrients. A few kilobytes. Use it for the
+  food of any date, including dates older than the 30 days of the dashboard
+  view.
 
 ## Daily view
 
@@ -101,6 +108,40 @@ A nutrient amount is an object with `amount`, `knownItemCount`,
 has a value for that nutrient. The nutrient names carry their unit, such as
 `fiberG`, `sodiumMg` and `vitaminDMcg`.
 
+## Month view
+
+`GET /api/public/summary?view=month&month=2026-09`
+
+Replace `2026-09` with the month you need, written as `YYYY-MM`.
+
+- `view`: always `month`.
+- `month`: the month you asked for.
+- `timezone`: the IANA timezone that sets the day boundaries of every date.
+- `firstDate`: the date of the owner's first entry or weight, or `null`. No
+  earlier month has data.
+- `days[].date`: a date of the month that has one entry or more. A date with
+  no entries has no row. Rows are oldest first.
+- `days[].calories`: kcal eaten that day.
+- `days[].proteinG`: grams of protein.
+- `days[].mealCount`: the number of entries logged.
+
+## Day view
+
+`GET /api/public/summary?view=day&date=2026-09-12`
+
+Replace `2026-09-12` with the date you need, written as `YYYY-MM-DD`.
+
+- `view`: always `day`.
+- `date`: the date you asked for.
+- `timezone`: the IANA timezone that sets the day boundaries of the date.
+- `meals[]`: the entries of that day, newest first, with the same fields as
+  `recentMeals[]` in the dashboard view. The list is empty when nothing was
+  logged.
+- `weight`: the weight recorded that day, with `logicalDate`, `weightKg` and
+  `recordedAt`, or `null`.
+- `proteinGoal`: the protein goal of that day by the current settings, with
+  `date`, `targetG`, `weightKg` and `weightDate`.
+
 ## Reading the data
 
 - Dates are calendar dates in `timezone`. The timezone is `UTC` until the owner
@@ -115,12 +156,13 @@ has a value for that nutrient. The nutrient names carry their unit, such as
 
 When an entry in `recentMeals` has `hasPhoto: true`, its image is at
 `/meal-photos/{id}`, using that entry's `id`. Photos are public only for
-entries of the last seven days.
+entries of the last seven days. The day view gives `hasPhoto: false` for an
+older entry.
 
 ## Not public
 
 Captions, notes, assumptions, confidence, photo storage details, private
-settings, exports and credentials are not in either view. Every other path
+settings, exports and credentials are not in any view. Every other path
 under `/api/` needs the owner's sign-in.
 
 ## Private MCP endpoint

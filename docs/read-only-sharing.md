@@ -23,7 +23,7 @@ compatibility; do not remove or alter them without a separate database decision.
 | `/` | Public because no Access destination matches it | Read-only dashboard UI |
 | `/llms.txt` | Public because no Access destination matches it | Markdown discovery document for agents; links to the canonical public JSON projection |
 | `/owner` and `/owner/*` | Existing private Cloudflare Access application, existing owner Allow policy and audience, plus server-side signed JWT check | Owner read-write dashboard |
-| `/api/public/summary` | Separate exact Cloudflare Access application with Bypass Everyone | Explicit read-only dashboard projection, and the daily view for agents at `?view=daily` |
+| `/api/public/summary` | Separate exact Cloudflare Access application with Bypass Everyone | Explicit read-only dashboard projection, the daily view for agents at `?view=daily`, and the calendar views at `?view=month` and `?view=day` |
 | `/meal-photos/*` | Public because no Access destination matches it, with server-side projection checks | Images for completed meals in the current public seven-day projection |
 | `/api/*` in general | Private Cloudflare Access and server-side owner authentication | Owner data and API write operations, including the legacy Action route |
 | `/mcp` | Exact private Cloudflare Access application and server-side owner authentication | ChatGPT meal logging, nutrition reads and weight reads |
@@ -75,6 +75,25 @@ returns `400`.
 The view is a query on the existing path because the Access bypass covers only
 the exact `/api/public/summary` path. A new path under `/api/public/` would be
 private until it had its own bypass application.
+
+### Calendar views
+
+The public dashboard has the same calendar as the owner dashboard. It reads two
+more projections on the same path, with days counted in the owner's saved
+timezone:
+
+- `/api/public/summary?view=month&month=YYYY-MM` returns the calories, protein
+  and entry count of each day of that month that has entries, and `firstDate`,
+  the day the log starts.
+- `/api/public/summary?view=day&date=YYYY-MM-DD` returns the completed entries
+  of that day in the shape of `recentMeals`, the weight of that day, and its
+  protein goal.
+
+This makes the food items and weight of every past day public, where the
+dashboard projection stops at 30 days. The owner chose this on 2026-10-10. A
+missing or invalid `month` or `date` returns `400`. Photos keep the seven-day
+limit: the day view reports `hasPhoto: false` for an older entry, and the photo
+route still returns `404` for it.
 
 The anonymous `/meal-photos/<mealId>` route intentionally makes the image for a
 projected completed meal public to site viewers. It resolves the configured
