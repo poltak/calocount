@@ -25,38 +25,42 @@ test("the MCP endpoint lists its tools, logs, reads and updates a meal, and read
       ["add_meals", "get_nutrition_history", "get_nutrition_summary", "get_weight_history", "update_meal"],
     );
 
+    // The daily totals are those of the current day, so the meal is eaten now. A new owner's days are counted in UTC.
+    const eatenAt = new Date().toISOString();
+    const today = eatenAt.slice(0, 10);
+    const monthAgo = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
     const requestId = "4f4b2a53-7f0c-4b0e-9d5a-0c1f6f1f2a10";
     const added = await mcp(worker, "tools/call", {
       name: "add_meals",
-      arguments: { meals: [{ request_id: requestId, name: "Chicken pho", kcal: 520, protein: 38, carbs: 62, fat: 12, eaten_at: "2026-10-02T12:30:00+07:00", nutrients: { fiberG: 3 } }] },
+      arguments: { meals: [{ request_id: requestId, name: "Chicken pho", kcal: 520, protein: 38, carbs: 62, fat: 12, eaten_at: eatenAt, nutrients: { fiberG: 3 } }] },
     }, 3);
     assert.equal(added.status, 200);
     assert.equal(added.body.result.isError, false);
     assert.equal(added.body.result.structuredContent.created_count, 1);
-    assert.deepEqual(added.body.result.structuredContent.daily_totals, { date: "2026-10-02", kcal: 520, protein: 38, meal_count: 1 });
+    assert.deepEqual(added.body.result.structuredContent.daily_totals, { date: today, kcal: 520, protein: 38, meal_count: 1 });
 
     // Sending the same request again reports the saved meal instead of adding a second one.
     const repeated = await mcp(worker, "tools/call", {
       name: "add_meals",
-      arguments: { meals: [{ request_id: requestId, name: "Chicken pho", kcal: 520, protein: 38, carbs: 62, fat: 12, eaten_at: "2026-10-02T12:30:00+07:00", nutrients: { fiberG: 3 } }] },
+      arguments: { meals: [{ request_id: requestId, name: "Chicken pho", kcal: 520, protein: 38, carbs: 62, fat: 12, eaten_at: eatenAt, nutrients: { fiberG: 3 } }] },
     }, 4);
     assert.equal(repeated.body.result.structuredContent.already_exists_count, 1);
 
-    const summary = await mcp(worker, "tools/call", { name: "get_nutrition_summary", arguments: { start_date: "2026-10-02", end_date: "2026-10-02" } }, 5);
+    const summary = await mcp(worker, "tools/call", { name: "get_nutrition_summary", arguments: { start_date: today, end_date: today } }, 5);
     assert.equal(summary.body.result.isError, false);
     assert.equal(summary.body.result.structuredContent.days[0].totals.caloriesKcal, 520);
     assert.deepEqual(summary.body.result.structuredContent.goalChanges, []);
 
-    const history = await mcp(worker, "tools/call", { name: "get_nutrition_history", arguments: { start_date: "2026-10-02", end_date: "2026-10-02" } }, 6);
+    const history = await mcp(worker, "tools/call", { name: "get_nutrition_history", arguments: { start_date: today, end_date: today } }, 6);
     assert.equal(history.body.result.isError, false);
     assert.match(JSON.stringify(history.body.result.structuredContent), /Chicken pho/);
 
-    const weighed = await worker.request({ path: "/api/weights", method: "PUT", body: { logicalDate: "2026-10-02", weightKg: 66.3 } });
+    const weighed = await worker.request({ path: "/api/weights", method: "PUT", body: { logicalDate: today, weightKg: 66.3 } });
     assert.equal(weighed.status, 200);
-    const weights = await mcp(worker, "tools/call", { name: "get_weight_history", arguments: { start_date: "2026-09-01", end_date: "2026-10-02" } }, 8);
+    const weights = await mcp(worker, "tools/call", { name: "get_weight_history", arguments: { start_date: monthAgo, end_date: today } }, 8);
     assert.equal(weights.body.result.isError, false);
-    assert.equal(weights.body.result.structuredContent.firstWeightDate, "2026-10-02");
-    assert.deepEqual(weights.body.result.structuredContent.weights.map(({ date, weightKg }) => [date, weightKg]), [["2026-10-02", 66.3]]);
+    assert.equal(weights.body.result.structuredContent.firstWeightDate, today);
+    assert.deepEqual(weights.body.result.structuredContent.weights.map(({ date, weightKg }) => [date, weightKg]), [[today, 66.3]]);
 
     const updated = await mcp(worker, "tools/call", { name: "update_meal", arguments: { request_id: requestId, patch: { name: "Beef pho" } } }, 7);
     assert.equal(updated.body.result.isError, false, JSON.stringify(updated.body.result.structuredContent));
