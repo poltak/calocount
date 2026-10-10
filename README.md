@@ -7,7 +7,7 @@ The application backend uses Cloudflare Workers, D1, R2, Cron Triggers, Static A
 ## Included
 
 - Caltrack-inspired dark dashboard with today and seven-day views
-- owner calendar of all past days, with the calories and protein of each day
+- calendar of all past days in both dashboards, with the calories and protein of each day
 - calories, protein, carbohydrates, and fat
 - meal detail, additions, edits, and correction history
 - live API data, and an unavailable state when the API is not ready
@@ -186,6 +186,7 @@ This repository does not set up Cloudflare resources or secrets. That setup need
 - The public root may stream photos for completed meals in its current seven-day projection through `/meal-photos/*`; raw R2 keys are not exposed.
 - The Worker downloads photos from temporary ChatGPT image links immediately and never stores the links.
 - The public root exposes only the selected dashboard projection: targets, meal and macro totals, seven-day trend, recent weights, recent meal-item nutrition, and photo availability.
+- The public calendar also exposes the totals of each past day, and the completed entries, item nutrition and weight of any day a viewer opens. Photos stay limited to the last seven days.
 - The public projection does not expose photo storage keys, captions, notes, assumptions, confidence, AI/provider data, or private settings.
 - Normal logs do not include captions, images, signed URLs, or full provider payloads.
 - Nutrition values are estimates, not medical measurements.

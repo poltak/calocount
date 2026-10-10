@@ -151,14 +151,48 @@ test("a day or a month that does not load reports the failure and can be tried a
   await expect(page.locator(".meal-row", { hasText: "Audit lunch" })).toHaveCount(1);
 });
 
-test("the public dashboard has no calendar and stops at the seven recent days", async ({ page }) => {
+test("the public view has the calendar and opens older days from the public summary path", async ({ page }) => {
   const state = await mockDashboardApi(page);
+  addOlderMeal(state, { id: "meal-august", eatenAt: "2026-08-20T19:00:00Z", name: "August dinner", calories: 700, proteinG: 45 });
   await page.goto("/?public");
   await expect(page.locator(".calories-card .metric-value")).toContainText("500");
-  await expect(page.getByRole("button", { name: "Open calendar" })).toHaveCount(0);
-  const previous = page.getByRole("button", { name: "Previous day", exact: true });
-  for (let step = 0; step < 6; step++) await previous.click();
-  await expect(page.locator("#today")).toHaveText("Sunday, September 6, 2026");
-  await expect(previous).toBeDisabled();
-  expect(state.requests.filter((request) => request.path.startsWith("/api/days"))).toHaveLength(0);
+
+  const calendar = await openCalendar(page);
+  await expect(calendar.getByRole("button", { name: "Saturday, September 12, 2026: 500 kilocalories, 30 grams of protein" })).toBeVisible();
+  await calendar.getByRole("button", { name: "Previous month" }).click();
+  await calendar.getByRole("button", { name: "Thursday, August 20, 2026: 700 kilocalories, 45 grams of protein" }).click();
+  await expect(page.locator("#today")).toHaveText("Thursday, August 20, 2026");
+  await expect(page.locator(".calories-card .metric-value")).toContainText("700");
+  await expect(page.locator(".meal-row", { hasText: "August dinner" })).toHaveCount(1);
+  // An older day stays read-only.
+  for (const name of ["Add entry", "Add weight", "Edit August dinner", "Delete August dinner", "Duplicate August dinner"]) {
+    await expect(page.getByRole("button", { name })).toHaveCount(0);
+  }
+
+  await page.getByRole("button", { name: "Previous day", exact: true }).click();
+  await expect(page.locator("#today")).toHaveText("Wednesday, August 19, 2026");
+  await expect(page.locator(".empty-meals")).toContainText("No entries were logged for this day.");
+
+  // The public view never asks an owner route.
+  expect(state.requests.map((request) => `${request.method} ${request.path}${request.search}`)).toEqual([
+    "GET /api/public/summary",
+    "GET /api/public/summary?view=month&month=2026-09",
+    "GET /api/public/summary?view=month&month=2026-08",
+    "GET /api/public/summary?view=day&date=2026-08-20",
+    "GET /api/public/summary?view=day&date=2026-08-19",
+  ]);
+  expect(state.writes).toBe(0);
+});
+
+test("the public view counts calendar days in the owner's saved timezone", async ({ page }) => {
+  const state = await mockDashboardApi(page);
+  state.settings.timezone = "Asia/Ho_Chi_Minh";
+  // 19:00 UTC on 20 August is 02:00 on 21 August in Ho Chi Minh City.
+  addOlderMeal(state, { id: "meal-august", eatenAt: "2026-08-20T19:00:00Z", name: "August dinner", calories: 700, proteinG: 45 });
+  await page.goto("/?public");
+  const calendar = await openCalendar(page);
+  await calendar.getByRole("button", { name: "Previous month" }).click();
+  await calendar.getByRole("button", { name: "Friday, August 21, 2026: 700 kilocalories, 45 grams of protein" }).click();
+  await expect(page.locator("#today")).toHaveText("Friday, August 21, 2026");
+  await expect(page.locator(".meal-row", { hasText: "August dinner" }).locator("time")).toHaveText("02:00");
 });

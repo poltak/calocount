@@ -9,7 +9,9 @@ type HistoryCalendarProps = {
   /** Today in the timezone of the dashboard. */
   today: string;
   selectedDate: string;
+  /** The owner view counts days in this timezone. The public view uses the owner's saved timezone. */
   timeZone: string;
+  publicView: boolean;
   /** Changes when saved entries can be different, so the months load again. */
   refreshKey: number;
   disabled: boolean;
@@ -28,8 +30,8 @@ function monthLabel(month: string) {
   return monthFormatter.format(new Date(`${month}-01T12:00:00.000Z`));
 }
 
-/** A month of days with the calories and protein of each one. A day opens when the owner chooses it. */
-export function HistoryCalendar({ today, selectedDate, timeZone, refreshKey, disabled, onSelectDate, onClose }: HistoryCalendarProps) {
+/** A month of days with the calories and protein of each one. A day opens when the viewer chooses it. */
+export function HistoryCalendar({ today, selectedDate, timeZone, publicView, refreshKey, disabled, onSelectDate, onClose }: HistoryCalendarProps) {
   const [month, setMonth] = useState(() => selectedDate.slice(0, 7));
   const [loadedMonths, setLoadedMonths] = useState<Record<string, LoadedMonth>>({});
   const [failedMonth, setFailedMonth] = useState<string | null>(null);
@@ -43,7 +45,10 @@ export function HistoryCalendar({ today, selectedDate, timeZone, refreshKey, dis
     const controller = new AbortController();
     async function loadMonth() {
       try {
-        const response = await fetch(`/api/days?month=${month}&timezone=${encodeURIComponent(timeZone)}`, { cache: "no-store", signal: controller.signal });
+        const endpoint = publicView
+          ? `/api/public/summary?view=month&month=${month}`
+          : `/api/days?month=${month}&timezone=${encodeURIComponent(timeZone)}`;
+        const response = await fetch(endpoint, { cache: "no-store", signal: controller.signal });
         const parsed = response.ok ? parseCalendarMonth(await response.json()) : null;
         if (controller.signal.aborted) return;
         if (!parsed || parsed.month !== month) {
@@ -58,7 +63,7 @@ export function HistoryCalendar({ today, selectedDate, timeZone, refreshKey, dis
     }
     void loadMonth();
     return () => controller.abort();
-  }, [current, month, refreshKey, retryCount, timeZone]);
+  }, [current, month, publicView, refreshKey, retryCount, timeZone]);
 
   const totalsByDate = new Map((loaded?.days ?? []).map((day) => [day.date, day]));
   // The log starts at the first entry. A day before it can still be the selected one.

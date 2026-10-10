@@ -695,8 +695,6 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
   );
 
   const todayDate = days.at(-1)?.date ?? selectedDay.date;
-  // The read-only view holds the seven recent days only. The owner can go back to any day.
-  const hasPreviousDay = readOnly ? selectedDay.date > (days[0]?.date ?? selectedDay.date) : true;
   const hasNextDay = selectedDay.date < todayDate;
 
   function beginAction(kind: PendingActionKind, id?: string): PendingAction | null {
@@ -1539,13 +1537,16 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     setActionError(null);
     setActionStatus(null);
     try {
-      const response = await fetch(`/api/days/${date}?timezone=${encodeURIComponent(displayTimeZone)}`, { cache: "no-store" });
+      const endpoint = publicView
+        ? `/api/public/summary?view=day&date=${date}`
+        : `/api/days/${date}?timezone=${encodeURIComponent(displayTimeZone)}`;
+      const response = await fetch(endpoint, { cache: "no-store" });
       const responseBody = await response.json().catch(() => null);
       if (!response.ok) throw new Error(apiErrorMessage(responseBody, "The day could not be loaded."));
       const parsed = parseDayLog(responseBody);
       if (!parsed || parsed.date !== date) throw new Error("The day response was invalid.");
       if (olderDayRequest.current !== requestId || pendingActionRef.current) return;
-      const meals = parsed.meals.map((meal) => mapRemoteMeal(meal, { publicView: false, timeZone: displayTimeZone }));
+      const meals = parsed.meals.map((meal) => mapRemoteMeal(meal, { publicView, timeZone: displayTimeZone }));
       setOlderDay({
         day: dayWithMeals({ key: dayKeyForDate(date), date, ...dayLabelForDate(date), calories: 0, protein: 0, meals: [], weight: parsed.weight }, meals),
         proteinGoal: parsed.proteinGoal,
@@ -1563,7 +1564,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     if (pendingActionRef.current || date > todayDate) return;
     const recentDay = days.find((day) => day.date === date);
     if (recentDay) selectDay(recentDay.key);
-    else if (!readOnly && dataMode === "live") void loadOlderDay(date);
+    else if (dataMode === "live") void loadOlderDay(date);
   }
 
   async function loadHistoricalMeal(entryId: string, date: string) {
@@ -1664,7 +1665,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
           {selectedDay.date === todayDate ? <span className="today-chip">Today</span> : null}
         </div>
         <div className="date-controls">
-          <button className="date-arrow" type="button" onClick={() => moveSelectedDay("previous")} aria-label="Previous day" disabled={actionInProgress || !hasPreviousDay}>‹</button>
+          <button className="date-arrow" type="button" onClick={() => moveSelectedDay("previous")} aria-label="Previous day" disabled={actionInProgress}>‹</button>
           <div className="date-pills">
             {days.map((day) => (
               <button
@@ -1681,14 +1682,15 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
             ))}
           </div>
           <button className="date-arrow" type="button" onClick={() => moveSelectedDay("next")} aria-label="Next day" disabled={actionInProgress || !hasNextDay}>›</button>
-          {!readOnly ? <button className={`date-arrow calendar-toggle${showCalendar ? " active" : ""}`} type="button" onClick={() => setShowCalendar((current) => !current)} aria-label={showCalendar ? "Close calendar" : "Open calendar"} aria-expanded={showCalendar} aria-controls="history-calendar"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="2" y="3.5" width="12" height="10.5" rx="2" /><path d="M2 7h12M5.5 2v3M10.5 2v3" /></svg></button> : null}
+          <button className={`date-arrow calendar-toggle${showCalendar ? " active" : ""}`} type="button" onClick={() => setShowCalendar((current) => !current)} aria-label={showCalendar ? "Close calendar" : "Open calendar"} aria-expanded={showCalendar} aria-controls="history-calendar"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="2" y="3.5" width="12" height="10.5" rx="2" /><path d="M2 7h12M5.5 2v3M10.5 2v3" /></svg></button>
         </div>
       </section>
 
-      {!readOnly && showCalendar ? <HistoryCalendar
+      {showCalendar ? <HistoryCalendar
         today={todayDate}
         selectedDate={selectedDay.date}
         timeZone={displayTimeZone}
+        publicView={publicView}
         refreshKey={dashboardReloadKey}
         disabled={actionInProgress}
         onSelectDate={(date) => {

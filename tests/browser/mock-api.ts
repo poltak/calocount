@@ -139,6 +139,34 @@ export async function mockDashboardApi(page: Page) {
       nutrition: { today: byDate[29].nutrients, sevenDay: byDate[29].nutrients, byDate: byDate.slice(-7) },
     };
   }
+  /** The totals of the days of a month that have entries, as the calendar reads them. */
+  function monthTotals(month: string, timezone: string) {
+    const dayOf = dayIn(timezone);
+    const mealDays = state.meals.map((meal) => dayOf(meal.consumedAt));
+    const days = [...new Set(mealDays)].filter((day) => day.startsWith(month)).sort().map((day) => {
+      const meals = state.meals.filter((meal) => dayOf(meal.consumedAt) === day);
+      return {
+        date: day, calories: meals.reduce((n, m) => n + m.totalCalories, 0),
+        proteinG: meals.reduce((n, m) => n + m.totalProteinG, 0), mealCount: meals.length,
+      };
+    });
+    const firstDate = [...mealDays, ...state.weights.map((weight) => weight.logicalDate)].sort()[0] ?? null;
+    return { month, timezone, firstDate, days };
+  }
+  /** The entries, weight and protein goal of one day. */
+  function dayLog(day: string, timezone: string) {
+    const dayOf = dayIn(timezone);
+    return {
+      date: day, timezone,
+      meals: state.meals.filter((meal) => dayOf(meal.consumedAt) === day),
+      weight: state.weights.find((weight) => weight.logicalDate === day) ?? null,
+      proteinGoal: buildProteinGoalSummary({
+        dates: [day], mode: state.settings.proteinGoalMode,
+        fixedTargetG: state.settings.dailyProteinTargetG, gramsPerKg: state.settings.dailyProteinTargetPerKg,
+        weights: state.weights,
+      }).byDate[0],
+    };
+  }
   await page.route("**/meal-photos/**", async (route) => {
     if (state.failPhotos) await route.fulfill({ status: 404, json: {} });
     else await route.fulfill({ contentType: "image/png", body: PIXEL_PNG });
@@ -167,6 +195,20 @@ export async function mockDashboardApi(page: Page) {
         await route.fulfill({ status: 500, json: { error: { code: "internal_error", message: "Test summary failed." } } });
         return;
       }
+      // The public calendar reads its month and day views on the summary path, in the owner's saved timezone.
+      const view = pathname === "/api/public/summary" ? url.searchParams.get("view") : null;
+      if (view === "month" || view === "day") {
+        if (state.failDays) {
+          await route.fulfill({ status: 500, json: { error: { code: "internal_error", message: "Test day failed." } } });
+          return;
+        }
+        await route.fulfill({
+          json: view === "month"
+            ? { view, ...monthTotals(url.searchParams.get("month") ?? "", state.settings.timezone) }
+            : { view, ...dayLog(url.searchParams.get("date") ?? "", state.settings.timezone) },
+        });
+        return;
+      }
       // The public summary uses the owner's saved timezone; the owner summary uses the one the page asks for.
       const timezone = pathname === "/api/public/summary" ? state.settings.timezone : url.searchParams.get("timezone") ?? "UTC";
       const fullBody = state.invalidSummary ? { date, today: {}, sevenDay: {} } : summary(timezone);
@@ -191,32 +233,11 @@ export async function mockDashboardApi(page: Page) {
         return;
       }
       const timezone = url.searchParams.get("timezone") ?? "UTC";
-      const dayOf = dayIn(timezone);
-      if (pathname === "/api/days") {
-        const month = url.searchParams.get("month") ?? "";
-        const mealDays = state.meals.map((meal) => dayOf(meal.consumedAt));
-        const days = [...new Set(mealDays)].filter((day) => day.startsWith(month)).sort().map((day) => {
-          const meals = state.meals.filter((meal) => dayOf(meal.consumedAt) === day);
-          return {
-            date: day, calories: meals.reduce((n, m) => n + m.totalCalories, 0),
-            proteinG: meals.reduce((n, m) => n + m.totalProteinG, 0), mealCount: meals.length,
-          };
-        });
-        const firstDate = [...mealDays, ...state.weights.map((weight) => weight.logicalDate)].sort()[0] ?? null;
-        await route.fulfill({ json: { month, timezone, firstDate, days } });
-      } else {
-        const day = pathname.slice("/api/days/".length);
-        await route.fulfill({ json: {
-          date: day, timezone,
-          meals: state.meals.filter((meal) => dayOf(meal.consumedAt) === day),
-          weight: state.weights.find((weight) => weight.logicalDate === day) ?? null,
-          proteinGoal: buildProteinGoalSummary({
-            dates: [day], mode: state.settings.proteinGoalMode,
-            fixedTargetG: state.settings.dailyProteinTargetG, gramsPerKg: state.settings.dailyProteinTargetPerKg,
-            weights: state.weights,
-          }).byDate[0],
-        } });
-      }
+      await route.fulfill({
+        json: pathname === "/api/days"
+          ? monthTotals(url.searchParams.get("month") ?? "", timezone)
+          : dayLog(pathname.slice("/api/days/".length), timezone),
+      });
     } else if (pathname === "/api/saved-entries") {
       if (state.failSavedEntries) {
         await route.abort();
