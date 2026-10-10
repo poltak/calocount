@@ -7,6 +7,7 @@ The application backend uses Cloudflare Workers, D1, R2, Cron Triggers, Static A
 ## Included
 
 - Caltrack-inspired dark dashboard with today and seven-day views
+- owner calendar of all past days, with the calories and protein of each day
 - calories, protein, carbohydrates, and fat
 - meal detail, additions, edits, and correction history
 - live API data, and an unavailable state when the API is not ready

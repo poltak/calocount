@@ -43,8 +43,6 @@ export type SevenDayAverageOptions = {
   timeZone: string;
 };
 
-export type AdjacentDirection = "previous" | "next";
-
 export type CalorieChartScale = {
   maxCalories: number;
   targetHeightPercent: number;
@@ -293,15 +291,4 @@ export function calculateSevenDayAverage({ days, currentDate, now = new Date(), 
   if (includedDays.length === 0) return 0;
 
   return Math.round(includedDays.reduce((total, day) => total + nonNegativeFinite(day.value), 0) / includedDays.length);
-}
-
-export function getAdjacentDayKey<T extends { key: string }>(
-  days: readonly T[],
-  selectedKey: string,
-  direction: AdjacentDirection,
-) {
-  const selectedIndex = days.findIndex((day) => day.key === selectedKey);
-  if (selectedIndex < 0) return null;
-  const offset = direction === "previous" ? -1 : 1;
-  return days[selectedIndex + offset]?.key ?? null;
 }

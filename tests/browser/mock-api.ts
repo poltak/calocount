@@ -82,14 +82,19 @@ export async function mockDashboardApi(page: Page) {
     failSummary: false,
     failSavedEntries: false,
     failPhotos: false,
+    failDays: false,
     holdSummary: null as Promise<void> | null,
     holdWrite: null as Promise<void> | null,
     failWrite: false,
   };
+  /** The day a moment falls on in a timezone. */
+  function dayIn(timezone: string) {
+    const dayFormatter = new Intl.DateTimeFormat("en-CA", { timeZone: timezone });
+    return (timestamp: number) => dayFormatter.format(new Date(timestamp));
+  }
   /** Build the summary with days counted in the given timezone, as the server does. */
   function summary(timezone: string) {
-    const dayFormatter = new Intl.DateTimeFormat("en-CA", { timeZone: timezone });
-    const dayOf = (timestamp: number) => dayFormatter.format(new Date(timestamp));
+    const dayOf = dayIn(timezone);
     const byDate = Array.from({ length: 30 }, (_, index) => {
       const day = new Date(Date.parse(state.date) - (29 - index) * dayMs).toISOString().slice(0, 10);
       const meals = state.meals.filter((meal) => dayOf(meal.consumedAt) === day);
@@ -101,6 +106,10 @@ export async function mockDashboardApi(page: Page) {
         mealCount: meals.length, nutrients: aggregateNutrients(meals.flatMap((m) => m.items)),
       };
     });
+    // The server reports the entries of the seven recent days and keeps 30 days more for insights.
+    const insightStart = new Date(Date.parse(state.date) - 30 * dayMs).toISOString().slice(0, 10);
+    const insightMeals = state.meals.filter((meal) => dayOf(meal.consumedAt) >= insightStart);
+    const recentMeals = insightMeals.filter((meal) => dayOf(meal.consumedAt) >= byDate[23].date);
     const proteinGoal = buildProteinGoalSummary({
       dates: byDate.slice(-7).map((day) => day.date), mode: state.settings.proteinGoalMode,
       fixedTargetG: state.settings.dailyProteinTargetG, gramsPerKg: state.settings.dailyProteinTargetPerKg,
@@ -112,11 +121,11 @@ export async function mockDashboardApi(page: Page) {
       referenceSettings: { vitaminB6UsFnbAdultUlEnabled: state.settings.vitaminB6UsFnbAdultUlEnabled, usFnbAdultUlEnabled: state.settings.usFnbAdultUlEnabled },
       targets: { calories: state.settings.dailyCalorieTarget, proteinG: proteinGoal.targetG, nutrients: resolveNutrientGoals() },
       proteinGoal, today: byDate[29], sevenDay: { calories: 500, proteinG: 30, averageCalories: 0, averageProteinG: 0, daysWithMeals: 1 },
-      recentMeals: state.meals, recentWeights: state.weights,
+      recentMeals, recentWeights: state.weights,
       insights: {
-        fromDate: new Date(Date.parse(state.date) - 30 * dayMs).toISOString().slice(0, 10),
+        fromDate: insightStart,
         toDate: state.date,
-        entries: state.meals.map((meal) => ({
+        entries: insightMeals.map((meal) => ({
           id: meal.id, date: dayOf(meal.consumedAt), consumedAt: meal.consumedAt,
           calories: meal.totalCalories, proteinG: meal.totalProteinG,
           items: meal.items.map((item) => ({
@@ -176,7 +185,39 @@ export async function mockDashboardApi(page: Page) {
         return;
       }
     }
-    if (pathname === "/api/saved-entries") {
+    if (pathname === "/api/days" || pathname.startsWith("/api/days/")) {
+      if (state.failDays) {
+        await route.fulfill({ status: 500, json: { error: { code: "internal_error", message: "Test day failed." } } });
+        return;
+      }
+      const timezone = url.searchParams.get("timezone") ?? "UTC";
+      const dayOf = dayIn(timezone);
+      if (pathname === "/api/days") {
+        const month = url.searchParams.get("month") ?? "";
+        const mealDays = state.meals.map((meal) => dayOf(meal.consumedAt));
+        const days = [...new Set(mealDays)].filter((day) => day.startsWith(month)).sort().map((day) => {
+          const meals = state.meals.filter((meal) => dayOf(meal.consumedAt) === day);
+          return {
+            date: day, calories: meals.reduce((n, m) => n + m.totalCalories, 0),
+            proteinG: meals.reduce((n, m) => n + m.totalProteinG, 0), mealCount: meals.length,
+          };
+        });
+        const firstDate = [...mealDays, ...state.weights.map((weight) => weight.logicalDate)].sort()[0] ?? null;
+        await route.fulfill({ json: { month, timezone, firstDate, days } });
+      } else {
+        const day = pathname.slice("/api/days/".length);
+        await route.fulfill({ json: {
+          date: day, timezone,
+          meals: state.meals.filter((meal) => dayOf(meal.consumedAt) === day),
+          weight: state.weights.find((weight) => weight.logicalDate === day) ?? null,
+          proteinGoal: buildProteinGoalSummary({
+            dates: [day], mode: state.settings.proteinGoalMode,
+            fixedTargetG: state.settings.dailyProteinTargetG, gramsPerKg: state.settings.dailyProteinTargetPerKg,
+            weights: state.weights,
+          }).byDate[0],
+        } });
+      }
+    } else if (pathname === "/api/saved-entries") {
       if (state.failSavedEntries) {
         await route.abort();
       } else if (request.method() === "POST") {

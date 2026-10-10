@@ -2,11 +2,11 @@
 
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
-import { asRecord, stringOr, parseDashboardPayload, dashboardFailureMessage, parseWeightResponse, parseMealResponse, parseSavedEntriesResponse, parseTrackedEntryResponse, parseSettingsTargets, type DailyWeight, type TrendDay, type DashboardSummary, type SavedEntry, type SerializedMeal } from "./dashboard-api";
+import { asRecord, stringOr, parseDashboardPayload, dashboardFailureMessage, parseWeightResponse, parseMealResponse, parseSavedEntriesResponse, parseTrackedEntryResponse, parseSettingsTargets, parseDayLog, type DailyWeight, type TrendDay, type DashboardSummary, type SavedEntry, type SerializedMeal } from "./dashboard-api";
 import { mergeTrendDays, mergeTrendWeights } from "./dashboard-trend";
 import { settingsDraftForTargets, type SettingsDraft, type TargetState } from "./dashboard-settings";
 
-import { zonedCalendar, type ZonedCalendar } from "../domain/logical-date";
+import { shiftDateKey, zonedCalendar, type ZonedCalendar } from "../domain/logical-date";
 import { resolveNutrientGoals } from "../domain/nutrient-goals";
 import type { NutrientKey } from "../domain/nutrients";
 import {
@@ -16,6 +16,7 @@ import {
   PROTEIN_PER_KG_MAX,
   PROTEIN_PER_KG_MIN,
   updateProteinGoalSettings,
+  type ProteinGoalDay,
   type ProteinGoalSummary,
 } from "../domain/protein-goals";
 
@@ -29,7 +30,6 @@ import {
   calculateTargetPercent,
   calculateWeightChartScale,
   compareAverageToTarget,
-  getAdjacentDayKey,
 } from "./dashboard-calculations";
 import {
   beginMealEdit,
@@ -59,6 +59,7 @@ import { readNutritionCollapsed, writeNutritionCollapsed } from "./nutrition/nut
 import { NutrientTrendPanel } from "./nutrition/nutrient-trend-panel";
 import { NutritionOverview } from "./nutrition/nutrition-overview";
 import { TrendRangeSelect, type TrendRangeDays } from "./trend-range-select";
+import { HistoryCalendar } from "./history-calendar";
 import { FoodContributionChart, NutrientConsistencyMatrix, ProteinTargetChart } from "./dashboard-insights";
 import { DaysWorthRepeating } from "./insights/days-worth-repeating";
 import { WeeklyChanges } from "./insights/weekly-changes";
@@ -104,6 +105,12 @@ type Day = {
   weight?: DailyWeight | null;
 };
 
+
+/** A day before the seven recent days, opened from the calendar or with the day arrows. */
+type OlderDay = {
+  day: Day;
+  proteinGoal: ProteinGoalDay | null;
+};
 
 type DataMode = "loading" | "live" | "error";
 type DashboardSection = "today" | "meals" | "trend" | "macros" | "nutrition";
@@ -451,6 +458,10 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
   const [trendHistory, setTrendHistory] = useState<{ byDate: TrendDay[]; weights: DailyWeight[] }>({ byDate: [], weights: [] });
   const [insightHistory, setInsightHistory] = useState<InsightHistory | null>(null);
   const [selectedDayKey, setSelectedDayKey] = useState<DayKey>("thu");
+  const [olderDay, setOlderDay] = useState<OlderDay | null>(null);
+  const [olderDayLoadingDate, setOlderDayLoadingDate] = useState<string | null>(null);
+  const olderDayRequest = useRef(0);
+  const [showCalendar, setShowCalendar] = useState(false);
   const [mealEditState, setMealEditState] = useState<MealEditState<Meal>>(() => emptyMealEditState<Meal>());
   const [showAddMeal, setShowAddMeal] = useState(false);
   const [showWeightForm, setShowWeightForm] = useState(false);
@@ -498,6 +509,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
   const previewCloseRef = useRef<HTMLButtonElement>(null);
   const actionInProgress = pendingAction !== null;
   const pendingLabel = pendingAction ? pendingActionLabel(pendingAction) : null;
+  const olderDayLabel = olderDayLoadingDate ? `Loading ${fullDateLabel(olderDayLoadingDate)}…` : null;
   const weightActionPending = pendingAction?.kind === "weight-save";
   const settingsLoadPending = pendingAction?.kind === "settings-load";
   const settingsSavePending = pendingAction?.kind === "settings-save";
@@ -507,9 +519,9 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
   const editingMealId = mealEditState.editingMealId;
   const historicalMealDraft = historicalMeal ? mealDraftFor(mealEditState, historicalMeal) : null;
 
-  const selectedDay = days.find((day) => day.key === selectedDayKey) ?? days[4];
+  const selectedDay = olderDay?.day ?? days.find((day) => day.key === selectedDayKey) ?? days[4];
   const selectedWeight = selectedDay.weight ?? null;
-  const selectedProteinGoal = proteinGoal.byDate.find((day) => day.date === selectedDay.date) ?? {
+  const selectedProteinGoal = proteinGoal.byDate.find((day) => day.date === selectedDay.date) ?? olderDay?.proteinGoal ?? {
     date: selectedDay.date,
     targetG: proteinGoal.targetG,
     weightKg: proteinGoal.weightKg,
@@ -682,8 +694,10 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     [days, selectedDay.date],
   );
 
-  const previousDayKey = getAdjacentDayKey(days, selectedDayKey, "previous");
-  const nextDayKey = getAdjacentDayKey(days, selectedDayKey, "next");
+  const todayDate = days.at(-1)?.date ?? selectedDay.date;
+  // The read-only view holds the seven recent days only. The owner can go back to any day.
+  const hasPreviousDay = readOnly ? selectedDay.date > (days[0]?.date ?? selectedDay.date) : true;
+  const hasNextDay = selectedDay.date < todayDate;
 
   function beginAction(kind: PendingActionKind, id?: string): PendingAction | null {
     if (pendingActionRef.current) return null;
@@ -760,7 +774,13 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
   }
 
   function findLoadedMeal(mealId: string): Meal | undefined {
-    return days.flatMap((day) => day.meals).find((entry) => entry.id === mealId);
+    return [...days, ...(olderDay ? [olderDay.day] : [])].flatMap((day) => day.meals).find((entry) => entry.id === mealId);
+  }
+
+  /** Apply a change to each loaded day: the seven recent days and the open older day. */
+  function updateLoadedDays(change: (day: Day) => Day) {
+    setDays((currentDays) => currentDays.map(change));
+    setOlderDay((current) => current ? { ...current, day: change(current.day) } : current);
   }
 
   function retryDashboard() {
@@ -1007,39 +1027,39 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     const nextMeal = mapRemoteMeal(remoteMeal, { publicView, timeZone: displayTimeZone });
     const date = dateKeyInTimeZone(remoteMeal.consumedAt, displayTimeZone);
     if (historicalMeal?.id === nextMeal.id) setHistoricalMeal(nextMeal);
-    setDays((currentDays) => currentDays.map((day) => {
+    updateLoadedDays((day) => {
       if (day.date !== date) return day;
       const meals = day.meals.some((meal) => meal.id === nextMeal.id)
         ? day.meals.map((meal) => meal.id === nextMeal.id ? nextMeal : meal)
         : [...day.meals, nextMeal];
       return dayWithMeals(day, meals);
-    }));
+    });
   }
 
   function addMealToDate(logicalDate: string, meal: Meal) {
-    setDays((currentDays) => currentDays.map((day) => (
+    updateLoadedDays((day) => (
       day.date === logicalDate ? dayWithMeals(day, [...day.meals, meal]) : day
-    )));
+    ));
   }
 
   function reconcileMeal(optimisticId: string, remoteMeal: SerializedMeal) {
     const nextMeal = mapRemoteMeal(remoteMeal, { publicView, timeZone: displayTimeZone });
     const date = dateKeyInTimeZone(remoteMeal.consumedAt, displayTimeZone);
-    setDays((currentDays) => currentDays.map((day) => {
+    updateLoadedDays((day) => {
       const withoutOptimistic = day.meals.filter((meal) => meal.id !== optimisticId && meal.id !== nextMeal.id);
       if (day.date !== date) {
         return withoutOptimistic.length === day.meals.length ? day : dayWithMeals(day, withoutOptimistic);
       }
       return dayWithMeals(day, [...withoutOptimistic, nextMeal]);
-    }));
+    });
   }
 
   function removeMealFromDays(mealId: string) {
-    setDays((currentDays) => currentDays.map((day) => {
+    updateLoadedDays((day) => {
       const meals = day.meals.filter((meal) => meal.id !== mealId);
       if (meals.length === day.meals.length) return day;
       return dayWithMeals(day, meals);
-    }));
+    });
   }
 
   async function saveMeal(mealId: string) {
@@ -1230,6 +1250,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
       success: (parsed, action) => {
         reconcileMeal(optimisticId(action), parsed);
         setSelectedDayKey(dayKeyForDate(today.date));
+        setOlderDay(null);
         setActionStatus(`Tracked “${name}”.`);
       },
     });
@@ -1316,9 +1337,9 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
   }
 
   function setWeightForDate(logicalDate: string, weight: DailyWeight | null) {
-    setDays((currentDays) => currentDays.map((day) => (
+    updateLoadedDays((day) => (
       day.date === logicalDate ? { ...day, weight } : day
-    )));
+    ));
   }
 
   function openWeightEditor() {
@@ -1489,10 +1510,9 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     });
   }
 
-  function selectDay(key: DayKey) {
-    if (pendingActionRef.current) return;
+  /** Close the editors and forms of the day in view, before another day replaces it. */
+  function resetDayEditing() {
     historicalMealRequest.current += 1;
-    setSelectedDayKey(key);
     setHistoricalMeal(null);
     setHistoricalMealLoadingId(null);
     setHistoricalMealError(null);
@@ -1500,6 +1520,50 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
     setMealPhotoDrafts({});
     setShowAddMeal(false);
     setShowWeightForm(false);
+  }
+
+  function selectDay(key: DayKey) {
+    if (pendingActionRef.current) return;
+    olderDayRequest.current += 1;
+    setOlderDayLoadingDate(null);
+    setOlderDay(null);
+    setSelectedDayKey(key);
+    resetDayEditing();
+  }
+
+  /** Load a day before the seven recent days and show it as the selected day. */
+  async function loadOlderDay(date: string) {
+    const requestId = olderDayRequest.current + 1;
+    olderDayRequest.current = requestId;
+    setOlderDayLoadingDate(date);
+    setActionError(null);
+    setActionStatus(null);
+    try {
+      const response = await fetch(`/api/days/${date}?timezone=${encodeURIComponent(displayTimeZone)}`, { cache: "no-store" });
+      const responseBody = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(apiErrorMessage(responseBody, "The day could not be loaded."));
+      const parsed = parseDayLog(responseBody);
+      if (!parsed || parsed.date !== date) throw new Error("The day response was invalid.");
+      if (olderDayRequest.current !== requestId || pendingActionRef.current) return;
+      const meals = parsed.meals.map((meal) => mapRemoteMeal(meal, { publicView: false, timeZone: displayTimeZone }));
+      setOlderDay({
+        day: dayWithMeals({ key: dayKeyForDate(date), date, ...dayLabelForDate(date), calories: 0, protein: 0, meals: [], weight: parsed.weight }, meals),
+        proteinGoal: parsed.proteinGoal,
+      });
+      resetDayEditing();
+    } catch (error) {
+      if (olderDayRequest.current !== requestId) return;
+      setActionError(error instanceof Error ? error.message : "The day could not be loaded.");
+    } finally {
+      if (olderDayRequest.current === requestId) setOlderDayLoadingDate(null);
+    }
+  }
+
+  function selectDate(date: string) {
+    if (pendingActionRef.current || date > todayDate) return;
+    const recentDay = days.find((day) => day.date === date);
+    if (recentDay) selectDay(recentDay.key);
+    else if (!readOnly && dataMode === "live") void loadOlderDay(date);
   }
 
   async function loadHistoricalMeal(entryId: string, date: string) {
@@ -1555,8 +1619,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
   }
 
   function moveSelectedDay(direction: "previous" | "next") {
-    const nextKey = getAdjacentDayKey(days, selectedDayKey, direction);
-    if (nextKey) selectDay(nextKey as DayKey);
+    selectDate(shiftDateKey(selectedDay.date, direction === "previous" ? -1 : 1));
   }
 
   return (
@@ -1582,7 +1645,7 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
 
       {dataMessage ? <div className={`data-banner ${dataMode}`} role="status"><span aria-hidden="true">{dataMode === "live" ? "✓" : dataMode === "loading" ? "…" : "i"}</span>{dataMessage}</div> : null}
       {readOnly && dataMode === "live" ? <div className="data-banner public" role="status"><span aria-hidden="true">✓</span>Public read-only view — changes are disabled.{summaryTimeZone && summaryTimeZone !== browserZone ? ` Days and times are shown in ${summaryTimeZone.replaceAll("_", " ")} time.` : ""}</div> : null}
-      {pendingLabel || actionStatus || actionError ? <div className={`action-feedback ${actionError ? "error" : ""}`} role={actionError ? "alert" : "status"} aria-live="polite" aria-busy={actionInProgress}>{actionError ?? pendingLabel ?? actionStatus}</div> : null}
+      {pendingLabel || olderDayLabel || actionStatus || actionError ? <div className={`action-feedback ${actionError ? "error" : ""}`} role={actionError ? "alert" : "status"} aria-live="polite" aria-busy={actionInProgress || olderDayLoadingDate !== null}>{actionError ?? pendingLabel ?? olderDayLabel ?? actionStatus}</div> : null}
 
       {dataMode !== "live" ? <section className="dashboard-state" aria-live="polite">
         <span className="dashboard-state-mark" aria-hidden="true">{dataMode === "loading" ? "…" : "!"}</span>
@@ -1598,28 +1661,42 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
         <div className="date-heading">
           <p className="eyebrow">Your log</p>
           <h1 id="today">{selectedDay.weekday}, {fullDateLabel(selectedDay.date)}</h1>
-          {selectedDay.date === days.at(-1)?.date ? <span className="today-chip">Today</span> : null}
+          {selectedDay.date === todayDate ? <span className="today-chip">Today</span> : null}
         </div>
         <div className="date-controls">
-          <button className="date-arrow" type="button" onClick={() => moveSelectedDay("previous")} aria-label="Previous day" disabled={actionInProgress || !previousDayKey}>‹</button>
+          <button className="date-arrow" type="button" onClick={() => moveSelectedDay("previous")} aria-label="Previous day" disabled={actionInProgress || !hasPreviousDay}>‹</button>
           <div className="date-pills">
             {days.map((day) => (
               <button
-                className={`date-pill${selectedDayKey === day.key ? " active" : ""}${day.meals.length > 0 ? " has-entries" : ""}`}
+                className={`date-pill${selectedDay.date === day.date ? " active" : ""}${day.meals.length > 0 ? " has-entries" : ""}`}
                 key={day.key}
                 type="button"
                 onClick={() => selectDay(day.key)}
                 disabled={actionInProgress}
                 aria-label={`${day.weekday}, ${fullDateLabel(day.date)}`}
-                aria-pressed={selectedDayKey === day.key}
+                aria-pressed={selectedDay.date === day.date}
               >
                 <span>{dayLabels[day.key]}</span><strong>{day.shortDate}</strong>
               </button>
             ))}
           </div>
-          <button className="date-arrow" type="button" onClick={() => moveSelectedDay("next")} aria-label="Next day" disabled={actionInProgress || !nextDayKey}>›</button>
+          <button className="date-arrow" type="button" onClick={() => moveSelectedDay("next")} aria-label="Next day" disabled={actionInProgress || !hasNextDay}>›</button>
+          {!readOnly ? <button className={`date-arrow calendar-toggle${showCalendar ? " active" : ""}`} type="button" onClick={() => setShowCalendar((current) => !current)} aria-label={showCalendar ? "Close calendar" : "Open calendar"} aria-expanded={showCalendar} aria-controls="history-calendar"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="2" y="3.5" width="12" height="10.5" rx="2" /><path d="M2 7h12M5.5 2v3M10.5 2v3" /></svg></button> : null}
         </div>
       </section>
+
+      {!readOnly && showCalendar ? <HistoryCalendar
+        today={todayDate}
+        selectedDate={selectedDay.date}
+        timeZone={displayTimeZone}
+        refreshKey={dashboardReloadKey}
+        disabled={actionInProgress}
+        onSelectDate={(date) => {
+          selectDate(date);
+          setShowCalendar(false);
+        }}
+        onClose={() => setShowCalendar(false)}
+      /> : null}
 
       <nav className="jump-nav" aria-label="Dashboard sections">
         <a className={activeSection === "today" ? "active" : ""} href="#today" aria-current={activeSection === "today" ? "page" : undefined}>Today</a>
@@ -1850,8 +1927,8 @@ export function Dashboard({ readOnly = false, publicView = false }: DashboardPro
 
           <section className="panel history-panel compact-dashboard-panel" aria-labelledby="history-title">
             <div className="panel-heading compact-heading"><div><p className="eyebrow">Keep the thread</p><h2 id="history-title">Recent days</h2></div><button className="more-button" type="button" onClick={() => setShowAllDays((current) => !current)}>{showAllDays ? "Less" : "View all"}</button></div>
-            <div className="history-list">{days.slice(showAllDays ? 0 : 3).reverse().map((day) => <button className={`history-row ${selectedDayKey === day.key ? "selected" : ""}`} type="button" key={day.key} onClick={() => selectDay(day.key)} disabled={actionInProgress}><span className="history-date"><strong>{day.shortDate}</strong><small>{day.weekday.slice(0, 3)}</small></span><span className="history-bar"><i style={{ width: `${calculateTargetPercent(day.calories, activeCalorieTarget)}%` }} /></span><span className="history-calories">{formatNumber(day.calories)}<small> kcal</small></span><span className="history-chevron" aria-hidden="true">›</span></button>)}</div>
-            <div className="streak-line"><span className="streak-flame" aria-hidden="true">✦</span><span><strong>{loggingStreak} day{loggingStreak === 1 ? "" : "s"}</strong> logging streak</span></div>
+            <div className="history-list">{days.slice(showAllDays ? 0 : 3).reverse().map((day) => <button className={`history-row ${selectedDay.date === day.date ? "selected" : ""}`} type="button" key={day.key} onClick={() => selectDay(day.key)} disabled={actionInProgress}><span className="history-date"><strong>{day.shortDate}</strong><small>{day.weekday.slice(0, 3)}</small></span><span className="history-bar"><i style={{ width: `${calculateTargetPercent(day.calories, activeCalorieTarget)}%` }} /></span><span className="history-calories">{formatNumber(day.calories)}<small> kcal</small></span><span className="history-chevron" aria-hidden="true">›</span></button>)}</div>
+            {olderDay ? null : <div className="streak-line"><span className="streak-flame" aria-hidden="true">✦</span><span><strong>{loggingStreak} day{loggingStreak === 1 ? "" : "s"}</strong> logging streak</span></div>}
           </section>
 
           {!readOnly ? <section className="panel saved-entries-panel" aria-labelledby="saved-entries-title">

@@ -11,7 +11,6 @@ import {
   calculateTargetPercent,
   calculateWeightChartScale,
   compareAverageToTarget,
-  getAdjacentDayKey,
 } from "../app/dashboard-calculations";
 
 test("calorie chart bars and target line use the same scale", () => {
@@ -203,12 +202,4 @@ test("seven-day average includes the current local day at 9pm", () => {
 test("target progress is safe when the target is zero", () => {
   assert.equal(calculateTargetPercent(1200, 0), 0);
   assert.deepEqual(compareAverageToTarget(1200, 0), { direction: "above", percentage: 0 });
-});
-
-test("adjacent navigation stops at the loaded week boundaries", () => {
-  const days = [{ key: "sun" }, { key: "mon" }, { key: "tue" }];
-  assert.equal(getAdjacentDayKey(days, "mon", "previous"), "sun");
-  assert.equal(getAdjacentDayKey(days, "mon", "next"), "tue");
-  assert.equal(getAdjacentDayKey(days, "sun", "previous"), null);
-  assert.equal(getAdjacentDayKey(days, "tue", "next"), null);
 });

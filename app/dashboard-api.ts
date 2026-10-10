@@ -1,4 +1,4 @@
-import { isValidTimeZone } from "../domain/logical-date";
+import { isDateKey, isMonthKey, isValidTimeZone } from "../domain/logical-date";
 import { isProteinGoalMode, isValidProteinPerKg, type ProteinGoalDay, type ProteinGoalSummary } from "../domain/protein-goals";
 import { hasNutrientProvenance, parseNutrientProvenance, type NutrientProvenanceMap } from "../domain/nutrient-provenance";
 import type { NutritionItem } from "./nutrition/meal-nutrition-details";
@@ -112,12 +112,6 @@ function numberOr(value: unknown, fallback = 0) {
 
 function finiteFields(record: Record<string, unknown> | null, fields: string[]): record is Record<string, unknown> {
   return record !== null && fields.every((field) => typeof record[field] === "number" && Number.isFinite(record[field]));
-}
-
-function isDateKey(value: unknown): value is string {
-  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const timestamp = Date.parse(value + "T00:00:00Z");
-  return Number.isFinite(timestamp) && new Date(timestamp).toISOString().slice(0, 10) === value;
 }
 
 function parseArray<T>(value: unknown, parse: (entry: unknown) => T | null): T[] | null {
@@ -375,6 +369,58 @@ export function parseDashboardPayload(value: unknown): DashboardSummary | null {
       byDate: nutritionByDate,
     } : undefined,
   };
+}
+
+export type CalendarDay = {
+  date: string;
+  calories: number;
+  proteinG: number;
+  mealCount: number;
+};
+
+export type CalendarMonth = {
+  month: string;
+  /** The day of the first entry or weight in the log. Null when the log is empty. */
+  firstDate: string | null;
+  /** The days of the month that have entries, oldest first. */
+  days: CalendarDay[];
+};
+
+export function parseCalendarMonth(value: unknown): CalendarMonth | null {
+  const record = asRecord(value);
+  if (!record || !isMonthKey(record.month)) return null;
+  const month = record.month;
+  const firstDate = record.firstDate ?? null;
+  if (firstDate !== null && !isDateKey(firstDate)) return null;
+  const days = parseArray(record.days, (entry): CalendarDay | null => {
+    const day = asRecord(entry);
+    if (!day || !isDateKey(day.date) || !day.date.startsWith(month)
+      || !finiteFields(day, ["calories", "proteinG", "mealCount"])) return null;
+    return {
+      date: day.date,
+      calories: numberOr(day.calories),
+      proteinG: numberOr(day.proteinG),
+      mealCount: numberOr(day.mealCount),
+    };
+  });
+  if (!days) return null;
+  return { month, firstDate, days };
+}
+
+export type DayLog = {
+  date: string;
+  meals: SerializedMeal[];
+  weight: DailyWeight | null;
+  proteinGoal: ProteinGoalDay | null;
+};
+
+export function parseDayLog(value: unknown): DayLog | null {
+  const record = asRecord(value);
+  if (!record || !isDateKey(record.date)) return null;
+  const meals = parseArray(record.meals, parseSerializedMeal);
+  const weight = record.weight == null ? null : parseDailyWeight(record.weight);
+  if (!meals || (record.weight != null && !weight)) return null;
+  return { date: record.date, meals, weight, proteinGoal: parseProteinGoalDay(record.proteinGoal) };
 }
 
 export function dashboardFailureMessage(status: number, responseBody: unknown): string {
