@@ -96,6 +96,54 @@ test("a dashboard entry with a photo is saved and its photo can be read back", a
   }
 });
 
+test("the owner can read the totals of a past month and the entries of a past day", async () => {
+  const worker = await startWorker(LOCAL, { storage: true });
+  try {
+    const addMeal = (eatenAt, name, calories, proteinG) => worker.request({
+      path: "/api/meals",
+      method: "POST",
+      body: {
+        consumedAt: Date.parse(eatenAt), mealType: "dinner", source: "dashboard", status: "complete", caption: name,
+        items: [{ name, quantity: 1, unit: "serving", calories, proteinG, carbsG: 60, fatG: 12, fiberG: 4 }],
+      },
+    });
+    // 18:30 UTC on 19 March is 01:30 on 20 March in Ho Chi Minh City.
+    for (const meal of [["2025-03-19T18:30:00Z", "Late pho", 520.5, 38], ["2025-03-20T05:00:00Z", "Rice bowl", 610, 31.5], ["2025-04-02T05:00:00Z", "April lunch", 450, 25]]) {
+      assert.equal((await addMeal(...meal)).status, 201);
+    }
+    const weighed = await worker.request({ path: "/api/weights", method: "PUT", body: { logicalDate: "2025-03-20", weightKg: 68.4 } });
+    assert.equal(weighed.status, 200);
+
+    const timezone = encodeURIComponent("Asia/Ho_Chi_Minh");
+    const month = await worker.request({ path: `/api/days?month=2025-03&timezone=${timezone}` });
+    assert.equal(month.status, 200);
+    assert.deepEqual(month.body, {
+      month: "2025-03",
+      timezone: "Asia/Ho_Chi_Minh",
+      firstDate: "2025-03-20",
+      days: [{ date: "2025-03-20", calories: 1130.5, proteinG: 69.5, mealCount: 2 }],
+    });
+    // In UTC the late meal falls on the day before.
+    const utcMonth = await worker.request({ path: "/api/days?month=2025-03" });
+    assert.deepEqual(utcMonth.body.days.map((day) => [day.date, day.mealCount]), [["2025-03-19", 1], ["2025-03-20", 1]]);
+
+    const day = await worker.request({ path: `/api/days/2025-03-20?timezone=${timezone}` });
+    assert.equal(day.status, 200);
+    assert.equal(day.body.date, "2025-03-20");
+    assert.deepEqual(day.body.meals.map((meal) => [meal.caption, meal.totalCalories, meal.items[0].name]), [["Rice bowl", 610, "Rice bowl"], ["Late pho", 520.5, "Late pho"]]);
+    assert.equal(day.body.weight.weightKg, 68.4);
+    assert.equal(day.body.proteinGoal.date, "2025-03-20");
+    assert.doesNotMatch(JSON.stringify(day.body), /ownerKey/);
+
+    const emptyDay = await worker.request({ path: "/api/days/2025-03-21" });
+    assert.equal(emptyDay.status, 200);
+    assert.deepEqual(emptyDay.body.meals, []);
+    assert.equal(emptyDay.body.weight, null);
+  } finally {
+    await worker.dispose();
+  }
+});
+
 test("the public daily view covers the whole history in a small response", async () => {
   const worker = await startWorker(LOCAL, { storage: true });
   try {

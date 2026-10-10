@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { isValidTimeZone, logicalDateWindow, resolveTimeZone, shiftDateKey, utcOffsetSegments, zonedCalendar } from "../domain/logical-date";
+import { isDateKey, isMonthKey, isValidTimeZone, logicalDateWindow, resolveTimeZone, shiftDateKey, shiftMonthKey, utcOffsetSegments, zonedCalendar } from "../domain/logical-date";
 
 const HOUR_MS = 3_600_000;
 
@@ -47,6 +47,20 @@ test("dates shift across month and year ends, and an unknown timezone falls back
   assert.equal(resolveTimeZone("Europe/London"), "Europe/London");
   assert.equal(resolveTimeZone("Not/A_Timezone"), "UTC");
   assert.equal(resolveTimeZone(null), "UTC");
+});
+
+test("months shift across year ends, and only real dates and months are accepted", () => {
+  assert.equal(shiftMonthKey("2026-09", -1), "2026-08");
+  assert.equal(shiftMonthKey("2026-12", 1), "2027-01");
+  assert.equal(shiftMonthKey("2026-01", -13), "2024-12");
+  assert.equal(isMonthKey("2026-09"), true);
+  assert.equal(isMonthKey("2026-13"), false);
+  assert.equal(isMonthKey("2026-9"), false);
+  assert.equal(isMonthKey(null), false);
+  assert.equal(isDateKey("2028-02-29"), true);
+  assert.equal(isDateKey("2026-02-29"), false);
+  assert.equal(isDateKey("2026-09-12T00:00:00Z"), false);
+  assert.equal(isDateKey(20260912), false);
 });
 
 test("a calendar reports the UTC offsets of a period and the moments they change", () => {

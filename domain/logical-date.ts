@@ -70,6 +70,29 @@ export function shiftDateKey(date: string, days: number): string {
   });
 }
 
+/** Shift a YYYY-MM month by whole months. */
+export function shiftMonthKey(month: string, months: number): string {
+  const [year, monthNumber] = month.split("-").map(Number);
+  const shifted = new Date(utcTimestamp({ year, month: monthNumber + months, day: 1 }));
+  return dateKeyFromParts({
+    year: shifted.getUTCFullYear(),
+    month: shifted.getUTCMonth() + 1,
+    day: 1,
+  }).slice(0, 7);
+}
+
+/** True for a real calendar date written as YYYY-MM-DD. */
+export function isDateKey(value: unknown): value is string {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const timestamp = Date.parse(`${value}T00:00:00Z`);
+  return Number.isFinite(timestamp) && new Date(timestamp).toISOString().slice(0, 10) === value;
+}
+
+/** True for a month written as YYYY-MM. */
+export function isMonthKey(value: unknown): value is string {
+  return typeof value === "string" && /^\d{4}-(?:0[1-9]|1[0-2])$/.test(value);
+}
+
 export function isValidTimeZone(value: unknown): value is string {
   if (typeof value !== "string" || value.length === 0 || value.length > 100) return false;
   try {

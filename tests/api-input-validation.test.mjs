@@ -28,6 +28,21 @@ test("owner API rejects invalid dates and timezones before database access", asy
       assert.equal(summary.status, 503);
       assert.equal(summary.body.error.code, "database_unavailable");
     }
+    for (const path of ["/api/days", "/api/days?month=2026-13", "/api/days?month=2026-9", "/api/days?month=2026-09&timezone=Not/A_Timezone", "/api/days/2026-09-12?timezone=Not/A_Timezone"]) {
+      const response = await request({ path });
+      assert.equal(response.status, 400, `${path} must be rejected`);
+      assert.equal(response.body.error.code, "invalid_query");
+    }
+    for (const path of ["/api/days/2026-02-31", "/api/days/today", "/api/days/2026-9-1"]) {
+      const response = await request({ path });
+      assert.equal(response.status, 400, `${path} must be rejected`);
+      assert.equal(response.body.error.code, "invalid_date");
+    }
+    for (const path of ["/api/days?month=2026-09", "/api/days?month=2026-09&timezone=Asia/Ho_Chi_Minh", "/api/days/2026-09-12", "/api/days/2026-09-12?timezone=America/New_York"]) {
+      const response = await request({ path });
+      assert.equal(response.status, 503, `${path} must reach the database`);
+      assert.equal(response.body.error.code, "database_unavailable");
+    }
     for (const proteinGoalMode of ["invalid", 1]) {
       const response = await request({ path: "/api/settings", method: "PATCH", body: { proteinGoalMode } });
       assert.equal(response.status, 400);

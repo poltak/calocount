@@ -12,7 +12,7 @@ import {
   type SQL,
 } from "drizzle-orm";
 import { getDb } from "./index";
-import { resolveTimeZone, shiftDateKey, utcOffsetSegments, zonedCalendar, type ZonedCalendar } from "../domain/logical-date";
+import { resolveTimeZone, shiftDateKey, shiftMonthKey, utcOffsetSegments, zonedCalendar, type ZonedCalendar } from "../domain/logical-date";
 import {
   aggregateNutrients,
   NUTRIENT_KEYS,
@@ -1549,6 +1549,85 @@ export async function getDailyHistory(db: AppDb, ownerKey: string, options: Dail
     },
     goalChanges: changes.map((change) => ({ date: calendar.dateKey(change.changedAt), ...change })),
     days,
+  };
+}
+
+/**
+ * Calorie and protein totals for the days of one month that have complete
+ * entries, with days counted in the given timezone. `firstDate` is the day of
+ * the owner's first entry or weight, so a calendar knows where the log starts.
+ */
+export async function getMonthTotals({ db, ownerKey, month, timezone }: {
+  db: AppDb; ownerKey: string; month: string; timezone?: string;
+}) {
+  const calendar = zonedCalendar(resolveTimeZone(timezone));
+  const fromMs = calendar.firstInstant(`${month}-01`);
+  const toMs = calendar.firstInstant(`${shiftMonthKey(month, 1)}-01`);
+  const completeMeals = and(eq(mealLogs.ownerKey, ownerKey), eq(mealLogs.status, "complete"));
+  const mealDate = mealLogicalDateSql(calendar, fromMs, toMs);
+  const [rows, firstMeal, firstWeight] = await Promise.all([
+    db.select({
+      date: mealDate,
+      mealCount: sql<number>`count(*)`,
+      calories: sql<number>`coalesce(sum(${mealLogs.totalCalories}), 0)`,
+      proteinG: sql<number>`coalesce(sum(${mealLogs.totalProteinG}), 0)`,
+    }).from(mealLogs)
+      .where(and(completeMeals, gte(mealLogs.consumedAt, fromMs), lt(mealLogs.consumedAt, toMs)))
+      .groupBy(mealDate)
+      .orderBy(mealDate)
+      .prepare()
+      .all(),
+    db.select({ consumedAt: sql<number | null>`min(${mealLogs.consumedAt})` })
+      .from(mealLogs).where(completeMeals).prepare().get(),
+    db.select({ logicalDate: sql<string | null>`min(${dailyWeights.logicalDate})` })
+      .from(dailyWeights).where(eq(dailyWeights.ownerKey, ownerKey)).prepare().get(),
+  ]);
+  const firstDates = [
+    typeof firstMeal?.consumedAt === "number" ? calendar.dateKey(firstMeal.consumedAt) : null,
+    firstWeight?.logicalDate ?? null,
+  ].filter((date): date is string => date !== null);
+  return {
+    month,
+    timezone: calendar.timeZone,
+    firstDate: firstDates.sort()[0] ?? null,
+    days: rows.map((row) => ({
+      date: row.date,
+      calories: finiteNumber(row.calories),
+      proteinG: finiteNumber(row.proteinG),
+      mealCount: finiteNumber(row.mealCount),
+    })),
+  };
+}
+
+/** The entries, weight and protein goal of one day, with the day counted in the given timezone. */
+export async function getDayLog({ db, ownerKey, date, timezone }: {
+  db: AppDb; ownerKey: string; date: string; timezone?: string;
+}) {
+  const calendar = zonedCalendar(resolveTimeZone(timezone));
+  const [settingsRow, meals, weight] = await Promise.all([
+    getSettings(db, ownerKey),
+    listMealsInRange({
+      db, ownerKey, from: calendar.firstInstant(date), to: calendar.firstInstant(shiftDateKey(date, 1)),
+    }),
+    getDailyWeight({ db, ownerKey, logicalDate: date }),
+  ]);
+  const proteinGoalMode = normaliseProteinGoalMode(settingsRow?.proteinGoalMode);
+  // A weight-based protein target uses the latest weight on or before the day.
+  const goalWeight = weight ?? (proteinGoalMode === "gramsPerKg"
+    ? await getLatestDailyWeightBefore({ db, ownerKey, logicalDate: date })
+    : undefined);
+  return {
+    date,
+    timezone: calendar.timeZone,
+    meals,
+    weight: weight ?? null,
+    proteinGoal: resolveProteinGoalDay({
+      date,
+      mode: proteinGoalMode,
+      fixedTargetG: settingsRow?.dailyProteinTargetG,
+      gramsPerKg: settingsRow?.dailyProteinTargetPerKg,
+      weights: goalWeight ? [goalWeight] : [],
+    }),
   };
 }
 
