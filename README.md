@@ -113,6 +113,14 @@ Install the browser once with `pnpm exec playwright install chromium` before run
 
 The full check runs strict TypeScript, ESLint, a production build, the unit and data tests, tests that send requests to the built Worker, and browser tests. The browser tests use the real dashboard with a local API fixture. They do not access production data. Run only these tests with `pnpm run test:browser`.
 
+To compare two builds, give each build directory a label:
+
+```bash
+pnpm exec tsx scripts/benchmark-runtime.ts before=../other-checkout/dist after=dist
+```
+
+The script serves each build from the same local server, with the same compression and the same mock API data. It prints the download sizes, the load times on a phone profile and a desktop profile, the interaction times, and the Worker request times.
+
 ## Cloudflare deployment
 
 `wrangler.jsonc` configures the one Worker: the dashboard, the API, and the hourly cron trigger.
