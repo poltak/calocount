@@ -11,6 +11,27 @@ Calocount is a single-user meal tracker. The public root is read-only, and the o
 - Cloudflare Access protects the private owner route and private APIs.
 - Historical D1 tables for analysis jobs and AI runs remain. Current code does not write to them.
 
+## Pages and browser code
+
+The Worker has no web framework. `worker/index.ts` gives each request to the
+route table in `worker/routes.ts`, and then to the page templates in
+`worker/pages.ts`. A page is an HTML string. A dashboard page contains the
+loading state, so the first paint needs no script.
+
+The browser code in `app/ui/` uses the DOM directly and has no rendering
+library. `app/ui/dom.ts` has the helpers. `h` builds an element. A slot is a
+part of the page that gets new nodes when its inputs change. A slot moves the
+focus and the open disclosures to the new nodes. `app/ui/dashboard.ts` keeps
+the state in one object and asks for one render after each change. It builds a
+form once and keeps the same node while the form is open, so the form keeps
+the text that the owner typed.
+
+The build gives the script and the stylesheet content-hashed names in
+`/assets/`. `public/_headers` tells browsers to cache them for one year.
+
+`tsconfig.client.json` checks `app/ui/` with the DOM types only. The Worker
+types change some DOM types, so the two sets cannot be in one program.
+
 ## HTTP route boundary
 
 The application has two dashboard entry points:
@@ -44,7 +65,7 @@ JWT audience. A separate Access application protects the exact
 `/api/public/summary` destination with Bypass Everyone. `/`,
 `/meal-photos/*`, and static/PWA assets are public because no Access destination
 matches them. Do not add root or static bypass exceptions, a broad `/*` or
-`/_next/*` bypass, or an `/api/*` bypass.
+`/assets/*` bypass, or an `/api/*` bypass.
 
 Anonymous and authenticated live checks must confirm that the public root,
 summary, and projected photos load without login; owner pages, `/api/photos/*`,

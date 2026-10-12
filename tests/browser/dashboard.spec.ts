@@ -402,7 +402,7 @@ test("settings code loads when the owner opens the form", async ({ page }) => {
   await mockDashboardApi(page);
   const settingsRequests: string[] = [];
   page.on("request", (request) => {
-    if (request.url().includes("/app/settings-panel.tsx")) settingsRequests.push(request.url());
+    if (request.url().includes("/app/ui/settings-panel.ts")) settingsRequests.push(request.url());
   });
   await page.goto("/?public");
   await expect(page.locator(".calories-card .metric-value")).toContainText("500");

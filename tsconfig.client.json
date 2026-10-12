@@ -1,0 +1,11 @@
+{
+  // The browser code. It has the DOM types only, because the Worker types redefine some of them.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "types": [],
+    "tsBuildInfoFile": "tsconfig.client.tsbuildinfo"
+  },
+  "include": ["app/ui", "tests/browser/fixture"],
+  "exclude": ["node_modules"]
+}

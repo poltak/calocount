@@ -23,7 +23,8 @@ Calocount does not include WHOOP, Apple Health, body-fat, sleep, recovery, or st
 ## Repository layout
 
 ```text
-app/                 dashboard and private JSON API
+app/                 dashboard logic and private JSON API
+app/ui/              browser code of the dashboard, with no rendering library
 db/                  Drizzle schema and D1 repository
 drizzle/             generated D1 migration
 worker/              Worker entry point and scheduled photo cleanup
@@ -173,7 +174,7 @@ For the public/owner route split, follow [docs/read-only-sharing.md](docs/read-o
 - `/`, `/meal-photos/*`, and the static/PWA assets are public because no Access destination matches them. The photo handler restricts delivery to completed meals in the current public projection. Do not add root or static bypass exceptions.
 - Anonymous and authenticated checks must confirm that the public root, summary, and projected photos load without login; owner pages, `/api/photos/*`, and private APIs require the owner Access session; static/PWA assets are reachable anonymously; and the removed share routes return `404` when reached.
 
-Do not add a broad `/*`, `/_next/*`, or `/api/*` bypass. Do not make owner APIs public.
+Do not add a broad `/*`, `/assets/*`, or `/api/*` bypass. Do not make owner APIs public.
 
 For future changes to the public-root/private-owner layout, treat routes as public by default unless a private Cloudflare Access destination covers them. Any new page outside `/owner`, any new public API exception, or any new server route outside `/api` requires explicit privacy and Access review before deployment. Verify the anonymous and owner behavior from deployed requests, including the Access path list.
 

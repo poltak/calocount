@@ -82,7 +82,7 @@ test("every page links one credentialed manifest, the icons and both theme color
   }
 });
 
-/** Run the inline theme script against a minimal document, as the browser does before hydration. */
+/** Run the inline theme script against a minimal document, as the browser does before the page code runs. */
 function runThemeInitializer(script, { stored, prefersLight, storageThrows = false }) {
   const root = { dataset: {}, style: {} };
   vm.runInNewContext(script, {
@@ -104,7 +104,7 @@ function runThemeInitializer(script, { stored, prefersLight, storageThrows = fal
   return root;
 }
 
-test("the inline theme script applies the saved theme before hydration", async () => {
+test("the inline theme script applies the saved theme before the page code runs", async () => {
   const { html } = await render("/");
   const script = html.match(/<script id="theme-initializer">([\s\S]*?)<\/script>/)?.[1];
   assert.ok(script, "the page must inline the theme script");
