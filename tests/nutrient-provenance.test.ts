@@ -8,7 +8,7 @@ import {
 } from "../domain/nutrient-provenance";
 import { parseMealResponse } from "../app/dashboard-api";
 import { serialiseMeal } from "../app/api/_lib/serialise";
-import { nutrientProvenanceFromForm } from "../app/nutrition/meal-nutrition-editor";
+import { nutrientProvenanceFromForm } from "../app/nutrition/nutrient-form";
 
 test("nutrient provenance keeps only explicit origins for known values", () => {
   const provenance = parseNutrientProvenance({

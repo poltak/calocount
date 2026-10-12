@@ -6,7 +6,7 @@ import type { NutrientKey, NutrientUpperLimitKey } from "../domain/nutrients";
 import type { NutrientValueOrigin } from "../domain/nutrient-provenance";
 import type { MealDraftChanges } from "./dashboard-edit";
 import { MEAL_KINDS, mealKind, mealKindLabels, type MealKind } from "./meal-kind";
-import type { NutritionItem } from "./nutrition/meal-nutrition-details";
+import type { NutritionItem } from "./nutrition/nutrition-item";
 import { MealNutritionEditor } from "./nutrition/meal-nutrition-editor";
 
 export const mealPhotoAccept = "image/jpeg,image/png,image/webp";

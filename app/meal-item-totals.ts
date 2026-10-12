@@ -1,4 +1,4 @@
-import type { NutritionItem } from "./nutrition/meal-nutrition-details";
+import type { NutritionItem } from "./nutrition/nutrition-item";
 
 type TotalChanges = {
   calories?: number;

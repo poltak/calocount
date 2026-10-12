@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { dateKeyInTimeZone, localTimeValue, mealDateTimestamp } from "../app/page";
+import { dateKeyInTimeZone, localTimeValue, mealDateTimestamp } from "../app/meal-time";
 
 const timezone = "Asia/Ho_Chi_Minh";
 

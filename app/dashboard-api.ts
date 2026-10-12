@@ -1,7 +1,7 @@
 import { isDateKey, isMonthKey, isValidTimeZone } from "../domain/logical-date";
 import { isProteinGoalMode, isValidProteinPerKg, type ProteinGoalDay, type ProteinGoalSummary } from "../domain/protein-goals";
 import { hasNutrientProvenance, parseNutrientProvenance, type NutrientProvenanceMap } from "../domain/nutrient-provenance";
-import type { NutritionItem } from "./nutrition/meal-nutrition-details";
+import type { NutritionItem } from "./nutrition/nutrition-item";
 import type { InsightEntry, InsightHistory, InsightItem } from "./insights/types";
 import { nutrientKeys, parseNutrientGoalMap, parseNutrientAggregateMap, parseNutrientValue, type NutrientAggregateMap, type NutrientGoalMap, type NutrientValueMap } from "./nutrition/nutrient-meta";
 import { NUTRIENT_UPPER_LIMIT_KEYS } from "../domain/nutrients";

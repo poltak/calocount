@@ -1,7 +1,7 @@
-import { groupedNutrientKeys, nutrientGroupLabel, nutrientLabel, nutrientUnit, parseNutrientValue, nutrientKeys, type NutrientValueMap } from "./nutrient-meta";
-import { NUTRIENT_VALUE_ORIGINS, nutrientValueOriginLabel, parseNutrientProvenance, type NutrientProvenanceMap, type NutrientValueOrigin } from "../../domain/nutrient-provenance";
+import { groupedNutrientKeys, nutrientGroupLabel, nutrientLabel, nutrientUnit, parseNutrientValue, type NutrientValueMap } from "./nutrient-meta";
+import { NUTRIENT_VALUE_ORIGINS, nutrientValueOriginLabel, type NutrientProvenanceMap, type NutrientValueOrigin } from "../../domain/nutrient-provenance";
 import type { NutrientKey } from "../../domain/nutrients";
-import { NUTRIENT_UPPER_LIMIT_META, NUTRIENT_UPPER_LIMIT_KEYS, type NutrientUpperLimitKey } from "../../domain/nutrients";
+import { NUTRIENT_UPPER_LIMIT_META, type NutrientUpperLimitKey } from "../../domain/nutrients";
 
 type MealNutritionEditorProps = {
   values?: NutrientValueMap;
@@ -88,21 +88,4 @@ export function MealNutritionEditor({ values, provenance, onChange, onProvenance
       </fieldset>
     </div>
   </details>;
-}
-
-export function nutrientValuesFromForm(form: FormData, namePrefix = "nutrient-"): NutrientValueMap {
-  const values: NutrientValueMap = {};
-  for (const key of nutrientKeys) values[key] = parseNutrientValue(form.get(`${namePrefix}${key}`));
-  for (const key of NUTRIENT_UPPER_LIMIT_KEYS) values[key] = parseNutrientValue(form.get(`${namePrefix}${key}`));
-  return values;
-}
-
-export function nutrientProvenanceFromForm(
-  form: FormData,
-  namePrefix = "nutrient-origin-",
-  values = nutrientValuesFromForm(form),
-): NutrientProvenanceMap {
-  const raw: Partial<Record<NutrientKey, unknown>> = {};
-  for (const key of nutrientKeys) raw[key] = form.get(`${namePrefix}${key}`);
-  return parseNutrientProvenance(raw, values);
 }

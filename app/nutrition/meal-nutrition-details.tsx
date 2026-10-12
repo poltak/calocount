@@ -2,35 +2,9 @@ import { useState } from "react";
 
 import { nutrientValueOriginLabel, type NutrientProvenanceMap } from "../../domain/nutrient-provenance";
 import { NUTRIENT_UPPER_LIMIT_META } from "../../domain/nutrients";
-import { aggregateNutrientValues, nutrientLabel, nutrientKeys, type NutrientValueMap } from "./nutrient-meta";
+import { aggregateNutrientValues, nutrientLabel, nutrientKeys } from "./nutrient-meta";
+import type { NutritionItem, NutritionMeal } from "./nutrition-item";
 import { NutrientValueText } from "./nutrient-value";
-
-export type NutritionItem = {
-  id?: string;
-  name: string;
-  quantity?: number | null;
-  unit?: string | null;
-  calories?: number;
-  proteinG?: number;
-  carbsG?: number;
-  fatG?: number;
-  nutrients?: NutrientValueMap;
-  nutrientProvenance?: NutrientProvenanceMap;
-  source?: string | null;
-  confidence?: string | number | null;
-};
-
-export type NutritionMeal = {
-  id: string;
-  name: string;
-  description: string;
-  calories: number;
-  protein: number;
-  carbs?: number | null;
-  fat?: number | null;
-  photoUrl?: string | null;
-  items: NutritionItem[];
-};
 
 type MealNutritionDetailsProps = {
   meal: NutritionMeal;

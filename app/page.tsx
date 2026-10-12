@@ -6,7 +6,7 @@ import { asRecord, stringOr, parseDashboardPayload, dashboardFailureMessage, par
 import { mergeTrendDays, mergeTrendWeights } from "./dashboard-trend";
 import { settingsDraftForTargets, type SettingsDraft, type TargetState } from "./dashboard-settings";
 
-import { shiftDateKey, zonedCalendar, type ZonedCalendar } from "../domain/logical-date";
+import { shiftDateKey } from "../domain/logical-date";
 import { resolveNutrientGoals } from "../domain/nutrient-goals";
 import type { NutrientKey } from "../domain/nutrients";
 import {
@@ -45,6 +45,7 @@ import {
 import { scheduleDashboardClock } from "./dashboard-clock";
 import { MealEditor, MealKindOptions, mealPhotoAccept, mealPhotoError } from "./meal-editor";
 import { mealKind, mealKindForTime, mealKindLabels, type MealKind } from "./meal-kind";
+import { browserTimeZone, dateKeyInTimeZone, localTimeValue, mealDateTimestamp } from "./meal-time";
 import { photoUrlForKey, publicPhotoUrlForMealId } from "./photo-url";
 import { readThemePreference, subscribeToTheme, writeThemePreference, type ThemePreference } from "./theme";
 import {
@@ -52,8 +53,10 @@ import {
   type NutrientAggregateMap,
 } from "./nutrition/nutrient-meta";
 import { nutrientGoalOverridesFromDraft } from "./nutrition/nutrient-goal-draft";
-import { MealNutritionDetails, type NutritionItem } from "./nutrition/meal-nutrition-details";
-import { MealNutritionEditor, nutrientProvenanceFromForm, nutrientValuesFromForm } from "./nutrition/meal-nutrition-editor";
+import { MealNutritionDetails } from "./nutrition/meal-nutrition-details";
+import { MealNutritionEditor } from "./nutrition/meal-nutrition-editor";
+import { nutrientProvenanceFromForm, nutrientValuesFromForm } from "./nutrition/nutrient-form";
+import type { NutritionItem } from "./nutrition/nutrition-item";
 import type { NutrientValueOrigin } from "../domain/nutrient-provenance";
 import { readNutritionCollapsed, writeNutritionCollapsed } from "./nutrition/nutrition-collapse";
 import { NutrientTrendPanel } from "./nutrition/nutrient-trend-panel";
@@ -188,18 +191,6 @@ function formatChartTick(value: number) {
 }
 
 const orderedDayKeys: DayKey[] = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
-
-const calendars = new Map<string, ZonedCalendar>();
-
-/** The calendar date a moment falls on in a timezone. */
-export function dateKeyInTimeZone(timestamp: number, timeZone: string) {
-  let calendar = calendars.get(timeZone);
-  if (!calendar) {
-    calendar = zonedCalendar(timeZone);
-    calendars.set(timeZone, calendar);
-  }
-  return calendar.dateKey(timestamp);
-}
 
 const clockFormatters = new Map<string, Intl.DateTimeFormat>();
 
@@ -418,36 +409,6 @@ function mealRequestOptions(payload: ReturnType<typeof mealPayload> | ReturnType
   form.set("payload", JSON.stringify(payload));
   form.set("photo", photo, photo.name);
   return { body: form };
-}
-
-export function localTimeValue(date = new Date()) {
-  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
-}
-
-export function browserTimeZone() {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-  } catch {
-    return "UTC";
-  }
-}
-
-export function mealDateTimestamp({ date, time }: { date: string; time: string }): number | null {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(time)) return null;
-
-  const [year, month, day] = date.split("-").map(Number);
-  const [hours, minutes] = time.split(":").map(Number);
-  const parsed = new Date(0);
-  parsed.setFullYear(year, month - 1, day);
-  parsed.setHours(hours, minutes, 0, 0);
-  if (
-    parsed.getFullYear() !== year
-    || parsed.getMonth() !== month - 1
-    || parsed.getDate() !== day
-    || parsed.getHours() !== hours
-    || parsed.getMinutes() !== minutes
-  ) return null;
-  return parsed.getTime();
 }
 
 export function Dashboard({ readOnly = false, publicView = false }: DashboardProps) {
