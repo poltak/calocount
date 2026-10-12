@@ -13,3 +13,9 @@ allowBuilds:
   simple-git-hooks: true
 
 engineStrict: true
+
+# 3 days, in minutes. Keep it equal to `minimumReleaseAge` in renovate.json.
+# Renovate cannot apply its rule to indirect dependencies, so pnpm applies
+# this one to each package. An install fails when a version in the lockfile
+# is less than 3 days old.
+minimumReleaseAge: 4320

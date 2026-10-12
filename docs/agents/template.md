@@ -123,10 +123,16 @@ Small weekly updates replace one large update each year. The rules are in
   Better Auth update can change its schema, so compare `AuthTables` in
   `backend/src/features/auth/storage/types.ts` with the new schema.
 - An update is at least 3 days old before Renovate proposes it.
-- The weekly lock file update waits for a person. Renovate cannot apply the 3
-  day rule to the indirect dependencies that it changes, so the config turns
-  the rule off for that pull request. With the rule on, the pull request has
-  a `renovate/stability-days` status that stays pending without end.
+- pnpm applies the same 3 days to each package, direct or indirect, with
+  `minimumReleaseAge` in `pnpm-workspace.yaml`. Its value is in minutes. Keep
+  it equal to the value in `renovate.json`. pnpm does not put a version that
+  is less than 3 days old into the lockfile, and an install fails when the
+  lockfile has one.
+- The weekly lock file update waits for a person. Renovate cannot apply its
+  3 day rule to the indirect dependencies that pnpm changes there, so the
+  config turns the rule off for that pull request. With the rule on, the pull
+  request has a `renovate/stability-days` status that stays pending without
+  end. The pnpm rule applies to that pull request.
 - Renovate starts new updates on Monday, from 00:00 to 12:00 UTC. The free
   hosted plan runs a repository every 4 hours. The usual weekly window is 4
   hours, so one late run could miss it and delay the updates for a week.
@@ -163,6 +169,11 @@ When the weekly pull request has a red CI, one update in it holds back the
 others. Find the package in the CI log, and add a rule for it at the end of
 `packageRules`: `{ "matchPackageNames": ["<name>"], "groupName": null }`.
 That update then gets a pull request of its own, and the others merge.
+
+To take a version before it is 3 days old, for example an urgent security
+fix, add it to `minimumReleaseAgeExclude` in `pnpm-workspace.yaml` with its
+version, such as `- hono@4.13.14`. Remove the entry when the version is 3 days
+old.
 
 The "Dependency Dashboard" issue lists each update and its state.
 
