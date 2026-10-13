@@ -55,7 +55,7 @@ import { readNutritionCollapsed, writeNutritionCollapsed } from "../nutrition/nu
 import { buildInsightData } from "../insights/insight-data";
 import type { InsightHistory } from "../insights/types";
 
-import { cx, h, memo, slot, svg, type Child } from "./dom";
+import { cx, h, keep, memo, patch, slot, svg, type Child } from "./dom";
 import { createMealEditor, mealKindOptions, mealPhotoAccept, mealPhotoError, type MealEditor } from "./meal-editor";
 import { mealNutritionDetails } from "./meal-nutrition-details";
 import { mealNutritionEditor } from "./meal-nutrition-editor";
@@ -1824,7 +1824,7 @@ export function mountDashboard(root: HTMLElement, { readOnly = false, publicView
         h("div", { class: "chart-plot" },
           h("div", { class: "target-line", style: { top: `${scale.targetLineTopPercent}%` } }, h("span", null, formatNumber(calorieGoal))),
           gridLines(),
-          h("div", { class: "bars" }, values.map((day, index) => h("button", { class: cx("bar-column", day.date === selected.date && "is-selected"), type: "button", "aria-label": `${day.label}: ${day.value.toLocaleString()} kilocalories` },
+          h("div", { class: "bars" }, values.map((day, index) => h("button", { key: day.date, class: cx("bar-column", day.date === selected.date && "is-selected"), type: "button", "aria-label": `${day.label}: ${day.value.toLocaleString()} kilocalories` },
             h("span", { class: "bar-value" }, day.value.toLocaleString()),
             h("span", { class: cx("bar", day.value <= 0 && "bar-empty"), style: { height: day.value > 0 ? `${Math.max(12, scale.valueHeightPercents[index] ?? 0)}%` : "0" } }),
             h("span", null, showTrendDateLabel(index, values.length) ? day.label : ""),
@@ -1857,6 +1857,7 @@ export function mountDashboard(root: HTMLElement, { readOnly = false, publicView
               chart.averageLine.length > 1 ? svg("polyline", { class: "weight-average-path", points: chart.averageLine.join(" ") }) : null,
             ),
             h("div", { class: "weight-points" }, chart.values.map((day, index) => h("button", {
+              key: day.date,
               class: cx("weight-point-column", day.value === null && "missing", day.date === view.selected.date && "is-selected"),
               type: "button",
               "aria-label": day.value === null ? `${day.label}: no weight recorded` : `${day.label}: ${formatWeight(day.value)} kilograms`,
@@ -1889,6 +1890,7 @@ export function mountDashboard(root: HTMLElement, { readOnly = false, publicView
             h("div", { class: "macro-trend-bars" }, values.map((day, index) => {
               const { carbs, protein, fat } = day.percentages;
               return h("button", {
+                key: day.date,
                 class: cx("macro-trend-column", !day.hasData && "missing", day.date === view.selected.date && "is-selected"),
                 type: "button",
                 "aria-label": day.hasData
@@ -1991,7 +1993,7 @@ export function mountDashboard(root: HTMLElement, { readOnly = false, publicView
           const name = entry.items[0]?.name || entry.caption || "Saved entry";
           const isTracking = pending?.kind === "saved-entry-track" && pending.id === entry.id;
           const isRemoving = pending?.kind === "saved-entry-remove" && pending.id === entry.id;
-          return h("div", { class: "saved-entry-row", "aria-busy": isTracking || isRemoving },
+          return h("div", { class: "saved-entry-row", key: entry.id, "aria-busy": isTracking || isRemoving },
             h("div", null, h("strong", null, name), h("span", null, `${formatNumber(entry.totalCalories)} kcal · ${formatNumber(entry.totalProteinG)}g protein`)),
             h("div", { class: "saved-entry-actions" },
               h("button", { class: "track-button", type: "button", disabled: actionInProgress, onclick: () => void trackSavedEntryNow(entry), "aria-busy": isTracking }, isTracking ? "Tracking…" : "Track now"),
@@ -2006,24 +2008,22 @@ export function mountDashboard(root: HTMLElement, { readOnly = false, publicView
     const photoUrl = meal.photoUrl as string;
     const key = `${meal.id}|${photoUrl}|${meal.name}`;
     // Native images let the browser lazy-load private and public R2-backed routes.
-    const image = photoElements.get(key) ?? h("img", { class: "meal-photo", src: photoUrl, alt: meal.name, loading: "lazy", decoding: "async", onerror: () => markPhotoUnavailable(photoUrl) });
+    const image = photoElements.get(key) ?? keep(h("img", { class: "meal-photo", src: photoUrl, alt: meal.name, loading: "lazy", decoding: "async", onerror: () => markPhotoUnavailable(photoUrl) }));
     kept.set(key, image);
     return image;
   }
 
-  /** The nutrition details of an entry. Opening them swaps this one element, not the whole list of entries. */
+  /** The nutrition details of an entry. Opening them changes this one element, not the whole list of entries. */
   function nutritionDetailsFor(meal: Meal): HTMLElement {
-    const details: HTMLElement = mealNutritionDetails({
+    return mealNutritionDetails({
       meal,
       open: openNutritionDetails.has(meal.id),
-      onToggle: () => {
+      onToggle: (event) => {
         if (!openNutritionDetails.delete(meal.id)) openNutritionDetails.add(meal.id);
-        const next = nutritionDetailsFor(meal);
-        details.replaceWith(next);
-        next.querySelector("button")?.focus({ preventScroll: true });
+        const shown = (event.currentTarget as HTMLElement).parentElement;
+        if (shown) patch(shown, nutritionDetailsFor(meal));
       },
     });
-    return details;
   }
 
   function mealGroup(meal: Meal, view: View, keptPhotos: Map<string, HTMLImageElement>) {
@@ -2039,7 +2039,7 @@ export function mountDashboard(root: HTMLElement, { readOnly = false, publicView
     const copying = pending?.kind === "meal-copy";
     const duplicating = pending?.kind === "meal-duplicate";
     const editing = state.mealEditState.editingMealId === meal.id;
-    return h("div", { class: "meal-group" },
+    return h("div", { class: "meal-group", key: meal.id },
       h("div", { class: cx("meal-row", !hasPhoto && "without-photo", busy && "is-pending"), "aria-busy": busy },
         h("div", { class: cx("meal-row-content", !hasPhoto && "without-photo") },
           hasPhoto ? h("button", {
@@ -2177,7 +2177,7 @@ export function mountDashboard(root: HTMLElement, { readOnly = false, publicView
     previewClose = null;
     if (!meal) return null;
     const photoUrl = meal.photoUrl;
-    previewClose = h("button", { class: "close-button photo-preview-close", type: "button", onclick: () => update({ previewMeal: null }), "aria-label": "Close photo preview" }, "×");
+    previewClose = keep(h("button", { class: "close-button photo-preview-close", type: "button", onclick: () => update({ previewMeal: null }), "aria-label": "Close photo preview" }, "×"));
     return h("div", {
       class: "photo-preview-backdrop",
       role: "presentation",
@@ -2212,17 +2212,18 @@ export function mountDashboard(root: HTMLElement, { readOnly = false, publicView
     const weeklyChanges = createWeeklyChanges();
     const frequencyPortion = createFrequencyPortion();
 
-    const contentGrid = h("div", { class: "content-grid" },
+    // The two containers hold the slots and the panels with state. They go into the page as they are.
+    const contentGrid = keep(h("div", { class: "content-grid" },
       h("section", { class: "primary-column" },
         slots.calorieTrend.anchors, slots.proteinTarget.anchors, slots.weightTrend.anchors, slots.macroTrend.anchors,
         foodContribution.el,
         slots.consistency.anchors, slots.nutrition.anchors, slots.weight.anchors, slots.macros.anchors, slots.history.anchors,
         slots.savedEntries.anchors, slots.meals.anchors,
       ),
-    );
+    ));
     const nutritionInsights = h("div", { class: "nutrition-insights-content", id: "nutrition-insights-content" }, attention.el, foodScenarios.el, slots.historicalEntry.anchors);
     const insightsOverview = h("div", { class: "insights-overview-content", id: "insights-overview-content" }, daysWorthRepeating.el, weeklyChanges.el, frequencyPortion.el);
-    const insights = h("section", { class: "insights-overview", "aria-labelledby": "insights-title" }, slots.insightsHeading.anchors, nutritionInsights, insightsOverview);
+    const insights = keep(h("section", { class: "insights-overview", "aria-labelledby": "insights-title" }, slots.insightsHeading.anchors, nutritionInsights, insightsOverview));
 
     const selectCalendarDate = (date: string) => {
       selectDate(date);
@@ -2237,9 +2238,9 @@ export function mountDashboard(root: HTMLElement, { readOnly = false, publicView
         const { targets, proteinGoal, trendRange } = state;
 
         if (!state.showAddMeal || readOnly) addMealForm = null;
-        else addMealForm ??= buildAddMealForm();
+        else addMealForm ??= keep(buildAddMealForm());
         if (!state.showWeightForm || readOnly) weightForm = null;
-        else weightForm ??= buildWeightForm();
+        else weightForm ??= keep(buildWeightForm());
         if (!state.showCalendar) {
           calendar?.destroy();
           calendar = null;

@@ -8,7 +8,8 @@ import { nutrientValueText } from "./nutrient-value";
 type MealNutritionDetailsProps = {
   meal: NutritionMeal;
   open: boolean;
-  onToggle: () => void;
+  /** Called with the click on the button. The button is a child of the element that this function returns. */
+  onToggle: (event: Event) => void;
 };
 
 function itemValue(item: NutritionItem, key: string) {

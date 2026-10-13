@@ -1,4 +1,4 @@
-import { h } from "./dom";
+import { h, keep } from "./dom";
 import type { NutrientKey, NutrientUpperLimitKey } from "../../domain/nutrients";
 import type { NutrientValueOrigin } from "../../domain/nutrient-provenance";
 import type { MealDraftChanges } from "../dashboard-edit";
@@ -102,7 +102,7 @@ export function createMealEditor({
   const save = h("button", { class: "done-button", type: "button", onclick: onSave });
   const itemPrefix = (item: NutritionItem, index: number) => `${idPrefix}${meal.id}-${item.id ?? index}-`;
 
-  const el = h("div", { class: className },
+  const el = keep(h("div", { class: className },
     h("label", null, "Name", name),
     h("label", { class: "editor-description-field" }, "Description", description),
     totalField({ label: "Calories", value: meal.calories, onChange: (calories) => onChange({ calories }) }),
@@ -144,7 +144,7 @@ export function createMealEditor({
       h("button", { class: "cancel-button", type: "button", onclick: onCancel }, "Cancel"),
       save,
     ),
-  );
+  ));
 
   function setUnlessFocused(field: HTMLInputElement | HTMLSelectElement | null, value: string) {
     if (field && field !== document.activeElement && field.value !== value) field.value = value;

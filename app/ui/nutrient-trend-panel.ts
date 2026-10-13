@@ -73,6 +73,7 @@ export function createNutrientTrendPanel(): Component<NutrientTrendPanelProps> {
                 h("span", null, `${goalWord[0].toUpperCase()}${goalWord.slice(1)}`),
               ) : null,
               h("div", { class: "nutrient-trend-bars" }, points.map((point, index) => h("button", {
+                key: point.date,
                 class: cx("nutrient-trend-column", point.amount === null && "missing", point.date === selectedDate && "is-selected"),
                 type: "button",
                 "aria-label": point.amount === null ? `${dateLabel(point.date)}: unknown` : `${dateLabel(point.date)}: ${point.amount} ${unit}`,

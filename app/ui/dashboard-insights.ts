@@ -68,6 +68,7 @@ export function proteinTargetChart({
       values.map((day, index) => {
         const targetPercent = day.target ? Math.min(100, (day.target / max) * 100) : null;
         return h("button", {
+          key: day.date,
           class: cx("protein-target-day", day.mealCount === 0 && "missing", day.date === selectedDate && "is-selected"),
           type: "button",
           "aria-label": day.mealCount > 0

@@ -375,7 +375,7 @@ export function createNutritionAttention(): Component<NutritionAttentionProps> {
                 const open = selectedShortfall === finding.nutrient;
                 const percent = shortfall.meanPercent ?? 0;
                 const missingEntries = coverage.find((row) => row.key === finding.nutrient)?.missingEntries ?? [];
-                return h("div", { class: `nutrition-finding ${open ? "is-selected" : ""}` },
+                return h("div", { key: finding.nutrient, class: `nutrition-finding ${open ? "is-selected" : ""}` },
                   h("button", {
                     type: "button",
                     class: "nutrition-finding__button",
@@ -496,6 +496,7 @@ export function createNutritionAttention(): Component<NutritionAttentionProps> {
                   const dayStatus = excessDayStatus(day, excessThreshold);
                   const selected = selectedExcessDay?.date === day.date;
                   return h("button", {
+                    key: day.date,
                     type: "button",
                     class: cx("nutrition-excess-day", `is-${dayStatus}`, selected && "is-selected"),
                     "aria-pressed": selected,
@@ -541,7 +542,7 @@ export function createNutritionAttention(): Component<NutritionAttentionProps> {
           ),
           visibleCoverage.length === 0
             ? emptyState("No coverage issues in this window", "All logged nutrient fields are populated.")
-            : h("div", { class: "nutrition-coverage-list" }, visibleCoverage.map((row) => h("details", { class: `nutrition-coverage-row is-${row.state}` },
+            : h("div", { class: "nutrition-coverage-list" }, visibleCoverage.map((row) => h("details", { key: row.key, class: `nutrition-coverage-row is-${row.state}` },
               h("summary", null,
                 h("span", { class: "nutrition-coverage-row__name" }, h("strong", null, nutrientMeta(row.key).label), h("small", null, coverageDescription(row))),
                 h("span", { class: "nutrition-coverage-row__state" }, stateLabel(row.state)),

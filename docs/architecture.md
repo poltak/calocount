@@ -20,11 +20,23 @@ loading state, so the first paint needs no script.
 
 The browser code in `app/ui/` uses the DOM directly and has no rendering
 library. `app/ui/dom.ts` has the helpers. `h` builds an element. A slot is a
-part of the page that gets new nodes when its inputs change. A slot moves the
-focus and the open disclosures to the new nodes. `app/ui/dashboard.ts` keeps
-the state in one object and asks for one render after each change. It builds a
-form once and keeps the same node while the form is open, so the form keeps
-the text that the owner typed.
+part of the page that is built again when its inputs change. The slot does not
+replace the nodes in the page. It changes them to match the built nodes, and
+it adds or removes only the nodes that differ. A node that stays keeps its
+focus and its open state, and does not play its entry animation again.
+
+Three rules decide which node in the page matches a built node:
+
+- Children match by position. An optional child that is absent leaves an
+  empty comment node in its place, so the children after it do not move.
+- An element with a `key` matches only the element with the same key. Use a
+  key for the items of a list that can get or lose items.
+- A node marked with `keep` goes into the page as it is. Mark each node that
+  code holds and changes by itself, such as an open form.
+
+`app/ui/dashboard.ts` keeps the state in one object and asks for one render
+after each change. It builds a form once and keeps the same node while the
+form is open, so the form keeps the text that the owner typed.
 
 The build gives the script and the stylesheet content-hashed names in
 `/assets/`. `public/_headers` tells browsers to cache them for one year.

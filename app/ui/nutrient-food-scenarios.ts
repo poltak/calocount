@@ -1,4 +1,4 @@
-import { component, h, memo, type Component } from "./dom";
+import { component, h, keep, memo, type Component } from "./dom";
 import {
   calculateFoodScenario,
   calculateNutrientSourceDependence,
@@ -369,13 +369,13 @@ function createSourceDependencePanel(initialNutrient: NutrientKey): Component<Nu
 /** The two food panels. Both start again when the focused nutrient changes. */
 export function createNutrientFoodScenarios(): Component<NutrientFoodScenariosProps> {
   const panels = h("div", { class: "nutrient-food-scenarios__panels" });
-  const el = h("section", { class: "panel nutrient-food-scenarios", id: "nutrient-food-scenarios", "aria-labelledby": "nutrient-food-scenarios-title" },
+  const el = keep(h("section", { class: "panel nutrient-food-scenarios", id: "nutrient-food-scenarios", "aria-labelledby": "nutrient-food-scenarios-title" },
     h("div", { class: "nutrient-food-scenarios__title" },
       h("h2", { id: "nutrient-food-scenarios-title" }, "Nutrition food insights"),
       h("p", null, "Use recorded food portions to explore practical nutrient changes and see which foods supply the nutrients you track."),
     ),
     panels,
-  );
+  ));
   let focused: NutrientKey | null | undefined;
   let scenario: Component<NutrientFoodScenariosProps> | null = null;
   let sources: Component<NutrientFoodScenariosProps> | null = null;

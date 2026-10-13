@@ -1,4 +1,4 @@
-import { cx, h, slot } from "./dom";
+import { cx, h, keep, slot } from "./dom";
 import { PROTEIN_PER_KG_MIN, PROTEIN_PER_KG_MAX, PROTEIN_PER_KG_STEP, type ProteinGoalMode } from "../../domain/protein-goals";
 import type { SettingsDraft } from "../dashboard-settings";
 import { nutrientGoalDraftFromMap } from "../nutrition/nutrient-goal-draft";
@@ -45,7 +45,7 @@ function inputValue(event: Event) {
  */
 export function createSettingsPanel({ getDraft, setDraft, onSave, onClose, getThemePreference, onThemeChange, deviceTimeZone }: SettingsPanelOptions): SettingsPanel {
   const content = slot();
-  const el = h("section", { class: "settings-panel", id: "settings-panel", role: "dialog", "aria-labelledby": "settings-title" }, ...content.anchors);
+  const el = keep(h("section", { class: "settings-panel", id: "settings-panel", role: "dialog", "aria-labelledby": "settings-title" }, ...content.anchors));
   let pending = { loading: false, saving: false };
 
   function render() {
