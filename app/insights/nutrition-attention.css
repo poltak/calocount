@@ -718,6 +718,7 @@
 
 .nutrition-source-list {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 5px;
   margin: 8px 0 0;
   padding: 0;
@@ -725,6 +726,7 @@
 }
 
 .nutrition-source-list li {
+  min-width: 0;
   border-bottom: 1px solid var(--line-soft);
 }
 

@@ -82,3 +82,34 @@ test("owner mode can inspect and edit an older missing-value entry", async ({ pa
   await expect.poll(() => state.meals.find((meal) => meal.id === "attention-12")?.items[0].fiberG).toBe(8);
   await expect(historicalRow).toHaveCount(0);
 });
+
+test("source drilldown keeps long item names inside the card on a phone", async ({ page }) => {
+  const state = await seedNutritionAttention(page);
+  for (const meal of state.meals) {
+    meal.items[0].name = "Bún bò Huế thập cẩm (all toppings, 1/3 noodles, lots of vegetables, extra herbs, no fish sauce, chilli on the side)";
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/?public");
+
+  const attention = page.getByRole("region", { name: "Nutrition attention" });
+  await attention.locator(".nutrition-excess-day").first().click();
+  const detail = attention.locator(".nutrition-source-detail");
+  await expect(detail.getByText("Source drilldown")).toBeVisible();
+
+  const metrics = await page.evaluate(() => {
+    const card = document.querySelector<HTMLElement>(".nutrition-source-detail")!;
+    const rows = [...card.querySelectorAll<HTMLElement>(".nutrition-source-list button")];
+    const cardRight = card.getBoundingClientRect().right;
+    return {
+      viewportWidth: window.innerWidth,
+      documentWidth: document.documentElement.scrollWidth,
+      cardOverflow: card.scrollWidth - card.clientWidth,
+      rowsPastCard: rows.filter((row) => row.getBoundingClientRect().right > cardRight + 1).length,
+      rowCount: rows.length,
+    };
+  });
+  expect(metrics.rowCount, JSON.stringify(metrics)).toBeGreaterThan(0);
+  expect(metrics.documentWidth, `The page scrolls horizontally: ${JSON.stringify(metrics)}`).toBeLessThanOrEqual(metrics.viewportWidth);
+  expect(metrics.cardOverflow, `The card content overflows: ${JSON.stringify(metrics)}`).toBeLessThanOrEqual(0);
+  expect(metrics.rowsPastCard, `Rows extend past the card: ${JSON.stringify(metrics)}`).toBe(0);
+});
