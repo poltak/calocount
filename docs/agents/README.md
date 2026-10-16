@@ -55,7 +55,10 @@ that. Record only what a reader cannot get from the code:
   [code architecture](code-architecture.md).
 - A rule about what tests contain goes in [testing](testing.md).
 - A choice specific to this project, with its reason, goes in
-  [decisions](decisions.md).
+  [decisions](decisions.md). In a project made from the template, most of
+  that file comes from the template. Add the project's own decisions there. A
+  change to a decision that came from the template goes to the template
+  first, and the project gets it with a sync.
 - How to run or configure something goes in [setup and commands](setup.md).
 - Unfinished work and temporary behavior go in `todos/`.
 
