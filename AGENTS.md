@@ -36,6 +36,7 @@ project information. Read the documents that apply to the task.
 
 ## Writing
 
+- Always talk and write in ASD-STE100 Simplified Technical English.
 - Apply the `unslop` skill to all prose you write: documentation, code comments,
   commit messages, pull request descriptions, and replies to the user.
 
