@@ -21,6 +21,8 @@ Use the `start-project` skill. It has the full steps. In short:
 3. In the clone, run the `start-project` workflow with the project's name, the
    product name, the URL of the new repository, and the account mode.
 4. Create `.env`, and push.
+5. Set the maintainers and the label for the "Template-owned files" check,
+   as [setup](setup.md#files-that-come-from-the-template) describes.
 
 [`scripts/start-project.mjs`](../../scripts/start-project.mjs) makes each
 change. It renames the remote `origin` to `template`, adds the new repository

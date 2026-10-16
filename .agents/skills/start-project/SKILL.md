@@ -53,9 +53,11 @@ runs.
    pnpm run test:live-start
    pnpm exec node scripts/start-project.mjs finish
    ```
-3. Tell the person the two steps that are left. The first is to create `.env`,
-   as `docs/agents/setup.md` describes. The second is to push, with the
-   command that the last step prints. Push only when the person asks for it.
+3. Tell the person the three steps that are left. The first is to create
+   `.env`, as `docs/agents/setup.md` describes. The second is to push, with
+   the command that the last step prints. Push only when the person asks for
+   it. The third is to set the maintainers and the label of the
+   "Template-owned files" check, with the commands in `docs/agents/setup.md`.
 
 ## What the script does
 

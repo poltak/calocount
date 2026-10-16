@@ -20,8 +20,9 @@ export const VERSION_FILE = "template-version.json";
  *   removes the example.
  * - `projectOwned`: files that a project writes for itself.
  * - `templateOwned`: files that a project takes from the template and does
- *   not change. `.agents/hooks/guard-template-owned-files.mjs` reads this
- *   list from the project. A sync does not read it.
+ *   not change. `.agents/hooks/guard-template-owned-files.mjs` and
+ *   `check-template-owned-files.mjs` read this list from the project. A sync
+ *   does not read it.
  *
  * A sync leaves out each template change to a `templateOnly` path that the
  * project is without, and each change to a `projectOwned` path. When the

@@ -171,6 +171,27 @@ a conflict.
 Codex runs the hooks of a repository only after you trust them. Codex asks
 the first time, and again after each change to `.codex/hooks.json`.
 
+The "Template-owned files" check of CI fails a pull request that changes one
+of those files. It passes when a maintainer opened the pull request, or when
+a maintainer added the `template-change-approved` label after a review. A
+later push that changes one of the files again removes the label. The check
+does nothing in the template.
+
+A project needs two settings on GitHub for the check. Make them one time,
+after the first push:
+
+```sh
+gh variable set TEMPLATE_MAINTAINERS --body "<login>,<login>"
+gh label create template-change-approved --color 0e8a16 \
+  --description "A maintainer approved a change to a file from the template"
+```
+
+`TEMPLATE_MAINTAINERS` has the GitHub logins of the persons who can approve
+such a change. A pull request cannot change the variable. Without it, the
+check fails each change to one of those files. On the GitHub Free plan, a
+failed check does not stop a merge. With a paid plan, make the check
+required in the branch protection of `main`.
+
 ## Production
 
 The repository has no deployment files yet. These facts hold on any host:

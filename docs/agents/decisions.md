@@ -331,6 +331,19 @@ entry to the choice, the reason, and any rule that follows from it.
   Codex does not support "ask" yet. Codex reports such a hook as failed and
   makes the edit. The hook does not see a file that a shell command writes,
   so it stops a mistake and does not lock the files.
+- **A CI check finds each change to those files in a pull request, and a
+  maintainer approves it with a label.** The check sees what the hook does
+  not, such as a file that a shell command wrote. Its trigger is
+  `pull_request_target`, so it runs as it is on `main`, and an agent cannot
+  make it pass with an edit of the workflow in the pull request. The
+  maintainers are in a repository variable, which a pull request cannot
+  change. A check for admin permission does not work, because in Shadow, the
+  first project, each collaborator is an admin. The approval is a label and
+  not a review, because a review event runs the workflow file of the pull
+  request, which the pull request can change. A new label starts the check
+  again, so the person does not have to. GitHub's code owners
+  and branch protection would do the same with no script, but a private
+  repository on the Free plan has neither.
 - **A sync is a list of cherry-picks, and never a merge.** A project is
   without some of the template's files, and a person can leave one commit
   out. A merge cannot do that, and it marks each template commit as

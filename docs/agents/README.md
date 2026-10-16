@@ -22,30 +22,30 @@ instructions.
 
 ## Where to start reading the code
 
-| To understand                                  | Start at                                                      |
-| ---------------------------------------------- | ------------------------------------------------------------- |
-| How the backend is assembled                   | `backend/src/features/core/compose-app.ts`, `…/core/types.ts` |
-| Live and test backend setup                    | `backend/src/features/core/live/`, `…/core/tests/`            |
-| Backend routes and startup                     | `backend/src/features/core/server/`                           |
-| Errors and request validation                  | `backend/src/features/core/errors/`, `…/core/handlers/`       |
-| How the frontend is assembled                  | `frontend/src/main.tsx`, `frontend/src/features/core/`        |
-| Pages and routing                              | `frontend/src/features/core/ui/routes.tsx`                    |
-| Calling the backend                            | `frontend/src/features/api/client/`                           |
-| Logic and events                               | `common/src/features/core/`                                   |
-| Logging and Core Services                      | `common/src/features/core/services/`                          |
-| Request log and request IDs                    | `backend/src/features/core/handlers/`, `…/core/server/`       |
-| A complete backend feature                     | `backend/src/features/health/`                                |
-| A feature with its own table and pages         | `backend/src/features/notes/`, `frontend/src/features/notes/` |
-| A LogicPlugin that two Logic classes share     | `frontend/src/features/notes/ui/note-draft-plugin.ts`         |
-| A Logic that reacts to another Logic's event   | `…/auth/ui/auth-logic.ts`, `…/notes/ui/note-draft-plugin.ts`  |
-| A frontend Storage class                       | `frontend/src/features/notes/storage/notes-draft-storage.ts`  |
-| A write across two features in one transaction | `backend/src/features/notes/logic/notes-logic.ts`             |
-| The architecture lint rules and their options  | `lint/`, `.oxlintrc.json`                                     |
-| How a project takes template changes           | `scripts/sync-template.mjs`, `workflows/`                     |
-| What stops an edit of a file from the template | `.agents/hooks/guard-template-owned-files.mjs`                |
-| The test fixture                               | `frontend/src/features/core/tests/full-application.ts`        |
-| A model integration test                       | `frontend/src/features/notes/ui/notes-logic.test.ts`          |
-| The browser tests                              | `frontend/src/features/core/tests/browser/`                   |
+| To understand                                  | Start at                                                                                 |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| How the backend is assembled                   | `backend/src/features/core/compose-app.ts`, `…/core/types.ts`                            |
+| Live and test backend setup                    | `backend/src/features/core/live/`, `…/core/tests/`                                       |
+| Backend routes and startup                     | `backend/src/features/core/server/`                                                      |
+| Errors and request validation                  | `backend/src/features/core/errors/`, `…/core/handlers/`                                  |
+| How the frontend is assembled                  | `frontend/src/main.tsx`, `frontend/src/features/core/`                                   |
+| Pages and routing                              | `frontend/src/features/core/ui/routes.tsx`                                               |
+| Calling the backend                            | `frontend/src/features/api/client/`                                                      |
+| Logic and events                               | `common/src/features/core/`                                                              |
+| Logging and Core Services                      | `common/src/features/core/services/`                                                     |
+| Request log and request IDs                    | `backend/src/features/core/handlers/`, `…/core/server/`                                  |
+| A complete backend feature                     | `backend/src/features/health/`                                                           |
+| A feature with its own table and pages         | `backend/src/features/notes/`, `frontend/src/features/notes/`                            |
+| A LogicPlugin that two Logic classes share     | `frontend/src/features/notes/ui/note-draft-plugin.ts`                                    |
+| A Logic that reacts to another Logic's event   | `…/auth/ui/auth-logic.ts`, `…/notes/ui/note-draft-plugin.ts`                             |
+| A frontend Storage class                       | `frontend/src/features/notes/storage/notes-draft-storage.ts`                             |
+| A write across two features in one transaction | `backend/src/features/notes/logic/notes-logic.ts`                                        |
+| The architecture lint rules and their options  | `lint/`, `.oxlintrc.json`                                                                |
+| How a project takes template changes           | `scripts/sync-template.mjs`, `workflows/`                                                |
+| What stops an edit of a file from the template | `.agents/hooks/guard-template-owned-files.mjs`, `scripts/check-template-owned-files.mjs` |
+| The test fixture                               | `frontend/src/features/core/tests/full-application.ts`                                   |
+| A model integration test                       | `frontend/src/features/notes/ui/notes-logic.test.ts`                                     |
+| The browser tests                              | `frontend/src/features/core/tests/browser/`                                              |
 
 ## Where to add information
 

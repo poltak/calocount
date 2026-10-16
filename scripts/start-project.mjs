@@ -364,7 +364,9 @@ function finish() {
   console.log(
     `Committed the start of "${name}". Next:\n` +
       "  1. Create `.env`, as docs/agents/setup.md describes.\n" +
-      `  2. Push the project: git push --set-upstream origin ${branch}`,
+      `  2. Push the project: git push --set-upstream origin ${branch}\n` +
+      "  3. Set the maintainers and the label for the check of the files from\n" +
+      "     the template, as docs/agents/setup.md describes.",
   );
 }
 

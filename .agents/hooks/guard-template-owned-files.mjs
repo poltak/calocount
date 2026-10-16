@@ -10,7 +10,8 @@
 // resolve a conflict.
 //
 // The hook does not see a file that a shell command writes, so it stops only
-// a mistake.
+// a mistake. The "Template-owned files" check of CI sees each change in a
+// pull request.
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
 import path from "node:path";
