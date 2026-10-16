@@ -62,6 +62,11 @@ that. Record only what a reader cannot get from the code:
 - How to run or configure something goes in [setup and commands](setup.md).
 - Unfinished work and temporary behavior go in `todos/`.
 
+Add information to an existing document. Make a new document in
+`docs/agents/`, or in a directory in it, only when the person asks for one.
+Then add it to the list of documents at the top of this file, in the same
+change, because an agent finds a document through that list.
+
 Keep always-needed instructions in the root `AGENTS.md`. Do not create another
 `AGENTS.md` or a `CLAUDE.md` for this repository. Put repeatable task workflows
 in skills. Codex discovers repository skills in `.agents/skills/`; Claude Code
