@@ -33,29 +33,32 @@ export function extractTargetPaths(event) {
 }
 
 export function parsePatchTargetPaths(patchText) {
-  const paths = [];
-  let currentFile;
+  const paths = parsePatchFiles(patchText)
+    .filter((file) => file.operation !== "Delete")
+    .map((file) => file.moveTo ?? file.path);
+  return [...new Set(paths.filter((filePath) => filePath.length > 0))];
+}
 
-  const addCurrentFile = () => {
-    if (currentFile && currentFile.operation !== "Delete") {
-      paths.push(currentFile.moveTo ?? currentFile.path);
-    }
-    currentFile = undefined;
-  };
+/**
+ * Each file of a Codex patch: `operation` is `Add`, `Update`, or `Delete`,
+ * and `moveTo` is the new path of a file that the patch moves.
+ */
+export function parsePatchFiles(patchText) {
+  const files = [];
+  let currentFile;
 
   for (const line of patchText.split(/\r?\n/)) {
     const fileHeader = line.match(/^\*\*\* (Add|Update|Delete) File: (.*)$/);
     if (fileHeader) {
-      addCurrentFile();
       currentFile = {
         operation: fileHeader[1],
         path: fileHeader[2],
       };
+      files.push(currentFile);
       continue;
     }
 
     if (line === "*** End Patch") {
-      addCurrentFile();
       break;
     }
 
@@ -65,8 +68,7 @@ export function parsePatchTargetPaths(patchText) {
     }
   }
 
-  addCurrentFile();
-  return [...new Set(paths.filter((filePath) => filePath.length > 0))];
+  return files;
 }
 
 export async function resolveGitRoot(startPath) {

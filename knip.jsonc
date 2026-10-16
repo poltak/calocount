@@ -1,7 +1,10 @@
 {
   "workspaces": {
     ".": {
-      "entry": [".agents/hooks/format-edited-files.mjs"],
+      "entry": [
+        ".agents/hooks/format-edited-files.mjs",
+        ".agents/hooks/guard-template-owned-files.mjs",
+      ],
       "project": [".agents/hooks/**/*.mjs", "lint/**/*.mjs"],
     },
     "backend": {

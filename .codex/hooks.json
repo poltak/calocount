@@ -1,5 +1,17 @@
 {
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "^apply_patch$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "REPO_ROOT=\"$(git rev-parse --show-toplevel)\" && node \"$REPO_ROOT/.agents/hooks/guard-template-owned-files.mjs\" codex",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "^apply_patch$",

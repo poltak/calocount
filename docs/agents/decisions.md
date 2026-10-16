@@ -323,6 +323,14 @@ entry to the choice, the reason, and any rule that follows from it.
   needs an account at swamp-club.com. CI and a person without an account can
   run a Node script, and cannot run Swamp. One step still needs judgment, a
   conflict that no rule resolves, and the script stops there.
+- **In a project, a hook stops an agent's edit of a file that comes from the
+  template.** `templateOwned` in `scripts/template-paths.json` lists the
+  files. An edit in the project makes the next sync conflict, and the rules
+  for agents and for the architecture are then different in each project. In
+  Claude Code the hook asks the person. In Codex it refuses the edit, because
+  Codex does not support "ask" yet. Codex reports such a hook as failed and
+  makes the edit. The hook does not see a file that a shell command writes,
+  so it stops a mistake and does not lock the files.
 - **A sync is a list of cherry-picks, and never a merge.** A project is
   without some of the template's files, and a person can leave one commit
   out. A merge cannot do that, and it marks each template commit as

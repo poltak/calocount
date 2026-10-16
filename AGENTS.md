@@ -14,6 +14,10 @@ project information. Read the documents that apply to the task.
   pnpm runs scripts on the Node version pinned in `devEngines.runtime`, so run
   Node through pnpm (`pnpm run …`, `pnpm exec node …`), not bare `node`. The
   `node` on your PATH may be a different version.
+- In a project made from the template, do not change a file that
+  `templateOwned` in `scripts/template-paths.json` lists. Describe the change
+  to the person instead. It goes to the template first, and the project gets
+  it with a sync.
 
 ## Coding standards
 

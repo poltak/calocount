@@ -155,6 +155,22 @@ person or an agent runs the same commands, and the result is the same.
   account. The data has the command, the names of the workflow and its steps,
   the duration, and the error when a command fails.
 
+### Files that come from the template
+
+`templateOwned` in
+[`scripts/template-paths.json`](../../scripts/template-paths.json) lists the
+files that a project takes from the template and does not change, such as
+`AGENTS.md`, the architecture document, and the lint rules. A change to one
+of them goes to the template first.
+
+In a project, a hook stops an agent's edit of one of those files. Claude Code
+asks you first. Codex refuses the edit, and its agent describes the change to
+you. The hook does nothing in the template, and nothing while a sync waits at
+a conflict.
+
+Codex runs the hooks of a repository only after you trust them. Codex asks
+the first time, and again after each change to `.codex/hooks.json`.
+
 ## Production
 
 The repository has no deployment files yet. These facts hold on any host:

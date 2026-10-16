@@ -21,5 +21,24 @@
     ".agents/skills/remove-example/",
     ".claude/skills/remove-example"
   ],
-  "projectOwned": ["README.md"]
+  "projectOwned": ["README.md"],
+  "templateOwned": [
+    "AGENTS.md",
+    "docs/agents/code-architecture.md",
+    "docs/agents/testing.md",
+    "lint/",
+    ".agents/hooks/",
+    ".agents/skills/add-feature/",
+    ".agents/skills/make-commits/",
+    ".agents/skills/sync-template/",
+    ".agents/skills/unslop/",
+    ".agents/skills/write-integration-test/",
+    ".claude/settings.json",
+    ".codex/hooks.json",
+    ".github/workflows/ci.yml",
+    "scripts/sync-template.mjs",
+    "scripts/sync-template.test.mjs",
+    "scripts/template-files.mjs",
+    "scripts/template-paths.json"
+  ]
 }

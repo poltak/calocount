@@ -8,7 +8,7 @@ import path from "node:path";
 export const VERSION_FILE = "template-version.json";
 
 /**
- * The file with four lists of paths. A path that ends with `/` is a
+ * The file with five lists of paths. A path that ends with `/` is a
  * directory.
  *
  * - `templateOnly`: files that only the template needs. `start-project`
@@ -19,6 +19,9 @@ export const VERSION_FILE = "template-version.json";
  *   example. These are the migrations of the example, and the skill that
  *   removes the example.
  * - `projectOwned`: files that a project writes for itself.
+ * - `templateOwned`: files that a project takes from the template and does
+ *   not change. `.agents/hooks/guard-template-owned-files.mjs` reads this
+ *   list from the project. A sync does not read it.
  *
  * A sync leaves out each template change to a `templateOnly` path that the
  * project is without, and each change to a `projectOwned` path. When the
@@ -28,7 +31,7 @@ export const VERSION_FILE = "template-version.json";
  * A sync reads the lists from the newest template commit, not from the
  * project. A template commit that adds a file and its entry here therefore
  * keeps that file out of each project. Add the entry in the commit that adds
- * the file, and do not remove an entry.
+ * the file, and do not remove an entry of the four lists that a sync reads.
  */
 export const PATHS_FILE = "scripts/template-paths.json";
 

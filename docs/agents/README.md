@@ -42,6 +42,7 @@ instructions.
 | A write across two features in one transaction | `backend/src/features/notes/logic/notes-logic.ts`             |
 | The architecture lint rules and their options  | `lint/`, `.oxlintrc.json`                                     |
 | How a project takes template changes           | `scripts/sync-template.mjs`, `workflows/`                     |
+| What stops an edit of a file from the template | `.agents/hooks/guard-template-owned-files.mjs`                |
 | The test fixture                               | `frontend/src/features/core/tests/full-application.ts`        |
 | A model integration test                       | `frontend/src/features/notes/ui/notes-logic.test.ts`          |
 | The browser tests                              | `frontend/src/features/core/tests/browser/`                   |
@@ -54,6 +55,8 @@ that. Record only what a reader cannot get from the code:
 - A rule that applies to any project built this way goes in
   [code architecture](code-architecture.md).
 - A rule about what tests contain goes in [testing](testing.md).
+- In a project made from the template, those two documents come from the
+  template. A new rule for them goes to the template first.
 - A choice specific to this project, with its reason, goes in
   [decisions](decisions.md). In a project made from the template, most of
   that file comes from the template. Add the project's own decisions there. A
