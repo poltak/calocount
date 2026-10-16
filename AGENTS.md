@@ -51,6 +51,8 @@ project information. Read the documents that apply to the task.
 - Run `pnpm run test:browser` after changes to routing, `main.tsx`, the Vite
   config, or an error boundary. `pnpm run check` does not run it.
 - Check `git status` before and after edits. Preserve changes unrelated to the task.
+- Push a branch and open a pull request. Push to `main` only when the person
+  asks for that push.
 
 ## Project documentation
 
