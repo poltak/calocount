@@ -27,6 +27,7 @@
     "docs/agents/code-architecture.md",
     "docs/agents/testing.md",
     "lint/",
+    ".oxlintrc.json",
     ".agents/hooks/",
     ".agents/skills/add-feature/",
     ".agents/skills/make-commits/",

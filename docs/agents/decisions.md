@@ -326,7 +326,9 @@ entry to the choice, the reason, and any rule that follows from it.
 - **In a project, a hook stops an agent's edit of a file that comes from the
   template.** `templateOwned` in `scripts/template-paths.json` lists the
   files. An edit in the project makes the next sync conflict, and the rules
-  for agents and for the architecture are then different in each project. In
+  for agents and for the architecture are then different in each project.
+  The list has `.oxlintrc.json` also, because it turns each lint rule on and
+  sets its options, and an agent can turn off an architecture rule there. In
   Claude Code the hook asks the person. In Codex it refuses the edit, because
   Codex does not support "ask" yet. Codex reports such a hook as failed and
   makes the edit. The hook does not see a file that a shell command writes,
