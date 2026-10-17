@@ -7,9 +7,10 @@
 // It passes when the pull request changes no file in `templateOwned` of
 // `scripts/template-paths.json`, when a maintainer opened it, or when a
 // maintainer added the `template-change-approved` label. A later push that
-// changes such a file again removes the label, so an approval is for the
-// version that the maintainer saw. In the template, every pull request
-// passes.
+// changes the pull request's own change to such a file removes the label, so
+// an approval is for the version that the maintainer saw. A change that the
+// push brings in from the base branch, such as a sync, does not count. In the
+// template, every pull request passes.
 //
 // It reads the event from GITHUB_EVENT_PATH, and the GitHub logins of the
 // maintainers from TEMPLATE_MAINTAINERS, with commas or spaces between them.
@@ -21,6 +22,10 @@ import { fileURLToPath } from "node:url";
 import { PATHS_FILE, VERSION_FILE, matchesPath } from "./template-files.mjs";
 
 const LABEL = "template-change-approved";
+// GitHub lists at most 300 files in a compare, so the list of a longer compare
+// can be without a file from the template.
+const COMPARE_FILE_LIMIT = 300;
+const HUNK_LINE_NUMBERS = /^@@ -\d+(?:,\d+)? \+\d+(?:,\d+)? @@/gm;
 const root = fileURLToPath(new URL("..", import.meta.url));
 
 function readPages(route) {
@@ -37,6 +42,42 @@ const pathsOf = (files) =>
       ? [file.filename, file.previous_filename]
       : [file.filename],
   );
+
+/**
+ * The pull request's own change to each file from the template, at one head
+ * commit: a map from the file to the text of its diff. The compare starts at
+ * the commit where the branch left the base branch, so a change that came in
+ * from the base branch is not in it. Null when GitHub cannot give each change.
+ */
+function ownChanges({ repository, base, head, isOwned }) {
+  let files;
+  try {
+    files = readPages(`repos/${repository}/compare/${base}...${head}`).flatMap(
+      (page) => page.files ?? [],
+    );
+  } catch {
+    // After a force push, GitHub can be without the old commit.
+    return null;
+  }
+  if (files.length >= COMPARE_FILE_LIMIT) {
+    return null;
+  }
+  return new Map(
+    files
+      .filter((file) => pathsOf([file]).some(isOwned))
+      .map((file) => [
+        file.filename,
+        [
+          file.status,
+          file.previous_filename ?? "",
+          // A change from the base branch above the lines of the pull request
+          // moves their line numbers, and does not change them. GitHub gives
+          // no diff text for a binary or a very large file.
+          file.patch?.replace(HUNK_LINE_NUMBERS, "@@") ?? `blob ${file.sha}`,
+        ].join("\n"),
+      ]),
+  );
+}
 
 function check() {
   if (!existsSync(path.join(root, VERSION_FILE))) {
@@ -78,18 +119,16 @@ function check() {
 
   let approved = pull.labels.some((label) => label.name === LABEL);
   if (approved && event.action === "synchronize") {
-    let pushed;
-    try {
-      pushed = pathsOf(
-        readPages(
-          `repos/${repository}/compare/${event.before}...${event.after}`,
-        ).flatMap((page) => page.files ?? []),
+    const changesAt = (head) =>
+      ownChanges({ repository, base: pull.base.ref, head, isOwned });
+    const before = changesAt(event.before);
+    const after = before && changesAt(event.after);
+    const changedAgain =
+      after &&
+      [...new Set([...before.keys(), ...after.keys()])].filter(
+        (file) => before.get(file) !== after.get(file),
       );
-    } catch {
-      // After a force push, GitHub can be without the old commit. The push
-      // then can have changed any file.
-    }
-    if (!pushed || pushed.some(isOwned)) {
+    if (!changedAgain || changedAgain.length > 0) {
       execFileSync("gh", [
         "api",
         "--method",

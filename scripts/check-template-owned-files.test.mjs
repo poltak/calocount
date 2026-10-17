@@ -39,6 +39,12 @@ if (method === "GET") {
 `;
 
 const files = (...names) => names.map((filename) => ({ filename }));
+const diff = ({ filename, patch, sha = "aaaaaaa", status = "modified" }) => ({
+  filename,
+  patch,
+  sha,
+  status,
+});
 const labelled = (login) => ({
   event: "labeled",
   label: { name: "template-change-approved" },
@@ -90,9 +96,13 @@ async function check({
       action,
       before: "1111111",
       after: "2222222",
-      repository: { full_name: REPOSITORY },
+      repository: {
+        full_name: REPOSITORY,
+        html_url: `https://github.com/${REPOSITORY}`,
+      },
       pull_request: {
         number: 7,
+        base: { ref: "main" },
         user: { login: author },
         labels: labels.map((name) => ({ name })),
       },
@@ -192,33 +202,104 @@ test("counts the approval label only when a maintainer added it last", async (co
   );
 });
 
-test("removes the approval when a later push changes a file from the template again", async (context) => {
-  const afterPush = (pushedFiles) =>
-    check({
-      context,
-      action: "synchronize",
-      labels: ["template-change-approved"],
-      answers: {
-        [`GET ${PULLS}/files?per_page=100`]: files("AGENTS.md", "README.md"),
-        [`GET repos/${REPOSITORY}/compare/1111111...2222222`]: {
-          files: pushedFiles,
-        },
-        [`DELETE ${ISSUES}/labels/template-change-approved`]: null,
-        [`GET ${ISSUES}/events?per_page=100`]: [labelled("owner")],
-      },
-    });
+/**
+ * Run the check for a push to a pull request that has the approval label.
+ * `before` and `after` are the files of the pull request's own diff at the
+ * old and the new head. Without one of them, the compare fails.
+ */
+const afterPush = ({ context, before, after }) =>
+  check({
+    context,
+    action: "synchronize",
+    labels: ["template-change-approved"],
+    answers: {
+      [`GET ${PULLS}/files?per_page=100`]: files("AGENTS.md", "README.md"),
+      ...(before && {
+        [`GET repos/${REPOSITORY}/compare/main...1111111`]: { files: before },
+      }),
+      ...(after && {
+        [`GET repos/${REPOSITORY}/compare/main...2222222`]: { files: after },
+      }),
+      [`DELETE ${ISSUES}/labels/template-change-approved`]: null,
+      [`GET ${ISSUES}/events?per_page=100`]: [labelled("owner")],
+    },
+  });
+const removedLabel = (result) =>
+  result.calls.includes(`DELETE ${ISSUES}/labels/template-change-approved`);
 
-  const ownedAgain = await afterPush(files("AGENTS.md"));
-  const otherFile = await afterPush(files("README.md"));
+const agentsRule = diff({
+  filename: "AGENTS.md",
+  patch: "@@ -1,2 +1,3 @@\n # Agent instructions\n+- A new rule.\n",
+});
 
-  assert.equal(ownedAgain.status, 1);
-  assert.ok(
-    ownedAgain.calls.includes(
-      `DELETE ${ISSUES}/labels/template-change-approved`,
-    ),
-  );
-  assert.equal(otherFile.status, 0, otherFile.output);
-  assert.ok(!otherFile.calls.some((call) => call.startsWith("DELETE")));
+test("keeps the approval after a push that only brings in changes from the base branch", async (context) => {
+  const result = await afterPush({
+    context,
+    before: [
+      agentsRule,
+      diff({ filename: "README.md", patch: "@@ -1 +1 @@\n-Old\n+New\n" }),
+    ],
+    after: [
+      diff({
+        filename: "AGENTS.md",
+        patch: "@@ -8,2 +8,3 @@\n # Agent instructions\n+- A new rule.\n",
+      }),
+      diff({ filename: "README.md", patch: "@@ -1 +1 @@\n-Old\n+Newer\n" }),
+    ],
+  });
+
+  assert.equal(result.status, 0, result.output);
+  assert.ok(!removedLabel(result));
+});
+
+test("removes the approval when a push changes the pull request's own change to a file from the template", async (context) => {
+  const changedLine = await afterPush({
+    context,
+    before: [agentsRule],
+    after: [
+      diff({
+        filename: "AGENTS.md",
+        patch: "@@ -1,2 +1,3 @@\n # Agent instructions\n+- Another rule.\n",
+      }),
+    ],
+  });
+  const newFile = await afterPush({
+    context,
+    before: [agentsRule],
+    after: [
+      agentsRule,
+      diff({ filename: "lint/new-rule.mjs", patch: "@@ -0,0 +1 @@\n+x\n" }),
+    ],
+  });
+  const changedBinary = await afterPush({
+    context,
+    before: [diff({ filename: "lint/rules.bin", sha: "aaaaaaa" })],
+    after: [diff({ filename: "lint/rules.bin", sha: "bbbbbbb" })],
+  });
+
+  for (const result of [changedLine, newFile, changedBinary]) {
+    assert.equal(result.status, 1, result.output);
+    assert.ok(removedLabel(result), result.output);
+  }
+});
+
+test("removes the approval when GitHub cannot give each change of the pull request", async (context) => {
+  const failedCompare = await afterPush({ context, after: [agentsRule] });
+  const longCompare = await afterPush({
+    context,
+    before: [agentsRule],
+    after: [
+      agentsRule,
+      ...Array.from({ length: 299 }, (_, index) =>
+        diff({ filename: `src/file-${index}.ts`, patch: "" }),
+      ),
+    ],
+  });
+
+  for (const result of [failedCompare, longCompare]) {
+    assert.equal(result.status, 1, result.output);
+    assert.ok(removedLabel(result), result.output);
+  }
 });
 
 test("tells the person to set the maintainers when none is set", async (context) => {

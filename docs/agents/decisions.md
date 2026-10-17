@@ -343,7 +343,12 @@ entry to the choice, the reason, and any rule that follows from it.
   request, which the pull request can change. A new label starts the check
   again, so the person does not have to. GitHub's code owners
   and branch protection would do the same with no script, but a private
-  repository on the Free plan has neither.
+  repository on the Free plan has neither. After a push, the check compares
+  the pull request's own diff of each of those files before and after the
+  push, and not the two head commits. A compare of the two head commits also
+  has each change that came in from `main`. A sync almost always changes
+  those files, so the label would go each time a contributor brings `main`
+  into the branch.
 - **A sync is a list of cherry-picks, and never a merge.** A project is
   without some of the template's files, and a person can leave one commit
   out. A merge cannot do that, and it marks each template commit as

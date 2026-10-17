@@ -174,8 +174,10 @@ the first time, and again after each change to `.codex/hooks.json`.
 The "Template-owned files" check of CI fails a pull request that changes one
 of those files. It passes when a maintainer opened the pull request, or when
 a maintainer added the `template-change-approved` label after a review. A
-later push that changes one of the files again removes the label. The check
-does nothing in the template.
+later push that changes the pull request's own change to one of the files
+removes the label. A merge or a rebase of `main` into the branch does not
+remove it, unless `main` changed lines next to that change. The check does
+nothing in the template.
 
 A project needs two settings on GitHub for the check. Make them one time,
 after the first push:
