@@ -1,4 +1,5 @@
-import { CamelCasePlugin } from "kysely";
+import { CamelCasePlugin, type DatabaseIntrospector } from "kysely";
+import type { Database } from "./database.js";
 
 /**
  * The database has snake_case names, and TypeScript has camelCase names. This
@@ -18,4 +19,40 @@ export class DatabaseNames extends CamelCasePlugin {
   inDatabase(name: string): string {
     return this.snakeCase(name);
   }
+
+  inTypeScript(name: string): string {
+    return this.camelCase(name);
+  }
+}
+
+/**
+ * The query builder with an introspection that gives each table and column
+ * name in TypeScript form, as the queries and their results do. The plugin
+ * cannot change the introspection, because Kysely runs it without plugins.
+ */
+export function withTypeScriptNamesInIntrospection(db: Database): Database {
+  const names = new DatabaseNames();
+  const introspector = (inner: DatabaseIntrospector): DatabaseIntrospector => ({
+    getSchemas: () => inner.getSchemas(),
+    getTables: async (options) =>
+      (await inner.getTables(options)).map((table) => ({
+        ...table,
+        name: names.inTypeScript(table.name),
+        columns: table.columns.map((column) => ({
+          ...column,
+          name: names.inTypeScript(column.name),
+        })),
+      })),
+  });
+  return new Proxy(db, {
+    get(target, property) {
+      if (property === "introspection") {
+        return introspector(target.introspection);
+      }
+      // Kysely keeps its state in private fields, which only the real
+      // instance can read.
+      const value: unknown = Reflect.get(target, property, target);
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  });
 }

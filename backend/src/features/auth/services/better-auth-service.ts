@@ -6,6 +6,7 @@ import { APP_NAME } from "@app/common/features/core/utils/app-name";
 import { betterAuth } from "better-auth";
 import { getMigrations } from "better-auth/db/migration";
 import type { Database } from "../../core/database/database.js";
+import { withTypeScriptNamesInIntrospection } from "../../core/database/database-names.js";
 import type {
   AuthConfiguration,
   AuthServiceInterface,
@@ -208,7 +209,20 @@ export class BetterAuthService implements AuthServiceInterface {
   }
 
   async migrate(): Promise<void> {
-    const migration = await getMigrations(this.options());
+    // The migration looks for its own names, such as `emailVerified`, among
+    // the names from the introspection, and the database has
+    // `email_verified`. On a database that has the tables, it then adds each
+    // column again and fails. Its statements still go through
+    // `DatabaseNames`, so a new table or column gets a snake_case name. Seen
+    // in better-auth 1.7.7 to 1.7.10. Remove this when the SDK looks for the
+    // names that its queries send.
+    const migration = await getMigrations({
+      ...this.options(),
+      database: {
+        db: withTypeScriptNamesInIntrospection(this.deps.db),
+        type: "postgres" as const,
+      },
+    });
     await migration.runMigrations();
   }
 
