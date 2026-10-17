@@ -6,9 +6,10 @@ name: Template-owned files
 # has the rules, and `docs/agents/setup.md` the setup for a project.
 #
 # The trigger is `pull_request_target`, so GitHub runs this file and the
-# script as they are on the base branch. A pull request cannot change the
-# check that it gets. The token of this trigger can write, so the job must
-# never check out or run code from the pull request.
+# script as they are on the default branch, also for a pull request to another
+# branch. A pull request cannot change the check that it gets. The token of
+# this trigger can write, so the job must never check out or run code from the
+# pull request.
 #
 # The job runs for each label event, also for other labels. A skipped job
 # counts as a pass for a required check.
@@ -33,7 +34,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Check out the base branch
+      - name: Check out the default branch
         uses: actions/checkout@v7
         with:
           persist-credentials: false
