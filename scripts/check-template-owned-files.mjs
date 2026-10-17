@@ -43,6 +43,8 @@ const pathsOf = (files) =>
       : [file.filename],
   );
 
+const listOf = (files) => files.map((file) => `  ${file}`).join("\n");
+
 /**
  * The pull request's own change to each file from the template, at one head
  * commit: a map from the file to the text of its diff. The compare starts at
@@ -114,7 +116,7 @@ function check() {
     return true;
   }
   console.log(
-    `The pull request changes files that come from the template:\n${[...changed].map((file) => `  ${file}`).join("\n")}`,
+    `The pull request changes files that come from the template:\n${listOf([...changed])}`,
   );
 
   let approved = pull.labels.some((label) => label.name === LABEL);
@@ -137,7 +139,12 @@ function check() {
       ]);
       approved = false;
       console.log(
-        `The last push changes one of them again, so the check removed the ${LABEL} label.`,
+        changedAgain
+          ? `The last push changes the pull request's own change to these files, so the check removed the ${LABEL} label:\n${listOf(changedAgain)}`
+          : `GitHub cannot give each change of the pull request before and after the last push, so the check removed the ${LABEL} label.`,
+      );
+      console.log(
+        `The changes between the old and the new head commit: ${event.repository.html_url}/compare/${event.before}...${event.after}`,
       );
     }
   }

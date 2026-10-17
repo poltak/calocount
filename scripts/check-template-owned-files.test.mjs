@@ -224,6 +224,8 @@ const afterPush = ({ context, before, after }) =>
       [`GET ${ISSUES}/events?per_page=100`]: [labelled("owner")],
     },
   });
+const PUSH_LINK =
+  /^The changes between the old and the new head commit: https:\/\/github\.com\/acme\/project\/compare\/1111111\.\.\.2222222$/m;
 const removedLabel = (result) =>
   result.calls.includes(`DELETE ${ISSUES}/labels/template-change-approved`);
 
@@ -280,7 +282,12 @@ test("removes the approval when a push changes the pull request's own change to 
   for (const result of [changedLine, newFile, changedBinary]) {
     assert.equal(result.status, 1, result.output);
     assert.ok(removedLabel(result), result.output);
+    assert.match(result.output, PUSH_LINK);
   }
+  assert.match(
+    newFile.output,
+    /own change to these files, so the check removed the template-change-approved label:\n {2}lint\/new-rule\.mjs$/m,
+  );
 });
 
 test("removes the approval when GitHub cannot give each change of the pull request", async (context) => {
@@ -299,6 +306,8 @@ test("removes the approval when GitHub cannot give each change of the pull reque
   for (const result of [failedCompare, longCompare]) {
     assert.equal(result.status, 1, result.output);
     assert.ok(removedLabel(result), result.output);
+    assert.match(result.output, /GitHub cannot give each change/);
+    assert.match(result.output, PUSH_LINK);
   }
 });
 
