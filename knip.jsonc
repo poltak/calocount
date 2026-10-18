@@ -2,6 +2,7 @@
   "workspaces": {
     ".": {
       "entry": [
+        ".agents/hooks/check-branch-is-current.mjs",
         ".agents/hooks/format-edited-files.mjs",
         ".agents/hooks/guard-template-owned-files.mjs",
       ],

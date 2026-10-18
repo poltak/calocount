@@ -351,6 +351,16 @@ entry to the choice, the reason, and any rule that follows from it.
   has each change that came in from `main`. A sync almost always changes
   those files, so the label would go each time a contributor brings `main`
   into the branch.
+- **A hook tells the agent when its branch is behind `main`.** In Shadow, the
+  first project, a contributor's branch started from the `main` of the day
+  before. Its pull request then listed a bug as open that `main` had fixed an
+  hour before the branch's first commit. `AGENTS.md` asks for a fetch before
+  each new branch, and the hook checks the branch at the start of each
+  session, in Claude Code and in Codex. It compares with the `main` of the
+  remote that the branch tracks, so a template branch in a project's
+  repository compares with the template, and not with the project. A CI check
+  cannot do this, because GitHub does not run it again when `main` moves, and
+  the Free plan cannot require a branch to be up to date.
 - **A sync is a list of cherry-picks, and never a merge.** A project is
   without some of the template's files, and a person can leave one commit
   out. A merge cannot do that, and it marks each template commit as

@@ -86,6 +86,17 @@ waits for up to 10 seconds and does not fail.
 
 A change to `.env` needs a restart of `pnpm run dev`.
 
+### The branch at the start of an agent session
+
+When a Claude Code or Codex session starts,
+`.agents/hooks/check-branch-is-current.mjs` fetches `main` from the remote
+that the branch tracks, or from `origin` for a branch that tracks none. When
+the branch is behind that `main`, the hook tells the agent and you how many
+commits it is behind, and what to do. So a template branch in a project's
+repository compares with the template's `main`. The hook says nothing when the
+fetch fails, as it does with no network. Codex runs it only after you trust
+the hooks of the repository.
+
 ### The development database
 
 `pnpm run dev`, `pnpm run db:migrate`, and `pnpm run auth:setup-owner` make

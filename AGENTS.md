@@ -19,6 +19,14 @@ project information. Read the documents that apply to the task.
   to the person instead. It goes to the template first, and the project gets
   it with a sync.
 
+## Start of a task
+
+- Before you make a branch, run `git fetch origin`, and start the branch from
+  `origin/main`: `git switch -c <name> origin/main`. A branch from an old
+  `main` does not have the fixes that `main` got after it.
+- When a session starts, a hook tells you if the branch is behind `main` on
+  its remote. Do what it says.
+
 ## Coding standards
 
 - Avoid barrel exports. Do not add `index` files that re-export many modules.
@@ -53,6 +61,8 @@ project information. Read the documents that apply to the task.
 - Check `git status` before and after edits. Preserve changes unrelated to the task.
 - Push a branch and open a pull request. Push to `main` only when the person
   asks for that push.
+- Before you open a pull request, merge `origin/main` into the branch, and run
+  the checks again.
 
 ## Project documentation
 
