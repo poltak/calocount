@@ -21,6 +21,9 @@ project information. Read the documents that apply to the task.
 
 ## Start of a task
 
+- Before the first task in a checkout, run `pnpm install`. When `pnpm` is
+  missing, install it with the command in
+  [setup](docs/agents/setup.md#requirements), then run `pnpm install`.
 - Before you make a branch, run `git fetch origin`, and start the branch from
   `origin/main`: `git switch -c <name> origin/main`. A branch from an old
   `main` does not have the fixes that `main` got after it.
@@ -63,6 +66,8 @@ project information. Read the documents that apply to the task.
   asks for that push.
 - Before you open a pull request, merge `origin/main` into the branch, and run
   the checks again.
+- Do not open a pull request when a check that this file requires did not
+  run. Make it run, or tell the person why it cannot.
 
 ## Project documentation
 

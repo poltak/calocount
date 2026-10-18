@@ -2,8 +2,18 @@
 
 ## Requirements
 
-- pnpm, at the version in `package.json`. pnpm downloads the Node version the
-  repository pins, so run Node through pnpm (`pnpm run …`, `pnpm exec node …`).
+- pnpm. pnpm downloads and runs the pnpm version in `package.json`, and the
+  Node version that the repository pins, so run Node through pnpm
+  (`pnpm run …`, `pnpm exec node …`). To install pnpm on macOS or Linux, also
+  on a machine with no Node:
+
+  ```sh
+  curl -fsSL https://get.pnpm.io/install.sh | sh -
+  ```
+
+  The script adds pnpm to the shell profile, so a new shell finds it.
+  [pnpm.io/installation](https://pnpm.io/installation) has the other ways.
+
 - Nothing else for development: `pnpm install` brings a PostgreSQL for it.
   Tests need no database server. Production needs a PostgreSQL database.
 
