@@ -5,6 +5,7 @@ import {
 } from "kysely/migration";
 import type { AuthTables } from "../../auth/storage/types.js";
 import { DatabaseNames } from "./database-names.js";
+import { MIGRATION_HASH_TABLE } from "./migration-hashes.js";
 
 /**
  * The columns that every application table has. The database makes all three
@@ -89,6 +90,7 @@ export async function findStandardColumnProblems<Schema>(
     ...SDK_TABLES.map((table) => names.inDatabase(table)),
     DEFAULT_MIGRATION_TABLE,
     DEFAULT_MIGRATION_LOCK_TABLE,
+    MIGRATION_HASH_TABLE,
   ]);
   const appendOnlyTables = new Set(
     APPEND_ONLY_TABLES.map((table) => names.inDatabase(table)),

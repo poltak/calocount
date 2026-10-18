@@ -369,10 +369,18 @@ entry to the choice, the reason, and any rule that follows from it.
   pull request with three features, and it lets one file mix them. The check
   finds the table names in the SQL with patterns, which works because each
   migration is plain SQL. A SQL parser would be a new dependency.
+- **A database keeps a hash of each migration that it ran.** Kysely records
+  only the names, and does not run a migration again. So a development
+  database that ran an older version of a file gives no error, and its schema
+  differs from the files. The tests still pass, because each one starts from a
+  new database. The hash is of the SQL that the migration sends to a driver
+  that sends nothing, so a new compiler or formatter does not change it.
 - **`hasDeployedDatabase` decides if a merged migration can change.** Before
   the first deploy, such a change costs only a new development database, and
   the history stays short. After it, the change never reaches the deployed
-  database. The value is in a file that the check reads.
+  database. The value is in a file that the check reads. When nobody sets it
+  at the first deploy, the hash still stops the migration of a deployed
+  database that ran an older version of a file.
 - **A sync is a list of cherry-picks, and never a merge.** A project is
   without some of the template's files, and a person can leave one commit
   out. A merge cannot do that, and it marks each template commit as

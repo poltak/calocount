@@ -9,8 +9,9 @@ import {
 } from "../database/pglite-database.js";
 import type { AuthUser } from "../../auth/services/types.js";
 
-// For the test of the schema. See the function for what it checks.
+// For the tests of the schema and the migrations. See each function.
 export { findStandardColumnProblems } from "../database/standard-columns.js";
+export { recordMigrationHash } from "../database/migration-hashes.js";
 
 interface OwnerCredentials {
   name: string;

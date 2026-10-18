@@ -462,6 +462,9 @@ by hand.
   change to a merged migration. Each developer then runs `pnpm run db:reset`.
   Set the value to `true` before the first deploy of a database with data.
   `pnpm run check` then fails on such a change.
+- A database keeps a hash of the SQL of each migration that it ran. The
+  migration of a database stops, and applies nothing, when the file of one of
+  those migrations changed or is gone.
 - Declare the table's row type in the owning feature's `storage/types.ts` and
   add it to `DatabaseSchema`, in the same change as the migration.
 - Migrations only go forward. To undo a change, write a new migration.

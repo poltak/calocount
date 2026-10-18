@@ -145,6 +145,10 @@ database user and password in `.env.example` are for this local database only.
   is `false` until a database with data runs the migrations. While it is
   `false`, a branch can change a migration that is on `main`, and each
   developer runs `pnpm run db:reset` after the merge.
+- A database keeps a hash of each migration that it ran. When the file of
+  such a migration changed or is gone, `pnpm run db:migrate` and
+  `pnpm run dev` apply no migration, and name the files. For a development
+  database, run `pnpm run db:reset`.
 
 ## Changes from the template
 
