@@ -70,6 +70,11 @@ Add information to an existing document. Make a new document in
 Then add it to the list of documents at the top of this file, in the same
 change, because an agent finds a document through that list.
 
+When a change makes a fact in another document wrong, change that document in
+the same change. Do not write that one document is correct where two
+documents disagree. A reader then has to compare the two, and the other
+document stays wrong.
+
 Keep always-needed instructions in the root `AGENTS.md`. Do not create another
 `AGENTS.md` or a `CLAUDE.md` for this repository. Put repeatable task workflows
 in skills. Codex discovers repository skills in `.agents/skills/`; Claude Code
