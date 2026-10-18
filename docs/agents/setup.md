@@ -138,6 +138,13 @@ database user and password in `.env.example` are for this local database only.
 - To migrate another database, set the URL for that one command:
   `DATABASE_URL=postgresql://… pnpm run db:migrate`. The other required
   variables still come from `.env`.
+- `pnpm run check` fails when a migration that the branch adds changes a table
+  that another migration of the branch creates. `pnpm run db:migration:create`
+  names the migrations that the branch adds already.
+- `hasDeployedDatabase` in `backend/src/features/core/database/deployment.json`
+  is `false` until a database with data runs the migrations. While it is
+  `false`, a branch can change a migration that is on `main`, and each
+  developer runs `pnpm run db:reset` after the merge.
 
 ## Changes from the template
 
@@ -234,6 +241,9 @@ The repository has no deployment files yet. These facts hold on any host:
 - Use an HTTPS `BETTER_AUTH_URL`. Session cookies are then `Secure`.
 - Run `pnpm run db:migrate` before the first start and before the start of
   each new version. The server does not migrate by itself.
+- Before the first deploy of a database with data, set `hasDeployedDatabase`
+  to `true` in `backend/src/features/core/database/deployment.json`.
+  `pnpm run check` then fails on a change to a migration that is on `main`.
 - When a user lost the password, run
   `pnpm --filter backend run auth:reset-password` on the host, in an
   interactive terminal and with the server's environment.

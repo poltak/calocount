@@ -9,7 +9,9 @@
 import { mkdir, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { branchMigrations } from "./migration-files.mjs";
 
+const root = fileURLToPath(new URL("..", import.meta.url));
 const databaseDirectory = fileURLToPath(
   new URL("../backend/src/features/core/database/", import.meta.url),
 );
@@ -97,6 +99,18 @@ if (argument !== "--sync") {
   console.log(
     `Created ${path.relative(process.cwd(), path.join(migrationsDirectory, file))}`,
   );
+  const earlier = (branchMigrations({ root })?.added ?? []).filter(
+    (added) => path.basename(added) !== file,
+  );
+  if (earlier.length > 0) {
+    console.log(
+      [
+        "This branch already adds these migrations:",
+        ...earlier.map((added) => `  ${path.basename(added)}`),
+        "A change to a table that one of them creates goes into that migration, and `pnpm run check` fails when a new migration has it. When the new migration has only such changes, delete it and run `pnpm run db:migration:create --sync`.",
+      ].join("\n"),
+    );
+  }
 }
 
 await writeFormatted(listFile, listSource(files));

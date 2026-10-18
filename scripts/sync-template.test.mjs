@@ -600,10 +600,12 @@ test("writes the list of migrations again when a template commit adds a migratio
       { cwd: directory },
     );
 
-  await cp(
-    path.join(scriptsDirectory, "create-migration.mjs"),
-    path.join(template, "scripts/create-migration.mjs"),
-  );
+  for (const script of ["create-migration.mjs", "migration-files.mjs"]) {
+    await cp(
+      path.join(scriptsDirectory, script),
+      path.join(template, "scripts", script),
+    );
+  }
   await write(template, {
     [`${database}/migrations/1000000001-create-first.ts`]: migration("first"),
   });

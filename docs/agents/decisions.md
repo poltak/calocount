@@ -361,6 +361,18 @@ entry to the choice, the reason, and any rule that follows from it.
   repository compares with the template, and not with the project. A CI check
   cannot do this, because GitHub does not run it again when `main` moves, and
   the Free plan cannot require a branch to be up to date.
+- **`pnpm run check` fails on a migration of a branch that changes a table that
+  another migration of the branch creates.** An agent wrote a new migration
+  for each step of its work, so one pull request had migrations that changed
+  the tables of its own earlier migrations. The rule names that exact
+  problem. A limit on the number of new files does not. Such a limit stops a
+  pull request with three features, and it lets one file mix them. The check
+  finds the table names in the SQL with patterns, which works because each
+  migration is plain SQL. A SQL parser would be a new dependency.
+- **`hasDeployedDatabase` decides if a merged migration can change.** Before
+  the first deploy, such a change costs only a new development database, and
+  the history stays short. After it, the change never reaches the deployed
+  database. The value is in a file that the check reads.
 - **A sync is a list of cherry-picks, and never a merge.** A project is
   without some of the template's files, and a person can leave one commit
   out. A merge cannot do that, and it marks each template commit as

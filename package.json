@@ -11,6 +11,7 @@
     "check:build": "pnpm --filter frontend run build",
     "check:hooks": "pnpm run test:hooks",
     "check:lint-rules": "pnpm run test:lint-rules",
+    "check:migrations": "node scripts/check-migrations.mjs",
     "check:pnpm-version": "node scripts/check-pnpm-version.mjs",
     "check:scripts": "pnpm run test:scripts",
     "check:unused": "pnpm run unused:check",

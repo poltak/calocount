@@ -450,8 +450,18 @@ by hand.
   query write `userId`.
 - Put `"user"` in quotes in SQL, because `user` is a reserved word in
   PostgreSQL. Quotes around each other name are optional.
-- Do not change or rename a migration after it is merged. A database that
-  already ran it does not get the change. Write a new migration.
+- Before the merge, put each change to a table that the branch creates into
+  the migration that creates the table, and run `pnpm run db:reset`. A pull
+  request then has one migration for each new table or group of tables, and
+  no migration that changes them again. `pnpm run check` fails on a migration
+  that changes a table that another migration of the branch creates.
+- After the merge, do not change, rename, or delete a migration. A database
+  that already ran it does not get the change. Write a new migration. The
+  exception is a project with no deployed database. Its `hasDeployedDatabase`
+  in `core/database/deployment.json` is `false`, and the check then allows a
+  change to a merged migration. Each developer then runs `pnpm run db:reset`.
+  Set the value to `true` before the first deploy of a database with data.
+  `pnpm run check` then fails on such a change.
 - Declare the table's row type in the owning feature's `storage/types.ts` and
   add it to `DatabaseSchema`, in the same change as the migration.
 - Migrations only go forward. To undo a change, write a new migration.
