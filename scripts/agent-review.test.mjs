@@ -257,12 +257,11 @@ const job = (findings, notes = []) =>
     result: "success",
     outputs: { status: "ok", findings: encode(findings), notes: encode(notes) },
   });
-const note = ({ file = "docs/agents/setup.md", quote }) => ({
-  file,
-  line: 1,
+const note = ({
+  file = "docs/agents/setup.md",
   quote,
-  explanation: "This looks wrong.",
-});
+  explanation = "This looks wrong.",
+}) => ({ file, line: 1, quote, explanation });
 const NOT_SET_UP = JSON.stringify({
   result: "success",
   outputs: { status: "not-configured" },
@@ -582,7 +581,11 @@ test("verdict shows notes and links, and notes do not fail the check", async (co
     CLAUDE_JOB: job(
       [finding({ quote: OVERRIDE })],
       [
-        note({ file: "docs/agents/plan.md", quote: "# The plan" }),
+        note({
+          file: "docs/agents/plan.md",
+          quote: "# The plan",
+          explanation: "When `first < second`, it returns <b>first</b>.",
+        }),
         note({ quote: "Text that is in no file." }),
       ],
     ),
@@ -605,6 +608,10 @@ test("verdict shows notes and links, and notes do not fail the check", async (co
   const body = bodyOf(withFinding);
   assert.match(body, /blockers=1 -->/);
   assert.match(body, /#### Other notes\n\nNo rule covers these notes/);
+  assert.match(
+    body,
+    /When `first < second`, it returns &lt;b&gt;first&lt;\/b&gt;\./,
+  );
   assert.ok(
     body.indexOf("The general rules") <
       body.indexOf("\n---\n\n#### Other notes"),

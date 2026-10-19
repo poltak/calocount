@@ -159,6 +159,12 @@ const flatten = (text) => text.replace(/\s+/g, " ").trim();
 const count = (number, word) => `${number} ${word}${number === 1 ? "" : "s"}`;
 const decode = (text) =>
   text ? JSON.parse(Buffer.from(text, "base64").toString("utf8")) : [];
+// Markdown shows a code span as it is, so an escape in it would show as text.
+const escapeOutsideCode = (text) =>
+  text
+    .split(/(`[^`]*`)/)
+    .map((part, index) => (index % 2 === 1 ? part : escapeHtml(part)))
+    .join("");
 const escapeHtml = (text) =>
   text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 
@@ -546,7 +552,7 @@ function commentFor({ repository, head, findings, notes, models, deleted }) {
     "",
     quoteBlock(item.quote),
     "",
-    escapeHtml(flatten(item.explanation)).slice(0, 1000),
+    escapeOutsideCode(flatten(item.explanation).slice(0, 1000)),
     "",
   ];
   findings.slice(0, COMMENT_FINDING_LIMIT).forEach((finding, index) => {
