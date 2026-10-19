@@ -381,6 +381,34 @@ entry to the choice, the reason, and any rule that follows from it.
   database. The value is in a file that the check reads. When nobody sets it
   at the first deploy, the hash still stops the migration of a deployed
   database that ran an older version of a file.
+- **Two models review each pull request for rules that no script can check,
+  and the check fails on a finding.** In Shadow, a pull
+  request wrote that its plan doc was correct where the data model doc disagreed, and
+  did not correct the data model doc. No static analysis could catch this.
+  In a test on Shadow's pull requests in October
+  2026, Claude Opus and Codex found different problems. In the largest pull
+  request, all runs together found 16 problems. Opus found 8, Codex Sol found
+  7, and the two together found 12. Codex Astra found 9, but costs more. A run
+  for each rule found a different set of problems, and not a larger one, for
+  almost twice the price, so one run checks all the rules. The general rules come
+  from the template, and each project adds its own rules in a file that it
+  owns, because the needs of a review differ between projects. The models
+  also read the title, the description, and the commit messages of the pull
+  request, so that a rule can ask for the reason of a change there. A reason
+  for each change in the documents would fill them with history. The check fails and does
+  not only comment, because a comment is easy to miss on a pull request whose
+  checks pass. The trigger is
+  `pull_request`, because the reviewers must read the files of the pull
+  request. A pull request can then change the workflow, but that change fails
+  the template-owned check.
+- **Codex runs on a ChatGPT login and not on an API key.** Both models then
+  run on a subscription, with no bill for each review. OpenAI's
+  `codex-action` takes only an API key, so the workflow runs the Codex CLI
+  itself. Codex refreshes the login about every 8 days, and the old refresh
+  token then stops working. So the workflow saves the new login in the secret
+  after each run, with a personal access token, and runs one Codex job at a
+  time. A self-hosted runner would keep the login on its disk with no token,
+  but it needs a machine.
 - **A sync is a list of cherry-picks, and never a merge.** A project is
   without some of the template's files, and a person can leave one commit
   out. A merge cannot do that, and it marks each template commit as

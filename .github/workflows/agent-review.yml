@@ -1,0 +1,178 @@
+name: Agent review
+
+# Two models read each pull request and report text that breaks a rule that no
+# lint rule or test can check. The general rules are in
+# `.agents/review/prompt.md`, and a project adds its own in
+# `.agents/review/project-rules.md`. The "Agent review" job fails while a
+# finding is open, until a maintainer accepts the findings with the
+# `agent-review-accepted` label.
+# `scripts/agent-review.mjs` has the logic, and `docs/agents/setup.md` the
+# secrets of a project.
+#
+# The trigger is `pull_request`, so GitHub runs this file as it is in the pull
+# request. The reviewers must read the files of the pull request, and a
+# `pull_request_target` job must never check out code from it. A pull request
+# that changes this file or the script fails the "Template-owned files" check,
+# which the pull request cannot change.
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+      - edited
+      - labeled
+      - unlabeled
+
+permissions:
+  contents: read
+
+env:
+  CLAUDE_CODE_VERSION: 2.1.303
+  CLAUDE_MODEL: opus
+  CLAUDE_EFFORT: high
+  CODEX_VERSION: 0.163.0
+  CODEX_MODEL: gpt-6.1-sol
+  CODEX_EFFORT: high
+
+jobs:
+  plan:
+    name: Plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      mode: ${{ steps.plan.outputs.mode }}
+    steps:
+      - name: Check out the scripts
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts
+
+      - name: Choose a review, a check of the label, or nothing
+        id: plan
+        run: node scripts/agent-review.mjs plan
+
+  claude:
+    name: Claude
+    needs: plan
+    if: needs.plan.outputs.mode == 'review'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # A new push to the pull request stops the review of the old head commit.
+    concurrency:
+      group: agent-review-claude-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    outputs:
+      status: ${{ steps.review.outputs.status }}
+      findings: ${{ steps.review.outputs.findings }}
+      message: ${{ steps.review.outputs.message }}
+    steps:
+      # npm refuses to run in the repository, because `devEngines` names pnpm.
+      - name: Install Claude Code
+        working-directory: ${{ runner.temp }}
+        run: npm install --global "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}"
+
+      - name: Check out the head commit
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          # The review compares the head with the commit where the branch left
+          # its base, so it needs the history of both.
+          fetch-depth: 0
+          # The reviewer can read each file, so the token stays out of
+          # `.git/config`.
+          persist-credentials: false
+
+      - name: Review
+        id: review
+        run: node scripts/agent-review.mjs claude
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+
+  codex:
+    name: Codex
+    needs: plan
+    if: needs.plan.outputs.mode == 'review'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Two jobs that refresh the Codex login at the same time leave a login that
+    # does not work. So one Codex job runs at a time in the repository, and a
+    # new push does not stop it. GitHub keeps one waiting job and cancels the
+    # others, and the verdict reports a cancelled review as an open item.
+    concurrency:
+      group: agent-review-codex
+      cancel-in-progress: false
+    outputs:
+      status: ${{ steps.review.outputs.status }}
+      findings: ${{ steps.review.outputs.findings }}
+      message: ${{ steps.review.outputs.message }}
+    steps:
+      - name: Install Codex
+        working-directory: ${{ runner.temp }}
+        run: npm install --global "@openai/codex@${CODEX_VERSION}"
+
+      # Codex runs each command of the model in a bubblewrap sandbox, and
+      # Ubuntu 24.04 blocks the user namespaces that bubblewrap needs. OpenAI's
+      # codex-action makes the same change.
+      - name: Let the Codex sandbox start
+        run: |
+          if [ "$(sysctl -n kernel.unprivileged_userns_clone 2>/dev/null)" = 0 ]; then
+            sudo sysctl -w kernel.unprivileged_userns_clone=1
+          fi
+          if [ "$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null)" = 1 ]; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
+
+      - name: Check out the head commit
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Review
+        id: review
+        run: node scripts/agent-review.mjs codex
+        env:
+          CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+
+      - name: Save the refreshed Codex login
+        if: always()
+        run: node scripts/agent-review.mjs save-codex-login
+        env:
+          CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+          GH_TOKEN: ${{ secrets.CODEX_AUTH_WRITE_TOKEN }}
+
+  verdict:
+    name: Agent review
+    needs: [plan, claude, codex]
+    if: always() && (needs.plan.outputs.mode == 'review' || needs.plan.outputs.mode == 'label')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: write
+    # One verdict at a time for each pull request, in order, so that a label
+    # event reads the comment of the review before it.
+    concurrency:
+      group: agent-review-verdict-${{ github.event.pull_request.number }}
+      cancel-in-progress: false
+    steps:
+      - name: Check out the head commit
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Post the findings, and pass or fail
+        run: node scripts/agent-review.mjs verdict
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MODE: ${{ needs.plan.outputs.mode }}
+          TEMPLATE_MAINTAINERS: ${{ vars.TEMPLATE_MAINTAINERS }}
+          CLAUDE_JOB: ${{ toJSON(needs.claude) }}
+          CODEX_JOB: ${{ toJSON(needs.codex) }}

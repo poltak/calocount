@@ -1,4 +1,7 @@
 {
+  // The "Agent review" workflow installs the Codex CLI on the CI machine, and
+  // no package of the repository has it.
+  "ignoreBinaries": ["codex"],
   "workspaces": {
     ".": {
       "entry": [

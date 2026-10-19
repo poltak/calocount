@@ -228,6 +228,119 @@ check fails each change to one of those files. On the GitHub Free plan, a
 failed check does not stop a merge. With a paid plan, make the check
 required in the branch protection of `main`.
 
+## Agent review of pull requests
+
+The "Agent review" workflow of CI gives each pull request to two models,
+Claude Code and Codex. Each one reports rule violations that no lint
+rule or test can check. An example is a doc's content that the change made no longer valid.
+The script also reports each new document in `docs/agents/`.
+[`scripts/agent-review.mjs`](../../scripts/agent-review.mjs) describes each
+step.
+
+- The general rules are in
+  [`.agents/review/prompt.md`](../../.agents/review/prompt.md), which comes
+  from the template.
+- A project adds its own rules in `.agents/review/project-rules.md`. The
+  project owns this file, and a sync never changes it. Without the file, the
+  review uses only the general rules.
+
+In `.agents/review/project-rules.md`, give each rule a heading such as
+`### patient-data`. Below the heading, say what to report, and give one
+example, as the rules in `prompt.md` do. The model gets the file from its
+first `###` heading to its end. The review deletes a finding whose rule
+is in neither file. For example:
+
+```md
+### patient-data
+
+A tracked file has a patient's name, date of birth, or chart ID. Quote the
+text with the patient data.
+```
+
+The check works as follows:
+
+- The "Agent review" job posts one comment on the pull request, and edits it
+  after each review. GitHub keeps each earlier version of the comment. The job
+  deletes each finding whose quote is not in the file that it names.
+- The models get the title and the description of the pull request, and they
+  can read its commit messages, so a rule can ask for a reason there. An edit
+  of the title or the description starts a new review.
+- The job fails while a finding is open, and when a model that has its secret
+  fails. When each finding is wrong or accepted, a maintainer adds the
+  `agent-review-accepted` label. A later review with findings removes the
+  label.
+- Each pull request gets the review, also one that a maintainer opened. A
+  draft gets its review when its author marks it as ready. A dependency update
+  from Renovate or Dependabot gets no review.
+- The models, their versions, and their effort are in `env` at the top of
+  `.github/workflows/agent-review.yml`.
+- Each model runs on the subscription of a person, and not on an API key. The
+  reviews count against the usage limits of that subscription.
+- A model without its secret does not run. With no secret, the workflow reviews nothing and passes.
+
+The review uses `TEMPLATE_MAINTAINERS` from the
+[template-owned check](#files-that-come-from-the-template). Make the label one
+time:
+
+```sh
+gh label create agent-review-accepted --repo <owner>/<repo> --color 0e8a16 \
+  --description "A maintainer accepted the findings of the agent review"
+```
+
+### The Claude Code secret
+
+Run `claude setup-token`, and sign in with a Claude Pro or Max account. It
+shows a token that starts with `sk-ant-oat01-`. Save it, and paste the token
+when `gh` asks for the value:
+
+```sh
+gh secret set CLAUDE_CODE_OAUTH_TOKEN --repo <owner>/<repo>
+```
+
+### The Codex secrets
+
+Codex keeps its login in a file, `auth.json`. When the login is about 8 days
+old, Codex refreshes it during a run, and the old refresh token then stops
+working. So the workflow saves the new file in the secret after each run, and
+one Codex job runs at a time in the repository.
+
+Make a separate login for CI. Do not copy your own `~/.codex/auth.json`. When
+CI refreshes the copy, the login on your computer stops working.
+
+```sh
+mkdir -m 700 /tmp/codex-ci
+printf 'cli_auth_credentials_store = "file"\n' > /tmp/codex-ci/config.toml
+CODEX_HOME=/tmp/codex-ci codex login
+jq '{auth_mode, has_refresh_token: (.tokens.refresh_token != null)}' \
+  /tmp/codex-ci/auth.json
+```
+
+Sign in with a ChatGPT account that has Codex. The last command must show
+`"auth_mode": "chatgpt"` and `"has_refresh_token": true`. Then save the file,
+and delete the folder:
+
+```sh
+gh secret set CODEX_AUTH_JSON --repo <owner>/<repo> < /tmp/codex-ci/auth.json
+rm -rf /tmp/codex-ci
+```
+
+The token of a workflow cannot write a secret, so the workflow needs a
+personal access token to save the refreshed login:
+
+1. Open https://github.com/settings/personal-access-tokens/new.
+2. Set the resource owner to the owner of the repository, and "Repository
+   access" to this repository only.
+3. Under "Repository permissions", set "Secrets" to "Read and write".
+4. Set an expiry, such as one year, and renew the token before that date.
+5. Run `gh secret set CODEX_AUTH_WRITE_TOKEN --repo <owner>/<repo>`, and paste
+   the token. If GitHub says that the organization must approve the token, an
+   owner approves it under "Personal access tokens" in the settings of the
+   organization.
+
+When Codex refreshes the login and the job cannot save it, the job fails, and
+`CODEX_AUTH_JSON` then has a login that does not work. Make a new login with
+the steps above.
+
 ## Production
 
 The repository has no deployment files yet. These facts hold on any host:

@@ -70,6 +70,9 @@ project information. Read the documents that apply to the task.
   the checks again.
 - Do not open a pull request when a check that this file requires did not
   run. Make it run, or tell the person why it cannot.
+- When the "Agent review" check of a pull request fails, tell the person about
+  each finding. Change the text only where a finding is correct. Do not run
+  the review again to get a different result.
 
 ## Project documentation
 
