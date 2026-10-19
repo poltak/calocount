@@ -1,6 +1,6 @@
 You review one pull request of this repository. Check it only against the
-rules below. Do not report other problems. Do not report bugs, style, missing
-tests, or ideas for a better design.
+rules below. Do not report other problems, such as bugs, missing tests, or
+ideas for a better design.
 
 The pull request changes the commits from {{BASE}} to {{HEAD}}. The working
 tree is at {{HEAD}}. Start with `git diff --stat {{BASE}} {{HEAD}}`, then read
@@ -67,6 +67,29 @@ list of the decisions of one day.
 You cannot know if the team agreed to the change, so report each one, and the
 maintainer confirms it. Quote the new text that changes the decision, and name
 the old decision in the explanation.
+
+### comment-restates-code
+
+A code comment only says what the code does, and the name, the types, or the
+next lines already say it. `AGENTS.md` ("Coding standards") forbids this, also
+for JSDoc. A comment that gives the reason for a choice, a constraint that
+other code relies on, or what breaks when the code changes is correct.
+
+Example: `/** Create the account. */` above `createAccount()`. Quote the
+comment.
+
+### code-architecture
+
+A change breaks a rule of `docs/agents/code-architecture.md`. Read that
+document before you read the code. Do not report a rule that lint checks,
+which is each rule of the plugins in `lint/` and of `.oxlintrc.json`. CI runs
+lint, and lint fails the pull request without this review.
+
+Examples: a Storage class that holds a business rule, such as a check of who
+can see a record, which belongs in a Logic class. A second Storage class for
+one feature, which must have one Storage class for all its tables. Quote the
+line that breaks the rule, and name the section of the document in the
+explanation.
 
 {{PROJECT_RULES}}
 
