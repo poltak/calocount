@@ -67,6 +67,7 @@ jobs:
     outputs:
       status: ${{ steps.review.outputs.status }}
       findings: ${{ steps.review.outputs.findings }}
+      notes: ${{ steps.review.outputs.notes }}
       message: ${{ steps.review.outputs.message }}
     steps:
       # npm refuses to run in the repository, because `devEngines` names pnpm.
@@ -107,6 +108,7 @@ jobs:
     outputs:
       status: ${{ steps.review.outputs.status }}
       findings: ${{ steps.review.outputs.findings }}
+      notes: ${{ steps.review.outputs.notes }}
       message: ${{ steps.review.outputs.message }}
     steps:
       - name: Install Codex

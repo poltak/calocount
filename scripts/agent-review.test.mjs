@@ -806,3 +806,43 @@ test("a label accepts the findings only when a maintainer added it for the revie
   assert.match(olderHead.output, /has not finished/);
   assert.equal(clean.status, 0, clean.output);
 });
+
+// GitHub gives the verdict job only the outputs that a model job lists, so an
+// output that the script writes and the job does not list is lost.
+test("each model job of the workflow lists each output that the script writes", async () => {
+  const script = await readFile(
+    path.join(repoRoot, "scripts/agent-review.mjs"),
+    "utf8",
+  );
+  const workflow = await readFile(
+    path.join(repoRoot, ".github/workflows/agent-review.yml"),
+    "utf8",
+  );
+  const written = new Set(
+    [...script.matchAll(/writeOutputs\(\{([\s\S]*?)\}\);/g)]
+      .flatMap(([, fields]) => [...fields.matchAll(/(\w+)\s*:/g)])
+      .map(([, key]) => key)
+      .filter((key) => key !== "mode"),
+  );
+  assert.deepEqual([...written].sort(), [
+    "findings",
+    "message",
+    "notes",
+    "status",
+  ]);
+
+  for (const job of ["claude", "codex"]) {
+    const block = workflow.slice(
+      workflow.indexOf(`\n  ${job}:\n`),
+      workflow.indexOf("\n    steps:", workflow.indexOf(`\n  ${job}:\n`)),
+    );
+    const listed = [
+      ...block.matchAll(
+        /^ {6}(\w+): \$\{\{ steps\.review\.outputs\.(\w+) \}\}$/gm,
+      ),
+    ]
+      .filter(([, key, output]) => key === output)
+      .map(([, key]) => key);
+    assert.deepEqual(listed.sort(), [...written].sort(), job);
+  }
+});
