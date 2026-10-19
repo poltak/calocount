@@ -72,6 +72,8 @@ const CLAUDE_DENIED_TOOLS = [
 const TOKEN_PATTERN =
   /\b(?:sk-ant-[\w-]{8,}|sk-[\w-]{20,}|github_pat_\w{20,}|gh[pousr]_\w{20,}|eyJ[\w-]{10,}\.[\w-]{10,}\.[\w-]+)/g;
 const COMMENT_FINDING_LIMIT = 50;
+// Notes do not fail the check, so a long list of them is only noise.
+const NOTE_LIMIT = 3;
 const root = fileURLToPath(new URL("..", import.meta.url));
 
 const readEvent = () =>
@@ -153,6 +155,9 @@ function callApi({ method, route, body }) {
 const encode = (findings) =>
   Buffer.from(JSON.stringify(findings)).toString("base64");
 const flatten = (text) => text.replace(/\s+/g, " ").trim();
+const count = (number, word) => `${number} ${word}${number === 1 ? "" : "s"}`;
+const decode = (text) =>
+  text ? JSON.parse(Buffer.from(text, "base64").toString("utf8")) : [];
 const escapeHtml = (text) =>
   text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 
@@ -219,6 +224,7 @@ function claude() {
     run = undefined;
   }
   const findings = run?.structured_output?.findings;
+  const notes = run?.structured_output?.notes ?? [];
   if (result.status !== 0 || run?.is_error || !Array.isArray(findings)) {
     const message = flatten(
       `${run?.result ?? run?.subtype ?? ""} ${result.stderr ?? ""}`,
@@ -231,9 +237,13 @@ function claude() {
     return;
   }
   console.log(
-    `Claude Code: ${findings.length} findings, ${run.num_turns} turns, $${run.total_cost_usd?.toFixed(2)} at API prices.`,
+    `Claude Code: ${count(findings.length, "finding")}, ${count(notes.length, "note")}, ${run.num_turns} turns, $${run.total_cost_usd?.toFixed(2)} at API prices.`,
   );
-  writeOutputs({ status: "ok", findings: encode(findings) });
+  writeOutputs({
+    status: "ok",
+    findings: encode(findings),
+    notes: encode(notes),
+  });
 }
 
 const codexHome = () =>
@@ -288,12 +298,14 @@ function codex() {
       maxBuffer: 256 * 1024 * 1024,
     },
   );
-  let findings;
+  let output;
   try {
-    findings = JSON.parse(readFileSync(lastMessage, "utf8")).findings;
+    output = JSON.parse(readFileSync(lastMessage, "utf8"));
   } catch {
-    findings = undefined;
+    output = undefined;
   }
+  const findings = output?.findings;
+  const notes = output?.notes ?? [];
   if (result.status !== 0 || !Array.isArray(findings)) {
     const message = flatten(result.stderr ?? "").slice(-500);
     console.log(`Codex failed with status ${result.status}: ${message}`);
@@ -307,9 +319,13 @@ function codex() {
     .map((match) => JSON.parse(match[1]))
     .at(-1);
   console.log(
-    `Codex: ${findings.length} findings, ${usage?.input_tokens ?? "?"} input and ${usage?.output_tokens ?? "?"} output tokens.`,
+    `Codex: ${count(findings.length, "finding")}, ${count(notes.length, "note")}, ${usage?.input_tokens ?? "?"} input and ${usage?.output_tokens ?? "?"} output tokens.`,
   );
-  writeOutputs({ status: "ok", findings: encode(findings) });
+  writeOutputs({
+    status: "ok",
+    findings: encode(findings),
+    notes: encode(notes),
+  });
 }
 
 function sortKeys(value) {
@@ -371,17 +387,16 @@ function saveCodexLogin() {
 function modelResult({ name, model, job }) {
   const { result, outputs = {} } = JSON.parse(job || "{}");
   if (outputs.status === "not-configured") {
-    return { name, model, state: "not-configured", findings: [] };
+    return { name, model, state: "not-configured", findings: [], notes: [] };
   }
   if (result === "success" && outputs.status === "ok") {
-    const findings = JSON.parse(
-      Buffer.from(outputs.findings, "base64").toString("utf8"),
-    );
+    const withModel = (item) => ({ ...item, models: [name] });
     return {
       name,
       model,
       state: "ok",
-      findings: findings.map((finding) => ({ ...finding, models: [name] })),
+      findings: decode(outputs.findings).map(withModel),
+      notes: decode(outputs.notes).slice(0, NOTE_LIMIT).map(withModel),
     };
   }
   return {
@@ -391,6 +406,7 @@ function modelResult({ name, model, job }) {
     message:
       outputs.message || `The job ended with "${result ?? "no result"}".`,
     findings: [],
+    notes: [],
   };
 }
 
@@ -454,23 +470,40 @@ function mergeFindings(findings) {
   return merged;
 }
 
-function commentFor({ head, findings, models, deleted }) {
+/**
+ * Puts the quote in a code block, so that Markdown in it, such as a heading,
+ * shows as text. The fence is longer than each run of backticks in the quote.
+ */
+function quoteBlock(quote) {
+  const longest = Math.max(
+    0,
+    ...(quote.match(/`+/g) ?? []).map((run) => run.length),
+  );
+  const fence = "`".repeat(Math.max(3, longest + 1));
+  return `${fence}text\n${quote.trim()}\n${fence}`;
+}
+
+function commentFor({ repository, head, findings, notes, models, deleted }) {
+  const server = process.env.GITHUB_SERVER_URL ?? "https://github.com";
+  const link = ({ file, line }) =>
+    `[\`${file}${line ? `:${line}` : ""}\`](${server}/${repository}/blob/${head}/${encodeURI(file)}${line ? `#L${line}` : ""})`;
   const failed = models.filter((model) => model.state === "failed");
   const blockers = findings.length + failed.length;
   const lines = [
     `${MARKER} head=${head} blockers=${blockers} -->`,
-    `### Agent review of ${head.slice(0, 7)}: ${findings.length === 0 ? "no findings" : `${findings.length} ${findings.length === 1 ? "finding" : "findings"}`}`,
+    `### Agent review of ${head.slice(0, 7)}: ${findings.length === 0 ? "no findings" : count(findings.length, "finding")}`,
+    "",
+  ];
+  const entry = (item, title) => [
+    `**${title}** in ${link(item)} (${item.models.join(", ")})`,
+    "",
+    quoteBlock(item.quote),
+    "",
+    escapeHtml(flatten(item.explanation)).slice(0, 1000),
     "",
   ];
   findings.slice(0, COMMENT_FINDING_LIMIT).forEach((finding, index) => {
-    lines.push(
-      `**${index + 1}. ${finding.rule}** in \`${finding.file}${finding.line ? `:${finding.line}` : ""}\` (${finding.models.join(", ")})`,
-      "",
-      `> ${escapeHtml(flatten(finding.quote))}`,
-      "",
-      escapeHtml(flatten(finding.explanation)).slice(0, 1000),
-      "",
-    );
+    lines.push(...entry(finding, `${index + 1}. ${finding.rule}`));
   });
   if (findings.length > COMMENT_FINDING_LIMIT) {
     lines.push(
@@ -478,9 +511,20 @@ function commentFor({ head, findings, models, deleted }) {
       "",
     );
   }
+  if (notes.length > 0) {
+    lines.push(
+      "#### Other notes",
+      "",
+      "No rule covers these notes, and they do not fail the check.",
+      "",
+    );
+    notes.forEach((note, index) => {
+      lines.push(...entry(note, `${index + 1}.`));
+    });
+  }
   for (const model of models) {
     const state = {
-      ok: `${model.findings.length} findings`,
+      ok: `${count(model.findings.length, "finding")}, ${count(model.notes.length, "note")}`,
       "not-configured": "not set up",
       failed: `failed. ${escapeHtml(model.message ?? "")}`,
     }[model.state];
@@ -488,7 +532,7 @@ function commentFor({ head, findings, models, deleted }) {
   }
   if (deleted.quote > 0) {
     lines.push(
-      `- Deleted: ${deleted.quote} ${deleted.quote === 1 ? "finding whose quote is" : "findings whose quotes are"} not in the named file.`,
+      `- Deleted: ${deleted.quote} ${deleted.quote === 1 ? "finding or note whose quote is" : "findings or notes whose quotes are"} not in the named file.`,
     );
   }
   if (deleted.rule > 0) {
@@ -497,9 +541,13 @@ function commentFor({ head, findings, models, deleted }) {
     );
   }
   if (blockers > 0) {
+    const rules = [PROMPT_FILE, PROJECT_RULES_FILE]
+      .filter((file) => existsSync(path.join(root, file)))
+      .map((file) => link({ file }))
+      .join(" and ");
     lines.push(
       "",
-      `The rules are in \`${PROMPT_FILE}\` and \`${PROJECT_RULES_FILE}\`. When each finding is wrong or accepted, a maintainer adds the \`${LABEL}\` label. A later review with findings removes the label.`,
+      `The rules are in ${rules}. When each finding is wrong or accepted, a maintainer adds the \`${LABEL}\` label. A later review with findings removes the label.`,
     );
   }
   return { body: lines.join("\n"), blockers };
@@ -567,7 +615,17 @@ function reviewVerdict(event) {
     return !reason;
   });
   const findings = mergeFindings(kept);
-  const { body, blockers } = commentFor({ head, findings, models, deleted });
+  const allNotes = models.flatMap((model) => model.notes);
+  const notes = mergeFindings(allNotes.filter(quoteIsInFile));
+  deleted.quote += allNotes.length - allNotes.filter(quoteIsInFile).length;
+  const { body, blockers } = commentFor({
+    repository,
+    head,
+    findings,
+    notes,
+    models,
+    deleted,
+  });
   console.log(body);
 
   const previous = stickyComment({ repository, number: pull.number });

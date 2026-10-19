@@ -395,7 +395,10 @@ entry to the choice, the reason, and any rule that follows from it.
   owns, because the needs of a review differ between projects. The models
   also read the title, the description, and the commit messages of the pull
   request, so that a rule can ask for the reason of a change there. A reason
-  for each change in the documents would fill them with history. The check fails and does
+  for each change in the documents would fill them with history. A model can
+  also give up to three notes about a problem that no rule covers. Notes do
+  not fail the check, so that a failed check always means a broken rule, and
+  a note that comes back often can become a rule. The check fails and does
   not only comment, because a comment is easy to miss on a pull request whose
   checks pass. The trigger is
   `pull_request`, because the reviewers must read the files of the pull

@@ -262,6 +262,9 @@ The check works as follows:
 - The "Agent review" job posts one comment on the pull request, and edits it
   after each review. GitHub keeps each earlier version of the comment. The job
   deletes each finding whose quote is not in the file that it names.
+- Each model can also give up to three notes about a problem that no rule
+  covers, such as a likely bug. The comment shows them under "Other notes".
+  A note does not fail the check, and the label is not for notes.
 - The models get the title and the description of the pull request, and they
   can read its commit messages, so a rule can ask for a reason there. An edit
   of the title or the description starts a new review.

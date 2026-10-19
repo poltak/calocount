@@ -1,6 +1,7 @@
-You review one pull request of this repository. Check it only against the
-rules below. Do not report other problems, such as bugs, missing tests, or
-ideas for a better design.
+You review one pull request of this repository. Check it against the rules
+below, and report each problem that breaks a rule as a finding. A finding
+fails the check. "Other notes" below says what you can report about other
+problems.
 
 The pull request changes the commits from {{BASE}} to {{HEAD}}. The working
 tree is at {{HEAD}}. Start with `git diff --stat {{BASE}} {{HEAD}}`, then read
@@ -92,6 +93,15 @@ line that breaks the rule, and name the section of the document in the
 explanation.
 
 {{PROJECT_RULES}}
+
+## Other notes
+
+You can also give up to three notes about a problem that no rule covers, such
+as a likely bug, or a change that does not do what the description of the
+pull request says. A note does not fail the check. Give a note only for a
+clear problem, with a quote as for a finding. Do not give a note about style,
+or about an idea for a better design. When you have no such problem, return
+an empty list of notes.
 
 ## Output
 

@@ -1,7 +1,7 @@
 {
   "type": "object",
   "additionalProperties": false,
-  "required": ["findings"],
+  "required": ["findings", "notes"],
   "properties": {
     "findings": {
       "type": "array",
@@ -14,6 +14,30 @@
             "type": "string",
             "description": "The text of the rule's heading, such as override"
           },
+          "file": {
+            "type": "string",
+            "description": "Path from the repository root of the file that holds the quote"
+          },
+          "line": {
+            "type": ["integer", "null"]
+          },
+          "quote": {
+            "type": "string",
+            "description": "One to three lines copied exactly from the file at the head commit"
+          },
+          "explanation": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["file", "line", "quote", "explanation"],
+        "properties": {
           "file": {
             "type": "string",
             "description": "Path from the repository root of the file that holds the quote"

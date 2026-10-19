@@ -251,11 +251,17 @@ const encode = (findings) =>
   Buffer.from(JSON.stringify(findings)).toString("base64");
 const decode = (text) =>
   JSON.parse(Buffer.from(text, "base64").toString("utf8"));
-const job = (findings) =>
+const job = (findings, notes = []) =>
   JSON.stringify({
     result: "success",
-    outputs: { status: "ok", findings: encode(findings) },
+    outputs: { status: "ok", findings: encode(findings), notes: encode(notes) },
   });
+const note = ({ file = "docs/agents/setup.md", quote }) => ({
+  file,
+  line: 1,
+  quote,
+  explanation: "This looks wrong.",
+});
 const NOT_SET_UP = JSON.stringify({
   result: "success",
   outputs: { status: "not-configured" },
@@ -529,25 +535,93 @@ test("verdict merges the findings, deletes one with a wrong quote, adds a new do
   );
   assert.match(
     body,
-    /\*\*1\. override\*\* in `docs\/agents\/plan\.md:3` \(Claude, Codex\)/,
+    /\*\*1\. override\*\* in \[`docs\/agents\/plan\.md:3`\]\(https:\/\/github\.com\/acme\/project\/blob\/\w+\/docs\/agents\/plan\.md#L3\) \(Claude, Codex\)/,
   );
   assert.match(
     body,
-    /stale-document\*\* in `docs\/agents\/setup\.md:3` \(Claude\)/,
+    /stale-document\*\* in \[`docs\/agents\/setup\.md:3`\]\(https:\/\/github\.com\/acme\/project\/blob\/\w+\/docs\/agents\/setup\.md#L3\) \(Claude\)/,
   );
   assert.match(
     body,
-    /new-document\*\* in `docs\/agents\/plan\.md:1` \(script\)/,
+    /new-document\*\* in \[`docs\/agents\/plan\.md:1`\]\(https:\/\/github\.com\/acme\/project\/blob\/\w+\/docs\/agents\/plan\.md#L1\) \(script\)/,
   );
   assert.match(body, /\[removed\]/);
   assert.doesNotMatch(body, /sk-ant/);
-  assert.match(body, /Deleted: 1 finding whose quote is not in the named file/);
+  assert.match(
+    body,
+    /Deleted: 1 finding or note whose quote is not in the named file/,
+  );
   assert.ok(
     result.calls.some(
       ({ call }) =>
         call ===
         `DELETE repos/${REPOSITORY}/issues/7/labels/agent-review-accepted`,
     ),
+  );
+});
+
+test("verdict shows notes and links, and notes do not fail the check", async (context) => {
+  const repo = await repository(context);
+  const verdict = (env) =>
+    run({
+      repo,
+      command: "verdict",
+      head: repo.base,
+      answers: {
+        [`GET ${PULL}`]: { head: { sha: repo.base } },
+        [`GET ${COMMENTS}`]: [],
+      },
+      env: { MODE: "review", ...env },
+    });
+  const bodyOf = (result) =>
+    JSON.parse(result.calls.find(({ call }) => call.startsWith("POST ")).input)
+      .body;
+
+  const withFinding = await verdict({
+    CLAUDE_JOB: job(
+      [finding({ quote: OVERRIDE })],
+      [
+        note({ file: "docs/agents/plan.md", quote: "# The plan" }),
+        note({ quote: "Text that is in no file." }),
+      ],
+    ),
+    CODEX_JOB: job(
+      [],
+      [
+        note({ quote: "# Setup" }),
+        note({ quote: "Run `pnpm" }),
+        note({ quote: "a new database." }),
+        note({ quote: "for a" }),
+      ],
+    ),
+  });
+  const notesOnly = await verdict({
+    CLAUDE_JOB: job([], [note({ quote: "# Setup" })]),
+    CODEX_JOB: NOT_SET_UP,
+  });
+
+  assert.equal(withFinding.status, 1, withFinding.output);
+  const body = bodyOf(withFinding);
+  assert.match(body, /blockers=1 -->/);
+  assert.match(body, /#### Other notes\n\nNo rule covers these notes/);
+  assert.equal(body.match(/^\*\*\d\.\*\* in /gm).length, 4);
+  assert.match(body, /```text\n# The plan\n```/);
+  assert.match(body, /```text\nRun `pnpm\n```/);
+  assert.doesNotMatch(body, /for a`/);
+  assert.match(body, /- Claude \(opus, high\): 1 finding, 2 notes/);
+  assert.match(body, /- Codex \(gpt-test, high\): 0 findings, 3 notes/);
+  assert.match(
+    body,
+    /Deleted: 1 finding or note whose quote is not in the named file/,
+  );
+  assert.match(
+    body,
+    /The rules are in \[`\.agents\/review\/prompt\.md`\]\(https:\/\/github\.com\/acme\/project\/blob\/\w+\/\.agents\/review\/prompt\.md\)\. When/,
+  );
+  assert.equal(notesOnly.status, 0, notesOnly.output);
+  assert.match(
+    bodyOf(notesOnly),
+    /blockers=0 -->\n### Agent review of \w{7}: no findings/,
   );
 });
 
@@ -656,7 +730,7 @@ test("verdict keeps a finding of a project rule, and deletes one of a rule that 
   assert.match(body, /blockers=1 -->/);
   assert.match(
     body,
-    /patient-data\*\* in `docs\/agents\/setup\.md:3` \(Claude\)/,
+    /patient-data\*\* in \[`docs\/agents\/setup\.md:3`\]\(https:\/\/github\.com\/acme\/project\/blob\/\w+\/docs\/agents\/setup\.md#L3\) \(Claude\)/,
   );
   assert.doesNotMatch(body, /\*\* style/);
   assert.match(
