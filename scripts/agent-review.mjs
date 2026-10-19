@@ -30,6 +30,7 @@ import {
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { VERSION_FILE } from "./template-files.mjs";
 
 const LABEL = "agent-review-accepted";
 const MARKER = "<!-- agent-review";
@@ -483,6 +484,27 @@ function quoteBlock(quote) {
   return `${fence}text\n${quote.trim()}\n${fence}`;
 }
 
+/**
+ * Links the general rules in the template, at the template commit that the
+ * project has. The project's copy of the file is the same, but a reader
+ * changes the rules in the template. In the template, the link is to the
+ * reviewed commit.
+ */
+function generalRulesLink({ server, repository, head }) {
+  const label = `\`${PROMPT_FILE}\``;
+  const versionFile = path.join(root, VERSION_FILE);
+  const version = existsSync(versionFile)
+    ? JSON.parse(readFileSync(versionFile, "utf8"))
+    : undefined;
+  // `git@github.com:owner/name.git` and `https://github.com/owner/name.git`
+  const template = version?.template?.match(
+    /github\.com[:/]([^/]+\/[^/]+?)(?:\.git)?$/,
+  )?.[1];
+  return template
+    ? `[${label}](https://github.com/${template}/blob/${version.commit}/${PROMPT_FILE})`
+    : `[${label}](${server}/${repository}/blob/${head}/${PROMPT_FILE})`;
+}
+
 function commentFor({ repository, head, findings, notes, models, deleted }) {
   const server = process.env.GITHUB_SERVER_URL ?? "https://github.com";
   const link = ({ file, line }) =>
@@ -541,13 +563,12 @@ function commentFor({ repository, head, findings, notes, models, deleted }) {
     );
   }
   if (blockers > 0) {
-    const rules = [PROMPT_FILE, PROJECT_RULES_FILE]
-      .filter((file) => existsSync(path.join(root, file)))
-      .map((file) => link({ file }))
-      .join(" and ");
+    const projectRules = existsSync(path.join(root, PROJECT_RULES_FILE))
+      ? ` The rules of this project only are in ${link({ file: PROJECT_RULES_FILE })}.`
+      : "";
     lines.push(
       "",
-      `The rules are in ${rules}. When each finding is wrong or accepted, a maintainer adds the \`${LABEL}\` label. A later review with findings removes the label.`,
+      `The general rules are in ${generalRulesLink({ server, repository, head })}, which comes from the template.${projectRules} When each finding is wrong or accepted, a maintainer adds the \`${LABEL}\` label. A later review with findings removes the label.`,
     );
   }
   return { body: lines.join("\n"), blockers };

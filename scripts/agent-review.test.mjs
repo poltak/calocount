@@ -100,6 +100,7 @@ async function repository(context) {
   context.after(() => rm(directory, { recursive: true, force: true }));
   for (const file of [
     "scripts/agent-review.mjs",
+    "scripts/template-files.mjs",
     ".agents/review/prompt.md",
     ".agents/review/findings.schema.json",
   ]) {
@@ -616,7 +617,7 @@ test("verdict shows notes and links, and notes do not fail the check", async (co
   );
   assert.match(
     body,
-    /The rules are in \[`\.agents\/review\/prompt\.md`\]\(https:\/\/github\.com\/acme\/project\/blob\/\w+\/\.agents\/review\/prompt\.md\)\. When/,
+    /The general rules are in \[`\.agents\/review\/prompt\.md`\]\(https:\/\/github\.com\/acme\/project\/blob\/\w+\/\.agents\/review\/prompt\.md\), which comes from the template\. When/,
   );
   assert.equal(notesOnly.status, 0, notesOnly.output);
   assert.match(
@@ -690,11 +691,19 @@ test("verdict counts a failed or cancelled model as an open item", async (contex
   );
 });
 
-test("verdict keeps a finding of a project rule, and deletes one of a rule that the review does not have", async (context) => {
+test("verdict keeps a finding of a project rule, deletes one of a rule that the review does not have, and links both files of rules", async (context) => {
   const repo = await repository(context);
   await writeFile(
     path.join(repo.directory, ".agents/review/project-rules.md"),
     PROJECT_RULES,
+  );
+  await writeFile(
+    path.join(repo.directory, "template-version.json"),
+    JSON.stringify({
+      template: "git@github.com:acme/template.git",
+      commit: "abc123",
+      skipped: [],
+    }),
   );
   const result = await run({
     repo,
@@ -738,6 +747,10 @@ test("verdict keeps a finding of a project rule, and deletes one of a rule that 
     /Deleted: 1 finding whose rule is not a rule of the review/,
   );
   assert.match(result.output, /"style" is not a rule of the review/);
+  assert.match(
+    body,
+    /The general rules are in \[`\.agents\/review\/prompt\.md`\]\(https:\/\/github\.com\/acme\/template\/blob\/abc123\/\.agents\/review\/prompt\.md\), which comes from the template\. The rules of this project only are in \[`\.agents\/review\/project-rules\.md`\]\(https:\/\/github\.com\/acme\/project\/blob\/\w+\/\.agents\/review\/project-rules\.md\)\./,
+  );
 });
 
 test("verdict passes with no comment when no model is set up", async (context) => {
