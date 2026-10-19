@@ -60,6 +60,14 @@ project information. Read the documents that apply to the task.
 - Always talk and write in ASD-STE100 Simplified Technical English.
 - Apply the `unslop` skill to all prose you write: documentation, code comments,
   commit messages, pull request descriptions, and replies to the user.
+- Do not give the person an uncertainty that you can clear up yourself with a
+  little more time. First look for the answer: read the code and the documents,
+  run a command, read the help of a tool, or search the web. Ask the person
+  only for a decision that is theirs, or for a fact that only they know. When
+  you cannot find the answer, say what you checked. A clear and certain reply
+  is more important than a fast one.
+  - Do not write: "I must check if Codex supports this hook." Check the
+    documentation of Codex, and give the result.
 
 ## Checks
 
