@@ -99,6 +99,9 @@ if (argument !== "--sync") {
   console.log(
     `Created ${path.relative(process.cwd(), path.join(migrationsDirectory, file))}`,
   );
+  console.log(
+    "A data model change needs the person's approval before you continue (AGENTS.md).",
+  );
   const earlier = (branchMigrations({ root })?.added ?? []).filter(
     (added) => path.basename(added) !== file,
   );

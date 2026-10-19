@@ -40,6 +40,12 @@ project information. Read the documents that apply to the task.
 - Do not write unit tests for modules. Full app integration tests should be written which fit our standards.
   Read [docs/agents/testing.md](docs/agents/testing.md) for more context.
 - Do not add any new dependencies without explicit user authorization.
+- Do not change the data model without the person's approval. A change to the
+  data model is a new or changed migration, which implies a new or changed
+  table, column, or rule between tables, or a change to content in
+  `docs/agents/data-model/`. When a task needs one, stop before you write code.
+  Tell the person the change, the reason, the tradeoffs (if any), and wait for
+  their answer.
 - Write a comment only for what the code cannot say: the reason for a choice,
   a constraint that other code relies on, or what breaks when the code changes.
   Do not write a comment that the name, the types, or the next line already
