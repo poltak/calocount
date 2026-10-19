@@ -485,13 +485,11 @@ function quoteBlock(quote) {
 }
 
 /**
- * Links the general rules in the template, at the template commit that the
- * project has. The project's copy of the file is the same, but a reader
- * changes the rules in the template. In the template, the link is to the
- * reviewed commit.
+ * Returns where the general rules are. In a project, that is the template, at
+ * the template commit that the project has, because a person changes the
+ * rules there. In the template, it is the reviewed commit.
  */
-function generalRulesLink({ server, repository, head }) {
-  const label = `\`${PROMPT_FILE}\``;
+function generalRules({ server, repository, head }) {
   const versionFile = path.join(root, VERSION_FILE);
   const version = existsSync(versionFile)
     ? JSON.parse(readFileSync(versionFile, "utf8"))
@@ -501,14 +499,41 @@ function generalRulesLink({ server, repository, head }) {
     /github\.com[:/]([^/]+\/[^/]+?)(?:\.git)?$/,
   )?.[1];
   return template
-    ? `[${label}](https://github.com/${template}/blob/${version.commit}/${PROMPT_FILE})`
-    : `[${label}](${server}/${repository}/blob/${head}/${PROMPT_FILE})`;
+    ? {
+        repository: template,
+        url: `https://github.com/${template}/blob/${version.commit}/${PROMPT_FILE}`,
+        fromTemplate: true,
+      }
+    : {
+        repository,
+        url: `${server}/${repository}/blob/${head}/${PROMPT_FILE}`,
+        fromTemplate: false,
+      };
 }
 
 function commentFor({ repository, head, findings, notes, models, deleted }) {
   const server = process.env.GITHUB_SERVER_URL ?? "https://github.com";
+  const fileUrl = (file) =>
+    `${server}/${repository}/blob/${head}/${encodeURI(file)}`;
   const link = ({ file, line }) =>
-    `[\`${file}${line ? `:${line}` : ""}\`](${server}/${repository}/blob/${head}/${encodeURI(file)}${line ? `#L${line}` : ""})`;
+    `[\`${file}${line ? `:${line}` : ""}\`](${fileUrl(file)}${line ? `#L${line}` : ""})`;
+  const general = generalRules({ server, repository, head });
+  const generalNames = new Set(
+    [
+      ...readFileSync(path.join(root, PROMPT_FILE), "utf8").matchAll(
+        RULE_HEADING,
+      ),
+    ].map(([, name]) => name),
+  );
+  // GitHub gives each heading of a Markdown file an anchor, so the name links
+  // to the text of its rule.
+  const ruleLink = (rule) => {
+    if (generalNames.has(rule)) return `[${rule}](${general.url}#${rule})`;
+    if (rule === "new-document") {
+      return `[${rule}](${fileUrl("docs/agents/README.md")}#where-to-add-information)`;
+    }
+    return `[${rule}](${fileUrl(PROJECT_RULES_FILE)}#${rule})`;
+  };
   const failed = models.filter((model) => model.state === "failed");
   const blockers = findings.length + failed.length;
   const lines = [
@@ -525,24 +550,13 @@ function commentFor({ repository, head, findings, notes, models, deleted }) {
     "",
   ];
   findings.slice(0, COMMENT_FINDING_LIMIT).forEach((finding, index) => {
-    lines.push(...entry(finding, `${index + 1}. ${finding.rule}`));
+    lines.push(...entry(finding, `${index + 1}. ${ruleLink(finding.rule)}`));
   });
   if (findings.length > COMMENT_FINDING_LIMIT) {
     lines.push(
       `${findings.length - COMMENT_FINDING_LIMIT} more findings are in the log of the workflow.`,
       "",
     );
-  }
-  if (notes.length > 0) {
-    lines.push(
-      "#### Other notes",
-      "",
-      "No rule covers these notes, and they do not fail the check.",
-      "",
-    );
-    notes.forEach((note, index) => {
-      lines.push(...entry(note, `${index + 1}.`));
-    });
   }
   for (const model of models) {
     const state = {
@@ -563,15 +577,32 @@ function commentFor({ repository, head, findings, notes, models, deleted }) {
     );
   }
   if (blockers > 0) {
-    const projectRules = existsSync(path.join(root, PROJECT_RULES_FILE))
-      ? ` The rules of this project only are in ${link({ file: PROJECT_RULES_FILE })}.`
+    const generalText = general.fromTemplate
+      ? `The general rules are in [\`${PROMPT_FILE}\` of ${general.repository}](${general.url}), the template that this project comes from.`
+      : `The general rules are in [\`${PROMPT_FILE}\`](${general.url}).`;
+    const projectText = existsSync(path.join(root, PROJECT_RULES_FILE))
+      ? ` The rules of ${repository} only are in ${link({ file: PROJECT_RULES_FILE })}.`
       : "";
     lines.push(
       "",
-      `The general rules are in ${generalRulesLink({ server, repository, head })}, which comes from the template.${projectRules} When each finding is wrong or accepted, a maintainer adds the \`${LABEL}\` label. A later review with findings removes the label.`,
+      `${generalText}${projectText} When each finding is wrong or accepted, a maintainer adds the \`${LABEL}\` label. A later review with findings removes the label.`,
     );
   }
-  return { body: lines.join("\n"), blockers };
+  if (notes.length > 0) {
+    lines.push(
+      "",
+      "---",
+      "",
+      "#### Other notes",
+      "",
+      "No rule covers these notes, and they do not fail the check.",
+      "",
+    );
+    notes.forEach((note, index) => {
+      lines.push(...entry(note, `${index + 1}.`));
+    });
+  }
+  return { body: lines.join("\n").trimEnd(), blockers };
 }
 
 function stickyComment({ repository, number }) {

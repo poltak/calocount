@@ -536,15 +536,15 @@ test("verdict merges the findings, deletes one with a wrong quote, adds a new do
   );
   assert.match(
     body,
-    /\*\*1\. override\*\* in \[`docs\/agents\/plan\.md:3`\]\(https:\/\/github\.com\/acme\/project\/blob\/\w+\/docs\/agents\/plan\.md#L3\) \(Claude, Codex\)/,
+    /\*\*1\. \[override\]\([^)]*#override\)\*\* in \[`docs\/agents\/plan\.md:3`\]\(https:\/\/github\.com\/acme\/project\/blob\/\w+\/docs\/agents\/plan\.md#L3\) \(Claude, Codex\)/,
   );
   assert.match(
     body,
-    /stale-document\*\* in \[`docs\/agents\/setup\.md:3`\]\(https:\/\/github\.com\/acme\/project\/blob\/\w+\/docs\/agents\/setup\.md#L3\) \(Claude\)/,
+    /\[stale-document\]\([^)]*#stale-document\)\*\* in \[`docs\/agents\/setup\.md:3`\]\(https:\/\/github\.com\/acme\/project\/blob\/\w+\/docs\/agents\/setup\.md#L3\) \(Claude\)/,
   );
   assert.match(
     body,
-    /new-document\*\* in \[`docs\/agents\/plan\.md:1`\]\(https:\/\/github\.com\/acme\/project\/blob\/\w+\/docs\/agents\/plan\.md#L1\) \(script\)/,
+    /\[new-document\]\([^)]*\/docs\/agents\/README\.md#where-to-add-information\)\*\* in \[`docs\/agents\/plan\.md:1`\]\(https:\/\/github\.com\/acme\/project\/blob\/\w+\/docs\/agents\/plan\.md#L1\) \(script\)/,
   );
   assert.match(body, /\[removed\]/);
   assert.doesNotMatch(body, /sk-ant/);
@@ -605,6 +605,15 @@ test("verdict shows notes and links, and notes do not fail the check", async (co
   const body = bodyOf(withFinding);
   assert.match(body, /blockers=1 -->/);
   assert.match(body, /#### Other notes\n\nNo rule covers these notes/);
+  assert.ok(
+    body.indexOf("The general rules") <
+      body.indexOf("\n---\n\n#### Other notes"),
+    "the notes come after the rules, under a line",
+  );
+  assert.match(
+    body,
+    /\*\*1\. \[override\]\(https:\/\/github\.com\/acme\/project\/blob\/\w+\/\.agents\/review\/prompt\.md#override\)\*\*/,
+  );
   assert.equal(body.match(/^\*\*\d\.\*\* in /gm).length, 4);
   assert.match(body, /```text\n# The plan\n```/);
   assert.match(body, /```text\nRun `pnpm\n```/);
@@ -617,7 +626,7 @@ test("verdict shows notes and links, and notes do not fail the check", async (co
   );
   assert.match(
     body,
-    /The general rules are in \[`\.agents\/review\/prompt\.md`\]\(https:\/\/github\.com\/acme\/project\/blob\/\w+\/\.agents\/review\/prompt\.md\), which comes from the template\. When/,
+    /The general rules are in \[`\.agents\/review\/prompt\.md`\]\(https:\/\/github\.com\/acme\/project\/blob\/\w+\/\.agents\/review\/prompt\.md\)\. When/,
   );
   assert.equal(notesOnly.status, 0, notesOnly.output);
   assert.match(
@@ -739,7 +748,7 @@ test("verdict keeps a finding of a project rule, deletes one of a rule that the 
   assert.match(body, /blockers=1 -->/);
   assert.match(
     body,
-    /patient-data\*\* in \[`docs\/agents\/setup\.md:3`\]\(https:\/\/github\.com\/acme\/project\/blob\/\w+\/docs\/agents\/setup\.md#L3\) \(Claude\)/,
+    /\[patient-data\]\([^)]*#patient-data\)\*\* in \[`docs\/agents\/setup\.md:3`\]\(https:\/\/github\.com\/acme\/project\/blob\/\w+\/docs\/agents\/setup\.md#L3\) \(Claude\)/,
   );
   assert.doesNotMatch(body, /\*\* style/);
   assert.match(
@@ -749,7 +758,7 @@ test("verdict keeps a finding of a project rule, deletes one of a rule that the 
   assert.match(result.output, /"style" is not a rule of the review/);
   assert.match(
     body,
-    /The general rules are in \[`\.agents\/review\/prompt\.md`\]\(https:\/\/github\.com\/acme\/template\/blob\/abc123\/\.agents\/review\/prompt\.md\), which comes from the template\. The rules of this project only are in \[`\.agents\/review\/project-rules\.md`\]\(https:\/\/github\.com\/acme\/project\/blob\/\w+\/\.agents\/review\/project-rules\.md\)\./,
+    /The general rules are in \[`\.agents\/review\/prompt\.md` of acme\/template\]\(https:\/\/github\.com\/acme\/template\/blob\/abc123\/\.agents\/review\/prompt\.md\), the template that this project comes from\. The rules of acme\/project only are in \[`\.agents\/review\/project-rules\.md`\]\(https:\/\/github\.com\/acme\/project\/blob\/\w+\/\.agents\/review\/project-rules\.md\)\./,
   );
 });
 
