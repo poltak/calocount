@@ -13,7 +13,7 @@
     "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo",
     // Lets the frontend's coverage report name backend source lines.
     "sourceMap": true,
-    "lib": ["ES2022"],
+    "lib": ["ES2023"],
     "types": ["node"],
     // PGlite declarations also name browser and Emscripten types.
     "skipLibCheck": true
