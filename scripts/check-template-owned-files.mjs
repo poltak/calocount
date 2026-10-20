@@ -29,8 +29,11 @@ const HUNK_LINE_NUMBERS = /^@@ -\d+(?:,\d+)? \+\d+(?:,\d+)? @@/gm;
 const root = fileURLToPath(new URL("..", import.meta.url));
 
 function readPages(route) {
+  // The lists of changed files have the text of each diff. Above the default
+  // limit of 1 MiB, Node stops `gh` and the check fails with ENOBUFS.
   const output = execFileSync("gh", ["api", "--paginate", "--slurp", route], {
     encoding: "utf8",
+    maxBuffer: 256 * 1024 * 1024,
   });
   return JSON.parse(output);
 }

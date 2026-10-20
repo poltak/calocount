@@ -311,6 +311,31 @@ test("removes the approval when GitHub cannot give each change of the pull reque
   }
 });
 
+test("reads lists of changed files that are longer than 1 MiB", async (context) => {
+  const longDiff = diff({
+    filename: "README.md",
+    patch: `@@ -1 +1 @@\n+${"x".repeat(2 * 1024 * 1024)}\n`,
+  });
+  const result = await check({
+    context,
+    action: "synchronize",
+    labels: ["template-change-approved"],
+    answers: {
+      [`GET ${PULLS}/files?per_page=100`]: [agentsRule, longDiff],
+      [`GET repos/${REPOSITORY}/compare/main...1111111`]: {
+        files: [agentsRule, longDiff],
+      },
+      [`GET repos/${REPOSITORY}/compare/main...2222222`]: {
+        files: [agentsRule, longDiff],
+      },
+      [`GET ${ISSUES}/events?per_page=100`]: [labelled("owner")],
+    },
+  });
+
+  assert.equal(result.status, 0, result.output);
+  assert.ok(!removedLabel(result), result.output);
+});
+
 test("tells the person to set the maintainers when none is set", async (context) => {
   const result = await check({
     context,
