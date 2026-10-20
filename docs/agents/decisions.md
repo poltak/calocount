@@ -315,6 +315,12 @@ entry to the choice, the reason, and any rule that follows from it.
   about 69. The cost is 4 billed minutes for each run in place of 2, because
   each job repeats the setup and GitHub rounds each job up to a full minute.
   That is far below the free limit at the present number of runs.
+- **CI skips a draft pull request.** Its author still changes a draft, and a
+  run for each push used billed minutes for results that nobody needed yet.
+  The jobs run when the author marks the pull request as ready, and for each
+  push after that. The "Template-owned files" check still runs for a draft.
+  It takes seconds, and when a push to a draft changes an approved file from
+  the template, the check must remove the approval at that push.
 - **A script takes template changes, and a Swamp workflow runs the script.**
   An agent that followed a skill did this work before, and no two runs were
   the same. `scripts/sync-template.mjs` now has each step and each rule, and

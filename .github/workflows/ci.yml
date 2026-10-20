@@ -2,10 +2,14 @@ name: CI
 
 # A branch gets CI through its pull request. With a push trigger for each
 # branch, a pull request runs every check two times.
+#
+# A draft gets no jobs. They run when its author marks the pull request as
+# ready, so `ready_for_review` must stay in the types.
 on:
   push:
     branches: [main]
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
 
 permissions:
   contents: read
@@ -16,9 +20,11 @@ concurrency:
 
 # The three jobs run at the same time, so a run takes as long as its slowest
 # job and not as long as their sum. Each job must do the setup steps itself.
+# A push to `main` has no pull request, so the draft condition is true there.
 jobs:
   checks:
     name: Checks
+    if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -45,6 +51,7 @@ jobs:
 
   tests:
     name: Tests
+    if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -64,6 +71,7 @@ jobs:
 
   browser:
     name: Browser tests and live start
+    if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:

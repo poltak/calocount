@@ -12,7 +12,8 @@ name: Template-owned files
 # pull request.
 #
 # The job runs for each label event, also for other labels. A skipped job
-# counts as a pass for a required check.
+# counts as a pass for a required check. Unlike CI, it also runs for a draft,
+# because a push to a draft must remove an old approval.
 on:
   pull_request_target:
     types: [opened, synchronize, reopened, labeled, unlabeled]
