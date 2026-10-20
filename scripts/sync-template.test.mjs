@@ -23,6 +23,12 @@ const GIT_ENVIRONMENT = {
   ...process.env,
   GIT_CONFIG_GLOBAL: os.devNull,
   GIT_CONFIG_NOSYSTEM: "1",
+  // After a commit or a fetch, Git starts maintenance in the background. It
+  // can still write in `.git/objects` when a test deletes its directory, and
+  // the delete then fails with ENOTEMPTY.
+  GIT_CONFIG_COUNT: "1",
+  GIT_CONFIG_KEY_0: "maintenance.auto",
+  GIT_CONFIG_VALUE_0: "false",
   GIT_AUTHOR_NAME: "Project Person",
   GIT_AUTHOR_EMAIL: "person@project.test",
   GIT_COMMITTER_NAME: "Project Person",
