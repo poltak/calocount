@@ -76,8 +76,9 @@ project information. Read the documents that apply to the task.
 - Run `pnpm run test:browser` after changes to routing, `main.tsx`, the Vite
   config, or an error boundary. `pnpm run check` does not run it.
 - Check `git status` before and after edits. Preserve changes unrelated to the task.
-- Push a branch and open a pull request as a draft (unless the user explicitly says not to).
-  Push to `main` only when the person asks for that push.
+- Open a pull request only when the person asks for one. Open it as a draft
+  unless the person says not to. Push to `main` only when the person asks for
+  that push. Otherwise push work to separate `feature/*` branches.
 - Make the user aware that the PR is in draft mode and won't be made ready and run CI
   checks until the user explicitly demands it.
 - Before you open a pull request, merge `origin/main` into the branch, and run
