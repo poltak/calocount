@@ -45,6 +45,8 @@
     "scripts/agent-review.test.mjs",
     "scripts/check-migrations.mjs",
     "scripts/check-migrations.test.mjs",
+    "scripts/check-staged-secrets.mjs",
+    "scripts/check-staged-secrets.test.mjs",
     "scripts/check-template-owned-files.mjs",
     "scripts/check-template-owned-files.test.mjs",
     "scripts/migration-files.mjs",

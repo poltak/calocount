@@ -74,6 +74,9 @@
     "pre-commit": "pnpm exec lint-staged"
   },
   "lint-staged": {
-    "**/*": "prettier --write --ignore-unknown"
+    "**/*": [
+      "node scripts/check-staged-secrets.mjs",
+      "prettier --write --ignore-unknown"
+    ]
   }
 }

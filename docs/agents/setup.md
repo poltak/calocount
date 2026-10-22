@@ -127,6 +127,25 @@ start.
 The embedded PostgreSQL comes from the `embedded-postgres` package. The
 database user and password in `.env.example` are for this local database only.
 
+### The pre-commit hook
+
+`pnpm install` installs a Git pre-commit hook that runs `lint-staged`. Its
+configuration in `package.json` runs two commands on the staged files:
+
+1. [`scripts/check-staged-secrets.mjs`](../../scripts/check-staged-secrets.mjs)
+   stops the commit when the staged changes have an obvious secret: a file of
+   environment variables such as `.env.production`, a private key file, or a
+   token in a well-known format. It reads only the lines that the commit adds,
+   and it shows the file and the line, not the value. The script lists the
+   formats.
+2. Prettier formats the staged files.
+
+When a value that the check finds is not a secret, such as a key that only a
+test uses, commit again with `SKIP_SECRET_CHECK=1` in the environment. An
+agent asks its person first. The agent review of each pull request looks for
+the secrets and private data that the check cannot find. See
+[Agent review of pull requests](#agent-review-of-pull-requests).
+
 ## Database migrations
 
 - `pnpm run db:migration:create <name>` creates a migration file in
