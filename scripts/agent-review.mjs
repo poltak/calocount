@@ -72,6 +72,10 @@ const CLAUDE_DENIED_TOOLS = [
 // request.
 const TOKEN_PATTERN =
   /\b(?:sk-ant-[\w-]{8,}|sk-[\w-]{20,}|github_pat_\w{20,}|gh[pousr]_\w{20,}|eyJ[\w-]{10,}\.[\w-]{10,}\.[\w-]+)/g;
+// GitHub can send each comment by email, and the email stays after a person
+// edits the comment. So the comment shows no quote from a file that has a
+// finding of these rules.
+const SENSITIVE_RULES = new Set(["secret", "private-data"]);
 const COMMENT_FINDING_LIMIT = 50;
 // Notes do not fail the check, so a long list of them is only noise.
 const NOTE_LIMIT = 3;
@@ -454,7 +458,74 @@ const quoteIsInFile = ({ file, quote }) => {
   );
 };
 
-/** Merges the findings that quote the same text, and keeps each model. */
+/**
+ * Returns the oldest commit of the pull request that adds a line with the
+ * quote to the file, or undefined. A value that one commit adds stays on
+ * GitHub when a later commit deletes it, so the head is not enough. The quote
+ * is only the text before the value, so a later commit that empties the value
+ * can add the quote again. When the full file is the problem, the quote is
+ * its path, and the result is the oldest commit that has the file.
+ */
+function commitWithQuote({ file, quote }, { base, head }) {
+  const text = flatten(quote);
+  // The path comes from the model, so Git must not read it as a pattern, and
+  // a path outside the repository must not stop the verdict.
+  const log = spawnSync(
+    "git",
+    [
+      "--literal-pathspecs",
+      "log",
+      "--reverse",
+      "--format=%H",
+      `${base}..${head}`,
+      "--",
+      file,
+    ],
+    { cwd: root, encoding: "utf8" },
+  );
+  if (!text || log.status !== 0) return undefined;
+  return log.stdout
+    .split("\n")
+    .filter(Boolean)
+    .find((commit) => {
+      if (text === file) {
+        return (
+          spawnSync("git", ["cat-file", "-e", `${commit}:${file}`], {
+            cwd: root,
+          }).status === 0
+        );
+      }
+      const shown = spawnSync(
+        "git",
+        [
+          "--literal-pathspecs",
+          "show",
+          "--format=",
+          "--no-color",
+          "--no-ext-diff",
+          "-U0",
+          commit,
+          "--",
+          file,
+        ],
+        { cwd: root, encoding: "utf8", maxBuffer: 256 * 1024 * 1024 },
+      );
+      // The lines before the first hunk are the header, such as `+++ b/name`.
+      let inHunk = false;
+      const added = [];
+      for (const line of shown.stdout.split("\n")) {
+        if (line.startsWith("@@")) inHunk = true;
+        else if (inHunk && line.startsWith("+")) added.push(line.slice(1));
+      }
+      return shown.status === 0 && flatten(added.join("\n")).includes(text);
+    });
+}
+
+/**
+ * Merges the findings that quote the same text, and keeps each model. The
+ * comment shows no quote of a sensitive rule, and two models quote different
+ * lines of one file, so it merges those findings by file.
+ */
 function mergeFindings(findings) {
   const merged = [];
   for (const finding of findings) {
@@ -462,8 +533,10 @@ function mergeFindings(findings) {
     const same = merged.find(
       (other) =>
         other.file === finding.file &&
-        (flatten(other.quote).includes(quote) ||
-          quote.includes(flatten(other.quote))),
+        (SENSITIVE_RULES.has(finding.rule) || SENSITIVE_RULES.has(other.rule)
+          ? other.rule === finding.rule
+          : flatten(other.quote).includes(quote) ||
+            quote.includes(flatten(other.quote))),
     );
     if (same) {
       same.models = [...new Set([...same.models, ...finding.models])];
@@ -519,10 +592,10 @@ function generalRules({ server, repository, head }) {
 
 function commentFor({ repository, head, findings, notes, models, deleted }) {
   const server = process.env.GITHUB_SERVER_URL ?? "https://github.com";
-  const fileUrl = (file) =>
-    `${server}/${repository}/blob/${head}/${encodeURI(file)}`;
-  const link = ({ file, line }) =>
-    `[\`${file}${line ? `:${line}` : ""}\`](${fileUrl(file)}${line ? `#L${line}` : ""})`;
+  const fileUrl = (file, commit = head) =>
+    `${server}/${repository}/blob/${commit}/${encodeURI(file)}`;
+  const link = ({ file, line, commit }) =>
+    `[\`${file}${line ? `:${line}` : ""}\`](${fileUrl(file, commit)}${line ? `#L${line}` : ""})${commit && commit !== head ? ` at commit ${commit.slice(0, 7)}` : ""}`;
   const general = generalRules({ server, repository, head });
   const generalNames = new Set(
     [
@@ -547,11 +620,16 @@ function commentFor({ repository, head, findings, notes, models, deleted }) {
     `### Agent review of ${head.slice(0, 7)}: ${findings.length === 0 ? "no findings" : count(findings.length, "finding")}`,
     "",
   ];
+  // A finding of another rule, or a note, can quote the line with the secret.
+  const sensitiveFiles = new Set(
+    findings
+      .filter((finding) => SENSITIVE_RULES.has(finding.rule))
+      .map((finding) => finding.file),
+  );
   const entry = (item, title) => [
     `**${title}** in ${link(item)} (${item.models.join(", ")})`,
     "",
-    quoteBlock(item.quote),
-    "",
+    ...(sensitiveFiles.has(item.file) ? [] : [quoteBlock(item.quote), ""]),
     escapeOutsideCode(flatten(item.explanation).slice(0, 1000)),
     "",
   ];
@@ -561,6 +639,12 @@ function commentFor({ repository, head, findings, notes, models, deleted }) {
   if (findings.length > COMMENT_FINDING_LIMIT) {
     lines.push(
       `${findings.length - COMMENT_FINDING_LIMIT} more findings are in the log of the workflow.`,
+      "",
+    );
+  }
+  if (sensitiveFiles.size > 0) {
+    lines.push(
+      `The comment does not show a quote from a file that has a ${[...SENSITIVE_RULES].map((rule) => `\`${rule}\``).join(" or ")} finding. A later commit that deletes the text does not delete it from GitHub, so revoke each secret that a pushed commit has, and make a new one. Only GitHub Support can remove the commits of a pull request.`,
       "",
     );
   }
@@ -652,22 +736,28 @@ function reviewVerdict(event) {
     return true;
   }
 
+  const range = rangeOf(event);
   const found = [
     ...models.flatMap((model) => model.findings),
-    ...newDocuments(rangeOf(event)),
-  ];
+    ...newDocuments(range),
+  ].map((finding) =>
+    SENSITIVE_RULES.has(finding.rule)
+      ? { ...finding, commit: commitWithQuote(finding, range) }
+      : finding,
+  );
   const rules = ruleNames();
   const deleted = { quote: 0, rule: 0 };
   const kept = found.filter((finding) => {
+    const sensitive = SENSITIVE_RULES.has(finding.rule);
     const reason = !rules.has(finding.rule)
       ? "rule"
-      : !quoteIsInFile(finding)
+      : !(sensitive ? finding.commit : quoteIsInFile(finding))
         ? "quote"
         : undefined;
     if (reason) {
       deleted[reason] += 1;
       console.log(
-        `Deleted a finding of ${finding.models.join(", ")}, because ${reason === "rule" ? `"${finding.rule}" is not a rule of the review` : `its quote is not in ${finding.file}`}: ${flatten(finding.quote).slice(0, 200)}`,
+        `Deleted a finding of ${finding.models.join(", ")}, because ${reason === "rule" ? `"${finding.rule}" is not a rule of the review` : `its quote is not in ${finding.file}`}${sensitive ? "." : `: ${flatten(finding.quote).slice(0, 200)}`}`,
       );
     }
     return !reason;

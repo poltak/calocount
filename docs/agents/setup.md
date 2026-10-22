@@ -245,16 +245,16 @@ step.
   review uses only the general rules.
 
 In `.agents/review/project-rules.md`, give each rule a heading such as
-`### patient-data`. Below the heading, say what to report, and give one
+`### release-note`. Below the heading, say what to report, and give one
 example, as the rules in `prompt.md` do. The model gets the file from its
 first `###` heading to its end. The review deletes a finding whose rule
 is in neither file. For example:
 
 ```md
-### patient-data
+### release-note
 
-A tracked file has a patient's name, date of birth, or chart ID. Quote the
-text with the patient data.
+The pull request changes text that a user sees, and its description has no
+line that starts with "Release note:". Quote the changed text.
 ```
 
 The check works as follows:
@@ -262,6 +262,10 @@ The check works as follows:
 - The "Agent review" job posts one comment on the pull request, and edits it
   after each review. GitHub keeps each earlier version of the comment. The job
   deletes each finding whose quote is not in the file that it names.
+- The rules `secret` and `private-data` look at each commit of the pull
+  request, because a value that a later commit deletes stays on GitHub. The
+  quote of their finding can be in any commit. GitHub can send the comment by
+  email, so the comment shows no quote from a file that has such a finding.
 - Each model can also give up to three notes about a problem that no rule
   covers, such as a likely bug. The comment shows them under "Other notes".
   A note does not fail the check, and the label is not for notes.

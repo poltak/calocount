@@ -769,6 +769,177 @@ test("verdict keeps a finding of a project rule, deletes one of a rule that the 
   );
 });
 
+test("verdict finds a secret that a later commit deletes, merges by file, and shows no quote from a file with a secret or private data", async (context) => {
+  const repo = await repository(context);
+  const commit = (message) => {
+    git(repo.directory, "add", "--all");
+    git(
+      repo.directory,
+      "-c",
+      "user.name=Test",
+      "-c",
+      "user.email=test@example.com",
+      "commit",
+      "--quiet",
+      "-m",
+      message,
+    );
+    return git(repo.directory, "rev-parse", "HEAD");
+  };
+  await writeFile(
+    path.join(repo.directory, ".env.production"),
+    "LOG_LEVEL=info\nPAYMENT_API_KEY=a-made-up-key-for-this-test\n",
+  );
+  await mkdir(path.join(repo.directory, "src"));
+  await writeFile(
+    path.join(repo.directory, "src/settings.ts"),
+    'export const token = "a-made-up-token";\n',
+  );
+  const added = commit("Add the production settings");
+  await writeFile(
+    path.join(repo.directory, "src/settings.ts"),
+    "export const token = process.env.TOKEN;\n",
+  );
+  await rm(path.join(repo.directory, ".env.production"));
+  await mkdir(path.join(repo.directory, "scans"));
+  await writeFile(
+    path.join(repo.directory, "scans/report.pdf"),
+    Buffer.from([0x25, 0x50, 0x44, 0x46, 0x00, 0xff]),
+  );
+  await mkdir(path.join(repo.directory, "samples"));
+  await writeFile(
+    path.join(repo.directory, "samples/people.json"),
+    '{\n  "name": "A Person",\n  "dateOfBirth": "1961-07-23"\n}\n',
+  );
+  const head = commit("Delete the production settings, and add samples");
+
+  const result = await run({
+    repo,
+    command: "verdict",
+    head,
+    answers: {
+      [`GET ${PULL}`]: { head: { sha: head } },
+      [`GET ${COMMENTS}`]: [],
+    },
+    env: {
+      MODE: "review",
+      CLAUDE_JOB: job(
+        [
+          finding({
+            rule: "secret",
+            file: ".env.production",
+            quote: "PAYMENT_API_KEY=",
+            explanation: "A live payment key.",
+          }),
+          finding({
+            rule: "secret",
+            file: "docs/agents/setup.md",
+            quote: "Run `pnpm run db:reset`",
+          }),
+          finding({
+            rule: "private-data",
+            file: "samples/people.json",
+            quote: '"name":',
+            explanation: "The name and the date of birth of a person.",
+          }),
+          finding({
+            rule: "secret",
+            file: "src/settings.ts",
+            quote: "export const token =",
+            explanation: "A token.",
+          }),
+        ],
+        [
+          note({
+            file: "samples/people.json",
+            quote: '"name": "A Person",',
+            explanation: "A note.",
+          }),
+        ],
+      ),
+      CODEX_JOB: job([
+        finding({
+          rule: "private-data",
+          file: "scans/report.pdf",
+          quote: "scans/report.pdf",
+          explanation: "A scan of a lab report.",
+        }),
+        finding({
+          rule: "secret",
+          file: ".env.production",
+          quote: "PAYMENT_API_KEY=a-wrong-key",
+        }),
+        finding({
+          rule: "secret",
+          file: "../outside.env",
+          quote: "../outside.env",
+        }),
+        finding({
+          rule: "private-data",
+          file: "samples/people.json",
+          quote: '"dateOfBirth":',
+        }),
+        finding({
+          rule: "comment-restates-code",
+          file: "samples/people.json",
+          quote: '"name": "A Person",',
+          explanation: "Another rule.",
+        }),
+      ]),
+    },
+  });
+
+  assert.equal(result.status, 1, result.output);
+  const { body } = JSON.parse(
+    result.calls.find(({ call }) => call.startsWith("POST ")).input,
+  );
+  assert.match(body, /blockers=6 -->/);
+  assert.ok(
+    body.includes(
+      `in [\`src/settings.ts:3\`](https://github.com/acme/project/blob/${added}/src/settings.ts#L3) at commit ${added.slice(0, 7)} (Claude)\n\nA token.`,
+    ),
+    body,
+  );
+  assert.ok(
+    body.includes(
+      `in [\`.env.production:3\`](https://github.com/acme/project/blob/${added}/.env.production#L3) at commit ${added.slice(0, 7)} (Claude)\n\nA live payment key.`,
+    ),
+    body,
+  );
+  assert.ok(
+    body.includes(
+      `in [\`scans/report.pdf:3\`](https://github.com/acme/project/blob/${head}/scans/report.pdf#L3) (Codex)\n\nA scan of a lab report.`,
+    ),
+    body,
+  );
+  assert.ok(
+    body.includes(
+      `in [\`samples/people.json:3\`](https://github.com/acme/project/blob/${head}/samples/people.json#L3) (Claude, Codex)\n\nThe name and the date of birth of a person.`,
+    ),
+    body,
+  );
+  assert.ok(
+    body.includes("samples/people.json#L3) (Codex)\n\nAnother rule."),
+    body,
+  );
+  assert.ok(body.includes("samples/people.json#L1) (Claude)\n\nA note."), body);
+  assert.doesNotMatch(body, /A Person/);
+  assert.match(body, /```text\n# The plan\n```/);
+  assert.match(
+    body,
+    /The comment does not show a quote from a file that has a `secret` or `private-data` finding\./,
+  );
+  assert.match(
+    body,
+    /Deleted: 3 findings or notes whose quotes are not in the named file/,
+  );
+  assert.doesNotMatch(result.output, /PAYMENT_API_KEY|pnpm run db:reset/);
+  assert.match(
+    result.output,
+    /because its quote is not in docs\/agents\/setup\.md\.\n/,
+  );
+});
+
 test("verdict passes with no comment when no model is set up", async (context) => {
   const repo = await repository(context);
   const result = await run({

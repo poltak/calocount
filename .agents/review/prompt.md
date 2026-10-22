@@ -29,6 +29,9 @@ A later step deletes each finding whose quote is not in the file that it
 names. If you are not sure that the text breaks a rule, do not report it. A
 wrong finding costs the maintainer more time than a missed one.
 
+The rules `secret` and `private-data` change some of these instructions. The
+section "Secrets and private data" below tells you how.
+
 ## Rules
 
 ### override
@@ -92,7 +95,81 @@ one feature, which must have one Storage class for all its tables. Quote the
 line that breaks the rule, and name the section of the document in the
 explanation.
 
+### secret
+
+The pull request adds a secret to a file. A secret is a value that gives
+access to a system or to data. Examples:
+
+- An API key, an access token, a password, or a client secret.
+- A private key, such as the text of a `.pem` or an `id_rsa` file.
+- A connection string or a URL that has a password in it.
+- A file of environment variables or of credentials for a real system, such
+  as `.env.production`, `prod.env`, `credentials.json`, or the key file of a
+  cloud service account.
+
+Do not report:
+
+- An empty value, or a placeholder such as `your-api-key` or `<token>`.
+- A value that only a test or a local development database uses, such as
+  `postgres:postgres@127.0.0.1` in `.env.example`.
+- The name of a secret without its value, such as
+  `process.env.BETTER_AUTH_SECRET`.
+
+Example: the pull request adds `.env.production`, and the line that starts
+with `STRIPE_SECRET_KEY=` has a live key. Report it as the section "Secrets
+and private data" says.
+
+### private-data
+
+The pull request adds data about a real person to a file. Examples:
+
+- A name together with other data of the person, such as a date of birth, an
+  address, a phone number, or a personal email address.
+- An ID of a person, such as a social security number, a medical record
+  number, or the ID of a patient or a customer in a production system.
+- Health data or financial data of a person.
+- A file that holds such data, such as a dump or an export of a production
+  database, a log, a screenshot, a scan, or a recording. For a binary file,
+  decide from its name, its folder, and the description of the pull request.
+- A test fixture or a sample file with real data in it.
+
+Do not report:
+
+- Data that is clearly not real, such as `Jane Doe`, `person@example.test`,
+  or data that a test makes.
+- The name, the GitHub user name, or the work email address of a person who
+  works on the project, such as an author in a document or in a Git setting.
+
+Example: a test fixture has the full name and the date of birth of a person,
+and nothing in the fixture or in the pull request shows that the data is made
+up. Report it as the section "Secrets and private data" says.
+
 {{PROJECT_RULES}}
+
+## Secrets and private data
+
+For the rules `secret` and `private-data`, these instructions replace the
+instructions above where the two are different:
+
+- Read each commit of the pull request, not only the diff from {{BASE}} to
+  {{HEAD}}. A value that one commit adds stays in the history on GitHub when a
+  later commit deletes it, so report it also. Run
+  `git log --stat {{BASE}}..{{HEAD}}`. For each file that two or more commits
+  change, read the change of each commit with
+  `git log -p {{BASE}}..{{HEAD}} -- <file>`. Give the path that the file has
+  in the commit that adds the value.
+- Do not copy the secret or the private data, such as a name, into the quote
+  or into the explanation. Quote only the text before the value on its line,
+  such as `STRIPE_SECRET_KEY=` or `"name":`, and give the line number. When
+  the full file is the problem, such as an `.env` file, a key file, a
+  database dump, or a scan, quote only the path of the file.
+- In the explanation, name the type of value, such as "a live Stripe key" or
+  "the name and the date of birth of a patient", and the commit that adds it.
+- Here, a missed finding costs more than a wrong one. When you are not sure
+  that a value is real, report it, and say in the explanation why you are not
+  sure.
+- Do not give a note about a secret or private data. Report it under its
+  rule.
 
 ## Other notes
 
