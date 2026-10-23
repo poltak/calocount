@@ -35,6 +35,7 @@
     ".agents/skills/make-commits/",
     ".agents/skills/sync-template/",
     ".agents/skills/unslop/",
+    ".agents/skills/write-black-box-test/",
     ".agents/skills/write-integration-test/",
     ".claude/settings.json",
     ".codex/hooks.json",

@@ -1,0 +1,4 @@
+interface:
+    display_name: 'Write Black Box Test'
+    short_description: 'Test a user workflow in a real browser through page objects'
+    default_prompt: 'Use $write-black-box-test to add black box tests for this workflow.'

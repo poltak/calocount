@@ -1,7 +1,8 @@
 # Testing
 
 Read this before writing or changing a test. For the step-by-step workflow, use
-the `write-integration-test` skill.
+the `write-integration-test` skill for a UI Logic test, and the
+`write-black-box-test` skill for a black box test.
 
 ## What a test is here
 
