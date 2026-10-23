@@ -370,10 +370,9 @@ the steps above.
 ## Beads issue tracker
 
 [Beads](https://github.com/gastownhall/beads) is an issue tracker for coding
-agents, with a command-line tool, `bd`. A project uses it when it has a
-`.beads/` folder. The rules for agents are in `AGENTS.md`, under "Issue
-tracking". Run the tool as `pnpm exec bd`. This section writes `bd` for
-short.
+agents, with a command-line tool, `bd`. Each project uses it. The rules for
+agents are in `AGENTS.md`, under "Issue tracking". Run the tool as
+`pnpm exec bd`. This section writes `bd` for short.
 
 How the issues sync:
 
@@ -435,36 +434,38 @@ pnpm exec bd list
 - `bd bootstrap` copies the issues from `refs/dolt/data`. It uses the SSH URL
   in `.beads/config.yaml`, so your SSH key for GitHub must work.
 - Without the `chmod` and the `git config`, each `bd` command shows a warning.
+- The template has no issues of its own, so in a clone of the template,
+  `bd bootstrap` finds nothing. Work on the template in a worktree of a
+  project's repository. `bd` there uses the issues of that project.
 
-### Turn on beads in a project
+### Turn on beads in a new project
 
-One person does this one time, in the main checkout, on a new branch:
+One person does this one time, after the first push of the project, in its
+main checkout:
 
-1. Add `"@beads/bd": true` to `allowBuilds` in `pnpm-workspace.yaml`. Then
-   add the package: `pnpm add -D -E -w @beads/bd`. Also add `"@beads/bd"` to
-   `ignoreDependencies` in `knip.jsonc`. Without it, knip fails
-   `pnpm run check`, because no code or script calls the package.
-2. Run `pnpm exec bd init --skip-hooks --skip-agents --prefix <project name>`.
+1. Run `pnpm exec bd init --skip-hooks --skip-agents --prefix <project name>`.
    - `--skip-hooks` keeps the [pre-commit hook](#the-pre-commit-hook). The
      hooks of beads set `core.hooksPath`, and Git then does not run the secret
      check.
    - `--skip-agents` keeps the instructions of beads out of `AGENTS.md`,
      `.claude/settings.json`, and `.codex/`. Those instructions tell agents to
      file an issue before each change, and to stop the use of memory files.
-3. `bd init` makes a Git commit by itself, with its own message. Undo it with
+2. `bd init` makes a Git commit by itself, with its own message. Undo it with
    `git reset --soft HEAD~1`, delete `.beads/README.md`, and commit again. The
    README describes beads in general and has its own instructions for agents.
-4. Run `pnpm exec bd dolt push` to make `refs/dolt/data`, and open a pull
-   request.
+3. Run `pnpm exec bd dolt push` to make `refs/dolt/data`, and push the commit.
 
-### Remove beads from a project
+### Stop the use of beads
 
-1. To keep a copy of the issues, run `pnpm exec bd export -o <file>`.
-2. In a pull request, delete `.beads/`, the beads lines in `.gitignore`, the
-   `@beads/bd` package, and its entries in `pnpm-workspace.yaml` and
-   `knip.jsonc`. The "Issue tracking" section of `AGENTS.md` applies only when
-   `.beads/` exists, so it can stay.
-3. Delete the data on GitHub:
+1. In each project, keep a copy of the issues if you want one:
+   `pnpm exec bd export -o <file>`.
+2. In the template, remove the "Issue tracking" section and the beads lines
+   of `AGENTS.md` and `docs/agents/README.md`, the `plan-in-docs` rule of the
+   agent review, this section, and the `@beads/bd` package with its entries in
+   `pnpm-workspace.yaml`, `knip.jsonc`, `renovate.json`, and
+   `.prettierignore`. Then sync each project.
+3. In each project, delete `.beads/` and the beads lines in `.gitignore`, and
+   delete the data on GitHub:
    `git push origin --delete refs/dolt/data refs/heads/__dolt_remote_info__`.
 4. Each person deletes the database in the main checkout: `rm -rf .beads`.
 

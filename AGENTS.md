@@ -91,16 +91,15 @@ project information. Read the documents that apply to the task.
 
 ## Issue tracking
 
-A repository with a `.beads/` folder keeps its issues and its open work in
-beads, a command-line issue tracker. [Setup](docs/agents/setup.md#beads-issue-tracker)
-describes it.
+Each project keeps its issues and its open work in beads, a command-line
+issue tracker. [Setup](docs/agents/setup.md#beads-issue-tracker) describes it.
 
 - Run it as `pnpm exec bd`. `package.json` pins its version, so all persons
   and agents use the same one. When `bd` says "no beads database found", do
   the steps of
   [Join a project that uses beads](docs/agents/setup.md#join-a-project-that-uses-beads).
-  Do not run `bd init` for this. Run it only when the person asks you to turn
-  on beads in a repository.
+  Do not run `bd init` for this. Run it only to turn on beads in a new
+  project.
 - This section replaces the agent instructions of beads. Do not run
   `bd prime`, `bd setup`, `bd hooks`, or `bd remember`.
 - Run `pnpm exec bd dolt pull` before your first `bd` command in a session.
@@ -143,8 +142,8 @@ describes it.
   `pnpm exec bd close <ID> --reason="..."`.
 - A task that one session finishes needs no issue. The task list of your agent
   tool is enough, and it writes no file.
-- New open work goes in beads, not in `docs/agents/todos/`. The items that
-  are in that folder already stay there until a person moves them.
+- Do not add to `docs/agents/todos/`. It has open work from before beads,
+  and a person moves its items into beads.
 
 ## Project documentation
 
@@ -152,7 +151,7 @@ describes it.
 - Before writing or changing a test, read [docs/agents/testing.md](docs/agents/testing.md) and follow its rules.
 - Use [docs/agents/README.md](docs/agents/README.md) to find project reference documents.
 - Add stable project facts and decisions under `docs/agents/`. Update the relevant document when those facts change.
-- A document in `docs/agents/` says how the system works and why. Steps to do, phases, checklists, and the status of work go in beads, or in `docs/agents/todos/` in a repository without a `.beads/` folder.
+- A document in `docs/agents/` says how the system works and why. Steps to do, phases, checklists, and the status of work go in beads.
 - Use a `SKILL.md` only for a repeatable task workflow. Keep general project rules and reference documents out of skills.
 - When each step of a workflow needs no judgment, put the steps in a script in `scripts/`, with tests, and add a Swamp workflow in `workflows/` that runs it. Its skill then names the workflow, and has only the steps that need judgment. The `sync-template` skill is the model, and [setup](docs/agents/setup.md#swamp) describes Swamp.
 - Put new repository skills in `.agents/skills/<name>/`. For each skill, add a Git-tracked symlink at `.claude/skills/<name>` that points to `../../.agents/skills/<name>`, so Codex and Claude Code use the same files.
