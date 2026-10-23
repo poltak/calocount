@@ -11,6 +11,9 @@ allowBuilds:
   "@embedded-postgres/linux-arm64": true
   "@embedded-postgres/linux-x64": true
   simple-git-hooks: true
+  # Its install script downloads the bd binary of the pinned version from the
+  # GitHub release of beads. Without it, `pnpm exec bd` has no binary to run.
+  "@beads/bd": true
 
 engineStrict: true
 
