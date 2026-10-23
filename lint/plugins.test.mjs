@@ -345,3 +345,37 @@ test("keeps UI Logic tests on the full application fixture", async (context) => 
     "frontend/src/features/rendered/ui/rendered-logic.test.ts: testing(logic-tests)",
   ]);
 });
+
+test("keeps black box tests on page objects and the black box fixture", async (context) => {
+  const problems = await lint(context, {
+    "frontend/src/features/core/tests/browser/black-box-test.ts":
+      "export const test = () => undefined;\n",
+    "frontend/src/features/notes/tests/notes-page-object.ts":
+      'import type { Page } from "@playwright/test";\nexport const notesPage = (page: Page) => ({\n  note: (title: string) => page.getByRole("listitem").filter({ hasText: title }),\n  open: () => page.getByRole("heading", { name: "Edit note" }).waitFor(),\n});\n',
+    "frontend/src/features/notes/tests/notes.spec.ts":
+      'import { expect } from "@playwright/test";\nimport { test } from "../../core/tests/browser/black-box-test.js";\nimport { notesPage } from "./notes-page-object.js";\nexport const check = (page: never) => [test, expect(notesPage(page).note("A"))];\n',
+    "frontend/src/features/markup/tests/markup-page-object.ts":
+      'import { expect, type Page } from "@playwright/test";\nexport const find = (page: Page) => [expect, page.locator(".note"), page.getByTestId("note")];\n',
+    "frontend/src/features/finds/tests/finds.spec.ts":
+      'import { test } from "../../core/tests/browser/black-box-test.js";\nexport const steps = (page: never) => [test, page.getByRole("button"), page.route("**", () => undefined), page.waitForTimeout(100)];\n',
+    "frontend/src/features/plain/tests/plain.spec.ts":
+      'import { test } from "@playwright/test";\nimport { PlainLogic } from "../ui/plain-logic.js";\nexport const uses = [test, PlainLogic];\n',
+    "frontend/src/features/placed/ui/placed-page-object.ts":
+      "export const placed = true;\n",
+    // The build checks may answer a request themselves, so they are exempt.
+    "frontend/src/features/core/tests/browser/built-app.spec.ts":
+      'import { test } from "@playwright/test";\nexport const answer = (page: never) => [test, page.route("**", () => undefined)];\n',
+  });
+
+  assert.deepEqual(problems, [
+    "frontend/src/features/finds/tests/finds.spec.ts: testing(black-box-tests)",
+    "frontend/src/features/finds/tests/finds.spec.ts: testing(black-box-tests)",
+    "frontend/src/features/finds/tests/finds.spec.ts: testing(black-box-tests)",
+    "frontend/src/features/markup/tests/markup-page-object.ts: testing(black-box-tests)",
+    "frontend/src/features/markup/tests/markup-page-object.ts: testing(black-box-tests)",
+    "frontend/src/features/markup/tests/markup-page-object.ts: testing(black-box-tests)",
+    "frontend/src/features/placed/ui/placed-page-object.ts: testing(black-box-tests)",
+    "frontend/src/features/plain/tests/plain.spec.ts: testing(black-box-tests)",
+    "frontend/src/features/plain/tests/plain.spec.ts: testing(black-box-tests)",
+  ]);
+});

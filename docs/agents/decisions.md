@@ -263,7 +263,8 @@ entry to the choice, the reason, and any rule that follows from it.
   knows only what a user sees. It stays the same through a refactor, so after
   the refactor, a pass shows that the behavior stayed the same.
 - **Page objects hold what the black box tests know about each page.** A change
-  to a page then changes one file, not each test that uses the page.
+  to a page then changes one file, not each test that uses the page. Lint keeps
+  the lookup of elements out of the test files.
 - **Black box tests find elements by role and accessible name.** A change of
   style or layout then breaks no test. A missing label fails a test, as it
   fails a screen reader user. CSS selectors and test IDs are not used.

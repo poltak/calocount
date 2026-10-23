@@ -219,6 +219,13 @@
         ]
       }
     ],
+    "testing/black-box-tests": [
+      "error",
+      {
+        "fixtureFile": "features/core/tests/browser/black-box-test.ts",
+        "exemptFiles": ["features/core/tests/browser/built-app.spec.ts"]
+      }
+    ],
     "import/no-unassigned-import": [
       "warn",
       {
