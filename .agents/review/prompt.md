@@ -95,6 +95,18 @@ one feature, which must have one Storage class for all its tables. Quote the
 line that breaks the rule, and name the section of the document in the
 explanation.
 
+### plan-in-docs
+
+The pull request adds steps to do, phases, a checklist, or the status of work
+to a document in `docs/agents/`. `AGENTS.md` ("Project documentation") says
+that such a document describes how the system works and why. Open work goes
+in beads, or in `docs/agents/todos/` in a repository without a `.beads/`
+folder. Do not report a change in `docs/agents/todos/`.
+
+Examples: a "Phases" section with "Phase 1" and "Phase 2", a "Next steps"
+list, a checklist item such as "- [ ] Add the table", or "As built on
+2026-10-20". Quote the heading or the first line of the list.
+
 ### secret
 
 The pull request adds a secret to a file. A secret is a value that gives

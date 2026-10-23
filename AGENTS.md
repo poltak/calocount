@@ -91,8 +91,8 @@ project information. Read the documents that apply to the task.
 
 ## Issue tracking
 
-A repository with a `.beads/` folder keeps its issues in beads, a
-command-line issue tracker. [Setup](docs/agents/setup.md#beads-issue-tracker)
+A repository with a `.beads/` folder keeps its issues and its open work in
+beads, a command-line issue tracker. [Setup](docs/agents/setup.md#beads-issue-tracker)
 describes it.
 
 - Run it as `pnpm exec bd`. `package.json` pins its version, so all persons
@@ -123,12 +123,28 @@ describes it.
 
   The priority is 0 (critical) to 4 (backlog).
 
-- `pnpm exec bd ready` lists the open issues that nothing blocks, and
-  `pnpm exec bd show <ID>` shows one issue.
+- For work that needs more than one session or more than one pull request,
+  make an epic with one child issue for each step. Do not write a plan file.
+  Give each step a description that an agent in a new session can act on.
+
+  ```sh
+  pnpm exec bd create --type=epic --title="..." --description="..."
+  pnpm exec bd create --parent=<epic ID> --type=task --title="..." --description="..."
+  pnpm exec bd dep add <step> <step that must come first>
+  ```
+
+- At the start of work, `pnpm exec bd ready` lists the open issues that
+  nothing blocks, and `pnpm exec bd show <ID>` shows one issue. Claim the
+  issue that you start with `pnpm exec bd update <ID> --claim`, so that no
+  other agent takes it.
+- Put a design choice for one step in its issue, with `--design="..."`. A fact
+  or a decision that the code depends on goes in `docs/agents/`.
 - When your work completes an issue, close it:
   `pnpm exec bd close <ID> --reason="..."`.
-- Unfinished work of your own task, and temporary behavior in the code, still
-  go in `docs/agents/todos/`.
+- A task that one session finishes needs no issue. The task list of your agent
+  tool is enough, and it writes no file.
+- New open work goes in beads, not in `docs/agents/todos/`. The items that
+  are in that folder already stay there until a person moves them.
 
 ## Project documentation
 
@@ -136,6 +152,7 @@ describes it.
 - Before writing or changing a test, read [docs/agents/testing.md](docs/agents/testing.md) and follow its rules.
 - Use [docs/agents/README.md](docs/agents/README.md) to find project reference documents.
 - Add stable project facts and decisions under `docs/agents/`. Update the relevant document when those facts change.
+- A document in `docs/agents/` says how the system works and why. Steps to do, phases, checklists, and the status of work go in beads, or in `docs/agents/todos/` in a repository without a `.beads/` folder.
 - Use a `SKILL.md` only for a repeatable task workflow. Keep general project rules and reference documents out of skills.
 - When each step of a workflow needs no judgment, put the steps in a script in `scripts/`, with tests, and add a Swamp workflow in `workflows/` that runs it. Its skill then names the workflow, and has only the steps that need judgment. The `sync-template` skill is the model, and [setup](docs/agents/setup.md#swamp) describes Swamp.
 - Put new repository skills in `.agents/skills/<name>/`. For each skill, add a Git-tracked symlink at `.claude/skills/<name>` that points to `../../.agents/skills/<name>`, so Codex and Claude Code use the same files.
