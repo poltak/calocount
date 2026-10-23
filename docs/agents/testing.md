@@ -160,9 +160,8 @@ How they run:
   files on one origin. The test backend listens on another origin. It is the
   same backend as in the UI Logic tests, with an in-memory database and fake
   Services for third-party systems, so a run needs no database and no secrets.
-- One backend with one database serves the whole run. The tests in a file
-  therefore run in order, share one page, and each starts where the test
-  before it ended.
+- One backend with one database serves the whole file. Its tests run in order,
+  share one page, and each starts where the test before it ended.
 - A test may answer a request itself with `page.route`, but only to produce an
   answer that the real backend never sends, such as the malformed data that
   makes a component throw.

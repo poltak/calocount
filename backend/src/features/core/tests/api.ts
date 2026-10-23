@@ -98,16 +98,16 @@ export async function createTestBackend({
 
 /**
  * Node-only fixture for a test in a real browser, which needs a socket to
- * call. It is the same test backend, with one new database that holds the
- * owner, on a port of this machine.
+ * call. It is the same test backend, with one new database from the template,
+ * on a port of this machine.
  */
 export async function startTestBackendServer({
-  owner,
+  template,
   port,
   trustedOrigins,
   accountMode = "singleOwner",
 }: {
-  owner: OwnerCredentials;
+  template: DatabaseTemplate;
   port: number;
   trustedOrigins: string[];
   /** Who can have an account. Use the mode that the project runs in. */
@@ -115,7 +115,7 @@ export async function startTestBackendServer({
 }) {
   const hostname = "127.0.0.1";
   const backend = await createTestBackend({
-    template: await createDatabaseTemplate(owner),
+    template,
     baseUrl: `http://${hostname}:${port}`,
     trustedOrigins,
     accountMode,

@@ -1,7 +1,11 @@
 import { APP_NAME } from "@app/common/features/core/utils/app-name";
 import { expect, test, type Page } from "@playwright/test";
+import {
+  createDatabaseTemplate,
+  startTestBackendServer,
+} from "backend/testing";
 import { TEST_OWNER_CREDENTIALS } from "../test-owner.js";
-import { FRONTEND_ORIGIN } from "./origins.js";
+import { BACKEND_PORT, FRONTEND_ORIGIN } from "./origins.js";
 
 // These tests are one visit to the built app, in one page. Each test starts
 // where the test before it ended, and a failure skips the tests after it.
@@ -15,17 +19,25 @@ const CROSS_ORIGIN_HEADERS = {
   "access-control-allow-credentials": "true",
 };
 
+let server: Awaited<ReturnType<typeof startTestBackendServer>>;
 let page: Page;
 /** Errors that no code caught. Normal use must not cause one. */
 const uncaughtErrors: Error[] = [];
 
+// One backend with one database serves the whole visit.
 test.beforeAll(async ({ browser }) => {
+  server = await startTestBackendServer({
+    template: await createDatabaseTemplate(TEST_OWNER_CREDENTIALS),
+    port: BACKEND_PORT,
+    trustedOrigins: [FRONTEND_ORIGIN],
+  });
   page = await browser.newPage({ baseURL: FRONTEND_ORIGIN });
   page.on("pageerror", (error) => uncaughtErrors.push(error));
 });
 
 test.afterAll(async () => {
   await page.close();
+  await server.close();
 });
 
 /** The keys of the unsaved note text that the browser keeps for this app. */

@@ -299,7 +299,7 @@
         "frontend/src/**/*.test.tsx",
         "frontend/src/features/core/tests/full-application.ts",
         "frontend/src/features/core/tests/global-setup.ts",
-        "frontend/src/features/core/tests/browser/global-setup.ts"
+        "frontend/src/features/core/tests/browser/built-app.spec.ts"
       ],
       "rules": {
         "no-restricted-imports": [

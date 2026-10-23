@@ -248,9 +248,9 @@ test("sets the open sign-up mode for the server and for the browser tests", asyn
   assert.match(
     await readClone(
       clone,
-      "frontend/src/features/core/tests/browser/global-setup.ts",
+      "frontend/src/features/core/tests/browser/built-app.spec.ts",
     ),
-    /\n {4}owner: TEST_OWNER_CREDENTIALS,\n {4}accountMode: "openSignUp",\n/,
+    /\n {4}trustedOrigins: \[FRONTEND_ORIGIN\],\n {4}accountMode: "openSignUp",\n/,
   );
   assert.match(await readClone(clone, "README.md"), /make the first account/);
   assert.doesNotMatch(await readClone(clone, "README.md"), /setup-owner/);

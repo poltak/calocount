@@ -12,11 +12,10 @@ export default defineConfig({
   testDir: "src/features/core/tests/browser",
   testMatch: "*.spec.ts",
   outputDir: ".browser-test/results",
-  // One backend with one database serves the whole run, so nothing runs in parallel.
+  // The build has one backend address in it. Each test file starts its own
+  // backend there, so only one can run at a time.
   workers: 1,
   reporter: "list",
-  // Starts the test backend. See the file for the details.
-  globalSetup: "src/features/core/tests/browser/global-setup.ts",
   use: {
     baseURL: FRONTEND_ORIGIN,
     // A failed test leaves a trace in the output directory, to open with
