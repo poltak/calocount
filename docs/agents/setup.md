@@ -367,6 +367,88 @@ When Codex refreshes the login and the job cannot save it, the job fails, and
 `CODEX_AUTH_JSON` then has a login that does not work. Make a new login with
 the steps above.
 
+## Beads issue tracker
+
+[Beads](https://github.com/gastownhall/beads) is an issue tracker for coding
+agents, with a command-line tool, `bd`. A project uses it when it has a
+`.beads/` folder. The rules for agents are in `AGENTS.md`, under "Issue
+tracking".
+
+How the issues sync:
+
+- The issues are in a Dolt database in `.beads/embeddeddolt/`, which Git
+  ignores. Dolt is a SQL database with version control. `bd` makes a Dolt
+  commit after each change.
+- `bd dolt push` sends the new commits to `origin` on GitHub, under the ref
+  `refs/dolt/data`. `bd dolt pull` gets the commits of the other persons and
+  merges them. The merge is per field. When one person closes an issue and
+  another changes its priority, both changes stay.
+- Nothing syncs by itself. A push fails when the remote has commits that you
+  did not pull. Pull, and then push again.
+- `git clone` and `git fetch` do not get `refs/dolt/data`, and GitHub shows
+  no issues. Dolt also pushes a branch, `__dolt_remote_info__`, with one file
+  that names the ref. No workflow runs for that branch.
+- Pull requests do not show the issues, so the pre-commit secret check and the
+  agent review do not see them.
+- Anyone who can push to the repository can push issues. Branch protection
+  does not cover `refs/dolt/data`, and `bd dolt push --force` replaces it.
+- All worktrees of a clone use the database in the main checkout. One `bd`
+  process at a time writes to it, and the others wait. `bd doctor` does not
+  work with this kind of database.
+
+### Join a project that uses beads
+
+Do this one time on each machine. Use the same `bd` version as the other
+persons, because an older `bd` refuses a database that a newer one changed.
+`bd version` shows the version.
+
+1. Install `bd` with `brew install beads`. For other systems, see the
+   [installation guide](https://github.com/gastownhall/beads/blob/main/docs/getting-started/installation.md).
+2. Turn off the usage metrics of `bd`, which are on by default:
+   `bd metrics off`. They send the name of each command, the `bd` version,
+   and the operating system.
+3. In the main checkout, on a branch that has `.beads/`:
+
+   ```sh
+   bd bootstrap
+   chmod 700 .beads
+   git config beads.role maintainer
+   bd list
+   ```
+
+   `bd bootstrap` copies the issues from `refs/dolt/data`. It uses the SSH URL
+   in `.beads/config.yaml`, so your SSH key for GitHub must work. Without the
+   `chmod` and the `git config`, each `bd` command shows a warning.
+
+### Turn on beads in a project
+
+One person does this one time, in the main checkout, on a new branch:
+
+```sh
+bd init --skip-hooks --skip-agents --prefix <project name>
+```
+
+- `--skip-hooks` keeps the [pre-commit hook](#the-pre-commit-hook). The hooks
+  of beads set `core.hooksPath`, and Git then does not run the secret check.
+- `--skip-agents` keeps the instructions of beads out of `AGENTS.md`,
+  `.claude/settings.json`, and `.codex/`. Those instructions tell agents to
+  file an issue before each change, and to stop the use of memory files.
+- `bd init` makes a Git commit by itself, with its own message. Undo it with
+  `git reset --soft HEAD~1`, delete `.beads/README.md`, and commit again. The
+  README describes beads in general and has its own instructions for agents.
+
+Then run `bd dolt push` to make `refs/dolt/data`, and open a pull request.
+
+### Remove beads from a project
+
+1. To keep a copy of the issues, run `bd export -o <file>`.
+2. In a pull request, delete `.beads/` and the beads lines in `.gitignore`.
+   The "Issue tracking" section of `AGENTS.md` applies only when `.beads/`
+   exists, so it can stay.
+3. Delete the data on GitHub:
+   `git push origin --delete refs/dolt/data refs/heads/__dolt_remote_info__`.
+4. Each person deletes the database in the main checkout: `rm -rf .beads`.
+
 ## Production
 
 The repository has no deployment files yet. These facts hold on any host:

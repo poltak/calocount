@@ -89,6 +89,40 @@ project information. Read the documents that apply to the task.
   each finding. Change the text only where a finding is correct. Do not run
   the review again to get a different result.
 
+## Issue tracking
+
+- A repository with a `.beads/` folder keeps its issues in beads, a
+  command-line issue tracker (`bd`). This section replaces the agent
+  instructions of beads, so do not run `bd prime`, `bd setup`, `bd init`, or
+  `bd remember`. [Setup](docs/agents/setup.md#beads-issue-tracker) tells a
+  person how to install beads.
+- When you find a problem outside your task, file an issue, and then continue
+  with your task. Do not fix the problem in the current branch unless the
+  person asks. Give the issue a title and a description that an agent in a new
+  session can act on. Tell the person the ID of the issue.
+
+  ```sh
+  bd create --title="..." --description="..." --type=bug|task|feature --priority=2
+  ```
+
+  The priority is 0 (critical) to 4 (backlog).
+
+- `bd ready` lists the open issues that nothing blocks. `bd show <id>` shows
+  one issue.
+- When your work completes an issue, close it:
+  `bd close <id> --reason="..."`.
+- Run `bd dolt pull` before your first `bd` command in a session. Run
+  `bd dolt push` after you create, change, or close an issue. These two
+  commands change only the issues, so they need no request from the person.
+  When a push fails because the remote has new changes, pull, and then push
+  again.
+- Never run `bd dolt push --force`. It replaces the issues on the remote, and
+  the other persons lose their changes.
+- Do not put secrets or private data in an issue. The secret check and the
+  agent review do not see issues.
+- Unfinished work of your own task, and temporary behavior in the code, still
+  go in `docs/agents/todos/`.
+
 ## Project documentation
 
 - Before changing, adding, moving, or deleting code in any workspace, read [docs/agents/code-architecture.md](docs/agents/code-architecture.md) and follow its rules.
