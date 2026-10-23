@@ -252,6 +252,13 @@ test("sets the open sign-up mode for the server and for the browser tests", asyn
     ),
     /\n {4}trustedOrigins: \[FRONTEND_ORIGIN\],\n {4}accountMode: "openSignUp",\n/,
   );
+  assert.match(
+    await readClone(
+      clone,
+      "frontend/src/features/core/tests/browser/black-box-test.ts",
+    ),
+    /\n {2}accountMode: \["openSignUp", \{ option: true \}\],\n/,
+  );
   assert.match(await readClone(clone, "README.md"), /make the first account/);
   assert.doesNotMatch(await readClone(clone, "README.md"), /setup-owner/);
 });

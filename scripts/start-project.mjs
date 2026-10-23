@@ -205,12 +205,18 @@ function fileEdits({ projectName, productName, accountMode }) {
         find: /^APP_ACCOUNT_MODE=single-owner$/gm,
         replace: () => "APP_ACCOUNT_MODE=open-sign-up",
       },
+      // The browser tests must run in the mode that the project runs in.
       {
-        // The browser tests must run in the mode that the project runs in.
         file: "frontend/src/features/core/tests/browser/built-app.spec.ts",
         find: /^( *)trustedOrigins: \[FRONTEND_ORIGIN\],$/gm,
         replace: (line, indent) =>
           `${line}\n${indent}accountMode: "openSignUp",`,
+      },
+      {
+        file: "frontend/src/features/core/tests/browser/black-box-test.ts",
+        find: /^( *)accountMode: \["singleOwner", \{ option: true \}\],$/gm,
+        replace: (_line, indent) =>
+          `${indent}accountMode: ["openSignUp", { option: true }],`,
       },
     );
   }

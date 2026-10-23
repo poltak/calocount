@@ -74,7 +74,8 @@ project information. Read the documents that apply to the task.
 - Run `pnpm run check` after TypeScript changes.
 - Run `pnpm run build` after changes to compiled code or package exports.
 - Run `pnpm run test:browser` after changes to routing, `main.tsx`, the Vite
-  config, or an error boundary. `pnpm run check` does not run it.
+  config, an error boundary, or a page that has a page object. `pnpm run check`
+  does not run it.
 - Check `git status` before and after edits. Preserve changes unrelated to the task.
 - Open a pull request only when the person asks for one. Open it as a draft
   unless the person says not to. Push to `main` only when the person asks for

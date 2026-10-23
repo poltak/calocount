@@ -9,11 +9,13 @@ import {
 const BUILD_DIRECTORY = ".browser-test/dist";
 
 export default defineConfig({
-  testDir: "src/features/core/tests/browser",
-  testMatch: "*.spec.ts",
+  // The build checks in `core/tests/browser/`, and the black box tests in each
+  // feature's `tests/` directory.
+  testDir: "src/features",
+  testMatch: "**/*.spec.ts",
   outputDir: ".browser-test/results",
-  // The build has one backend address in it. Each test file starts its own
-  // backend there, so only one can run at a time.
+  // The build has one backend address in it. Each test file or test starts
+  // its own backend there, so only one can run at a time.
   workers: 1,
   reporter: "list",
   use: {
