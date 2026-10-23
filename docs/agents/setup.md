@@ -372,7 +372,8 @@ the steps above.
 [Beads](https://github.com/gastownhall/beads) is an issue tracker for coding
 agents, with a command-line tool, `bd`. A project uses it when it has a
 `.beads/` folder. The rules for agents are in `AGENTS.md`, under "Issue
-tracking".
+tracking". Run the tool as `pnpm exec bd`. This section writes `bd` for
+short.
 
 How the issues sync:
 
@@ -396,55 +397,70 @@ How the issues sync:
   process at a time writes to it, and the others wait. `bd doctor` does not
   work with this kind of database.
 
+### The bd version
+
+`@beads/bd` in the root `package.json` pins the version of `bd`, so
+`pnpm install` gives each person and agent the same one. An older
+`bd` refuses a database that a newer one changed, so the version must be the
+same for all.
+
+- The `allowBuilds` entry in `pnpm-workspace.yaml` lets the install script of
+  the package run. The script downloads the `bd` binary of that version from
+  the GitHub release of beads, about 50 MB, and it does not check a checksum.
+  Each `pnpm install` without a cache downloads it, also in CI.
+- Renovate does not update a project, so update `bd` by hand:
+  `pnpm add -D -E -w @beads/bd@<version>`. After the merge, each person runs
+  `pnpm install`.
+- When another `bd`, such as one from Homebrew, is on the `PATH`, each command
+  warns about two binaries. Remove the other one.
+
 ### Join a project that uses beads
 
-Do this one time on each machine. Use the same `bd` version as the other
-persons, because an older `bd` refuses a database that a newer one changed.
-`bd version` shows the version.
+Do this one time on each machine, in the main checkout, on a branch that has
+`.beads/`. `git worktree list` shows the main checkout first. An agent can do
+these steps.
 
-1. Install `bd` with `brew install beads`. For other systems, see the
-   [installation guide](https://github.com/gastownhall/beads/blob/main/docs/getting-started/installation.md).
-2. Turn off the usage metrics of `bd`, which are on by default:
-   `bd metrics off`. They send the name of each command, the `bd` version,
-   and the operating system.
-3. In the main checkout, on a branch that has `.beads/`:
+```sh
+pnpm install
+pnpm exec bd metrics off
+pnpm exec bd bootstrap
+chmod 700 .beads
+git config beads.role maintainer
+pnpm exec bd list
+```
 
-   ```sh
-   bd bootstrap
-   chmod 700 .beads
-   git config beads.role maintainer
-   bd list
-   ```
-
-   `bd bootstrap` copies the issues from `refs/dolt/data`. It uses the SSH URL
-   in `.beads/config.yaml`, so your SSH key for GitHub must work. Without the
-   `chmod` and the `git config`, each `bd` command shows a warning.
+- The usage metrics of `bd` are on by default. They send the name of each
+  command, the `bd` version, and the operating system. The setting is for
+  your user, in all projects.
+- `bd bootstrap` copies the issues from `refs/dolt/data`. It uses the SSH URL
+  in `.beads/config.yaml`, so your SSH key for GitHub must work.
+- Without the `chmod` and the `git config`, each `bd` command shows a warning.
 
 ### Turn on beads in a project
 
 One person does this one time, in the main checkout, on a new branch:
 
-```sh
-bd init --skip-hooks --skip-agents --prefix <project name>
-```
-
-- `--skip-hooks` keeps the [pre-commit hook](#the-pre-commit-hook). The hooks
-  of beads set `core.hooksPath`, and Git then does not run the secret check.
-- `--skip-agents` keeps the instructions of beads out of `AGENTS.md`,
-  `.claude/settings.json`, and `.codex/`. Those instructions tell agents to
-  file an issue before each change, and to stop the use of memory files.
-- `bd init` makes a Git commit by itself, with its own message. Undo it with
-  `git reset --soft HEAD~1`, delete `.beads/README.md`, and commit again. The
-  README describes beads in general and has its own instructions for agents.
-
-Then run `bd dolt push` to make `refs/dolt/data`, and open a pull request.
+1. Add `"@beads/bd": true` to `allowBuilds` in `pnpm-workspace.yaml`. Then
+   add the package: `pnpm add -D -E -w @beads/bd`.
+2. Run `pnpm exec bd init --skip-hooks --skip-agents --prefix <project name>`.
+   - `--skip-hooks` keeps the [pre-commit hook](#the-pre-commit-hook). The
+     hooks of beads set `core.hooksPath`, and Git then does not run the secret
+     check.
+   - `--skip-agents` keeps the instructions of beads out of `AGENTS.md`,
+     `.claude/settings.json`, and `.codex/`. Those instructions tell agents to
+     file an issue before each change, and to stop the use of memory files.
+3. `bd init` makes a Git commit by itself, with its own message. Undo it with
+   `git reset --soft HEAD~1`, delete `.beads/README.md`, and commit again. The
+   README describes beads in general and has its own instructions for agents.
+4. Run `pnpm exec bd dolt push` to make `refs/dolt/data`, and open a pull
+   request.
 
 ### Remove beads from a project
 
-1. To keep a copy of the issues, run `bd export -o <file>`.
-2. In a pull request, delete `.beads/` and the beads lines in `.gitignore`.
-   The "Issue tracking" section of `AGENTS.md` applies only when `.beads/`
-   exists, so it can stay.
+1. To keep a copy of the issues, run `pnpm exec bd export -o <file>`.
+2. In a pull request, delete `.beads/`, the beads lines in `.gitignore`, the
+   `@beads/bd` package, and its `allowBuilds` entry. The "Issue tracking"
+   section of `AGENTS.md` applies only when `.beads/` exists, so it can stay.
 3. Delete the data on GitHub:
    `git push origin --delete refs/dolt/data refs/heads/__dolt_remote_info__`.
 4. Each person deletes the database in the main checkout: `rm -rf .beads`.
