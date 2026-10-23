@@ -2,6 +2,9 @@
   // The "Agent review" workflow installs the Codex CLI on the CI machine, and
   // no package of the repository has it.
   "ignoreBinaries": ["codex"],
+  // People and agents run bd with `pnpm exec bd`, and no code or script of the
+  // repository calls it.
+  "ignoreDependencies": ["@beads/bd"],
   "workspaces": {
     ".": {
       "entry": [

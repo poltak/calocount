@@ -44,7 +44,7 @@
       "automerge": false
     },
     {
-      "matchPackageNames": ["oxlint", "better-auth", "typescript"],
+      "matchPackageNames": ["oxlint", "better-auth", "typescript", "@beads/bd"],
       "groupName": null,
       "automerge": false,
       "labels": ["review-upgrade"]

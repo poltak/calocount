@@ -90,12 +90,69 @@ project information. Read the documents that apply to the task.
   each finding. Change the text only where a finding is correct. Do not run
   the review again to get a different result.
 
+## Issue tracking
+
+Each project keeps its issues and its open work in beads, a command-line
+issue tracker. [Setup](docs/agents/setup.md#beads-issue-tracker) describes it.
+
+- Run it as `pnpm exec bd`. `package.json` pins its version, so all persons
+  and agents use the same one. When `bd` says "no beads database found", do
+  the steps of
+  [Join a project that uses beads](docs/agents/setup.md#join-a-project-that-uses-beads).
+  Do not run `bd init` for this. Run it only to turn on beads in a new
+  project.
+- This section replaces the agent instructions of beads. Do not run
+  `bd prime`, `bd setup`, `bd hooks`, or `bd remember`.
+- Run `pnpm exec bd dolt pull` before your first `bd` command in a session.
+  Run `pnpm exec bd dolt push` after you create, change, or close an issue.
+  These two commands change only the issues, so they need no request from the
+  person. When a push fails because the remote has new changes, pull, and then
+  push again.
+- Never run `bd dolt push --force`. It replaces the issues on the remote, and
+  the other persons lose their changes.
+- Do not put secrets or private data in an issue. The secret check and the
+  agent review do not see issues.
+- When you find a problem outside your task, file an issue, and then continue
+  with your task. Do not fix the problem in the current branch unless the
+  person asks. Give the issue a title and a description that an agent in a new
+  session can act on. Tell the person the ID of the issue.
+
+  ```sh
+  pnpm exec bd create --title="..." --description="..." --type=bug|task|feature --priority=2
+  ```
+
+  The priority is 0 (critical) to 4 (backlog).
+
+- For work that needs more than one session or more than one pull request,
+  make an epic with one child issue for each step. Do not write a plan file.
+  Give each step a description that an agent in a new session can act on.
+
+  ```sh
+  pnpm exec bd create --type=epic --title="..." --description="..."
+  pnpm exec bd create --parent=<epic ID> --type=task --title="..." --description="..."
+  pnpm exec bd dep add <step> <step that must come first>
+  ```
+
+- At the start of work, `pnpm exec bd ready` lists the open issues that
+  nothing blocks, and `pnpm exec bd show <ID>` shows one issue. Claim the
+  issue that you start with `pnpm exec bd update <ID> --claim`, so that no
+  other agent takes it.
+- Put a design choice for one step in its issue, with `--design="..."`. A fact
+  or a decision that the code depends on goes in `docs/agents/`.
+- When your work completes an issue, close it:
+  `pnpm exec bd close <ID> --reason="..."`.
+- A task that one session finishes needs no issue. The task list of your agent
+  tool is enough, and it writes no file.
+- Do not add to `docs/agents/todos/`. It has open work from before beads,
+  and a person moves its items into beads.
+
 ## Project documentation
 
 - Before changing, adding, moving, or deleting code in any workspace, read [docs/agents/code-architecture.md](docs/agents/code-architecture.md) and follow its rules.
 - Before writing or changing a test, read [docs/agents/testing.md](docs/agents/testing.md) and follow its rules.
 - Use [docs/agents/README.md](docs/agents/README.md) to find project reference documents.
 - Add stable project facts and decisions under `docs/agents/`. Update the relevant document when those facts change.
+- A document in `docs/agents/` says how the system works and why. Steps to do, phases, checklists, and the status of work go in beads.
 - Use a `SKILL.md` only for a repeatable task workflow. Keep general project rules and reference documents out of skills.
 - When each step of a workflow needs no judgment, put the steps in a script in `scripts/`, with tests, and add a Swamp workflow in `workflows/` that runs it. Its skill then names the workflow, and has only the steps that need judgment. The `sync-template` skill is the model, and [setup](docs/agents/setup.md#swamp) describes Swamp.
 - Put new repository skills in `.agents/skills/<name>/`. For each skill, add a Git-tracked symlink at `.claude/skills/<name>` that points to `../../.agents/skills/<name>`, so Codex and Claude Code use the same files.

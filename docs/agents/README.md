@@ -65,7 +65,8 @@ that. Record only what a reader cannot get from the code:
   change to a decision that came from the template goes to the template
   first, and the project gets it with a sync.
 - How to run or configure something goes in [setup and commands](setup.md).
-- Unfinished work and temporary behavior go in `todos/`.
+- Unfinished work and temporary behavior go in beads. `AGENTS.md` ("Issue
+  tracking") has the rules.
 
 Add information to an existing document. Make a new document in
 `docs/agents/`, or in a directory in it, only when the person asks for one.
