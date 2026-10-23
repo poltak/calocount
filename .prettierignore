@@ -2,6 +2,8 @@
 .claude/worktrees/
 **/node_modules/
 .data/
+# bd writes these files. The .gitignore in the folder keeps the database and the backups out of Git, but Prettier reads only the root ignore files.
+.beads/
 **/.browser-test/
 **/dist/
 **/coverage/
