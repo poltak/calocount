@@ -408,9 +408,9 @@ same for all.
   the package run. The script downloads the `bd` binary of that version from
   the GitHub release of beads, about 50 MB, and it does not check a checksum.
   Each `pnpm install` without a cache downloads it, also in CI.
-- Renovate does not update a project, so update `bd` by hand:
-  `pnpm add -D -E -w @beads/bd@<version>`. After the merge, each person runs
-  `pnpm install`.
+- Renovate updates `@beads/bd` in the template, and the update waits for a
+  person, because a new `bd` can change the database. A project gets the
+  update with a sync. After that, each person runs `pnpm install`.
 - When another `bd`, such as one from Homebrew, is on the `PATH`, each command
   warns about two binaries. Remove the other one.
 

@@ -120,10 +120,12 @@ Small weekly updates replace one large update each year. The rules are in
 - A major update, and each update of a dependency with a 0.x version, waits
   for a person. A minor version of a 0.x dependency can break its API. These
   are `kysely`, `@hono/zod-validator`, and `@electric-sql/pglite` now.
-- `oxlint`, `better-auth`, and `typescript` always wait for a person. The
-  `lint/` rules use oxlint's JS plugin support, which oxlint marks as alpha. A
-  Better Auth update can change its schema, so compare `AuthTables` in
-  `backend/src/features/auth/storage/types.ts` with the new schema.
+- `oxlint`, `better-auth`, `typescript`, and `@beads/bd` always wait for a
+  person. The `lint/` rules use oxlint's JS plugin support, which oxlint marks
+  as alpha. A Better Auth update can change its schema, so compare
+  `AuthTables` in `backend/src/features/auth/storage/types.ts` with the new
+  schema. A `bd` update can change the issue database, and an older `bd` then
+  refuses it, so each person runs `pnpm install` after the sync.
 - An update is at least 3 days old before Renovate proposes it.
 - pnpm applies the same 3 days to each package, direct or indirect, with
   `minimumReleaseAge` in `pnpm-workspace.yaml`. Its value is in minutes. Keep
