@@ -441,7 +441,9 @@ pnpm exec bd list
 One person does this one time, in the main checkout, on a new branch:
 
 1. Add `"@beads/bd": true` to `allowBuilds` in `pnpm-workspace.yaml`. Then
-   add the package: `pnpm add -D -E -w @beads/bd`.
+   add the package: `pnpm add -D -E -w @beads/bd`. Also add `"@beads/bd"` to
+   `ignoreDependencies` in `knip.jsonc`. Without it, knip fails
+   `pnpm run check`, because no code or script calls the package.
 2. Run `pnpm exec bd init --skip-hooks --skip-agents --prefix <project name>`.
    - `--skip-hooks` keeps the [pre-commit hook](#the-pre-commit-hook). The
      hooks of beads set `core.hooksPath`, and Git then does not run the secret
@@ -459,8 +461,9 @@ One person does this one time, in the main checkout, on a new branch:
 
 1. To keep a copy of the issues, run `pnpm exec bd export -o <file>`.
 2. In a pull request, delete `.beads/`, the beads lines in `.gitignore`, the
-   `@beads/bd` package, and its `allowBuilds` entry. The "Issue tracking"
-   section of `AGENTS.md` applies only when `.beads/` exists, so it can stay.
+   `@beads/bd` package, and its entries in `pnpm-workspace.yaml` and
+   `knip.jsonc`. The "Issue tracking" section of `AGENTS.md` applies only when
+   `.beads/` exists, so it can stay.
 3. Delete the data on GitHub:
    `git push origin --delete refs/dolt/data refs/heads/__dolt_remote_info__`.
 4. Each person deletes the database in the main checkout: `rm -rf .beads`.
