@@ -31,14 +31,16 @@
   "triggers": {
     "crons": ["0 * * * *"]
   },
+  // Only values that are the same for every instance. Each instance sets its
+  // own Access values and owner email on its Worker, in the dashboard or as
+  // secrets. See docs/deploy-your-own.md.
   "vars": {
     "CALOCOUNT_OWNER_KEY": "default",
-    "CALOCOUNT_ACCESS_TEAM_DOMAIN": "spring-lab-47cd.cloudflareaccess.com",
-    "CALOCOUNT_ACCESS_AUDIENCE": "0b991e6ebd3ffc3e33f960120865ed5f3ece8eccba95be4d0560dc2c08de17dd",
-    "CALOCOUNT_MCP_ACCESS_AUDIENCE": "06fb38f786e5b8f6b1e86e57114f3c4fc689680f3d27b126792070bffaeaddc8",
-    "CALOCOUNT_ALLOWED_EMAIL_SHA256": "734c5bf80348310718911461f2475f9c01419e7f40d0235fbf572c3d0e4cab0e",
     "CALOCOUNT_ALLOW_LOCAL": "false"
   },
+  // Keep the variables that the dashboard sets. Without this, each deploy
+  // deletes them, and owner sign-in stops.
+  "keep_vars": true,
   "observability": {
     "enabled": true,
     "logs": {

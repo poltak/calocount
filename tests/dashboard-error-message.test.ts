@@ -5,8 +5,8 @@ import { dashboardFailureMessage } from "../app/dashboard-api";
 
 const knownMessages = {
   database_unavailable: "Your saved log is unavailable because the database is not configured.",
-  auth_access_settings_missing: "Your saved log is unavailable because owner sign-in is not configured.",
-  auth_owner_allowlist_missing: "Your saved log is unavailable because owner access is not configured.",
+  auth_access_settings_missing: "Your saved log is unavailable because owner sign-in is not configured. To set it up, follow docs/deploy-your-own.md.",
+  auth_owner_allowlist_missing: "Your saved log is unavailable because owner access is not configured. To set it up, follow docs/deploy-your-own.md.",
   auth_unavailable: "Your saved log is unavailable because owner authentication is temporarily unavailable.",
 } as const;
 

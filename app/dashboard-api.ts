@@ -430,10 +430,10 @@ export function dashboardFailureMessage(status: number, responseBody: unknown): 
     return "Your saved log is unavailable because the database is not configured.";
   }
   if (errorCode === "auth_access_settings_missing") {
-    return "Your saved log is unavailable because owner sign-in is not configured.";
+    return "Your saved log is unavailable because owner sign-in is not configured. To set it up, follow docs/deploy-your-own.md.";
   }
   if (errorCode === "auth_owner_allowlist_missing") {
-    return "Your saved log is unavailable because owner access is not configured.";
+    return "Your saved log is unavailable because owner access is not configured. To set it up, follow docs/deploy-your-own.md.";
   }
   if (errorCode === "auth_unavailable") {
     return "Your saved log is unavailable because owner authentication is temporarily unavailable.";

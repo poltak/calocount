@@ -4,6 +4,12 @@ Calocount is a single-user calorie tracker with a private owner dashboard and an
 
 The application backend uses Cloudflare Workers, D1, R2, Cron Triggers, Static Assets, and Access. One Worker serves the dashboard and API and runs the hourly photo cleanup.
 
+## Deploy your own
+
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/poltak/calocount)
+
+Each instance has one owner and its own Worker, D1 database and R2 bucket. The button copies this repository to your GitHub or GitLab account, creates the database and the bucket, and deploys the Worker. Then you set up sign-in with Cloudflare Access. Follow [docs/deploy-your-own.md](docs/deploy-your-own.md).
+
 ## Included
 
 - Caltrack-inspired dark dashboard with today and seven-day views
@@ -31,6 +37,7 @@ drizzle/             generated D1 migration
 worker/              Worker entry point and scheduled photo cleanup
 tests/               unit, Worker runtime, and browser tests
 docs/architecture.md detailed runtime flow and boundaries
+docs/deploy-your-own.md setup of a new instance with the Deploy to Cloudflare button
 docs/read-only-sharing.md public/owner route boundary and rollout runbook
 ```
 
@@ -45,7 +52,7 @@ Setup:
 
 ```bash
 pnpm install
-cp .dev.vars.example .dev.vars
+cp .dev.vars.local.example .dev.vars
 pnpm run dev
 ```
 
@@ -93,7 +100,7 @@ curl -i http://localhost:3000/api/add-meal \
 Apply the migration to the local D1 database:
 
 ```bash
-pnpm exec wrangler d1 migrations apply calocount --local
+pnpm run db:migrate:local
 ```
 
 ## Photo cleanup
@@ -124,9 +131,9 @@ The script serves each build from the same local server, with the same compressi
 
 ## Cloudflare deployment
 
-`wrangler.jsonc` configures the one Worker: the dashboard, the API, and the hourly cron trigger.
+`wrangler.jsonc` configures the one Worker: the dashboard, the API, and the hourly cron trigger. It holds only the values that are the same for every instance. The Access values and the owner allowlist are variables and secrets on each Worker. `keep_vars` is `true`, so a deploy does not delete them. `.dev.vars.example` lists the secrets that the Deploy to Cloudflare button asks for. `tests/deploy-config.test.ts` checks these rules.
 
-Production deployment runs through GitHub Actions. A push to `main` or `master` runs the checks, a deployment dry run, remote D1 migrations, and the Worker deployment in order. You can also start the workflow manually with `workflow_dispatch`. The current default branch is `main`.
+Production deployment of this repository runs through GitHub Actions. The workflow runs only in `poltak/calocount`. A copy made with the Deploy to Cloudflare button deploys with Workers Builds. A push to `main` or `master` runs the checks, a deployment dry run, and `pnpm run deploy`. That script builds the app, applies the remote D1 migrations, and deploys the Worker. You can also start the workflow manually with `workflow_dispatch`. The current default branch is `main`.
 
 Before the first automatic deployment, complete this one-time GitHub and Cloudflare setup:
 
@@ -138,15 +145,13 @@ Before the first automatic deployment, complete this one-time GitHub and Cloudfl
 
 Create or confirm one D1 database and one R2 Standard bucket, and bind both in `wrangler.jsonc`.
 
-Apply migrations before the first production request:
+Apply migrations before the first production request. `pnpm run deploy` also does this:
 
 ```bash
-pnpm exec wrangler d1 migrations apply calocount --remote
+pnpm run db:migrate:remote
 ```
 
-Do not put plaintext email values in `wrangler.jsonc`. For a new production owner allowlist, use the `CALOCOUNT_ALLOWED_EMAIL_SHA256` variable in `wrangler.jsonc`. Its value is the SHA-256 digest of the trimmed, lower-case Access email.
-
-Encrypted plaintext email bindings remain for compatibility with older or local deployments:
+Do not put Access values or email values in `wrangler.jsonc`. Set them on the Worker. In the dashboard, add `CALOCOUNT_ACCESS_TEAM_DOMAIN`, `CALOCOUNT_ACCESS_AUDIENCE` and, for ChatGPT, `CALOCOUNT_MCP_ACCESS_AUDIENCE` as Text variables. For the owner allowlist, set the `CALOCOUNT_OWNER_EMAIL` secret, or add a `CALOCOUNT_ALLOWED_EMAIL_SHA256` Text variable. The hash is the SHA-256 digest of the trimmed, lower-case Access email.
 
 ```bash
 pnpm exec wrangler secret put CALOCOUNT_OWNER_EMAIL
@@ -154,11 +159,10 @@ pnpm exec wrangler secret put CALOCOUNT_OWNER_EMAIL
 
 `CALOCOUNT_ALLOWED_EMAIL` remains only as a fallback for older or local configurations. Keep `CALOCOUNT_ALLOWED_USER_ID` if you use the Access user ID allowlist instead of an email. If several allowlists are configured, all of them must match; a malformed email hash fails closed.
 
-Build and deploy the app:
+Build the app, apply the remote migrations, and deploy the Worker:
 
 ```bash
-pnpm run build
-pnpm exec wrangler deploy
+pnpm run deploy
 ```
 
 An earlier version ran the photo cleanup in a separate Worker named
