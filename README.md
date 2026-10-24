@@ -1,12 +1,13 @@
 # Calocount
 
-Calocount is a single-user calorie tracker with a public read-only dashboard and a private owner dashboard. Add meals manually in the owner dashboard or through the private ChatGPT MCP app. The app validates and stores structured nutrition data and shows a compact Caltrack-inspired dashboard.
+Calocount is a single-user calorie tracker with a private owner dashboard and an optional public read-only dashboard. Add meals manually in the owner dashboard or through the private ChatGPT MCP app. The app validates and stores structured nutrition data and shows a compact Caltrack-inspired dashboard.
 
 The application backend uses Cloudflare Workers, D1, R2, Cron Triggers, Static Assets, and Access. One Worker serves the dashboard and API and runs the hourly photo cleanup.
 
 ## Included
 
 - Caltrack-inspired dark dashboard with today and seven-day views
+- a public read-only dashboard that the owner turns on or off in settings
 - calendar of all past days in both dashboards, with the calories and protein of each day
 - calories, protein, carbohydrates, and fat
 - meal detail, additions, edits, and correction history
@@ -190,6 +191,8 @@ This repository does not set up Cloudflare resources or secrets. That setup need
 
 ## Privacy
 
+- The public dashboard is off for a new owner. The owner turns it on with the "Public dashboard" setting. While it is off, `/` redirects to `/owner`, and `/api/public/summary`, `/meal-photos/*` and `/llms.txt` return `404`.
+- Migration `0014_public_view.sql` turns the setting on for each owner that has saved settings, so an existing public dashboard stays public after the upgrade.
 - Meal photos stay in a private R2 bucket.
 - The owner dashboard streams photos through an authenticated API route.
 - The public root may stream photos for completed meals in its current seven-day projection through `/meal-photos/*`; raw R2 keys are not exposed.

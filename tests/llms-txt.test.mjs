@@ -62,10 +62,10 @@ function valueAt(body, name) {
   return value;
 }
 
-/** Save goals, one entry and one weight, so every documented array has a row. */
+/** Turn the public view on and save goals, one entry and one weight, so every documented array has a row. */
 async function seed(worker) {
   const today = new Date().toISOString().slice(0, 10);
-  const goals = await worker.request({ path: "/api/settings", method: "PATCH", body: { dailyCalorieTarget: 2100, dailyProteinTargetG: 140 } });
+  const goals = await worker.request({ path: "/api/settings", method: "PATCH", body: { dailyCalorieTarget: 2100, dailyProteinTargetG: 140, publicViewEnabled: true } });
   assert.equal(goals.status, 200);
   const meal = await worker.request({
     path: "/api/meals",

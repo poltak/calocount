@@ -72,7 +72,7 @@ export async function mockDashboardApi(page: Page) {
     date,
     meals: [structuredClone(initialMeal)],
     weights: [{ logicalDate: "2026-09-11", weightKg: 70, recordedAt: Date.parse(`${date}T12:00:00Z`) }],
-    settings: { timezone: "UTC", dailyCalorieTarget: 2400, dailyProteinTargetG: 160, proteinGoalMode: "grams" as ProteinGoalMode, dailyProteinTargetPerKg: 1.6, nutrientTargets: null, vitaminB6UsFnbAdultUlEnabled: false, usFnbAdultUlEnabled: false },
+    settings: { timezone: "UTC", dailyCalorieTarget: 2400, dailyProteinTargetG: 160, proteinGoalMode: "grams" as ProteinGoalMode, dailyProteinTargetPerKg: 1.6, nutrientTargets: null, vitaminB6UsFnbAdultUlEnabled: false, usFnbAdultUlEnabled: false, publicViewEnabled: false },
     savedEntries: [] as SavedEntry[],
     /** Every request the page made to the API, in order. */
     requests: [] as RecordedRequest[],

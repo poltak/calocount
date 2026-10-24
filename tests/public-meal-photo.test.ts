@@ -10,6 +10,7 @@ const now = new Date("2026-08-29T12:00:00Z");
 const meal: PublicPhotoMeal = {
   id: "meal-1", ownerKey: "owner-1", status: "complete",
   photoKey: "private/photo-key", photoMimeType: "image/jpeg", consumedAt: now.getTime(),
+  publicViewEnabled: true,
 };
 const photo = { body: new Uint8Array([1, 2, 3]), httpEtag: '"etag-1"', size: 3 };
 
@@ -61,13 +62,15 @@ test("public photos reject invalid IDs before database access", async () => {
   assert.equal(response.status, 404);
 });
 
-test("public photos reject another owner, missing photos, incomplete meals, and dates outside the UTC window", async () => {
+test("public photos reject another owner, missing photos, incomplete meals, dates outside the UTC window, and a private owner", async () => {
   const invalidMeals: PublicPhotoMeal[] = [
     { ...meal, ownerKey: "other-owner" }, { ...meal, id: "other-meal" },
     { ...meal, status: "pending" }, { ...meal, photoKey: null },
     { ...meal, photoMimeType: "text/html" },
     { ...meal, consumedAt: Date.parse("2026-08-22T23:59:59Z") },
     { ...meal, consumedAt: Date.parse("2026-08-30T00:00:00Z") },
+    // The owner keeps the public view off, or has saved no settings.
+    { ...meal, publicViewEnabled: false }, { ...meal, publicViewEnabled: null },
   ];
   for (const invalidMeal of invalidMeals) {
     const response = await buildPublicMealPhotoResponse({
@@ -117,9 +120,14 @@ test("photo metadata uses one SQL query without loading items and enforces owner
     const withoutSettings = await findMealPhoto({ db: fixture.db, ownerKey: meal.ownerKey, mealId: meal.id });
     assert.equal(withoutSettings?.id, meal.id);
     assert.equal(withoutSettings?.timezone, null);
+    assert.equal(withoutSettings?.publicViewEnabled, null);
     assert.equal(fixture.queries.length, 1);
     fixture.sqlite.exec("INSERT INTO settings (id, owner_key, timezone) VALUES ('settings', 'owner-1', 'Asia/Ho_Chi_Minh')");
-    assert.equal((await findMealPhoto({ db: fixture.db, ownerKey: meal.ownerKey, mealId: meal.id }))?.timezone, "Asia/Ho_Chi_Minh");
+    const withSettings = await findMealPhoto({ db: fixture.db, ownerKey: meal.ownerKey, mealId: meal.id });
+    assert.equal(withSettings?.timezone, "Asia/Ho_Chi_Minh");
+    assert.equal(withSettings?.publicViewEnabled, false);
+    fixture.sqlite.exec("UPDATE settings SET public_view_enabled = 1");
+    assert.equal((await findMealPhoto({ db: fixture.db, ownerKey: meal.ownerKey, mealId: meal.id }))?.publicViewEnabled, true);
     assert.equal(await findMealPhoto({ db: fixture.db, ownerKey: "other-owner", mealId: meal.id }), undefined);
   } finally {
     fixture.sqlite.close();

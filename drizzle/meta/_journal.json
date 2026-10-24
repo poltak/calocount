@@ -92,6 +92,13 @@
       "when": 1790953725632,
       "tag": "0013_goal_changes",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1792853472722,
+      "tag": "0014_public_view",
+      "breakpoints": true
     }
   ]
 }

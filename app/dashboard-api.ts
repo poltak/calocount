@@ -492,5 +492,6 @@ export function parseSettingsTargets(value: unknown) {
     timezone: isValidTimeZone(settings.timezone) ? settings.timezone : null,
     vitaminB6UsFnbAdultUlEnabled: settings.vitaminB6UsFnbAdultUlEnabled === true,
     usFnbAdultUlEnabled: settings.usFnbAdultUlEnabled === true,
+    publicViewEnabled: typeof settings.publicViewEnabled === "boolean" ? settings.publicViewEnabled : null,
   };
 }

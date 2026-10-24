@@ -66,6 +66,14 @@ requires cache revalidation. All `/api/*` routes other than the reviewed summary
 exception are private owner routes. The public root does not expose owner write
 controls or call private APIs.
 
+The owner turns the public view on or off with the `publicViewEnabled` setting
+in `PATCH /api/settings`. It is off for an owner with no saved settings. While
+it is off, `/api/public/summary` returns `404` with the code `public_view_off`,
+`/meal-photos/<mealId>` returns `404`, `/llms.txt` returns `404`, and `/`
+redirects to `/owner`. The Worker checks the setting on each request, so Access
+can keep the same layout for a public and a private instance. `/llms.txt` is in
+`run_worker_first` for this check.
+
 The PWA manifest starts at `/owner` while keeping `id` and `scope` at `/`. This
 keeps installed launches in the private owner dashboard without changing the
 site identity or service-worker scope.

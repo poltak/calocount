@@ -88,6 +88,12 @@ function parseSettingsPatch(body: Record<string, unknown>): SettingsPatch {
     }
     patch.usFnbAdultUlEnabled = body.usFnbAdultUlEnabled;
   }
+  if (body.publicViewEnabled !== undefined) {
+    if (typeof body.publicViewEnabled !== "boolean") {
+      throw new ApiError(400, "invalid_field", "publicViewEnabled must be a boolean.");
+    }
+    patch.publicViewEnabled = body.publicViewEnabled;
+  }
   return patch;
 }
 

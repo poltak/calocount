@@ -68,6 +68,38 @@ test("the saved timezone is shown and kept when this device is in the same one",
   expect(state.requests.find((request) => request.method === "PATCH" && request.path === "/api/settings")?.body?.timezone).toBe("UTC");
 });
 
+test("the owner can turn the public dashboard on, and the panel shows the saved choice", async ({ page }) => {
+  const state = await mockDashboardApi(page);
+  await page.goto("/");
+  await page.getByRole("button", { name: "Open settings" }).click();
+  const dialog = page.getByRole("dialog", { name: "Daily targets" });
+  const publicView = dialog.getByRole("checkbox", { name: "Show my log to anyone who opens the site address" });
+  await expect(publicView).not.toBeChecked();
+  await publicView.check();
+  await dialog.getByRole("button", { name: "Save targets", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  expect(state.settings.publicViewEnabled).toBe(true);
+
+  await page.getByRole("button", { name: "Open settings" }).click();
+  await expect(publicView).toBeChecked();
+});
+
+test("a save after the settings fail to load leaves the public dashboard as it is", async ({ page }) => {
+  const state = await mockDashboardApi(page);
+  await page.route("**/api/settings", async (route) => {
+    if (route.request().method() === "GET") await route.fulfill({ status: 503, json: {} });
+    else await route.fallback();
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Open settings" }).click();
+  const dialog = page.getByRole("dialog", { name: "Daily targets" });
+  await dialog.getByRole("button", { name: "Save targets", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  const save = state.requests.find((request) => request.method === "PATCH" && request.path === "/api/settings");
+  expect(save?.body).toBeDefined();
+  expect(save?.body).not.toHaveProperty("publicViewEnabled");
+});
+
 test.describe("on a device in another timezone", () => {
   test.use({ timezoneId: "Europe/Berlin" });
 

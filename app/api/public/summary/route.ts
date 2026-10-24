@@ -1,5 +1,5 @@
 import { getEnvValue } from "../../../../db";
-import { getDailyHistory, getDashboardSummary, getDayLog, getMonthTotals } from "../../../../db/repository";
+import { getDailyHistory, getDashboardSummary, getDayLog, getMonthTotals, getSettings } from "../../../../db/repository";
 import { isDateKey, isMonthKey } from "../../../../domain/logical-date";
 import { ApiError, getRequestDb, withApiErrors } from "../../_lib/http";
 import {
@@ -29,6 +29,7 @@ export async function GET(request: Request): Promise<Response> {
       return await buildPublicSummaryResponse({
         ownerKey: getEnvValue("CALOCOUNT_OWNER_KEY"),
         view,
+        loadPublicViewEnabled: async (ownerKey) => (await getSettings(getRequestDb(), ownerKey))?.publicViewEnabled === true,
         // The public view groups meals into days in the owner's saved timezone.
         loadSummary: (ownerKey) => getDashboardSummary(getRequestDb(), ownerKey, { useSavedTimezone: true }),
         loadDailyHistory: (ownerKey) => getDailyHistory(getRequestDb(), ownerKey),

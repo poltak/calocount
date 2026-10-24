@@ -46,6 +46,18 @@ test("a failed load says so in each view's own words and never shows made-up dat
   await expect(page.getByRole("button", { name: "Add entry" })).toHaveCount(0);
 });
 
+test("an open public page says so when the owner turns the public view off", async ({ page }) => {
+  await mockDashboardApi(page);
+  await page.route("**/api/public/summary", (route) => route.fulfill({
+    status: 404,
+    json: { error: { code: "public_view_off", message: "The public dashboard is turned off." } },
+  }));
+  await page.goto("/?public");
+  await expect(page.getByRole("heading", { name: "Public dashboard unavailable" })).toBeVisible();
+  await expect(page.locator(".dashboard-state")).toContainText("The owner made this dashboard private.");
+  await expect(page.locator(".summary-grid")).toHaveCount(0);
+});
+
 test.describe("a viewer in another timezone", () => {
   test.use({ timezoneId: "America/New_York" });
 

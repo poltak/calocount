@@ -70,31 +70,88 @@ test("the MCP endpoint lists its tools, logs, reads and updates a meal, and read
   }
 });
 
+const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
+
+/** Save a dashboard entry with a one-pixel PNG photo, and return the saved meal. */
+async function addPhotoMeal(worker, consumedAt) {
+  const form = new FormData();
+  form.set("payload", JSON.stringify({
+    consumedAt, mealType: "lunch", source: "dashboard", status: "complete", caption: "Photo lunch",
+    items: [{ name: "Photo lunch", quantity: 1, unit: "serving", calories: 300, proteinG: 20, carbsG: 30, fatG: 10 }],
+  }));
+  form.set("photo", new File([PNG], "lunch.png", { type: "image/png" }));
+  // Encode the form here so the request carries its multipart boundary.
+  const encoded = new Response(form);
+  const saved = await worker.fetch("/api/meals", {
+    method: "POST",
+    headers: { "content-type": encoded.headers.get("content-type") },
+    body: Buffer.from(await encoded.arrayBuffer()),
+  });
+  assert.equal(saved.status, 201);
+  return (await saved.json()).meal;
+}
+
 test("a dashboard entry with a photo is saved and its photo can be read back", async () => {
   const worker = await startWorker(LOCAL, { storage: true });
   try {
-    const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
-    const form = new FormData();
-    form.set("payload", JSON.stringify({
-      consumedAt: Date.parse("2026-10-02T05:30:00Z"), mealType: "lunch", source: "dashboard", status: "complete", caption: "Photo lunch",
-      items: [{ name: "Photo lunch", quantity: 1, unit: "serving", calories: 300, proteinG: 20, carbsG: 30, fatG: 10 }],
-    }));
-    form.set("photo", new File([png], "lunch.png", { type: "image/png" }));
-    // Encode the form here so the request carries its multipart boundary.
-    const encoded = new Response(form);
-    const saved = await worker.fetch("/api/meals", {
-      method: "POST",
-      headers: { "content-type": encoded.headers.get("content-type") },
-      body: Buffer.from(await encoded.arrayBuffer()),
-    });
-    assert.equal(saved.status, 201);
-    const { meal } = await saved.json();
+    const meal = await addPhotoMeal(worker, Date.parse("2026-10-02T05:30:00Z"));
     assert.equal(meal.caption, "Photo lunch");
     assert.equal(meal.photoMimeType, "image/png");
 
     const photo = await worker.fetch(`/api/photos/${meal.photoKey}`);
     assert.equal(photo.status, 200);
-    assert.deepEqual(Buffer.from(await photo.arrayBuffer()), png);
+    assert.deepEqual(Buffer.from(await photo.arrayBuffer()), PNG);
+  } finally {
+    await worker.dispose();
+  }
+});
+
+test("the public view is off for a new owner until the owner turns it on", async () => {
+  const worker = await startWorker(LOCAL, { storage: true });
+  try {
+    const meal = await addPhotoMeal(worker, Date.now());
+    const expectPrivate = async () => {
+      // The root sends the visitor to the owner dashboard, where Access asks them to sign in.
+      const root = await worker.fetch("/", { redirect: "manual" });
+      assert.equal(root.status, 302);
+      assert.equal(root.headers.get("location"), "/owner");
+      assert.match(root.headers.get("cache-control") ?? "", /no-store/);
+      for (const view of ["", "?view=daily", "?view=month&month=2026-10", "?view=day&date=2026-10-02"]) {
+        const summary = await worker.request({ path: `/api/public/summary${view}` });
+        assert.equal(summary.status, 404, view);
+        assert.equal(summary.body?.error?.code, "public_view_off", view);
+      }
+      assert.equal((await worker.fetch(`/meal-photos/${meal.id}`)).status, 404);
+      assert.equal((await worker.fetch("/llms.txt")).status, 404);
+    };
+
+    // A new owner has no saved settings.
+    assert.equal((await worker.request({ path: "/api/settings" })).body.settings, null);
+    await expectPrivate();
+
+    const turnedOn = await worker.request({ path: "/api/settings", method: "PATCH", body: { publicViewEnabled: true } });
+    assert.equal(turnedOn.status, 200);
+    assert.equal(turnedOn.body.settings.publicViewEnabled, true);
+    const root = await worker.fetch("/", { redirect: "manual" });
+    assert.equal(root.status, 200);
+    assert.match(await root.text(), /Public read-only/);
+    const summary = await worker.request({ path: "/api/public/summary" });
+    assert.equal(summary.status, 200);
+    assert.equal(summary.body.recentMeals[0].hasPhoto, true);
+    const photo = await worker.fetch(`/meal-photos/${meal.id}`);
+    assert.equal(photo.status, 200);
+    assert.deepEqual(Buffer.from(await photo.arrayBuffer()), PNG);
+
+    // A save that leaves the setting out keeps it. A value that is not a boolean is refused.
+    const goalsSaved = await worker.request({ path: "/api/settings", method: "PATCH", body: { dailyCalorieTarget: 2000 } });
+    assert.equal(goalsSaved.body.settings.publicViewEnabled, true);
+    const invalid = await worker.request({ path: "/api/settings", method: "PATCH", body: { publicViewEnabled: "yes" } });
+    assert.equal(invalid.status, 400);
+    assert.equal(invalid.body.error.code, "invalid_field");
+
+    const turnedOff = await worker.request({ path: "/api/settings", method: "PATCH", body: { publicViewEnabled: false } });
+    assert.equal(turnedOff.body.settings.publicViewEnabled, false);
+    await expectPrivate();
   } finally {
     await worker.dispose();
   }
@@ -145,7 +202,7 @@ test("the owner can read the totals of a past month and the entries of a past da
     assert.equal(emptyDay.body.weight, null);
 
     // The public calendar reads the same data on the summary path, in the saved timezone and without private fields.
-    const timezoneSaved = await worker.request({ path: "/api/settings", method: "PATCH", body: { timezone: "Asia/Ho_Chi_Minh" } });
+    const timezoneSaved = await worker.request({ path: "/api/settings", method: "PATCH", body: { timezone: "Asia/Ho_Chi_Minh", publicViewEnabled: true } });
     assert.equal(timezoneSaved.status, 200);
     const publicMonth = await worker.request({ path: "/api/public/summary?view=month&month=2025-03" });
     assert.equal(publicMonth.status, 200);
@@ -188,7 +245,7 @@ test("the public daily view covers the whole history in a small response", async
       assert.equal(weighed.status, 200);
     }
 
-    const goalsSaved = await worker.request({ path: "/api/settings", method: "PATCH", body: { dailyCalorieTarget: 2100, dailyProteinTargetG: 140 } });
+    const goalsSaved = await worker.request({ path: "/api/settings", method: "PATCH", body: { dailyCalorieTarget: 2100, dailyProteinTargetG: 140, publicViewEnabled: true } });
     assert.equal(goalsSaved.status, 200);
     const timezoneSaved = await worker.request({ path: "/api/settings", method: "PATCH", body: { timezone: "UTC" } });
     assert.equal(timezoneSaved.status, 200);

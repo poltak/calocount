@@ -8,6 +8,8 @@ export type PublicPhotoMeal = Pick<MealWithItems["meal"],
 > & {
   /** The owner's saved timezone, which sets the seven-day public window. */
   timezone?: string | null;
+  /** The owner's public view setting. Null when the owner has no saved settings. */
+  publicViewEnabled: boolean | null;
 };
 
 type PublicPhotoObject = {
@@ -40,7 +42,8 @@ export function isPublicMealId(value: string): boolean {
 
 /**
  * Stream one photo already included in the anonymous seven-day projection,
- * which covers the last seven days in the owner's saved timezone.
+ * which covers the last seven days in the owner's saved timezone. Nothing
+ * streams while the owner keeps the public view off.
  * The public URL uses the meal ID so the private R2 key never crosses the API.
  */
 export async function buildPublicMealPhotoResponse({
@@ -58,7 +61,7 @@ export async function buildPublicMealPhotoResponse({
   if (!requestedMealId || !isPublicMealId(requestedMealId)) return notFoundResponse();
 
   const meal = await loadMeal({ ownerKey: configuredOwnerKey, mealId: requestedMealId });
-  if (!meal || meal.ownerKey !== configuredOwnerKey || meal.id !== requestedMealId
+  if (!meal || meal.publicViewEnabled !== true || meal.ownerKey !== configuredOwnerKey || meal.id !== requestedMealId
     || meal.status !== "complete" || !meal.photoKey || !isPublicPhotoMimeType(meal.photoMimeType)) {
     return notFoundResponse();
   }

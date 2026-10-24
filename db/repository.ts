@@ -149,6 +149,7 @@ export type SettingsPatch = Partial<{
   nutrientTargets: NutrientGoalOverrides | null;
   vitaminB6UsFnbAdultUlEnabled: boolean;
   usFnbAdultUlEnabled: boolean;
+  publicViewEnabled: boolean;
 }>;
 
 export function createId(prefix: string): string {
@@ -1279,6 +1280,7 @@ export async function upsertSettings(db: AppDb, ownerKey: string, patch: Setting
   const usFnbAdultUlConfirmedAt = patch.usFnbAdultUlEnabled === undefined
     ? existing?.usFnbAdultUlConfirmedAt ?? null
     : usFnbAdultUlEnabled ? existing?.usFnbAdultUlConfirmedAt ?? timestamp : null;
+  const publicViewEnabled = patch.publicViewEnabled ?? existing?.publicViewEnabled === true;
   if (existing) {
     const settingsUpdate = db.update(settings).set({
       timezone: patch.timezone ?? existing.timezone,
@@ -1290,6 +1292,7 @@ export async function upsertSettings(db: AppDb, ownerKey: string, patch: Setting
       vitaminB6UsFnbAdultUlConfirmedAt,
       usFnbAdultUlEnabled,
       usFnbAdultUlConfirmedAt,
+      publicViewEnabled,
       updatedAt: timestamp,
     }).where(and(eq(settings.id, id), eq(settings.ownerKey, ownerKey)));
     await db.batch([settingsUpdate, ...goalChange]);
@@ -1304,6 +1307,7 @@ export async function upsertSettings(db: AppDb, ownerKey: string, patch: Setting
       vitaminB6UsFnbAdultUlConfirmedAt,
       usFnbAdultUlEnabled,
       usFnbAdultUlConfirmedAt,
+      publicViewEnabled,
       createdAt: timestamp,
       updatedAt: timestamp,
     });
@@ -1661,6 +1665,7 @@ export async function findMealPhoto({ db, ownerKey, mealId }: { db: AppDb; owner
     photoKey: mealLogs.photoKey,
     photoMimeType: mealLogs.photoMimeType,
     timezone: settings.timezone,
+    publicViewEnabled: settings.publicViewEnabled,
   }).from(mealLogs)
     .leftJoin(settings, eq(settings.ownerKey, mealLogs.ownerKey))
     .where(and(eq(mealLogs.ownerKey, ownerKey), eq(mealLogs.id, mealId))).limit(1).prepare().get();

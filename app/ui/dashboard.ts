@@ -807,7 +807,8 @@ export function mountDashboard(root: HTMLElement, { readOnly = false, publicView
         if (!response.ok) {
           if (stale()) return;
           if (readOnly) {
-            update({ dataMode: "error", dataMessage: unavailableMessage });
+            // The owner turned the public view off while this page was open.
+            update({ dataMode: "error", dataMessage: response.status === 404 ? "The owner made this dashboard private." : unavailableMessage });
           } else {
             const responseBody = await response.json().catch(() => null);
             if (stale()) return;
@@ -1379,6 +1380,7 @@ export function mountDashboard(root: HTMLElement, { readOnly = false, publicView
         timezone: parsed.timezone ?? browserZone,
         vitaminB6UsFnbAdultUlEnabled: parsed.vitaminB6UsFnbAdultUlEnabled,
         usFnbAdultUlEnabled: parsed.usFnbAdultUlEnabled,
+        publicViewEnabled: parsed.publicViewEnabled,
       }), {
         targets: nextTargets,
         proteinGoal: nextProteinGoal,
@@ -1453,6 +1455,7 @@ export function mountDashboard(root: HTMLElement, { readOnly = false, publicView
           nutrientTargets: nutrientTargetOverrides,
           vitaminB6UsFnbAdultUlEnabled: settingsDraft.vitaminB6UsFnbAdultUlEnabled,
           usFnbAdultUlEnabled: settingsDraft.usFnbAdultUlEnabled,
+          ...(settingsDraft.publicViewEnabled === null ? {} : { publicViewEnabled: settingsDraft.publicViewEnabled }),
         }),
       }),
       // A response without readable settings still counts as saved; the draft values stay.

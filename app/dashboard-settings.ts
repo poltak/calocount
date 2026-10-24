@@ -18,14 +18,17 @@ export type SettingsDraft = {
   usFnbAdultUlEnabled: boolean;
   /** The IANA timezone that sets day boundaries for the public view and ChatGPT daily totals. */
   timezone: string;
+  /** Null until the saved settings load. A save leaves the setting as it is then. */
+  publicViewEnabled: boolean | null;
 };
 
-export function settingsDraftForTargets({ targets, proteinGoal, timezone, vitaminB6UsFnbAdultUlEnabled = false, usFnbAdultUlEnabled = false }: {
+export function settingsDraftForTargets({ targets, proteinGoal, timezone, vitaminB6UsFnbAdultUlEnabled = false, usFnbAdultUlEnabled = false, publicViewEnabled = null }: {
   targets: TargetState;
   proteinGoal: ProteinGoalSummary;
   timezone: string;
   vitaminB6UsFnbAdultUlEnabled?: boolean;
   usFnbAdultUlEnabled?: boolean;
+  publicViewEnabled?: boolean | null;
 }): SettingsDraft {
   return {
     timezone,
@@ -36,5 +39,6 @@ export function settingsDraftForTargets({ targets, proteinGoal, timezone, vitami
     nutrients: nutrientGoalDraftFromMap(targets.nutrients),
     vitaminB6UsFnbAdultUlEnabled,
     usFnbAdultUlEnabled,
+    publicViewEnabled,
   };
 }

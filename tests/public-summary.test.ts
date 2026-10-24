@@ -18,10 +18,15 @@ async function mustNotLoad(): Promise<never> {
   throw new Error("must not load this view");
 }
 
+async function publicViewOn() {
+  return true;
+}
+
 test("public summary fails closed when the owner key is missing", async () => {
   await assert.rejects(
     buildPublicSummaryResponse({
       ownerKey: "  ",
+      loadPublicViewEnabled: mustNotLoad,
       loadSummary: mustNotLoad,
       loadDailyHistory: mustNotLoad,
       loadMonth: mustNotLoad,
@@ -31,6 +36,28 @@ test("public summary fails closed when the owner key is missing", async () => {
       && error.status === 503
       && error.code === "public_owner_key_missing",
   );
+});
+
+test("every public view answers 404 and loads nothing while the owner keeps the public view off", async () => {
+  for (const view of ["dashboard", "daily", "month", "day"] as const) {
+    const requestedOwnerKeys: string[] = [];
+    const response = await buildPublicSummaryResponse({
+      ownerKey: " owner-1 ",
+      view,
+      loadPublicViewEnabled: async (ownerKey) => {
+        requestedOwnerKeys.push(ownerKey);
+        return false;
+      },
+      loadSummary: mustNotLoad,
+      loadDailyHistory: mustNotLoad,
+      loadMonth: mustNotLoad,
+      loadDay: mustNotLoad,
+    });
+    assert.equal(response.status, 404, view);
+    assert.equal(response.headers.get("cache-control"), "no-store", view);
+    assert.deepEqual(await response.json(), { error: { code: "public_view_off", message: "The public dashboard is turned off." } }, view);
+    assert.deepEqual(requestedOwnerKeys, ["owner-1"], view);
+  }
 });
 
 test("public summary returns a no-store projection without private fields", async () => {
@@ -140,6 +167,7 @@ test("public summary returns a no-store projection without private fields", asyn
   } satisfies DashboardSummary;
   const response = await buildPublicSummaryResponse({
     ownerKey: " owner-1 ",
+    loadPublicViewEnabled: publicViewOn,
     loadSummary: async (ownerKey) => {
       requestedOwnerKeys.push(ownerKey);
       return summary;
@@ -194,6 +222,7 @@ test("the daily view returns small rounded day rows and nothing else from the hi
   const response = await buildPublicSummaryResponse({
     ownerKey: " owner-1 ",
     view: "daily",
+    loadPublicViewEnabled: publicViewOn,
     loadSummary: mustNotLoad,
     loadDailyHistory: async (ownerKey) => {
       requestedOwnerKeys.push(ownerKey);
@@ -270,6 +299,7 @@ test("the public month view gives the totals of each day in the owner's saved ti
     const response = await buildPublicSummaryResponse({
       ownerKey: "owner-1",
       view: "month",
+      loadPublicViewEnabled: publicViewOn,
       loadSummary: mustNotLoad,
       loadDailyHistory: mustNotLoad,
       loadMonth: (ownerKey) => getMonthTotals({ db: fixture.db, ownerKey, month: "2026-08", useSavedTimezone: true }),
@@ -298,6 +328,7 @@ test("the public day view lists completed entries without private fields or old 
         ownerKey: "owner-1",
         view: "day",
         now,
+        loadPublicViewEnabled: publicViewOn,
         loadSummary: mustNotLoad,
         loadDailyHistory: mustNotLoad,
         loadMonth: mustNotLoad,

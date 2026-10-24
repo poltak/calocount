@@ -30,6 +30,29 @@ compatibility; do not remove or alter them without a separate database decision.
 | `/assets/*`, manifest, service worker, and required icons | Public because no Access destination matches them | JavaScript, CSS, and install metadata only |
 | `/api/photos/*`, exports, settings, and other owner APIs | Private | Sensitive data and mutations |
 
+## Public view setting
+
+The owner turns the public view on or off in the settings panel of the owner
+dashboard, under "Public dashboard". The API field is `publicViewEnabled` on
+`PATCH /api/settings`. The setting is off for an owner with no saved settings,
+so a new instance starts private. Migration `0014_public_view.sql` turns it on
+for each owner that already had saved settings.
+
+While the setting is off:
+
+- `/` redirects to `/owner`, so a visitor goes to the Access sign-in;
+- `/api/public/summary` returns `404` with the code `public_view_off` for every view;
+- `/meal-photos/*` returns `404`; and
+- `/llms.txt` returns `404`.
+
+The Worker reads the setting on each request, and the Access layout below does
+not change. Keep the Access bypass for `/api/public/summary` on a private
+instance too, so the owner can turn the public view on later without an Access
+change. If the Worker cannot read the setting because the owner key or the
+database is missing, `/` shows the public page and the data routes fail closed.
+
+## Public summary
+
 The public summary endpoint resolves the stable configured owner key. It fails
 closed when that key is absent and returns `Cache-Control: no-store`. The
 projection contains only the fields required by the dashboard:

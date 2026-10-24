@@ -22,6 +22,8 @@ type PublicSummaryResponseOptions = {
    */
   view?: PublicSummaryView;
   now?: Date;
+  /** Read the owner's public view setting. Nothing loads while it is off. */
+  loadPublicViewEnabled: (ownerKey: string) => Promise<boolean>;
   loadSummary: (ownerKey: string) => Promise<DashboardSummary>;
   loadDailyHistory: (ownerKey: string) => Promise<DailyHistory>;
   /** Load the month the request asks for. The caller has checked the month. */
@@ -40,6 +42,14 @@ export class PublicSummaryConfigError extends Error {
   }
 }
 
+/** The answer of the public data routes while the owner keeps the public view off. */
+export function publicViewOffResponse(): Response {
+  return Response.json(
+    { error: { code: "public_view_off", message: "The public dashboard is turned off." } },
+    { status: 404, headers: { "cache-control": "no-store" } },
+  );
+}
+
 /** The view a `view` query value asks for, or null when the value is not supported. */
 export function parsePublicSummaryView(value: string | null): PublicSummaryView | null {
   if (value === null) return "dashboard";
@@ -49,12 +59,13 @@ export function parsePublicSummaryView(value: string | null): PublicSummaryView 
 /**
  * Build the anonymous dashboard response from the one explicitly configured
  * owner. The caller must provide the configured key; no anonymous fallback is
- * allowed here.
+ * allowed here. The owner must have turned the public view on.
  */
 export async function buildPublicSummaryResponse({
   ownerKey,
   view = "dashboard",
   now = new Date(),
+  loadPublicViewEnabled,
   loadSummary,
   loadDailyHistory,
   loadMonth,
@@ -64,6 +75,7 @@ export async function buildPublicSummaryResponse({
   if (!configuredOwnerKey) {
     throw new PublicSummaryConfigError();
   }
+  if (!await loadPublicViewEnabled(configuredOwnerKey)) return publicViewOffResponse();
 
   const loadBody = {
     dashboard: async () => projectPublicDashboardSummary(await loadSummary(configuredOwnerKey)),

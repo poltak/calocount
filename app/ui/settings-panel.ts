@@ -39,7 +39,7 @@ function inputValue(event: Event) {
 }
 
 /**
- * The targets, timezone, theme and nutrient goals of the owner. A typed value
+ * The targets, timezone, public view, theme and nutrient goals of the owner. A typed value
  * goes to the draft and the field keeps it. The form is built again only when
  * its fields change, and then it reads every value from the draft.
  */
@@ -82,9 +82,9 @@ export function createSettingsPanel({ getDraft, setDraft, onSave, onClose, getTh
     );
   }
 
-  function referenceSetting({ id, field, label, detail, draft, disabled }: {
+  function checkboxSetting({ id, field, label, detail, draft, disabled }: {
     id: string;
-    field: "vitaminB6UsFnbAdultUlEnabled" | "usFnbAdultUlEnabled";
+    field: "vitaminB6UsFnbAdultUlEnabled" | "usFnbAdultUlEnabled" | "publicViewEnabled";
     label: string;
     detail: string;
     draft: SettingsDraft;
@@ -95,7 +95,7 @@ export function createSettingsPanel({ getDraft, setDraft, onSave, onClose, getTh
         id,
         type: "checkbox",
         name: id,
-        checked: draft[field],
+        checked: draft[field] === true,
         onchange: (event: Event) => {
           const checked = (event.target as HTMLInputElement).checked;
           change((current) => ({ ...current, [field]: checked }));
@@ -138,6 +138,17 @@ export function createSettingsPanel({ getDraft, setDraft, onSave, onClose, getTh
             draft.timezone !== deviceTimeZone ? h("button", { class: "secondary-button", type: "button", disabled, onclick: () => change((current) => ({ ...current, timezone: deviceTimeZone }), { rebuild: true }) }, `Use this device's timezone (${deviceTimeZone.replaceAll("_", " ")})`) : null,
           ),
         ),
+        h("section", { class: "settings-section public-view-settings", "aria-labelledby": "public-view-title" },
+          sectionHeading({ id: "public-view-title", title: "Public dashboard", detail: "Who can see your log" }),
+          checkboxSetting({
+            id: "public-view-enabled",
+            field: "publicViewEnabled",
+            label: "Show my log to anyone who opens the site address",
+            detail: "Visitors see your entries, food items, nutrients, weights and the photos of the last seven days. They cannot make changes. Notes and captions stay private. When this is off, the site address opens your own dashboard after you sign in.",
+            draft,
+            disabled,
+          }),
+        ),
         h("section", { class: "settings-section appearance-settings", "aria-labelledby": "appearance-title" },
           sectionHeading({ id: "appearance-title", title: "Appearance", detail: "Choose how Calocount looks on this device" }),
           h("div", { class: "protein-goal-mode-options theme-options", role: "radiogroup", "aria-label": "Theme" },
@@ -154,7 +165,7 @@ export function createSettingsPanel({ getDraft, setDraft, onSave, onClose, getTh
         }),
         h("section", { class: "settings-section", "aria-labelledby": "nutrition-reference-title" },
           sectionHeading({ id: "nutrition-reference-title", title: "Nutrition reference", detail: "Optional upper-limit comparisons for explicitly recorded values" }),
-          referenceSetting({
+          checkboxSetting({
             id: "vitamin-b6-us-fnb-adult-ul",
             field: "vitaminB6UsFnbAdultUlEnabled",
             label: "I am 19 or older; use the U.S. adult vitamin B6 upper limit",
@@ -162,7 +173,7 @@ export function createSettingsPanel({ getDraft, setDraft, onSave, onClose, getTh
             draft,
             disabled,
           }),
-          referenceSetting({
+          checkboxSetting({
             id: "us-fnb-adult-ul",
             field: "usFnbAdultUlEnabled",
             label: "I am 19 or older; use applicable U.S. nutrient upper limits",
