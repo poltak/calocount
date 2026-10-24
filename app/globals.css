@@ -4411,3 +4411,150 @@ body {
 
   .app-footer { justify-content: center; }
 }
+
+/* Sign-in, setup and consent pages. */
+.auth-shell {
+  display: grid;
+  min-height: 100vh;
+  min-height: 100dvh;
+  place-items: center;
+  padding-top: 28px;
+}
+
+.auth-panel {
+  display: grid;
+  justify-items: center;
+  width: min(100%, 420px);
+  padding: 36px 28px 30px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-sheen), var(--surface);
+  box-shadow: var(--panel-shadow);
+  text-align: center;
+}
+
+.auth-brand { margin-bottom: 4px; transform: scale(1.4); }
+
+.auth-panel h1 {
+  margin: 16px 0 0;
+  color: var(--foreground);
+  font-size: 22px;
+  font-weight: 680;
+  letter-spacing: -.04em;
+}
+
+.auth-panel p {
+  max-width: 360px;
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.auth-panel .auth-notice { color: var(--muted-strong); }
+.auth-panel .auth-error { color: var(--red); }
+
+.auth-form {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+  margin-top: 20px;
+  text-align: left;
+}
+
+.auth-form label {
+  display: grid;
+  gap: 6px;
+  color: var(--foreground);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+/* 16px keeps iOS from zooming into the field. */
+.auth-form input {
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--form-control-border);
+  border-radius: var(--radius-control);
+  outline: 0;
+  background: var(--form-control-background);
+  color: var(--foreground);
+  font-size: 16px;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.auth-form input:focus {
+  border-color: var(--orange);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--orange) 22%, transparent);
+}
+
+.auth-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.auth-panel .primary-button,
+.auth-panel .secondary-button {
+  min-height: 44px;
+  padding: 0 18px;
+  font-size: 14px;
+}
+
+.auth-form .primary-button { width: 100%; }
+
+.auth-link {
+  margin-top: 18px;
+  padding: 6px;
+  background: none;
+  color: var(--muted);
+  font-size: 12px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.auth-link:hover:not(:disabled) { color: var(--foreground); }
+
+/* The sign-in section of the settings. */
+.account-settings { margin-top: 14px; border-top: 1px solid var(--line-soft); }
+
+.account-subheading {
+  margin: 16px 0 8px;
+  color: var(--muted-strong);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.account-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+
+.account-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-control);
+}
+
+.account-list li > div { min-width: 0; }
+.account-list strong { display: flex; align-items: center; gap: 8px; color: var(--foreground); font-size: 13px; font-weight: 650; }
+.account-list small { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; }
+
+.account-tag {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--green) 16%, transparent);
+  color: var(--green);
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.account-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.account-empty, .account-feedback { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.account-feedback { margin-top: 10px; }
+.account-feedback.error { color: var(--red); }

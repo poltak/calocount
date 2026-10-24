@@ -12,8 +12,21 @@ const ACCESS = {
   CALOCOUNT_ALLOWED_EMAIL_SHA256: "a".repeat(64),
 };
 
-// Reviewed exceptions to "every API route needs the owner's Access session".
-const PUBLIC_ROUTES = new Set(["/api/public/summary", "/api/add-meal"]);
+// Without Access values or a mode, an instance uses passkeys.
+const PASSKEY = { CALOCOUNT_ALLOW_LOCAL: "false", CALOCOUNT_OWNER_KEY: "owner" };
+
+// Reviewed exceptions to "every API route needs the owner's session". The auth
+// routes sign a browser in; without a session, adding a passkey needs the setup code.
+const PUBLIC_ROUTES = new Set([
+  "/api/public/summary",
+  "/api/add-meal",
+  "/api/auth/status",
+  "/api/auth/login/options",
+  "/api/auth/login/verify",
+  "/api/auth/register/options",
+  "/api/auth/register/verify",
+  "/api/auth/logout",
+]);
 
 /** Every route handler file under app/api plus /mcp, with the HTTP methods each one exports. */
 async function privateRoutes() {
@@ -50,9 +63,31 @@ test("every private route rejects a request without an Access token", async () =
   }
 });
 
+test("every private route rejects a request without a passkey session", async () => {
+  const routes = await privateRoutes();
+  const worker = await startWorker(PASSKEY);
+  try {
+    for (const { path, method } of routes) {
+      const response = await worker.request({ path, method, body: method === "GET" || method === "DELETE" ? undefined : {} });
+      assert.equal(response.status, 401, `${method} ${path} must require sign-in`);
+      if (path === "/mcp") {
+        // The challenge sends an MCP client to the OAuth discovery document.
+        assert.equal(response.body?.error?.code, "unauthorized");
+        assert.equal(response.headers.get("www-authenticate"), 'Bearer resource_metadata="http://localhost/.well-known/oauth-protected-resource/mcp"');
+      } else {
+        assert.equal(response.body?.error?.code, "sign_in_required", `${method} ${path}`);
+      }
+    }
+  } finally {
+    await worker.dispose();
+  }
+});
+
 test("private routes fail closed when owner authentication is not configured", async () => {
   const cases = [
-    [{ CALOCOUNT_ALLOW_LOCAL: "false" }, 503, "auth_access_settings_missing"],
+    [{ CALOCOUNT_ALLOW_LOCAL: "false", CALOCOUNT_AUTH_MODE: "access" }, 503, "auth_access_settings_missing"],
+    [{ CALOCOUNT_ALLOW_LOCAL: "false" }, 503, "auth_owner_key_missing"],
+    [{ ...PASSKEY, CALOCOUNT_AUTH_MODE: "password" }, 503, "auth_mode_invalid"],
     [{ ...ACCESS, CALOCOUNT_ALLOWED_EMAIL_SHA256: "" }, 503, "auth_owner_allowlist_missing"],
     // Local mode is anonymous only when no allowlist is configured at all.
     [{ ...ACCESS, CALOCOUNT_ALLOW_LOCAL: "true" }, 403, "forbidden"],

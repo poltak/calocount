@@ -138,17 +138,74 @@ const privacyBody = `<main class="app-shell">
 
 const notFoundBody = `<main class="app-shell"><section class="dashboard-state"><span class="dashboard-state-mark" aria-hidden="true">!</span><h1>Page not found</h1><p>This page does not exist.</p><a class="primary-button" href="/">Open Calocount</a></section></main>`;
 
-function html(markup: string, status = 200): Response {
+function html(markup: string, status = 200, headers: Record<string, string> = {}): Response {
   return new Response(markup, {
     status,
-    headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store, must-revalidate" },
+    headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store, must-revalidate", ...headers },
   });
+}
+
+/**
+ * Sign-in and consent pages must not show inside a frame of another site,
+ * where a click could be hijacked. `same-origin` keeps the address of the page
+ * from other sites. Do not use `no-referrer`: with it, the browser sends
+ * `Origin: null` with the consent form, and the same-origin check refuses it.
+ */
+const NO_FRAME_HEADERS = {
+  "x-frame-options": "DENY",
+  "content-security-policy": "frame-ancestors 'none'",
+  "referrer-policy": "same-origin",
+};
+
+const brandMark = `<span class="brand-mark auth-brand" aria-hidden="true"><span></span><span></span><span></span></span>`;
+
+/**
+ * The sign-in page before its script runs. The script asks the server whether
+ * this instance has a passkey, then shows the sign-in or the setup form.
+ */
+function signInShell({ returnTo, notice }: { returnTo: string; notice?: string }): string {
+  const noticeAttribute = notice ? ` data-notice="${escapeHtml(notice)}"` : "";
+  return `<main class="app-shell auth-shell" data-view="sign-in" data-return-to="${escapeHtml(returnTo)}"${noticeAttribute}><section class="auth-panel" aria-live="polite">${brandMark}<h1>Sign in to Calocount</h1>${notice ? `<p class="auth-notice">${escapeHtml(notice)}</p>` : ""}<p class="auth-status">Checking sign-in…</p></section></main>`;
+}
+
+/** The sign-in page. After sign-in, the browser goes to `returnTo`, a path on this site. */
+export function renderSignInPage(request: Request, { returnTo, notice, headers = {} }: {
+  returnTo: string;
+  notice?: string;
+  headers?: Record<string, string>;
+}): Response {
+  return html(document({ request, title: "Sign in — Calocount", body: signInShell({ returnTo, notice }) }), 200, { ...NO_FRAME_HEADERS, ...headers });
+}
+
+/** The owner dashboard page. A passkey session can renew its cookie with `headers`. */
+export function renderOwnerPage(request: Request, headers: Record<string, string> = {}): Response {
+  return html(document({ request, body: dashboardShell({ publicView: false }) }), 200, headers);
+}
+
+/** Ask the owner to allow an OAuth client. The form posts the checked request back. */
+export function renderConsentPage(request: Request, { clientName, redirectHost, fields }: {
+  clientName: string;
+  redirectHost: string;
+  fields: Record<string, string>;
+}): Response {
+  const name = escapeHtml(clientName);
+  const hidden = Object.entries(fields)
+    .map(([field, value]) => `<input type="hidden" name="${escapeHtml(field)}" value="${escapeHtml(value)}"/>`)
+    .join("");
+  const body = `<main class="app-shell auth-shell"><section class="auth-panel">${brandMark}<h1>Connect ${name} to Calocount?</h1><p>${name} will be able to read your entries, nutrition and weights, and to add and change entries.</p><p class="auth-notice">After you allow it, Calocount sends you to <strong>${escapeHtml(redirectHost)}</strong>. Allow only an app that you started to connect yourself.</p><form class="auth-actions" method="post" action="/oauth/authorize">${hidden}<button class="primary-button" type="submit" name="decision" value="allow">Allow</button><button class="secondary-button" type="submit" name="decision" value="deny">Deny</button></form></section></main>`;
+  return html(document({ request, title: "Connect an app — Calocount", body, scripts: false }), 200, NO_FRAME_HEADERS);
+}
+
+/** An OAuth request that cannot go back to its app, for example because its return address is not registered. */
+export function renderOAuthErrorPage(request: Request, { status, message }: { status: number; message: string }): Response {
+  const body = `<main class="app-shell auth-shell"><section class="auth-panel">${brandMark}<h1>This connection cannot continue</h1><p>${escapeHtml(message)}</p><p class="auth-notice">Start the connection again from the app.</p></section></main>`;
+  return html(document({ request, title: "Connection error — Calocount", body, scripts: false }), status, NO_FRAME_HEADERS);
 }
 
 /** Answer a request for a page. Returns null when no page has the path. */
 export function renderPage(request: Request, pathname: string): Response | null {
   if (pathname === "/") return html(document({ request, body: dashboardShell({ publicView: true }) }));
-  if (pathname === "/owner") return html(document({ request, body: dashboardShell({ publicView: false }) }));
+  if (pathname === "/owner") return renderOwnerPage(request);
   if (pathname === "/privacy") {
     return html(document({
       request,

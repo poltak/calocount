@@ -294,6 +294,133 @@ export const shareLinks = sqliteTable(
   ],
 );
 
+/** The passkeys that can sign in as the owner. The ID is the WebAuthn credential ID. */
+export const passkeys = sqliteTable(
+  "passkeys",
+  {
+    id: text("id").primaryKey(),
+    ownerKey: text("owner_key").notNull(),
+    /** The COSE public key, base64url. */
+    publicKey: text("public_key").notNull(),
+    counter: integer("counter").notNull().default(0),
+    transportsJson: text("transports_json").notNull().default("[]"),
+    deviceType: text("device_type").notNull(),
+    backedUp: integer("backed_up", { mode: "boolean" }).notNull().default(false),
+    name: text("name").notNull(),
+    ...createdAt(),
+    lastUsedAt: integer("last_used_at", { mode: "number" }),
+  },
+  (table) => [index("passkeys_owner_idx").on(table.ownerKey)],
+);
+
+/** Signed-in browsers. The ID is the SHA-256 of the cookie value, so the database never holds a usable cookie. */
+export const authSessions = sqliteTable(
+  "auth_sessions",
+  {
+    id: text("id").primaryKey(),
+    ownerKey: text("owner_key").notNull(),
+    passkeyId: text("passkey_id"),
+    ...createdAt(),
+    lastSeenAt: integer("last_seen_at", { mode: "number" }).notNull(),
+    expiresAt: integer("expires_at", { mode: "number" }).notNull(),
+  },
+  (table) => [
+    index("auth_sessions_owner_idx").on(table.ownerKey),
+    index("auth_sessions_expires_idx").on(table.expiresAt),
+  ],
+);
+
+/** WebAuthn challenges that are waiting for an answer. Each one is used once. */
+export const authChallenges = sqliteTable(
+  "auth_challenges",
+  {
+    id: text("id").primaryKey(),
+    ownerKey: text("owner_key").notNull(),
+    purpose: text("purpose").notNull(),
+    challenge: text("challenge").notNull(),
+    ...createdAt(),
+    expiresAt: integer("expires_at", { mode: "number" }).notNull(),
+  },
+  (table) => [index("auth_challenges_expires_idx").on(table.expiresAt)],
+);
+
+/** Recent attempts that a rate limit counts, such as a wrong setup code. */
+export const authAttempts = sqliteTable(
+  "auth_attempts",
+  {
+    id: text("id").primaryKey(),
+    kind: text("kind").notNull(),
+    ...createdAt(),
+  },
+  (table) => [index("auth_attempts_kind_created_idx").on(table.kind, table.createdAt)],
+);
+
+/** Apps that registered for OAuth, such as ChatGPT. */
+export const oauthClients = sqliteTable(
+  "oauth_clients",
+  {
+    id: text("id").primaryKey(),
+    /** SHA-256 of the client secret. Null for a public client. */
+    secretHash: text("secret_hash"),
+    name: text("name").notNull(),
+    redirectUrisJson: text("redirect_uris_json").notNull(),
+    tokenEndpointAuthMethod: text("token_endpoint_auth_method").notNull(),
+    ...createdAt(),
+    /** When the owner last allowed this app. A client that the owner never allowed is removed after a day. */
+    approvedAt: integer("approved_at", { mode: "number" }),
+  },
+);
+
+/** The owner's approval of one app. Its tokens stop working when it is removed. */
+export const oauthGrants = sqliteTable(
+  "oauth_grants",
+  {
+    id: text("id").primaryKey(),
+    clientId: text("client_id").notNull(),
+    ownerKey: text("owner_key").notNull(),
+    scope: text("scope").notNull().default(""),
+    resource: text("resource").notNull(),
+    ...createdAt(),
+    lastUsedAt: integer("last_used_at", { mode: "number" }),
+  },
+  (table) => [
+    index("oauth_grants_owner_idx").on(table.ownerKey),
+    index("oauth_grants_client_idx").on(table.clientId),
+  ],
+);
+
+/** Authorization codes. The ID is the SHA-256 of the code. Each code is used once. */
+export const oauthCodes = sqliteTable(
+  "oauth_codes",
+  {
+    id: text("id").primaryKey(),
+    grantId: text("grant_id").notNull(),
+    clientId: text("client_id").notNull(),
+    redirectUri: text("redirect_uri").notNull(),
+    codeChallenge: text("code_challenge").notNull(),
+    ...createdAt(),
+    expiresAt: integer("expires_at", { mode: "number" }).notNull(),
+  },
+  (table) => [index("oauth_codes_expires_idx").on(table.expiresAt)],
+);
+
+/** Access and refresh tokens. The ID is the SHA-256 of the token. */
+export const oauthTokens = sqliteTable(
+  "oauth_tokens",
+  {
+    id: text("id").primaryKey(),
+    kind: text("kind").notNull(),
+    grantId: text("grant_id").notNull(),
+    clientId: text("client_id").notNull(),
+    ...createdAt(),
+    expiresAt: integer("expires_at", { mode: "number" }).notNull(),
+  },
+  (table) => [
+    index("oauth_tokens_grant_idx").on(table.grantId),
+    index("oauth_tokens_expires_idx").on(table.expiresAt),
+  ],
+);
+
 export type Settings = typeof settings.$inferSelect;
 export type MealLog = typeof mealLogs.$inferSelect;
 export type MealItem = typeof mealItems.$inferSelect;
@@ -303,3 +430,5 @@ export type MealRevision = typeof mealRevisions.$inferSelect;
 export type AiProfile = typeof aiProfiles.$inferSelect;
 export type AiRun = typeof aiRuns.$inferSelect;
 export type ShareLink = typeof shareLinks.$inferSelect;
+export type Passkey = typeof passkeys.$inferSelect;
+export type OauthClient = typeof oauthClients.$inferSelect;

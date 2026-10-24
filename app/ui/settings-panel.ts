@@ -4,6 +4,7 @@ import type { SettingsDraft } from "../dashboard-settings";
 import { nutrientGoalDraftFromMap } from "../nutrition/nutrient-goal-draft";
 import { nutrientGoalSettings } from "./nutrient-goal-settings";
 import type { ThemePreference } from "../theme";
+import { createAccountSettings } from "./account-settings";
 
 type SettingsPanelOptions = {
   /** Read the draft. The dashboard owns it, and it can change while the panel is open. */
@@ -22,6 +23,8 @@ export type SettingsPanel = {
   el: HTMLElement;
   /** Build the form again from the draft, with the given pending state. */
   render: (state: { loading: boolean; saving: boolean }) => void;
+  /** Load the passkeys and connected apps again. */
+  refreshAccount: () => void;
 };
 
 /** Every timezone the browser knows, plus the given ones in case it does not list them. */
@@ -46,6 +49,8 @@ function inputValue(event: Event) {
 export function createSettingsPanel({ getDraft, setDraft, onSave, onClose, getThemePreference, onThemeChange, deviceTimeZone }: SettingsPanelOptions): SettingsPanel {
   const content = slot();
   const el = keep(h("section", { class: "settings-panel", id: "settings-panel", role: "dialog", "aria-labelledby": "settings-title" }, ...content.anchors));
+  // The sign-in section keeps its own state, so the form rebuilds leave it as it is.
+  const account = createAccountSettings();
   let pending = { loading: false, saving: false };
 
   function render() {
@@ -185,6 +190,7 @@ export function createSettingsPanel({ getDraft, setDraft, onSave, onClose, getTh
         h("button", { class: "save-button settings-save-button", type: "submit", disabled, "aria-busy": saving }, saving ? "Saving…" : loading ? "Loading…" : "Save targets"),
       ),
       h("p", { class: "settings-help", role: "status", "aria-live": "polite" }, loading ? "Loading saved targets…" : saving ? "Saving targets…" : "Targets guide the rings, nutrient progress, trend lines, and daily nudge."),
+      account.el,
     ];
   }
 
@@ -194,5 +200,6 @@ export function createSettingsPanel({ getDraft, setDraft, onSave, onClose, getTh
       pending = state;
       render();
     },
+    refreshAccount: account.refresh,
   };
 }

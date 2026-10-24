@@ -32,14 +32,14 @@
     "crons": ["0 * * * *"]
   },
   // Only values that are the same for every instance. Each instance sets its
-  // own Access values and owner email on its Worker, in the dashboard or as
-  // secrets. See docs/deploy-your-own.md.
+  // own setup code, sign-in mode and, for Access mode, Access values on its
+  // Worker, in the dashboard or as secrets. See docs/sign-in.md.
   "vars": {
     "CALOCOUNT_OWNER_KEY": "default",
     "CALOCOUNT_ALLOW_LOCAL": "false"
   },
-  // Keep the variables that the dashboard sets. Without this, each deploy
-  // deletes them, and owner sign-in stops.
+  // Keep the variables that the dashboard sets, such as CALOCOUNT_AUTH_MODE.
+  // Without this, each deploy deletes them.
   "keep_vars": true,
   "observability": {
     "enabled": true,

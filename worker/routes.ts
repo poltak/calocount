@@ -11,12 +11,12 @@ type Route = {
   load: () => Promise<RouteModule>;
 };
 
-const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const;
+const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"] as const;
 
 /** Describe a path such as `/api/meals/:id` or `/api/photos/*key`. */
 function route(path: string, load: () => Promise<unknown>): Route {
   const names: string[] = [];
-  const pattern = path.replace(/[:*]([A-Za-z]+)/g, (match, name: string) => {
+  const pattern = path.replace(/\./g, "\\.").replace(/[:*]([A-Za-z]+)/g, (match, name: string) => {
     names.push(match[0] === "*" ? `*${name}` : name);
     return match[0] === "*" ? "(.+)" : "([^/]+)";
   });
@@ -24,7 +24,20 @@ function route(path: string, load: () => Promise<unknown>): Route {
 }
 
 const routes: Route[] = [
+  route("/.well-known/oauth-authorization-server", () => import("../app/oauth/authorization-server/route")),
+  route("/.well-known/oauth-protected-resource", () => import("../app/oauth/protected-resource/route")),
+  route("/.well-known/oauth-protected-resource/mcp", () => import("../app/oauth/protected-resource/route")),
   route("/api/add-meal", () => import("../app/api/add-meal/route")),
+  route("/api/auth/connections", () => import("../app/api/auth/connections/route")),
+  route("/api/auth/connections/:id", () => import("../app/api/auth/connections/[id]/route")),
+  route("/api/auth/login/options", () => import("../app/api/auth/login/options/route")),
+  route("/api/auth/login/verify", () => import("../app/api/auth/login/verify/route")),
+  route("/api/auth/logout", () => import("../app/api/auth/logout/route")),
+  route("/api/auth/passkeys", () => import("../app/api/auth/passkeys/route")),
+  route("/api/auth/passkeys/:id", () => import("../app/api/auth/passkeys/[id]/route")),
+  route("/api/auth/register/options", () => import("../app/api/auth/register/options/route")),
+  route("/api/auth/register/verify", () => import("../app/api/auth/register/verify/route")),
+  route("/api/auth/status", () => import("../app/api/auth/status/route")),
   route("/api/dashboard/summary", () => import("../app/api/dashboard/summary/route")),
   route("/api/days", () => import("../app/api/days/route")),
   route("/api/days/:date", () => import("../app/api/days/[date]/route")),
@@ -42,6 +55,9 @@ const routes: Route[] = [
   route("/api/weights", () => import("../app/api/weights/route")),
   route("/mcp", () => import("../app/mcp/route")),
   route("/meal-photos/:id", () => import("../app/meal-photos/[id]/route")),
+  route("/oauth/authorize", () => import("../app/oauth/authorize/route")),
+  route("/oauth/register", () => import("../app/oauth/register/route")),
+  route("/oauth/token", () => import("../app/oauth/token/route")),
 ];
 
 function readParams(names: string[], values: string[]): RouteParams | null {
@@ -68,7 +84,7 @@ export async function handleRoute(request: Request, pathname: string): Promise<R
     const method = request.method === "HEAD" ? "GET" : request.method;
     const handler = (METHODS as readonly string[]).includes(method) ? handlers[method] : undefined;
     if (!handler) {
-      const allow = [...METHODS.filter((name) => handlers[name]), ...(handlers.GET ? ["HEAD"] : []), "OPTIONS"].join(", ");
+      const allow = [...METHODS.filter((name) => name !== "OPTIONS" && handlers[name]), ...(handlers.GET ? ["HEAD"] : []), "OPTIONS"].join(", ");
       const options = request.method === "OPTIONS";
       return new Response(options ? null : "Method Not Allowed", { status: options ? 204 : 405, headers: { allow } });
     }

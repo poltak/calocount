@@ -3,19 +3,20 @@ import test from "node:test";
 import vm from "node:vm";
 
 /** Render a page from the built Worker, as a browser would request it. */
-async function render(path) {
+async function render(path, bindings = {}, headers = {}) {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
   workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
   const { default: worker } = await import(workerUrl.href);
 
   const response = await worker.fetch(
     new Request(`http://localhost${path}`, {
-      headers: { accept: "text/html", host: "localhost" },
+      headers: { accept: "text/html", host: "localhost", ...headers },
     }),
     {
       ASSETS: {
         fetch: async () => new Response("Not found", { status: 404 }),
       },
+      ...bindings,
     },
     {
       waitUntil() {},
@@ -38,11 +39,32 @@ test("the root server-renders the public read-only dashboard", async () => {
   assert.doesNotMatch(html, /Demo mode/);
 });
 
-test("the owner route server-renders the private dashboard shell", async () => {
-  const { response, html } = await render("/owner");
+test("the owner route server-renders the private dashboard shell when Access or local development signs the owner in", async () => {
+  for (const bindings of [{ CALOCOUNT_AUTH_MODE: "access" }, { CALOCOUNT_ALLOW_LOCAL: "true" }]) {
+    const { response, html } = await render("/owner", bindings);
+    assert.equal(response.status, 200);
+    assert.match(html, /Loading your saved log/);
+    assert.doesNotMatch(html, /Public read-only|Open owner view|Loading public dashboard|data-view="sign-in"/);
+  }
+});
+
+test("a failed session read keeps the cookie and shows the dashboard, which checks the session again", async () => {
+  const failingDb = { prepare() { throw new Error("D1 is down"); } };
+  const { response, html } = await render("/owner", { CALOCOUNT_OWNER_KEY: "owner", DB: failingDb }, { cookie: "calocount_session=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" });
   assert.equal(response.status, 200);
   assert.match(html, /Loading your saved log/);
-  assert.doesNotMatch(html, /Public read-only|Open owner view|Loading public dashboard/);
+  assert.equal(response.headers.get("set-cookie"), null);
+});
+
+test("with passkeys, the owner route shows the sign-in page to a browser without a session", async () => {
+  const { response, html } = await render("/owner", { CALOCOUNT_OWNER_KEY: "owner" });
+  assert.equal(response.status, 200);
+  assert.match(html, /<title>Sign in — Calocount<\/title>/);
+  assert.match(html, /data-view="sign-in" data-return-to="\/owner"/);
+  assert.doesNotMatch(html, /Loading your saved log/);
+  // The sign-in page must not show inside a frame of another site.
+  assert.equal(response.headers.get("x-frame-options"), "DENY");
+  assert.match(response.headers.get("content-security-policy") ?? "", /frame-ancestors 'none'/);
 });
 
 test("the privacy route renders the required policy statements without contact details", async () => {

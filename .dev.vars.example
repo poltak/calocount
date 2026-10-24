@@ -2,5 +2,7 @@
 # as a secret of the new Worker. For local development, copy
 # .dev.vars.local.example to .dev.vars instead.
 
-# The email address that you sign in with. Only this address can open the owner dashboard.
-CALOCOUNT_OWNER_EMAIL=
+# A long phrase that only you know, with at least 12 characters. On your first
+# visit, you type it to save your first passkey. Keep it: it also adds a new
+# passkey if you lose your devices.
+CALOCOUNT_SETUP_CODE=

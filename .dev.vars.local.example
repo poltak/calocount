@@ -1,8 +1,14 @@
 # Local development values. Copy this file to .dev.vars. Deployed instances
 # use .dev.vars.example; see docs/deploy-your-own.md.
 
-# Set this only for local development. Production must use Cloudflare Access.
+# Set this only for local development. It turns sign-in off. Production must
+# keep it false. To try passkey sign-in locally, set it to false and set
+# CALOCOUNT_SETUP_CODE.
 CALOCOUNT_ALLOW_LOCAL=true
+# passkey or access. Empty: access when the Access values below are set, else passkey.
+CALOCOUNT_AUTH_MODE=
+# The code that adds a passkey without a session. At least 12 characters.
+CALOCOUNT_SETUP_CODE=
 CALOCOUNT_OWNER_KEY=local-owner
 # Legacy Custom GPT Action secret for POST /api/add-meal. Do not use for /mcp.
 # Keep a long random value only if an existing Action client still uses this route. Never commit a real value.

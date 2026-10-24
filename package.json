@@ -25,6 +25,8 @@
   },
   "dependencies": {
     "@modelcontextprotocol/server": "^2.0.0",
+    "@simplewebauthn/browser": "14.0.0",
+    "@simplewebauthn/server": "14.0.3",
     "drizzle-orm": "0.45.2"
   },
   "devDependencies": {
@@ -45,8 +47,8 @@
   "type": "module",
   "cloudflare": {
     "bindings": {
-      "CALOCOUNT_OWNER_EMAIL": {
-        "description": "The email address that you sign in with. Only this address can open the owner dashboard. Use the same address in your Cloudflare Access policy."
+      "CALOCOUNT_SETUP_CODE": {
+        "description": "A long phrase that only you know, with **at least 12 characters**. On your first visit you type it to save your first passkey. Keep it safe: it also adds a new passkey if you lose your devices."
       },
       "CALOCOUNT_OWNER_KEY": {
         "description": "Keep `default`. It is the key of your data in the database."

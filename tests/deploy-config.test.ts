@@ -40,13 +40,13 @@ test("the shared Wrangler config sets only values that are the same for every in
   const config = wranglerConfig();
   assert.deepEqual(Object.keys(config.vars ?? {}).sort(), ["CALOCOUNT_ALLOW_LOCAL", "CALOCOUNT_OWNER_KEY"]);
   assert.equal(config.vars?.CALOCOUNT_ALLOW_LOCAL, "false");
-  // Each instance sets its Access values in the dashboard. A deploy must not delete them.
+  // An Access instance sets its Access values in the dashboard. A deploy must not delete them.
   assert.equal(config.keep_vars, true);
 });
 
-test("the button asks only for the owner email, and no secret has the name of a variable", () => {
+test("the button asks only for the setup code, and no secret has the name of a variable", () => {
   const secrets = dotenvNames(".dev.vars.example");
-  assert.deepEqual(secrets, ["CALOCOUNT_OWNER_EMAIL"]);
+  assert.deepEqual(secrets, ["CALOCOUNT_SETUP_CODE"]);
   const variables = Object.keys(wranglerConfig().vars ?? {});
   assert.deepEqual(secrets.filter((name) => variables.includes(name)), []);
   // Local development turns sign-in off, so its values stay in the local example only.

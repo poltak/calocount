@@ -1,15 +1,13 @@
-import { getDb, getEnvValue } from "../../db";
+import { getDb } from "../../db";
 import { getNutritionSummary, getWeightHistory, listNutritionHistoryPage } from "../../db/repository";
 import { handleAuthorizedAddMealRequest } from "../api/_lib/add-meal";
 import { createAddMealRuntimeOptions } from "../api/_lib/add-meal-runtime";
-import { requireApiIdentity } from "../api/_lib/http";
+import { authorizeMcpRequest } from "../api/_lib/http";
 import { createMcpHandler } from "./handler";
 import { updateMcpMealByRequestId } from "./meal-update";
 
 const handler = createMcpHandler({
-  authorize: (request) => requireApiIdentity(request, {
-    accessAudience: getEnvValue("CALOCOUNT_MCP_ACCESS_AUDIENCE"),
-  }),
+  authorize: authorizeMcpRequest,
   addMeals: (ownerKey, body) => handleAuthorizedAddMealRequest(
     ownerKey,
     body,

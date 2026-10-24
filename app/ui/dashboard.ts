@@ -812,6 +812,11 @@ export function mountDashboard(root: HTMLElement, { readOnly = false, publicView
           } else {
             const responseBody = await response.json().catch(() => null);
             if (stale()) return;
+            // The passkey session ended. The server shows the sign-in page for this address.
+            if (response.status === 401 && asRecord(asRecord(responseBody)?.error)?.code === "sign_in_required") {
+              window.location.reload();
+              return;
+            }
             update({ dataMode: "error", dataMessage: dashboardFailureMessage(response.status, responseBody) });
           }
           return;
@@ -1344,6 +1349,7 @@ export function mountDashboard(root: HTMLElement, { readOnly = false, publicView
     const action = beginAction("settings-load");
     if (!action) return;
     loadSettingsPanel();
+    settingsPanel?.refreshAccount();
     // Until the saved settings arrive, suggest this device's timezone.
     setSettingsDraft(settingsDraftForTargets({
       targets: state.targets,

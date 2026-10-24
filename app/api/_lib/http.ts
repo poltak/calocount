@@ -1,4 +1,8 @@
 import { getDb, getEnvBinding, getEnvValue } from "../../../db";
+import { isSameOriginWrite, readSessionCookie } from "../../auth/cookies";
+import { resolveAuthMode, type AuthMode } from "../../auth/mode";
+import { bearerChallenge, verifyAccessToken } from "../../auth/oauth";
+import { findSession } from "../../auth/store";
 import { readBoundedBytes } from "./bounded-read";
 import {
   AccessJwtError,
@@ -58,9 +62,80 @@ function configuredOwnerEmailSha256(): string | undefined {
   return value || undefined;
 }
 
+/** Local development turns sign-in off. Production must keep CALOCOUNT_ALLOW_LOCAL=false. */
+export function isLocalAuth(): boolean {
+  return getEnvValue("CALOCOUNT_ALLOW_LOCAL") === "true";
+}
+
+/** The sign-in method of this instance. An unknown CALOCOUNT_AUTH_MODE fails closed. */
+export function configuredAuthMode(): AuthMode {
+  const mode = resolveAuthMode({
+    mode: getEnvValue("CALOCOUNT_AUTH_MODE"),
+    accessTeamDomain: getEnvValue("CALOCOUNT_ACCESS_TEAM_DOMAIN"),
+    accessAudience: getEnvValue("CALOCOUNT_ACCESS_AUDIENCE"),
+  });
+  if (!mode) throw new ApiError(503, "auth_mode_invalid", "CALOCOUNT_AUTH_MODE must be passkey or access.");
+  return mode;
+}
+
+/** True when passkeys and OAuth protect this instance. Local development and Access mode return false. */
+export function isPasskeyAuth(): boolean {
+  return !isLocalAuth() && configuredAuthMode() === "passkey";
+}
+
+/** The key of the owner's data. Passkey mode has no identity provider, so it needs this value. */
+export function configuredOwnerKey(): string {
+  const ownerKey = getEnvValue("CALOCOUNT_OWNER_KEY")?.trim();
+  if (!ownerKey) throw new ApiError(503, "auth_owner_key_missing", "CALOCOUNT_OWNER_KEY is not configured.");
+  return ownerKey;
+}
+
+/** The live passkey session of the request, or null. */
+export async function readSession(request: Request) {
+  const token = readSessionCookie(request);
+  if (!token) return null;
+  const session = await findSession({ db: getRequestDb(), token, ownerKey: configuredOwnerKey() });
+  return session ? { ...session, token } : null;
+}
+
 /**
- * Require a Cloudflare Access or Sites identity. Anonymous access is only
- * enabled when CALOCOUNT_ALLOW_LOCAL is explicitly set to "true".
+ * Require the passkey session of the owner. A request that changes data must
+ * also come from a page of this site.
+ */
+export async function requireSessionIdentity(request: Request): Promise<ApiIdentity> {
+  const ownerKey = configuredOwnerKey();
+  if (!readSessionCookie(request)) throw new ApiError(401, "sign_in_required", "Sign in to continue.");
+  if (!isSameOriginWrite(request)) throw new ApiError(403, "invalid_origin", "The request must come from this site.");
+  if (!(await readSession(request))) throw new ApiError(401, "sign_in_required", "Sign in to continue.");
+  return { ownerKey, userId: null, email: null };
+}
+
+/**
+ * Require the identity of an MCP request. Passkey mode checks an OAuth access
+ * token and answers a failure with the challenge that starts the OAuth flow.
+ * Access mode checks the Access JWT of the MCP application.
+ */
+export async function authorizeMcpRequest(request: Request): Promise<ApiIdentity | Response> {
+  if (isLocalAuth() || configuredAuthMode() === "access") {
+    return requireApiIdentity(request, { accessAudience: getEnvValue("CALOCOUNT_MCP_ACCESS_AUDIENCE") });
+  }
+  const ownerKey = configuredOwnerKey();
+  const origin = new URL(request.url).origin;
+  const token = request.headers.get("authorization")?.match(/^Bearer\s+([A-Za-z0-9_-]+)$/i)?.[1] ?? null;
+  const identity = token ? await verifyAccessToken({ db: getRequestDb(), token, origin }) : null;
+  if (!identity || identity.ownerKey !== ownerKey) {
+    return jsonResponse(
+      { error: { code: "unauthorized", message: "Sign-in is required." } },
+      { status: 401, headers: { "www-authenticate": bearerChallenge({ origin, invalidToken: token !== null }) } },
+    );
+  }
+  return { ownerKey, userId: null, email: null };
+}
+
+/**
+ * Require the owner's identity: a passkey session, or a Cloudflare Access or
+ * Sites identity in Access mode. Anonymous access is only enabled when
+ * CALOCOUNT_ALLOW_LOCAL is explicitly set to "true".
  */
 export async function requireApiIdentity(
   request: Request,
@@ -88,6 +163,7 @@ export async function requireApiIdentity(
       return localApiIdentity({ ownerKey: getEnvValue("CALOCOUNT_OWNER_KEY") });
     }
   } else {
+    if (configuredAuthMode() === "passkey") return requireSessionIdentity(request);
     if (!accessTeamDomain || !accessAudience) {
       logAccessConfigurationFailure("access_settings_missing");
       throw new ApiError(503, "auth_access_settings_missing", "Owner authentication is not configured.");

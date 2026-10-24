@@ -45,7 +45,8 @@ const SERVER_INSTRUCTIONS = "Dates use the saved timezone. Use get_nutrition_sum
 type McpIdentity = { ownerKey: string };
 
 export type McpHandlerDependencies = {
-  authorize: (request: Request) => Promise<McpIdentity>;
+  /** The owner of the request. A returned response, such as an OAuth challenge, goes to the client as it is. */
+  authorize: (request: Request) => Promise<McpIdentity | Response>;
   addMeals: (ownerKey: string, body: JsonObject) => Promise<Response>;
   updateMeal: (ownerKey: string, input: McpMealUpdateInput) => Promise<MealWithItems | null>;
   getNutritionHistory: (ownerKey: string, input: ReturnType<typeof parseNutritionHistoryInput>) => Promise<NutritionHistoryPage>;

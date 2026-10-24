@@ -17,3 +17,13 @@ export async function runScheduledPhotoCleanup(env: ScheduledEnvironment): Promi
     console.error(JSON.stringify({ event: "meal_photo_cleanup_error", code: "cleanup_failed" }));
   }
 }
+
+/** Remove expired sessions, challenges and OAuth tokens. A failure is logged without its details. */
+export async function runScheduledAuthCleanup(db: D1Database): Promise<void> {
+  try {
+    const { deleteExpiredAuthData } = await import("../app/auth/binding");
+    await deleteExpiredAuthData(db);
+  } catch {
+    console.error(JSON.stringify({ event: "auth_cleanup_error", code: "cleanup_failed" }));
+  }
+}
