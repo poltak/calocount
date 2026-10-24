@@ -13,6 +13,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { gunzipSync, gzipSync } from "node:zlib";
 
 const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -252,10 +253,18 @@ const encode = (findings) =>
   Buffer.from(JSON.stringify(findings)).toString("base64");
 const decode = (text) =>
   JSON.parse(Buffer.from(text, "base64").toString("utf8"));
-const job = (findings, notes = []) =>
+const pack = (value) => gzipSync(JSON.stringify(value)).toString("base64");
+const unpack = (text) =>
+  JSON.parse(gunzipSync(Buffer.from(text, "base64")).toString("utf8"));
+const job = (findings, notes = [], statuses = []) =>
   JSON.stringify({
     result: "success",
-    outputs: { status: "ok", findings: encode(findings), notes: encode(notes) },
+    outputs: {
+      status: "ok",
+      findings: encode(findings),
+      notes: encode(notes),
+      statuses: encode(statuses),
+    },
   });
 const note = ({
   file = "docs/agents/setup.md",
@@ -287,7 +296,14 @@ const bot = (body) => ({
 test("plan reviews each person's push, and skips a draft, a dependency update, and other labels", async (context) => {
   const repo = await repository(context);
   const modeOf = async (options) =>
-    (await run({ repo, command: "plan", ...options })).outputs.mode;
+    (
+      await run({
+        repo,
+        command: "plan",
+        answers: { [`GET ${COMMENTS}`]: [] },
+        ...options,
+      })
+    ).outputs.mode;
 
   assert.equal(await modeOf({ action: "synchronize" }), "review");
   assert.equal(await modeOf({ author: "owner" }), "review");
@@ -306,6 +322,147 @@ test("plan reviews each person's push, and skips a draft, a dependency update, a
   assert.equal(
     await modeOf({ action: "edited", changes: { base: { ref: {} } } }),
     "skip",
+  );
+});
+
+test("plan gives the open findings of the newest review, also from a comment that does not store them", async (context) => {
+  const repo = await repository(context);
+  const stored = [
+    {
+      number: 1,
+      rule: "override",
+      file: "docs/agents/plan.md",
+      line: 3,
+      quote: OVERRIDE,
+      explanation: "A reason.",
+      models: ["Claude"],
+    },
+  ];
+  const earlierOf = async (comments) =>
+    (
+      await run({
+        repo,
+        command: "plan",
+        action: "synchronize",
+        answers: { [`GET ${COMMENTS}`]: comments },
+      })
+    ).outputs.earlier;
+
+  const fromData = await earlierOf([
+    bot(
+      `<!-- agent-review head=abc1234 blockers=1 -->\n<!-- agent-review-findings ${pack(stored)} -->\n### Agent review of abc1234: 1 finding`,
+    ),
+  ]);
+  const fromText = await earlierOf([
+    bot(
+      [
+        "<!-- agent-review head=def5678 blockers=2 -->",
+        "### Agent review of def5678: 2 findings",
+        "",
+        "**1. [override](https://example.com/prompt.md#override)** in [`docs/agents/plan.md:3`](https://example.com/plan.md#L3) (Claude, Codex)",
+        "",
+        "````text",
+        OVERRIDE,
+        "````",
+        "",
+        "A reason.",
+        "",
+        "**2. [private-data](https://example.com/prompt.md#private-data)** in [`backend/fixtures/people.json`](https://example.com/people.json) at commit 1234567 (Codex)",
+        "",
+        "The fixture has real names.",
+        "",
+        "- Claude (opus, high): 1 finding, 0 notes",
+      ].join("\n"),
+    ),
+  ]);
+  const none = await earlierOf([]);
+
+  assert.deepEqual(unpack(fromData), {
+    head: "abc1234",
+    comment: 99,
+    findings: stored,
+  });
+  assert.deepEqual(unpack(fromText), {
+    head: "def5678",
+    comment: 99,
+    findings: [
+      { ...stored[0], models: ["Claude", "Codex"] },
+      {
+        number: 2,
+        rule: "private-data",
+        file: "backend/fixtures/people.json",
+        line: null,
+        quote: "",
+        explanation: "The fixture has real names.",
+        models: ["Codex"],
+      },
+    ],
+  });
+  assert.equal(none, "");
+});
+
+test("claude gives the reviewer the open findings of the earlier review in a file", async (context) => {
+  const repo = await repository(context);
+  const review = (earlier) =>
+    run({
+      repo,
+      command: "claude",
+      env: {
+        CLAUDE_CODE_OAUTH_TOKEN: "token",
+        ...(earlier && { EARLIER_REVIEW: pack(earlier) }),
+        FAKE_CLAUDE_OUTPUT: JSON.stringify({
+          structured_output: {
+            findings: [],
+            earlier: [
+              { id: "E1", status: "open", explanation: "Still there." },
+            ],
+          },
+        }),
+      },
+    });
+  const promptOf = (result) => {
+    const { args } = result.calls[0];
+    return args[args.indexOf("-p") + 1];
+  };
+
+  const withEarlier = await review({
+    head: "abc1234",
+    comment: 99,
+    findings: [
+      {
+        number: 1,
+        rule: "override",
+        file: "docs/agents/plan.md",
+        line: 3,
+        quote: OVERRIDE,
+        explanation: "A reason.",
+        models: ["Claude"],
+      },
+    ],
+  });
+  const file = await readFile(
+    path.join(repo.directory, ".agent-review/earlier-findings.md"),
+    "utf8",
+  );
+  const withoutEarlier = await review();
+
+  assert.equal(withEarlier.status, 0, withEarlier.output);
+  assert.deepEqual(decode(withEarlier.outputs.statuses), [
+    { id: "E1", status: "open", explanation: "Still there." },
+  ]);
+  assert.match(
+    promptOf(withEarlier),
+    /The review of commit abc1234 has 1 open finding\. `\.agent-review\/earlier-findings\.md` has each one/,
+  );
+  assert.match(
+    file,
+    new RegExp(
+      `## E1: override in docs/agents/plan\\.md:3\n\n\`\`\`text\n${OVERRIDE}\n\`\`\`\n\nA reason\\.`,
+    ),
+  );
+  assert.match(
+    promptOf(withoutEarlier),
+    /No earlier review of this pull request has an open finding\. Return an empty list for `earlier`\./,
   );
 });
 
@@ -638,11 +795,11 @@ test("verdict shows notes and links, and notes do not fail the check", async (co
   assert.equal(notesOnly.status, 0, notesOnly.output);
   assert.match(
     bodyOf(notesOnly),
-    /blockers=0 -->\n### Agent review of \w{7}: no findings/,
+    /blockers=0 -->\n<!-- agent-review-findings \S+ -->\n### Agent review of \w{7}: no findings/,
   );
 });
 
-test("verdict passes with no findings, and edits its earlier comment", async (context) => {
+test("verdict passes with no findings, and posts a new comment", async (context) => {
   const repo = await repository(context);
   const result = await run({
     repo,
@@ -656,11 +813,154 @@ test("verdict passes with no findings, and edits its earlier comment", async (co
   });
 
   assert.equal(result.status, 0, result.output);
+  assert.ok(result.calls.every(({ call }) => !call.startsWith("PATCH ")));
+  const post = result.calls.find(({ call }) => call.startsWith("POST "));
+  assert.equal(post.call, `POST repos/${REPOSITORY}/issues/7/comments`);
+  const { body } = JSON.parse(post.input);
+  assert.match(
+    body,
+    /blockers=0 -->\n<!-- agent-review-findings \S+ -->\n### Agent review of \w{7}: no findings/,
+  );
+  assert.match(body, /- Codex \(gpt-test, high\): not set up/);
+});
+
+test("verdict repeats the open findings of the earlier review, lists the addressed ones, and marks them in the earlier comment", async (context) => {
+  const repo = await repository(context);
+  const earlierFinding = (number, fields) => ({
+    number,
+    line: 3,
+    explanation: `Earlier reason ${number}.`,
+    models: ["Claude"],
+    ...fields,
+  });
+  const earlier = {
+    head: "abc1234def",
+    comment: 99,
+    findings: [
+      earlierFinding(1, {
+        rule: "override",
+        file: "docs/agents/plan.md",
+        quote: OVERRIDE,
+      }),
+      earlierFinding(2, {
+        rule: "stale-document",
+        file: "docs/agents/setup.md",
+        quote: "Text that a later commit deleted.",
+      }),
+      earlierFinding(3, {
+        rule: "stale-document",
+        file: "docs/agents/setup.md",
+        quote: "Run `pnpm run db:reset`",
+      }),
+      earlierFinding(4, {
+        rule: "new-document",
+        file: "docs/agents/plan.md",
+        quote: "# The plan",
+        models: ["script"],
+      }),
+    ],
+  };
+  const earlierBody = [
+    "<!-- agent-review head=abc1234def blockers=4 -->",
+    "### Agent review of abc1234: 4 findings",
+    "",
+    ...[1, 2, 3, 4].map(
+      (number) =>
+        `**${number}. [rule](https://example.com)** in [\`file\`](https://example.com) (Claude)\n`,
+    ),
+  ].join("\n");
+  const result = await run({
+    repo,
+    command: "verdict",
+    action: "synchronize",
+    answers: {
+      [`GET ${PULL}`]: { head: { sha: repo.head } },
+      [`GET repos/${REPOSITORY}/issues/comments/99`]: {
+        id: 99,
+        body: earlierBody,
+      },
+    },
+    env: {
+      MODE: "review",
+      EARLIER_REVIEW: pack(earlier),
+      CLAUDE_JOB: job(
+        [],
+        [],
+        [
+          { id: "E1", status: "open", explanation: "The sentence is there." },
+          { id: "E3", status: "addressed", explanation: "The setup changed." },
+        ],
+      ),
+      CODEX_JOB: job(
+        [
+          finding({
+            rule: "decision-change",
+            file: "docs/agents/setup.md",
+            quote: "for a new database.",
+          }),
+        ],
+        [],
+        [{ id: "E3", status: "addressed", explanation: "It is correct now." }],
+      ),
+    },
+  });
+
+  assert.equal(result.status, 1, result.output);
+  const post = result.calls.find(({ call }) => call.startsWith("POST "));
+  const { body } = JSON.parse(post.input);
+  assert.match(
+    body,
+    new RegExp(`^<!-- agent-review head=${repo.head} blockers=3 -->`),
+  );
+  assert.match(
+    body,
+    /Follow-up of the \[review of abc1234\]\(https:\/\/github\.com\/acme\/project\/pull\/7#issuecomment-99\): 2 addressed, 2 not yet addressed, 1 new\./,
+  );
+  assert.ok(
+    body.indexOf("#### Not yet addressed from the") <
+      body.indexOf("**1. [override]") &&
+      body.indexOf("**2. [new-document]") < body.indexOf("#### New findings") &&
+      body.indexOf("#### New findings") <
+        body.indexOf("**3. [decision-change]"),
+    body,
+  );
+  assert.match(body, /Not yet addressed: The sentence is there\. \(Claude\)/);
+  assert.match(body, /Not yet addressed: A model reported it again\./);
+  assert.match(
+    body,
+    /<summary>Addressed since the review of abc1234: 2<\/summary>/,
+  );
+  assert.match(
+    body,
+    /- ~~2\. stale-document~~ in .*: The quoted text is not in the file now\./,
+  );
+  assert.match(
+    body,
+    /- ~~3\. stale-document~~ in .*: The setup changed\. \(Claude, Codex\)/,
+  );
+  const stored = unpack(body.match(/<!-- agent-review-findings (\S+) -->/)[1]);
+  assert.deepEqual(
+    stored.map(({ number, rule }) => [number, rule]),
+    [
+      [1, "override"],
+      [2, "new-document"],
+      [3, "decision-change"],
+    ],
+  );
+
   const patch = result.calls.find(({ call }) => call.startsWith("PATCH "));
   assert.equal(patch.call, `PATCH repos/${REPOSITORY}/issues/comments/99`);
-  const { body } = JSON.parse(patch.input);
-  assert.match(body, /blockers=0 -->\n### Agent review of \w{7}: no findings/);
-  assert.match(body, /- Codex \(gpt-test, high\): not set up/);
+  const marked = JSON.parse(patch.input).body;
+  assert.match(
+    marked,
+    new RegExp(
+      `### Agent review of abc1234: 4 findings\n\n> Follow-up: review of ${repo.head.slice(0, 7)}: 2 addressed, 2 not yet addressed\.\n\n`,
+    ),
+  );
+  assert.match(marked, /^⏳ Not yet addressed · \*\*1\. \[/m);
+  assert.match(marked, /^✅ Addressed · \*\*2\. \[/m);
+  assert.match(marked, /^✅ Addressed · \*\*3\. \[/m);
+  assert.match(marked, /^⏳ Not yet addressed · \*\*4\. \[/m);
 });
 
 test("verdict does nothing for a head that a newer push replaced", async (context) => {
@@ -1022,13 +1322,14 @@ test("each model job of the workflow lists each output that the script writes", 
     [...script.matchAll(/writeOutputs\(\{([\s\S]*?)\}\);/g)]
       .flatMap(([, fields]) => [...fields.matchAll(/(\w+)\s*:/g)])
       .map(([, key]) => key)
-      .filter((key) => key !== "mode"),
+      .filter((key) => key !== "mode" && key !== "earlier"),
   );
   assert.deepEqual([...written].sort(), [
     "findings",
     "message",
     "notes",
     "status",
+    "statuses",
   ]);
 
   for (const job of ["claude", "codex"]) {

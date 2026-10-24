@@ -16,6 +16,11 @@
 // the label, so an acceptance is for the findings that the maintainer saw. A
 // draft gets its review when it is ready, and a dependency update gets none.
 //
+// Each review posts a new comment, which stores its open findings. The next
+// review gives them to the models, which say which ones the new commits
+// addressed. The new comment repeats the open ones, and the earlier comment
+// gets a mark on each finding.
+//
 // Each command reads the event from GITHUB_EVENT_PATH, and writes its outputs
 // to GITHUB_OUTPUT. The maintainers are in TEMPLATE_MAINTAINERS, with commas or
 // spaces between them. `gh` reads its token from GH_TOKEN.
@@ -30,10 +35,18 @@ import {
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { gunzipSync, gzipSync } from "node:zlib";
 import { VERSION_FILE } from "./template-files.mjs";
 
 const LABEL = "agent-review-accepted";
 const MARKER = "<!-- agent-review";
+const HEAD_PATTERN = /^<!-- agent-review head=(\w+) blockers=(\d+) -->/;
+const FINDINGS_PATTERN = /^<!-- agent-review-findings (\S+) -->$/m;
+// The models read the findings of the earlier review from this file. The
+// checkout does not track it, so it is not a part of the pull request.
+const EARLIER_FILE = ".agent-review/earlier-findings.md";
+const ADDRESSED = "✅ Addressed · ";
+const NOT_ADDRESSED = "⏳ Not yet addressed · ";
 const PROMPT_FILE = ".agents/review/prompt.md";
 const PROJECT_RULES_FILE = ".agents/review/project-rules.md";
 const SCHEMA_FILE = ".agents/review/findings.schema.json";
@@ -77,6 +90,8 @@ const TOKEN_PATTERN =
 // finding of these rules.
 const SENSITIVE_RULES = new Set(["secret", "private-data"]);
 const COMMENT_FINDING_LIMIT = 50;
+// GitHub refuses a comment longer than 65,536 characters.
+const COMMENT_LENGTH_LIMIT = 65_000;
 // Notes do not fail the check, so a long list of them is only noise.
 const NOTE_LIMIT = 3;
 const root = fileURLToPath(new URL("..", import.meta.url));
@@ -124,13 +139,41 @@ function pullRequestText(pull) {
   return `<pull_request>\nTitle: ${clean(pull.title)}\n\n${clean(pull.body) || "(no description)"}\n</pull_request>`;
 }
 
-function promptFor(event) {
+function promptFor(event, earlierText) {
   const { base, head } = rangeOf(event);
   return readFileSync(path.join(root, PROMPT_FILE), "utf8")
     .replace("{{PROJECT_RULES}}", () => projectRules())
+    .replace("{{EARLIER_REVIEW}}", () => earlierText)
     .replaceAll("{{BASE}}", base)
     .replaceAll("{{HEAD}}", head)
     .replace("{{PULL_REQUEST}}", () => pullRequestText(event.pull_request));
+}
+
+/**
+ * Writes the findings of the earlier review to EARLIER_FILE, and returns the
+ * text that tells the model about them.
+ */
+function writeEarlierFindings() {
+  const earlier = unpack(process.env.EARLIER_REVIEW);
+  if (!earlier || earlier.findings.length === 0) {
+    return "No earlier review of this pull request has an open finding. Return an empty list for `earlier`.";
+  }
+  const lines = [`# Findings of the review of ${earlier.head}`, ""];
+  for (const finding of earlier.findings) {
+    lines.push(
+      `## E${finding.number}: ${finding.rule} in ${finding.file}${finding.line ? `:${finding.line}` : ""}`,
+      "",
+      finding.quote
+        ? quoteBlock(finding.quote)
+        : "The comment shows no quote for this finding. Find the text from the explanation.",
+      "",
+      finding.explanation,
+      "",
+    );
+  }
+  mkdirSync(path.dirname(path.join(root, EARLIER_FILE)), { recursive: true });
+  writeFileSync(path.join(root, EARLIER_FILE), lines.join("\n"));
+  return `The review of commit ${earlier.head} has ${count(earlier.findings.length, "open finding")}. \`${EARLIER_FILE}\` has each one, with its ID.`;
 }
 
 /** Returns the name of each rule, which is the text of its heading. */
@@ -151,10 +194,12 @@ function readPages(route) {
 }
 
 function callApi({ method, route, body }) {
-  execFileSync("gh", ["api", "--method", method, route, "--input", "-"], {
-    encoding: "utf8",
-    input: JSON.stringify(body ?? {}),
-  });
+  const output = execFileSync(
+    "gh",
+    ["api", "--method", method, route, "--input", "-"],
+    { encoding: "utf8", input: JSON.stringify(body ?? {}) },
+  );
+  return output.trim() ? JSON.parse(output) : undefined;
 }
 
 const encode = (findings) =>
@@ -163,6 +208,12 @@ const flatten = (text) => text.replace(/\s+/g, " ").trim();
 const count = (number, word) => `${number} ${word}${number === 1 ? "" : "s"}`;
 const decode = (text) =>
   text ? JSON.parse(Buffer.from(text, "base64").toString("utf8")) : [];
+// The comment stores the findings, and gzip keeps them inside its limit.
+const pack = (value) => gzipSync(JSON.stringify(value)).toString("base64");
+const unpack = (text) =>
+  text
+    ? JSON.parse(gunzipSync(Buffer.from(text, "base64")).toString("utf8"))
+    : undefined;
 // Markdown shows a code span as it is, so an escape in it would show as text.
 const escapeOutsideCode = (text) =>
   text
@@ -193,7 +244,65 @@ function plan() {
     console.log(`A "${event.action}" event changes nothing for the review.`);
   }
   console.log(`Mode: ${mode}`);
-  writeOutputs({ mode });
+  writeOutputs({
+    mode,
+    earlier: mode === "review" ? earlierReview(event) : "",
+  });
+}
+
+/**
+ * Returns the open findings of the newest review comment, with the head that
+ * it reviewed and the ID of the comment.
+ */
+function earlierReview(event) {
+  const comment = stickyComment({
+    repository: event.repository.full_name,
+    number: event.pull_request.number,
+  });
+  const head = comment?.body.match(HEAD_PATTERN)?.[1];
+  if (!head) return "";
+  const stored = comment.body.match(FINDINGS_PATTERN)?.[1];
+  const findings = stored ? unpack(stored) : findingsInText(comment.body);
+  console.log(
+    `The review of ${head} has ${count(findings.length, "open finding")}.`,
+  );
+  return pack({ head, comment: comment.id, findings });
+}
+
+/**
+ * A comment from before the comments stored their findings shows each
+ * finding up to COMMENT_FINDING_LIMIT, so the findings come from its text.
+ */
+function findingsInText(body) {
+  return body
+    .split(/^(?=\*\*\d+\. \[)/m)
+    .slice(1)
+    .flatMap((entry) => {
+      const match = entry.match(
+        /^\*\*(\d+)\. \[([^\]]+)\][^`]*`([^`]+?)(?::(\d+))?`\]\([^)]*\)(?: at commit \w+)? \(([^)]*)\)/,
+      );
+      if (!match) return [];
+      const [heading, number, rule, file, line, models] = match;
+      const quoteMatch = entry.match(/^(`{3,})text\n([\s\S]*?)\n\1$/m);
+      const rest = entry
+        .slice(heading.length)
+        .replace(quoteMatch?.[0] ?? "", "");
+      return [
+        {
+          number: Number(number),
+          rule,
+          file,
+          line: line ? Number(line) : null,
+          quote: quoteMatch?.[2] ?? "",
+          // The new comment escapes the explanation again.
+          explanation: (rest.trim().split(/\n\s*\n/)[0] ?? "")
+            .replaceAll("&lt;", "<")
+            .replaceAll("&gt;", ">")
+            .replaceAll("&amp;", "&"),
+          models: models.split(", "),
+        },
+      ];
+    });
 }
 
 function claude() {
@@ -206,7 +315,7 @@ function claude() {
     "claude",
     [
       "-p",
-      promptFor(readEvent()),
+      promptFor(readEvent(), writeEarlierFindings()),
       "--model",
       process.env.CLAUDE_MODEL,
       "--effort",
@@ -236,6 +345,7 @@ function claude() {
   }
   const findings = run?.structured_output?.findings;
   const notes = run?.structured_output?.notes ?? [];
+  const statuses = run?.structured_output?.earlier ?? [];
   if (result.status !== 0 || run?.is_error || !Array.isArray(findings)) {
     const message = flatten(
       `${run?.result ?? run?.subtype ?? ""} ${result.stderr ?? ""}`,
@@ -248,12 +358,13 @@ function claude() {
     return;
   }
   console.log(
-    `Claude Code: ${count(findings.length, "finding")}, ${count(notes.length, "note")}, ${run.num_turns} turns, $${run.total_cost_usd?.toFixed(2)} at API prices.`,
+    `Claude Code: ${count(findings.length, "finding")}, ${count(notes.length, "note")}, ${count(statuses.length, "earlier finding")} checked, ${run.num_turns} turns, $${run.total_cost_usd?.toFixed(2)} at API prices.`,
   );
   writeOutputs({
     status: "ok",
     findings: encode(findings),
     notes: encode(notes),
+    statuses: encode(statuses),
   });
 }
 
@@ -300,7 +411,7 @@ function codex() {
       "--output-last-message",
       lastMessage,
       "--json",
-      promptFor(readEvent()),
+      promptFor(readEvent(), writeEarlierFindings()),
     ],
     {
       encoding: "utf8",
@@ -317,6 +428,7 @@ function codex() {
   }
   const findings = output?.findings;
   const notes = output?.notes ?? [];
+  const statuses = output?.earlier ?? [];
   if (result.status !== 0 || !Array.isArray(findings)) {
     const message = flatten(result.stderr ?? "").slice(-500);
     console.log(`Codex failed with status ${result.status}: ${message}`);
@@ -330,12 +442,13 @@ function codex() {
     .map((match) => JSON.parse(match[1]))
     .at(-1);
   console.log(
-    `Codex: ${count(findings.length, "finding")}, ${count(notes.length, "note")}, ${usage?.input_tokens ?? "?"} input and ${usage?.output_tokens ?? "?"} output tokens.`,
+    `Codex: ${count(findings.length, "finding")}, ${count(notes.length, "note")}, ${count(statuses.length, "earlier finding")} checked, ${usage?.input_tokens ?? "?"} input and ${usage?.output_tokens ?? "?"} output tokens.`,
   );
   writeOutputs({
     status: "ok",
     findings: encode(findings),
     notes: encode(notes),
+    statuses: encode(statuses),
   });
 }
 
@@ -397,8 +510,9 @@ function saveCodexLogin() {
 /** Reads the result of one model's job from `toJSON(needs.<job>)`. */
 function modelResult({ name, model, job }) {
   const { result, outputs = {} } = JSON.parse(job || "{}");
+  const empty = { findings: [], notes: [], statuses: [] };
   if (outputs.status === "not-configured") {
-    return { name, model, state: "not-configured", findings: [], notes: [] };
+    return { name, model, state: "not-configured", ...empty };
   }
   if (result === "success" && outputs.status === "ok") {
     const withModel = (item) => ({ ...item, models: [name] });
@@ -408,6 +522,7 @@ function modelResult({ name, model, job }) {
       state: "ok",
       findings: decode(outputs.findings).map(withModel),
       notes: decode(outputs.notes).slice(0, NOTE_LIMIT).map(withModel),
+      statuses: decode(outputs.statuses),
     };
   }
   return {
@@ -416,8 +531,7 @@ function modelResult({ name, model, job }) {
     state: "failed",
     message:
       outputs.message || `The job ended with "${result ?? "no result"}".`,
-    findings: [],
-    notes: [],
+    ...empty,
   };
 }
 
@@ -550,6 +664,115 @@ function mergeFindings(findings) {
   return merged;
 }
 
+/** The two findings are about the same text. */
+function sameFinding(one, other) {
+  if (one.file !== other.file) return false;
+  const first = flatten(one.quote ?? "");
+  const second = flatten(other.quote ?? "");
+  // The comment stores no quote of a sensitive rule, or from its file.
+  if (!first || !second || SENSITIVE_RULES.has(one.rule)) {
+    return one.rule === other.rule;
+  }
+  return first.includes(second) || second.includes(first);
+}
+
+/** Returns the line of the head where the quote starts now. */
+function lineOfQuote({ file, quote, line }) {
+  const first = quote
+    ?.split("\n")
+    .find((text) => text.trim())
+    ?.trim();
+  if (!first) return line;
+  const index = readFileSync(path.resolve(root, file), "utf8")
+    .split("\n")
+    .findIndex((text) => text.includes(first));
+  return index === -1 ? line : index + 1;
+}
+
+/**
+ * Sorts the findings of the earlier review into the addressed and the open
+ * ones, and keeps only the new findings that no earlier finding covers.
+ *
+ * An earlier finding is addressed when its quote is not in its file now, or
+ * when each model that answered says it is addressed. A finding that a model
+ * reports again is open, whatever the statuses say. A finding of the script
+ * is addressed when the script does not report it again.
+ */
+function followUp({ earlier, findings, models }) {
+  if (!earlier) return { carried: [], addressed: [], added: findings };
+  const reported = new Set();
+  const added = findings.filter((finding) => {
+    const match = earlier.findings.find((old) => sameFinding(old, finding));
+    if (match) reported.add(match.number);
+    return !match;
+  });
+  const answered = models.filter((model) => model.state === "ok");
+  const carried = [];
+  const addressed = [];
+  for (const old of earlier.findings) {
+    const statuses = answered.flatMap((model) =>
+      model.statuses
+        .filter((status) => status.id === `E${old.number}`)
+        .map((status) => ({ ...status, model: model.name })),
+    );
+    const checkable = old.quote && !SENSITIVE_RULES.has(old.rule);
+    const item = { ...old, earlierNumber: old.number };
+    if (reported.has(old.number)) {
+      carried.push({ ...item, reason: "A model reported it again." });
+    } else if (old.models.includes("script")) {
+      addressed.push({ ...item, reason: "The script does not report it now." });
+    } else if (checkable && !quoteIsInFile(old)) {
+      addressed.push({
+        ...item,
+        reason: "The quoted text is not in the file now.",
+      });
+    } else if (
+      statuses.length > 0 &&
+      statuses.every((status) => status.status === "addressed")
+    ) {
+      addressed.push({
+        ...item,
+        reason: `${statuses[0].explanation} (${statuses.map((status) => status.model).join(", ")})`,
+      });
+    } else {
+      const open = statuses.find((status) => status.status === "open");
+      carried.push({
+        ...item,
+        line: checkable ? lineOfQuote(old) : old.line,
+        reason: open
+          ? `${open.explanation} (${open.model})`
+          : "No model said that it is addressed.",
+      });
+    }
+  }
+  return { carried, addressed, added };
+}
+
+/**
+ * Puts a mark on each finding of the earlier comment, and a line under its
+ * heading that links to the follow-up. A mark from an earlier follow-up goes
+ * first.
+ */
+function markEarlier(body, { carried, addressed, link }) {
+  const marks = new Map([
+    ...addressed.map((item) => [item.earlierNumber, ADDRESSED]),
+    ...carried.map((item) => [item.earlierNumber, NOT_ADDRESSED]),
+  ]);
+  return body
+    .replace(/\n\n> Follow-up: [^\n]*/, "")
+    .replaceAll(ADDRESSED, "")
+    .replaceAll(NOT_ADDRESSED, "")
+    .replace(
+      /^### Agent review of .*$/m,
+      (heading) =>
+        `${heading}\n\n> Follow-up: ${link}: ${addressed.length} addressed, ${carried.length} not yet addressed.`,
+    )
+    .replace(
+      /^\*\*(\d+)\. \[/gm,
+      (start, number) => `${marks.get(Number(number)) ?? ""}${start}`,
+    );
+}
+
 /**
  * Puts the quote in a code block, so that Markdown in it, such as a heading,
  * shows as text. The fence is longer than each run of backticks in the quote.
@@ -590,7 +813,23 @@ function generalRules({ server, repository, head }) {
       };
 }
 
-function commentFor({ repository, head, findings, notes, models, deleted }) {
+/**
+ * `findings` are the open findings, each with its number: first the ones that
+ * `carried` holds from the earlier review, then the new ones.
+ */
+function commentFor({
+  repository,
+  number,
+  head,
+  earlier,
+  findings,
+  carried,
+  addressed,
+  notes,
+  models,
+  deleted,
+  limit,
+}) {
   const server = process.env.GITHUB_SERVER_URL ?? "https://github.com";
   const fileUrl = (file, commit = head) =>
     `${server}/${repository}/blob/${commit}/${encodeURI(file)}`;
@@ -615,30 +854,83 @@ function commentFor({ repository, head, findings, notes, models, deleted }) {
   };
   const failed = models.filter((model) => model.state === "failed");
   const blockers = findings.length + failed.length;
-  const lines = [
-    `${MARKER} head=${head} blockers=${blockers} -->`,
-    `### Agent review of ${head.slice(0, 7)}: ${findings.length === 0 ? "no findings" : count(findings.length, "finding")}`,
-    "",
-  ];
   // A finding of another rule, or a note, can quote the line with the secret.
   const sensitiveFiles = new Set(
-    findings
+    [...findings, ...addressed]
       .filter((finding) => SENSITIVE_RULES.has(finding.rule))
       .map((finding) => finding.file),
   );
+  const hidesQuote = (item) =>
+    SENSITIVE_RULES.has(item.rule) || sensitiveFiles.has(item.file);
+  // The next review reads these findings. A pull request can be public, so
+  // they keep no quote that the comment does not show.
+  const stored = findings.map(
+    ({ number, rule, file, line, quote, explanation, models }) => ({
+      number,
+      rule,
+      file,
+      line,
+      quote: hidesQuote({ rule, file }) ? "" : quote,
+      explanation: flatten(explanation).slice(0, 1000),
+      models,
+    }),
+  );
+  const earlierLink = earlier
+    ? `[review of ${earlier.head.slice(0, 7)}](${server}/${repository}/pull/${number}#issuecomment-${earlier.comment})`
+    : "";
+  const lines = [
+    `${MARKER} head=${head} blockers=${blockers} -->`,
+    `<!-- agent-review-findings ${pack(stored)} -->`,
+    `### Agent review of ${head.slice(0, 7)}: ${findings.length === 0 ? "no findings" : count(findings.length, "finding")}`,
+    "",
+  ];
+  if (earlier) {
+    lines.push(
+      `Follow-up of the ${earlierLink}: ${addressed.length} addressed, ${carried.length} not yet addressed, ${findings.length - carried.length} new.`,
+      "",
+    );
+  }
   const entry = (item, title) => [
     `**${title}** in ${link(item)} (${item.models.join(", ")})`,
     "",
     ...(sensitiveFiles.has(item.file) ? [] : [quoteBlock(item.quote), ""]),
     escapeOutsideCode(flatten(item.explanation).slice(0, 1000)),
     "",
+    ...(item.reason
+      ? [
+          `Not yet addressed: ${escapeOutsideCode(flatten(item.reason).slice(0, 500))}`,
+          "",
+        ]
+      : []),
   ];
-  findings.slice(0, COMMENT_FINDING_LIMIT).forEach((finding, index) => {
-    lines.push(...entry(finding, `${index + 1}. ${ruleLink(finding.rule)}`));
-  });
-  if (findings.length > COMMENT_FINDING_LIMIT) {
+  findings.slice(0, limit).forEach((finding, index) => {
+    if (earlier && index === 0 && carried.length > 0) {
+      lines.push(`#### Not yet addressed from the ${earlierLink}`, "");
+    }
+    if (earlier && index === carried.length) {
+      lines.push("#### New findings", "");
+    }
     lines.push(
-      `${findings.length - COMMENT_FINDING_LIMIT} more findings are in the log of the workflow.`,
+      ...entry(finding, `${finding.number}. ${ruleLink(finding.rule)}`),
+    );
+  });
+  if (findings.length > limit) {
+    lines.push(
+      `${findings.length - limit} more findings are in the log of the workflow.`,
+      "",
+    );
+  }
+  if (addressed.length > 0) {
+    lines.push(
+      "<details>",
+      `<summary>Addressed since the review of ${earlier.head.slice(0, 7)}: ${addressed.length}</summary>`,
+      "",
+      ...addressed.map(
+        (item) =>
+          `- ~~${item.earlierNumber}. ${item.rule}~~ in ${link({ file: item.file, line: item.line, commit: earlier.head })}: ${escapeOutsideCode(flatten(item.reason).slice(0, 300))}`,
+      ),
+      "",
+      "</details>",
       "",
     );
   }
@@ -762,34 +1054,59 @@ function reviewVerdict(event) {
     }
     return !reason;
   });
-  const findings = mergeFindings(kept);
+  const earlier = unpack(process.env.EARLIER_REVIEW);
+  const { carried, addressed, added } = followUp({
+    earlier,
+    findings: mergeFindings(kept),
+    models,
+  });
+  const findings = [...carried, ...added].map((finding, index) => ({
+    ...finding,
+    number: index + 1,
+  }));
   const allNotes = models.flatMap((model) => model.notes);
   const notes = mergeFindings(allNotes.filter(quoteIsInFile));
   deleted.quote += allNotes.length - allNotes.filter(quoteIsInFile).length;
-  const { body, blockers } = commentFor({
-    repository,
-    head,
-    findings,
-    notes,
-    models,
-    deleted,
-  });
-  console.log(body);
+  const commentWith = (limit) =>
+    commentFor({
+      repository,
+      number: pull.number,
+      head,
+      earlier,
+      findings,
+      carried,
+      addressed,
+      notes,
+      models,
+      deleted,
+      limit,
+    });
+  console.log(commentWith(Infinity).body);
+  let limit = COMMENT_FINDING_LIMIT;
+  let comment = commentWith(limit);
+  while (comment.body.length > COMMENT_LENGTH_LIMIT && limit > 0) {
+    limit = Math.max(0, limit - 5);
+    comment = commentWith(limit);
+  }
+  const { body, blockers } = comment;
 
-  const previous = stickyComment({ repository, number: pull.number });
+  // A new comment, and not an edit, so that GitHub sends a notification.
+  const posted = callApi({
+    method: "POST",
+    route: `repos/${repository}/issues/${pull.number}/comments`,
+    body: { body },
+  });
+  const previous =
+    earlier &&
+    readPages(`repos/${repository}/issues/comments/${earlier.comment}`)[0];
   if (previous) {
-    // GitHub keeps each earlier version of an edited comment, so a later run
-    // does not hide the findings of an earlier one.
+    const link = posted?.html_url
+      ? `[review of ${head.slice(0, 7)}](${posted.html_url})`
+      : `review of ${head.slice(0, 7)}`;
     callApi({
       method: "PATCH",
-      route: `repos/${repository}/issues/comments/${previous.id}`,
-      body: { body },
-    });
-  } else {
-    callApi({
-      method: "POST",
-      route: `repos/${repository}/issues/${pull.number}/comments`,
-      body: { body },
+      route: `repos/${repository}/issues/comments/${earlier.comment}`,
+      body: { body: markEarlier(previous.body, { carried, addressed, link }) },
     });
   }
 
@@ -813,7 +1130,7 @@ function labelVerdict(event) {
   const repository = event.repository.full_name;
   const pull = event.pull_request;
   const marker = stickyComment({ repository, number: pull.number })?.body.match(
-    /^<!-- agent-review head=(\w+) blockers=(\d+) -->/,
+    HEAD_PATTERN,
   );
   if (marker?.[1] !== pull.head.sha) {
     console.log(

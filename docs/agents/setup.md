@@ -278,9 +278,16 @@ line that starts with "Release note:". Quote the changed text.
 
 The check works as follows:
 
-- The "Agent review" job posts one comment on the pull request, and edits it
-  after each review. GitHub keeps each earlier version of the comment. The job
-  deletes each finding whose quote is not in the file that it names.
+- Each review posts a new comment on the pull request, so GitHub sends a
+  notification. The comment stores its open findings. The job deletes each
+  finding whose quote is not in the file that it names.
+- The next review gives the open findings of the newest comment to the
+  models, which say for each one if it is addressed. A finding is addressed
+  when its quote is not in its file now, or when each model that answered says
+  so. A finding that a model reports again stays open. The new comment repeats
+  the open findings under "Not yet addressed", then gives the new findings,
+  and lists the addressed ones in a fold. The earlier comment gets a mark on
+  each finding and a link to the new comment.
 - The rules `secret` and `private-data` look at each commit of the pull
   request, because a value that a later commit deletes stays on GitHub. The
   quote of their finding can be in any commit. GitHub can send the comment by
