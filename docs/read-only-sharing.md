@@ -18,6 +18,11 @@ compatibility; do not remove or alter them without a separate database decision.
 
 ## Data and route boundary
 
+The Access rules in the table below apply to an instance in Access mode. A
+passkey instance has no Access application: the Worker checks the passkey
+session on `/owner` and on every private `/api/*` route, and the public routes
+are public. [sign-in.md](sign-in.md) describes the two modes.
+
 | Path | Access rule | Purpose |
 | --- | --- | --- |
 | `/` | Public because no Access destination matches it | Read-only dashboard UI |
@@ -40,15 +45,15 @@ for each owner that already had saved settings.
 
 While the setting is off:
 
-- `/` redirects to `/owner`, so a visitor goes to the Access sign-in;
+- `/` redirects to `/owner`, so a visitor goes to the sign-in;
 - `/api/public/summary` returns `404` with the code `public_view_off` for every view;
 - `/meal-photos/*` returns `404`; and
 - `/llms.txt` returns `404`.
 
 The Worker reads the setting on each request, and the Access layout below does
-not change. Keep the Access bypass for `/api/public/summary` on a private
-instance too, so the owner can turn the public view on later without an Access
-change. If the Worker cannot read the setting because the owner key or the
+not change. In Access mode, keep the Access bypass for `/api/public/summary` on
+a private instance too, so the owner can turn the public view on later without
+an Access change. If the Worker cannot read the setting because the owner key or the
 database is missing, `/` shows the public page and the data routes fail closed.
 
 ## Public summary
@@ -143,7 +148,8 @@ assets must be available to the browser so installation can complete.
 
 ## Production Access configuration
 
-The following layout was live-verified on 2026-08-26:
+This section applies to Access mode. The following layout was live-verified on
+2026-08-26:
 
 1. The existing private Access application protects exact `/owner`, `/owner/*`,
    and `/api/*` destinations with the existing owner Allow policy and the same

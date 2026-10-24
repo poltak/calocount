@@ -1,13 +1,14 @@
 # Deploy your own Calocount
 
 Each Calocount instance has one owner, one Worker, one D1 database and one R2
-bucket. Two instances do not share data.
+bucket. Two instances do not share data. The owner signs in with a passkey: a
+face, a fingerprint or a screen lock. The owner needs no other account.
 
 You need:
 
 - a Cloudflare account. The Workers Free plan is sufficient;
 - a GitHub or GitLab account; and
-- approximately 15 minutes.
+- approximately 10 minutes.
 
 ## 1. Deploy the Worker
 
@@ -18,52 +19,54 @@ You need:
 3. Keep the default names, or type new names. Cloudflare makes a copy of this
    repository in your account, and it creates a new D1 database and a new R2
    bucket.
-4. For `CALOCOUNT_OWNER_EMAIL`, type the email address that you will sign in
-   with.
+4. For `CALOCOUNT_SETUP_CODE`, type a long phrase that only you know, with at
+   least 12 characters. Write it down and keep it safe. You need it for the
+   first passkey, and again if you lose all your devices.
 5. Keep `CALOCOUNT_OWNER_KEY` as `default` and `CALOCOUNT_ALLOW_LOCAL` as
    `false`.
 6. Select **Deploy**. The build applies the database migrations, then it
    deploys the Worker.
 
 The Worker gets an address such as
-`https://calocount-app.<your-subdomain>.workers.dev`. Until you complete step 3,
-the dashboard at that address says that owner sign-in is not configured. This
-is correct. The Worker shows no data before you set up sign-in.
+`https://calocount-app.<your-subdomain>.workers.dev`.
 
-## 2. Protect the Worker with Cloudflare Access
+## 2. Save the first passkey
 
-1. In the Cloudflare dashboard, open **Workers & Pages**, then your Worker.
-2. Open **Access**, and select **Protect this Worker behind Access**.
-   Cloudflare describes the current steps in
-   [Cloudflare Access for Workers](https://developers.cloudflare.com/workers/configuration/cloudflare-access/).
-3. Make the policy let in only the email address from step 1.
-4. Copy the two values that Cloudflare shows: the team domain, for example
-   `yourteam.cloudflareaccess.com`, and the application audience (AUD) tag.
+1. Open the Worker address on the phone or computer of the owner.
+2. Calocount shows **Set up Calocount**. Type the setup code, and select
+   **Create passkey**.
+3. Confirm with the face, the fingerprint or the screen lock. The dashboard
+   opens.
 
-## 3. Give the two values to the Worker
+On a phone, add the page to the home screen. The installed app opens the
+owner dashboard. Apple and Google copy the passkey to the other devices of the
+same account, so those devices can sign in too.
 
-1. In your Worker, open **Settings**, then **Variables and Secrets**.
-2. Add a variable of the type **Text** with the name
-   `CALOCOUNT_ACCESS_TEAM_DOMAIN`. Its value is the team domain.
-3. Add a variable of the type **Text** with the name
-   `CALOCOUNT_ACCESS_AUDIENCE`. Its value is the AUD tag.
-4. Deploy the change.
+If you set up Calocount for another person, do step 2 on that person's phone.
+Then the passkey belongs to their account.
 
-`wrangler.jsonc` sets `keep_vars` to `true`, so later deploys keep these
-variables.
+## More devices and lost devices
 
-## 4. Open your dashboard
-
-Open the Worker address. Cloudflare Access asks you to sign in, then the owner
-dashboard opens. On a phone, add the page to the home screen. The installed app
-opens the owner dashboard.
+- On a device that is signed in, open **Settings > Sign-in** and select **Add
+  a passkey on this device**.
+- On a device that is not signed in, select **Lost your passkey? Use your
+  setup code** on the sign-in page.
+- After you lose a device, remove its passkey in **Settings > Sign-in**. The
+  sessions that it signed in end.
 
 ## The public dashboard
 
-A new instance is private. The setting **Public dashboard** in the owner
-settings is off. With the Access setup above, Access protects every path of the
-Worker, so a public dashboard also needs a different Access setup. The
-[read-only sharing guide](read-only-sharing.md) gives the path rules.
+A new instance is private. To show a read-only dashboard to anyone who opens
+the address, turn on **Public dashboard** in the settings. It needs no other
+setup.
+
+## Optional: ChatGPT meal logging
+
+ChatGPT can log and read meals through the MCP endpoint at `/mcp`. In ChatGPT,
+add a developer-mode connection with the address
+`https://<your-worker-address>/mcp` and OAuth sign-in. Calocount asks you to
+allow ChatGPT. The [MCP setup guide](plugin/README.md#passkey-mode-oauth) has
+the steps.
 
 ## Updates
 
@@ -72,12 +75,6 @@ of this repository. To update, merge the changes of
 `https://github.com/poltak/calocount` into your copy. Each push to your copy
 deploys again with Workers Builds, and each deploy applies the new database
 migrations.
-
-## Optional: ChatGPT meal logging
-
-The ChatGPT app at `/mcp` needs one more Access application with Managed OAuth
-and the variable `CALOCOUNT_MCP_ACCESS_AUDIENCE`. This setup is for advanced
-users. Follow the [MCP setup guide](plugin/README.md).
 
 ## Deploy without the button
 
@@ -89,5 +86,10 @@ users. Follow the [MCP setup guide](plugin/README.md).
 4. Change `name` in `wrangler.jsonc` to the name of your Worker.
 5. Run `pnpm run deploy`. It builds the app, applies the migrations, and
    deploys the Worker.
-6. Set the owner email with `pnpm exec wrangler secret put CALOCOUNT_OWNER_EMAIL`.
-7. Do steps 2 to 4 above.
+6. Set the setup code with `pnpm exec wrangler secret put CALOCOUNT_SETUP_CODE`.
+7. Do step 2 above.
+
+## Cloudflare Access instead of passkeys
+
+An instance can use Cloudflare Access instead. [sign-in.md](sign-in.md)
+describes both modes, and the steps that move an Access instance to passkeys.

@@ -2,13 +2,13 @@
 
 Calocount is a single-user calorie tracker with a private owner dashboard and an optional public read-only dashboard. Add meals manually in the owner dashboard or through the private ChatGPT MCP app. The app validates and stores structured nutrition data and shows a compact Caltrack-inspired dashboard.
 
-The application backend uses Cloudflare Workers, D1, R2, Cron Triggers, Static Assets, and Access. One Worker serves the dashboard and API and runs the hourly photo cleanup.
+The application backend uses Cloudflare Workers, D1, R2, Cron Triggers, and Static Assets. One Worker serves the dashboard and API and runs the hourly photo cleanup. The owner signs in with a passkey, and ChatGPT connects with OAuth. Cloudflare Access remains available as another sign-in mode.
 
 ## Deploy your own
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/poltak/calocount)
 
-Each instance has one owner and its own Worker, D1 database and R2 bucket. The button copies this repository to your GitHub or GitLab account, creates the database and the bucket, and deploys the Worker. Then you set up sign-in with Cloudflare Access. Follow [docs/deploy-your-own.md](docs/deploy-your-own.md).
+Each instance has one owner and its own Worker, D1 database and R2 bucket. The button copies this repository to your GitHub or GitLab account, creates the database and the bucket, and deploys the Worker. It asks for a setup code. Then you open the Worker address, type the setup code, and save a passkey. Follow [docs/deploy-your-own.md](docs/deploy-your-own.md).
 
 ## Included
 
@@ -23,7 +23,9 @@ Each instance has one owner and its own Worker, D1 database and R2 bucket. The b
 - idempotent structured meal and nutrient validation
 - scheduled cleanup of shared meal photos
 - JSON and CSV export
-- Cloudflare Access JWT authorization with an owner allowlist
+- passkey sign-in with sessions that last while the owner uses the app
+- an OAuth 2.1 server for the ChatGPT MCP app, with a consent page
+- Cloudflare Access JWT authorization with an owner allowlist, as another sign-in mode
 
 Calocount does not include WHOOP, Apple Health, body-fat, sleep, recovery, or step integrations.
 
@@ -38,6 +40,7 @@ worker/              Worker entry point and scheduled photo cleanup
 tests/               unit, Worker runtime, and browser tests
 docs/architecture.md detailed runtime flow and boundaries
 docs/deploy-your-own.md setup of a new instance with the Deploy to Cloudflare button
+docs/sign-in.md      passkeys, sessions, OAuth, Access mode, and the move from Access
 docs/read-only-sharing.md public/owner route boundary and rollout runbook
 ```
 
@@ -66,11 +69,11 @@ pnpm run db:seed:local
 
 The command creates three meals per day through today in `Asia/Ho_Chi_Minh` and skips fixture IDs that already exist. It only accepts a localhost HTTP URL. Optional overrides are `--anchor-date=YYYY-MM-DD`, `--timezone=IANA_TIMEZONE`, and `--base-url=http://localhost:PORT`.
 
-The owner dashboard waits for live API data and fails closed when local D1 or owner authentication is not ready. Set `CALOCOUNT_ALLOW_LOCAL=true` only in `.dev.vars` while running a configured local stack. Production must set `CALOCOUNT_ALLOW_LOCAL=false` and use a valid, signed Cloudflare Access JWT. Identity headers by themselves are not trusted. The public root uses only `/api/public/summary` and `/meal-photos/*`; it does not fall back to owner or demo data.
+The owner dashboard waits for live API data and fails closed when local D1 or owner authentication is not ready. Set `CALOCOUNT_ALLOW_LOCAL=true` only in `.dev.vars` while running a configured local stack. It turns sign-in off. Production must keep `CALOCOUNT_ALLOW_LOCAL=false`. Then a passkey session or a valid, signed Cloudflare Access JWT is required. Identity headers by themselves are not trusted. To try passkey sign-in locally, follow [docs/sign-in.md](docs/sign-in.md#try-passkeys-locally). The public root uses only `/api/public/summary` and `/meal-photos/*`; it does not fall back to owner or demo data.
 
 ## ChatGPT meal logging
 
-Use the private MCP app at `/mcp` for ChatGPT meal logging and updates. It provides `add_meals`, `update_meal`, `get_nutrition_summary`, `get_nutrition_history`, and `get_weight_history`. Use `update_meal` to edit a completed meal with the same `request_id` returned by `get_nutrition_history`. See the [MCP setup guide](./docs/plugin/README.md).
+Use the private MCP app at `/mcp` for ChatGPT meal logging and updates. In passkey mode, ChatGPT connects with OAuth, and the owner allows it on a Calocount consent page. It provides `add_meals`, `update_meal`, `get_nutrition_summary`, `get_nutrition_history`, and `get_weight_history`. Use `update_meal` to edit a completed meal with the same `request_id` returned by `get_nutrition_history`. See the [MCP setup guide](./docs/plugin/README.md).
 
 ### Deprecated Custom GPT Action
 
@@ -131,7 +134,7 @@ The script serves each build from the same local server, with the same compressi
 
 ## Cloudflare deployment
 
-`wrangler.jsonc` configures the one Worker: the dashboard, the API, and the hourly cron trigger. It holds only the values that are the same for every instance. The Access values and the owner allowlist are variables and secrets on each Worker. `keep_vars` is `true`, so a deploy does not delete them. `.dev.vars.example` lists the secrets that the Deploy to Cloudflare button asks for. `tests/deploy-config.test.ts` checks these rules.
+`wrangler.jsonc` configures the one Worker: the dashboard, the API, and the hourly cron trigger. It holds only the values that are the same for every instance. The setup code, `CALOCOUNT_AUTH_MODE`, and the Access values of an Access instance are secrets and variables on each Worker. `keep_vars` is `true`, so a deploy does not delete them. `.dev.vars.example` lists the secrets that the Deploy to Cloudflare button asks for. `tests/deploy-config.test.ts` checks these rules.
 
 Production deployment of this repository runs through GitHub Actions. The workflow runs only in `poltak/calocount`. A copy made with the Deploy to Cloudflare button deploys with Workers Builds. A push to `main` or `master` runs the checks, a deployment dry run, and `pnpm run deploy`. That script builds the app, applies the remote D1 migrations, and deploys the Worker. You can also start the workflow manually with `workflow_dispatch`. The current default branch is `main`.
 
@@ -151,7 +154,13 @@ Apply migrations before the first production request. `pnpm run deploy` also doe
 pnpm run db:migrate:remote
 ```
 
-Do not put Access values or email values in `wrangler.jsonc`. Set them on the Worker. In the dashboard, add `CALOCOUNT_ACCESS_TEAM_DOMAIN`, `CALOCOUNT_ACCESS_AUDIENCE` and, for ChatGPT, `CALOCOUNT_MCP_ACCESS_AUDIENCE` as Text variables. For the owner allowlist, set the `CALOCOUNT_OWNER_EMAIL` secret, or add a `CALOCOUNT_ALLOWED_EMAIL_SHA256` Text variable. The hash is the SHA-256 digest of the trimmed, lower-case Access email.
+A passkey instance needs only the `CALOCOUNT_SETUP_CODE` secret:
+
+```bash
+pnpm exec wrangler secret put CALOCOUNT_SETUP_CODE
+```
+
+The rest of this section is for an instance in Access mode. Do not put Access values or email values in `wrangler.jsonc`. Set them on the Worker. In the dashboard, add `CALOCOUNT_ACCESS_TEAM_DOMAIN`, `CALOCOUNT_ACCESS_AUDIENCE` and, for ChatGPT, `CALOCOUNT_MCP_ACCESS_AUDIENCE` as Text variables. For the owner allowlist, set the `CALOCOUNT_OWNER_EMAIL` secret, or add a `CALOCOUNT_ALLOWED_EMAIL_SHA256` Text variable. The hash is the SHA-256 digest of the trimmed, lower-case Access email.
 
 ```bash
 pnpm exec wrangler secret put CALOCOUNT_OWNER_EMAIL
@@ -180,7 +189,7 @@ Then:
 3. Test one manual dashboard meal and the MCP meal and nutrition tools. If the legacy Action is still configured, test one `POST /api/add-meal` request for compatibility.
 4. Verify the anonymous public projection and photo flow, and the private owner flow.
 
-For the public/owner route split, follow [docs/read-only-sharing.md](docs/read-only-sharing.md). The production Access layout was live-verified on 2026-08-26:
+For the public/owner route split, follow [docs/read-only-sharing.md](docs/read-only-sharing.md). In Access mode, the production Access layout was live-verified on 2026-08-26. A passkey instance needs no Access application; the Worker checks the session itself:
 
 - The existing private Access application protects the exact `/owner`, `/owner/*`, and `/api/*` destinations with the existing owner Allow policy and the same owner JWT audience.
 - A separate Access application for the exact `/api/public/summary` destination uses Bypass Everyone.
@@ -195,6 +204,7 @@ This repository does not set up Cloudflare resources or secrets. That setup need
 
 ## Privacy
 
+- In passkey mode, the database keeps the public key of each passkey and the SHA-256 of each session cookie, OAuth code and OAuth token. It keeps no usable secret. See [docs/sign-in.md](docs/sign-in.md).
 - The public dashboard is off for a new owner. The owner turns it on with the "Public dashboard" setting. While it is off, `/` redirects to `/owner`, and `/api/public/summary`, `/meal-photos/*` and `/llms.txt` return `404`.
 - Migration `0014_public_view.sql` turns the setting on for each owner that has saved settings, so an existing public dashboard stays public after the upgrade.
 - Meal photos stay in a private R2 bucket.

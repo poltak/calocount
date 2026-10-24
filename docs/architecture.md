@@ -8,7 +8,7 @@ Calocount is a single-user meal tracker. The public root is read-only, and the o
 - Cloudflare D1 stores settings, goal changes, meals, meal items, revisions, and historical job and AI records.
 - A private R2 bucket stores meal photos.
 - The Worker's hourly cron trigger runs a bounded, resumable scan that removes only unlinked R2 photos older than the 24-hour grace period.
-- Cloudflare Access protects the private owner route and private APIs.
+- A passkey and a session cookie protect the private owner route and private APIs. OAuth 2.1 protects the MCP endpoint. An instance can use Cloudflare Access instead. [sign-in.md](sign-in.md) describes both modes.
 - Historical D1 tables for analysis jobs and AI runs remain. Current code does not write to them.
 
 ## Pages and browser code
@@ -94,6 +94,14 @@ reachable anonymously; and removed share routes return `404` when reached.
 Recheck the live Access path list after every Access change; this document
 describes the intended state, not automatic enforcement.
 
+### Sign-in routes
+
+In passkey mode, no Access application exists. `/owner` shows the sign-in page
+to a browser without a live session. `/api/auth/*` signs in and manages
+passkeys and connected apps. `/.well-known/oauth-*` and `/oauth/*` are the
+OAuth endpoints of the MCP endpoint. Every other `/api/*` route requires the
+passkey session. [sign-in.md](sign-in.md) lists the routes and their rules.
+
 ### Future route and Access review rule
 
 For the intended public-root/private-owner layout, treat routes as public by
@@ -125,7 +133,8 @@ return these rows.
 
 Calocount does not call an AI provider or run an AI analysis worker. The external
 ChatGPT MCP app prepares the meal estimate and sends structured values to
-`/mcp`; the Worker checks the owner's Cloudflare Access identity. The deprecated
+`/mcp`; the Worker checks an OAuth access token that the owner allowed with a
+passkey session, or the owner's Cloudflare Access identity in Access mode. The deprecated
 Custom GPT Action uses `POST /api/add-meal` and a Worker bearer-token secret for
 existing clients. Both paths use the shared meal-processing code. For external
 photos, the Worker accepts approved temporary OpenAI image references, downloads
@@ -137,6 +146,7 @@ a photo immediately, and does not store the temporary link.
 - Dashboard photo requests require the same server-side allowlist as other private API routes.
 - The Worker downloads temporary ChatGPT photo references immediately and does not store the temporary links.
 - Secrets are Worker secrets. They are not D1 records or configuration values.
+- D1 keeps the public key of each passkey and the SHA-256 of each session cookie, OAuth code and OAuth token. A copy of the database gives no way to sign in.
 - Normal logs do not contain captions, photo URLs, or full request payloads.
 - The scheduled cleanup removes only unlinked photos older than the 24-hour grace period; linked meal photos stay with their structured nutrition data.
 

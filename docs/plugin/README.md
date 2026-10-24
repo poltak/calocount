@@ -38,7 +38,48 @@ OpenAI requires the MCP tool metadata to declare `photos` as a file parameter in
 
 The MCP server sends short workflow instructions during initialization. Its `add_meals` tool description and `request_id` field description ask ChatGPT to generate a UUID v4 with a code tool when available and reuse it only for an exact retry. The `update_meal` tool uses the existing `request_id` from history. These descriptions guide the model; the server validates the UUID but cannot verify how ChatGPT generated it. After deploying the server change, refresh the existing Calocount connection in ChatGPT Plugins, confirm that all five tools are listed, and start a new chat ([Connect and test your plugin](https://developers.openai.com/plugins/deploy/connect-chatgpt)).
 
-## Required server and Access setup
+## Sign-in for the MCP connection
+
+The sign-in of the connection depends on the sign-in mode of the instance. See
+[sign-in.md](../sign-in.md).
+
+### Passkey mode: OAuth
+
+A new instance uses passkey mode. Calocount is its own OAuth authorization
+server, so ChatGPT needs no Cloudflare Access application.
+
+1. In ChatGPT web, turn on developer mode for apps, and create a new app.
+2. Use the MCP server URL `https://<your-calocount-host>/mcp`, and select
+   OAuth as the authentication. Leave any client ID and client secret fields
+   empty. ChatGPT finds the OAuth endpoints from the `/mcp` answer and registers
+   itself with Calocount.
+3. ChatGPT opens a Calocount page. If Calocount asks, sign in with your
+   passkey. On **Connect ChatGPT to Calocount?**, check that the page names
+   `chatgpt.com`, then select **Allow**.
+4. Confirm that ChatGPT lists the five tools. Calocount shows ChatGPT under
+   **Settings > Sign-in > Connected apps**.
+
+ChatGPT refreshes its token without help. The connection works until you
+disconnect it, or until ChatGPT does not use it for 180 days. To stop it,
+select **Disconnect** in Calocount or remove the app in ChatGPT.
+
+After a move from Access mode, remove the old Calocount app in ChatGPT and
+create a new one. The old app has Access tokens, and passkey mode does not
+accept them.
+
+To check the server without ChatGPT, send a request without a token. It must
+return `401` with a `WWW-Authenticate` header that names
+`/.well-known/oauth-protected-resource/mcp`:
+
+```bash
+curl -i -X POST https://<your-calocount-host>/mcp \
+  -H 'content-type: application/json' -H 'accept: application/json, text/event-stream' \
+  --data '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```
+
+### Access mode
+
+The rest of this section applies only to an instance in Access mode.
 
 ChatGPT must reach the MCP server through a public HTTPS endpoint or Secure MCP Tunnel. A public endpoint uses Streamable HTTP, usually at `/mcp`. OpenAI explains this in [Connect and test your plugin](https://developers.openai.com/plugins/deploy/connect-chatgpt) and [Secure MCP Tunnel](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels).
 
@@ -50,13 +91,13 @@ Before deployment, verify that the existing Cloudflare Access application has an
 
 Each Access application has its own JWT audience. Verify that `CALOCOUNT_MCP_ACCESS_AUDIENCE` in the Calocount Worker environment matches the audience tag for the existing `/mcp` application. Keep `CALOCOUNT_ACCESS_AUDIENCE` set to the audience tag for the existing `/api/*` application. Do not reuse the `/api/*` audience for `/mcp`. Confirm that the Worker validates the signed Access JWT and checks the expected owner identity before it reads nutrition data or writes a meal. Test that a missing or wrong `CALOCOUNT_MCP_ACCESS_AUDIENCE` rejects the request. Cloudflare documents path rules, Managed OAuth, and audience and JWT validation ([Application paths](https://developers.cloudflare.com/cloudflare-one/access-controls/policies/app-paths/), [Managed OAuth](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/managed-oauth/), [Application token audience](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/application-token/), [Validate Access JWTs](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/validating-json/)).
 
-Do not use the old Custom GPT bearer secret for this connection. ChatGPT signs in through Access Managed OAuth. The server must still validate the Access JWT and allow only the configured owner.
+Do not use the old Custom GPT bearer secret for this connection. In Access mode, ChatGPT signs in through Access Managed OAuth. The server must still validate the Access JWT and allow only the configured owner.
 
 ## Test in standard Chat
 
 Use the owner's Personal Plus or Pro account in ChatGPT web. OpenAI's current [developer mode guide](https://developers.openai.com/api/docs/guides/developer-mode) says Plus and Pro can use MCP write tools in web developer mode. ChatGPT can ask for confirmation before a write. Confirm each test write in ChatGPT when it asks.
 
-1. Deploy the Worker and confirm the HTTPS `/mcp` endpoint works. Finish the Cloudflare Access setup above first.
+1. Deploy the Worker and confirm the HTTPS `/mcp` endpoint works. Finish the sign-in setup above first.
 2. In ChatGPT Plugins, refresh the owner's existing Calocount developer-mode MCP connection. Confirm that ChatGPT lists exactly these five tools: `add_meals`, `update_meal`, `get_nutrition_summary`, `get_nutrition_history`, and `get_weight_history`.
 3. Start a new **standard Chat**. Use the `+` control in the composer, open **Developer mode**, and select the Calocount app. OpenAI also documents the app picker under `+` > **More** for supported chats ([Connect and test your plugin](https://developers.openai.com/plugins/build/app-quickstart)). Test the app in standard Chat. Do not switch to Work for this acceptance test.
 4. Test the read tools with an inclusive date range. The dates are days in the owner's saved timezone, which each result returns as `timezone`. Ask `get_nutrition_summary` for the range, then use `get_nutrition_history` with the same dates and `page_size: 1`. If the response has a `next_cursor`, request the next page with the same dates and page size plus that cursor. Ask `get_weight_history` for the same range and confirm that it returns the recorded weights in kilograms, oldest first.

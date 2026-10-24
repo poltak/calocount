@@ -168,11 +168,10 @@ under `/api/` needs the owner's sign-in.
 ## Private MCP endpoint
 
 `/mcp` is an MCP server over Streamable HTTP for the owner's own assistant. It
-is not public. Cloudflare Access protects it: an MCP client signs in as the
-owner through Access Managed OAuth, and the server checks the signed Access
-token on every request. Without that sign-in a request gets a login redirect or
-`401`. If you are not connected as the owner, use the public views above. Do
-not ask anyone for credentials.
+is not public. An MCP client signs in as the owner with OAuth, and the server
+checks the token on every request. Without that sign-in a request gets a login
+redirect or `401`. If you are not connected as the owner, use the public views
+above. Do not ask anyone for credentials.
 
 Tools:
 
