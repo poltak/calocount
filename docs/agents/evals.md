@@ -47,6 +47,103 @@ Use an eval to choose a model, and to see the effect of a change to a prompt.
    null mode must score 0%. Run both again after each change to the eval or to
    a key. They cost nothing.
 
+### An example
+
+This eval is not in the template. It measures a prompt that suggests a title
+for a note. `TitleLogic` would call `ai.generate` with the purpose
+`noteTitle` and the role `title`. Each case is the body of a note, and its key
+is the right title.
+
+In `core/live/config.ts`, read the path of the data folder:
+
+```ts
+/** The data folder of the title eval, outside Git. */
+export function readTitleEvalDataDir(
+  env: Record<string, string | undefined> = process.env,
+): string | null {
+  return env.TITLE_EVAL_DATA?.trim() || null;
+}
+```
+
+In `core/evals/index.ts`, construct the Logic:
+
+```ts
+export function createTitleEval({ ai }: { ai: AIServiceInterface<"title"> }) {
+  const storage = titleEvalStorage(); // Only the Storage methods that TitleLogic calls.
+  return new TitleLogic({
+    storage,
+    services: { ai },
+    transaction: (run) => run(storage),
+  });
+}
+```
+
+In `backend/src/features/notes/scripts/title-eval.ts`, give the definition:
+
+```ts
+import { createTitleEval } from "../../core/evals/index.js";
+import { priceOf } from "../../core/evals/model-prices.js";
+import { readTitleEvalDataDir } from "../../core/live/config.js";
+import { runEvalCommand } from "../../core/scripts/eval-command.js";
+import { TITLE_PROMPT_VERSION } from "../utils/title-prompt.js";
+
+interface TitleCase {
+  id: string;
+  body: string;
+  key: { title: string };
+}
+
+await runEvalCommand<
+  "title",
+  TitleCase,
+  { title: string },
+  { right: boolean; cost: number }
+>({
+  name: "title",
+  dataDir: readTitleEvalDataDir() ?? "",
+  privateData: true,
+  promptVersions: { title: TITLE_PROMPT_VERSION },
+  roles: ["title"],
+  defaultModels: { title: "claude-haiku-5-5" },
+  loadCases: (selection) => readCases(selection),
+  check: (evalCase) =>
+    evalCase.key.title ? [] : [`${evalCase.id}: the key has no title`],
+  estimate: ({ cases, models }) => {
+    const price = priceOf(models.title) ?? { input: 0, output: 0 };
+    return (cases.length * (2_000 * price.input + 200 * price.output)) / 1e6;
+  },
+  run: async ({ evalCase, ai }) => ({
+    title: await createTitleEval({ ai }).suggestTitle({ body: evalCase.body }),
+  }),
+  answers: ({ evalCase, mode }) => ({
+    noteTitle: () => ({ title: mode === "oracle" ? evalCase.key.title : "" }),
+  }),
+  score: ({ evalCase, answer }) => ({
+    right: answer.result.title === evalCase.key.title,
+    cost: answer.cost,
+  }),
+  results: {
+    head: ["| Prompts | Model | Right |", "| --- | --- | --- |"],
+    row: ({ prompts, model, scores }) =>
+      `| ${prompts} | ${model} | ${scores.filter((s) => s.right).length} of ${scores.length} |`,
+  },
+});
+```
+
+`readCases` reads the cases and their keys from the data folder. The format
+of a case and of its key is the choice of the eval. `answers` gives the
+output of each purpose, so the oracle and the null mode run the same
+`TitleLogic` with no model. Then run it:
+
+```sh
+export TITLE_EVAL_DATA="<path of the data folder>"
+pnpm run eval:title check
+pnpm run eval:title run --mode oracle
+pnpm run eval:title run --mode null
+pnpm run eval:title run --runs 3 --max-cost 0.5
+pnpm run eval:title score
+```
+
 ## Commands
 
 - `check` reads each case and its key, and lists each problem. A wrong key
@@ -93,8 +190,8 @@ The name of the models folder is the model of the first role, then
 
 Set `privateData` when a case holds private data, such as patient data. The
 command then refuses a data folder that Git can track. Keep the folder out of
-the repository, and give its path to the eval through the configuration, as
-`core/live/config.ts` reads it. Send private data only with an API key of an
+the repository, and read its path in `core/live/config.ts`, as
+`readTitleEvalDataDir` does in [the example](#an-example). Send private data only with an API key of an
 organization whose agreement with the provider covers that data. Keep the key
 in the macOS Keychain, or in a file that only you can read and that Git
 ignores, with `--key-stdin < <file>`.
