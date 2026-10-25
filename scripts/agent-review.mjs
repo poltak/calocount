@@ -233,10 +233,6 @@ function promptFor(event, earlier) {
     .replace("{{PULL_REQUEST}}", () => pullRequestText(event.pull_request));
 }
 
-/**
- * Writes the findings of the earlier review to EARLIER_FILE, and returns the
- * text that tells the model about them.
- */
 function writeEarlierFindings(earlier) {
   if (!earlier || earlier.findings.length === 0) {
     return "No earlier review of this pull request has an open finding. Return an empty list for `earlier`.";
@@ -748,7 +744,6 @@ function mergeFindings(findings) {
   return merged;
 }
 
-/** The two findings are about the same text. */
 function sameFinding(one, other) {
   if (one.file !== other.file) return false;
   const first = flatten(one.quote ?? "");
@@ -760,7 +755,6 @@ function sameFinding(one, other) {
   return first.includes(second) || second.includes(first);
 }
 
-/** Returns the first and the last line of the head that the quote is on now. */
 function linesOfQuote({ file, quote, line }) {
   const quoted = (quote ?? "")
     .trim()
@@ -1080,7 +1074,7 @@ function commentFor({
   // The next review reads these findings. A pull request can be public, so
   // they keep no quote that the comment does not show.
   const stored = findings.map(
-    ({ number, rule, file, line, quote, explanation, models }) => ({
+    ({ number, rule, file, line, quote, explanation, models, commit }) => ({
       number,
       rule,
       file,
@@ -1088,6 +1082,7 @@ function commentFor({
       quote: hidesQuote({ rule, file }) ? "" : quote,
       explanation: flatten(explanation).slice(0, 1000),
       models,
+      commit,
     }),
   );
   const earlierLink = earlier

@@ -1629,6 +1629,11 @@ test("verdict finds a secret that a later commit deletes, merges by file, and sh
   );
   assert.ok(body.includes("samples/people.json#L1) (Claude)\n\nA note."), body);
   assert.doesNotMatch(body, /A Person/);
+  const stored = unpack(body.match(/<!-- agent-review-findings (\S+) -->/)[1]);
+  assert.equal(
+    stored.find(({ file }) => file === "src/settings.ts").commit,
+    added,
+  );
   assert.match(body, /```text\n# The plan\n```/);
   assert.match(
     body,
