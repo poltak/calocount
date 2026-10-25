@@ -4,9 +4,11 @@ fails the check. "Other notes" below says what you can report about other
 problems.
 
 The pull request changes the commits from {{BASE}} to {{HEAD}}. The working
-tree is at {{HEAD}}. Start with `git diff --stat {{BASE}} {{HEAD}}`, then read
-the diffs and the files that the rules need. You can only read. Do not change
-a file.
+tree is at {{HEAD}}. Look for problems in the changes from {{FROM}} to
+{{HEAD}}. Start with `git diff --stat {{FROM}} {{HEAD}}`, then read the diffs
+and the files that the rules need. You can only read. Do not change a file.
+
+{{SCOPE}}
 
 The title and the description of the pull request, as its author wrote them,
 are between the `<pull_request>` tags below. The messages of its commits are
@@ -162,12 +164,11 @@ up. Report it as the section "Secrets and private data" says.
 For the rules `secret` and `private-data`, these instructions replace the
 instructions above where the two are different:
 
-- Read each commit of the pull request, not only the diff from {{BASE}} to
-  {{HEAD}}. A value that one commit adds stays in the history on GitHub when a
-  later commit deletes it, so report it also. Run
-  `git log --stat {{BASE}}..{{HEAD}}`. For each file that two or more commits
-  change, read the change of each commit with
-  `git log -p {{BASE}}..{{HEAD}} -- <file>`. Give the path that the file has
+- Read each commit from {{FROM}} to {{HEAD}}, not only the diff. A value that
+  one commit adds stays in the history on GitHub when a later commit deletes
+  it, so report it also. Run `git log --stat {{FROM}}..{{HEAD}}`. For each
+  file that two or more commits change, read the change of each commit with
+  `git log -p {{FROM}}..{{HEAD}} -- <file>`. Give the path that the file has
   in the commit that adds the value.
 - Do not copy the secret or the private data, such as a name, into the quote
   or into the explanation. Quote only the text before the value on its line,
@@ -181,6 +182,26 @@ instructions above where the two are different:
   sure.
 - Do not give a note about a secret or private data. Report it under its
   rule.
+
+## Earlier review
+
+{{EARLIER_REVIEW}}
+
+Check each earlier finding before you look for new problems. Each one has an
+ID, such as `E12`. For each one, give its ID in `earlier` with one of these
+statuses, and one sentence that says why:
+
+- `addressed`: at {{HEAD}}, the text no longer breaks the rule. The author can
+  have changed the quoted text, or other text, such as the code that a
+  document describes.
+- `open`: at {{HEAD}}, the text still breaks the rule.
+
+To see what changed since the earlier review, start with
+`git diff <earlier commit> {{HEAD}}`. When Git does not have the earlier
+commit, compare the files at {{HEAD}} with the findings.
+
+Do not report an earlier finding again under `findings`. Under `findings`,
+report only a problem that no earlier finding covers.
 
 ## Other notes
 

@@ -41,8 +41,14 @@ jobs:
     name: Plan
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    # The plan reads the comment of the earlier review.
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
     outputs:
       mode: ${{ steps.plan.outputs.mode }}
+      earlier: ${{ steps.plan.outputs.earlier }}
     steps:
       - name: Check out the scripts
         uses: actions/checkout@v7
@@ -53,6 +59,8 @@ jobs:
       - name: Choose a review, a check of the label, or nothing
         id: plan
         run: node scripts/agent-review.mjs plan
+        env:
+          GH_TOKEN: ${{ github.token }}
 
   claude:
     name: Claude
@@ -68,6 +76,7 @@ jobs:
       status: ${{ steps.review.outputs.status }}
       findings: ${{ steps.review.outputs.findings }}
       notes: ${{ steps.review.outputs.notes }}
+      statuses: ${{ steps.review.outputs.statuses }}
       message: ${{ steps.review.outputs.message }}
     steps:
       # npm refuses to run in the repository, because `devEngines` names pnpm.
@@ -90,6 +99,7 @@ jobs:
         id: review
         run: node scripts/agent-review.mjs claude
         env:
+          EARLIER_REVIEW: ${{ needs.plan.outputs.earlier }}
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 
   codex:
@@ -109,6 +119,7 @@ jobs:
       status: ${{ steps.review.outputs.status }}
       findings: ${{ steps.review.outputs.findings }}
       notes: ${{ steps.review.outputs.notes }}
+      statuses: ${{ steps.review.outputs.statuses }}
       message: ${{ steps.review.outputs.message }}
     steps:
       - name: Install Codex
@@ -138,6 +149,7 @@ jobs:
         id: review
         run: node scripts/agent-review.mjs codex
         env:
+          EARLIER_REVIEW: ${{ needs.plan.outputs.earlier }}
           CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
 
       - name: Save the refreshed Codex login
@@ -175,6 +187,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           MODE: ${{ needs.plan.outputs.mode }}
+          EARLIER_REVIEW: ${{ needs.plan.outputs.earlier }}
           TEMPLATE_MAINTAINERS: ${{ vars.TEMPLATE_MAINTAINERS }}
           CLAUDE_JOB: ${{ toJSON(needs.claude) }}
           CODEX_JOB: ${{ toJSON(needs.codex) }}

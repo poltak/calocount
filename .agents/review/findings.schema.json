@@ -1,7 +1,7 @@
 {
   "type": "object",
   "additionalProperties": false,
-  "required": ["findings", "notes"],
+  "required": ["findings", "notes", "earlier"],
   "properties": {
     "findings": {
       "type": "array",
@@ -51,6 +51,28 @@
           },
           "explanation": {
             "type": "string"
+          }
+        }
+      }
+    },
+    "earlier": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "status", "explanation"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The ID of the earlier finding, such as E12"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["addressed", "open"]
+          },
+          "explanation": {
+            "type": "string",
+            "description": "One sentence that says why"
           }
         }
       }

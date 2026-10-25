@@ -11,15 +11,31 @@
 //   node scripts/agent-review.mjs save-codex-login  keep Codex's new login
 //   node scripts/agent-review.mjs verdict           the comment and the result
 //
-// The verdict fails while a finding is open. A maintainer accepts the findings
-// with the `agent-review-accepted` label. A later review with findings removes
-// the label, so an acceptance is for the findings that the maintainer saw. A
-// draft gets its review when it is ready, and a dependency update gets none.
+// The verdict fails while a finding is open. A maintainer accepts one finding
+// with its checkbox, and each later review keeps it accepted. The
+// `agent-review-accepted` label accepts each open finding of one head. A later
+// review with open findings removes the label, so it is for the findings that
+// the maintainer saw. A draft gets its review when it is ready, and a
+// dependency update gets none.
+//
+// Each review posts a new comment, which stores its open findings. The next
+// review gives them to the models, which say which ones the new commits
+// addressed. The new comment repeats the open ones. In the earlier comment, the
+// review checks the box of each finding that is addressed.
+//
+// The comment also stores the newest commit that each model read. When the
+// pull request only added commits after it, the next review looks for new
+// problems only in those commits, so a small push costs a small review.
+//
+// Each new finding on a line that the pull request adds also gets a comment on
+// that line, in a review. When a later review finds that it is addressed, it
+// checks the box of the line comment.
 //
 // Each command reads the event from GITHUB_EVENT_PATH, and writes its outputs
 // to GITHUB_OUTPUT. The maintainers are in TEMPLATE_MAINTAINERS, with commas or
 // spaces between them. `gh` reads its token from GH_TOKEN.
 import { execFileSync, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import {
   appendFileSync,
   existsSync,
@@ -30,13 +46,62 @@ import {
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { gunzipSync, gzipSync } from "node:zlib";
 import { VERSION_FILE } from "./template-files.mjs";
 
 const LABEL = "agent-review-accepted";
 const MARKER = "<!-- agent-review";
+// `reviewed` is the newest commit that each model read, and `base` is the
+// merge base of that review. A comment from before they were stored has
+// neither.
+const HEAD_PATTERN =
+  /^<!-- agent-review head=(\w+) blockers=(\d+)(?: reviewed=(\w+) base=(\w+))? -->/;
+const FINDINGS_PATTERN = /^<!-- agent-review-findings (\S+) -->$/m;
+// The models read the findings of the earlier review from this file. The
+// checkout does not track it, so it is not a part of the pull request.
+const EARLIER_FILE = ".agent-review/earlier-findings.md";
+// A comment from before the checkboxes has these marks on its findings.
+const OLD_MARK = /^(?:✅ Addressed|⏳ Not yet addressed) · /gm;
+const FINDING_BOX = /^(?:- \[[ x]\] )?(?=\*\*(\d+)\. \[)/gm;
+const LINE_BOX = /^(?:- \[[ x]\] )?(?=\*\*\[)/m;
+// The box of a finding in the comment of a review, with its number, or the box
+// of a line comment, with none.
+const BOX = /^- \[([ x])\] \*\*(?:(\d+)\. )?\[/gm;
+// GraphQL and REST give the login of the token of a workflow in two forms.
+const BOT_LOGINS = new Set(["github-actions", "github-actions[bot]"]);
+// GitHub keeps each version of a comment, with the person who made it, so a
+// review can see who checked a box. The query reads 100 conversations and 100
+// versions of each comment, with no more pages. A box past that limit accepts
+// nothing, so its finding stays open.
+const EDITS_QUERY = `query ($comment: ID!, $owner: String!, $name: String!, $number: Int!) {
+  comment: node(id: $comment) {
+    ... on IssueComment {
+      userContentEdits(first: 100) { nodes { editedAt editor { login } diff } }
+    }
+  }
+  repository(owner: $owner, name: $name) {
+    pullRequest(number: $number) {
+      reviewThreads(first: 100) {
+        nodes {
+          comments(first: 1) {
+            nodes {
+              author { login }
+              body
+              userContentEdits(first: 100) { nodes { editedAt editor { login } diff } }
+            }
+          }
+        }
+      }
+    }
+  }
+}`;
+// Each line comment has the key of its finding, so that a later review can
+// find the line comment of a finding that it addressed.
+const LINE_PATTERN = /<!-- agent-review-line (\w+) -->/;
 const PROMPT_FILE = ".agents/review/prompt.md";
 const PROJECT_RULES_FILE = ".agents/review/project-rules.md";
 const SCHEMA_FILE = ".agents/review/findings.schema.json";
+const REVIEW_DIRECTORY = ".agents/review/";
 const RULE_HEADING = /^### +(.+?) *$/gm;
 // A dependency update changes versions and the lockfile, and no text that the
 // rules are about.
@@ -77,6 +142,8 @@ const TOKEN_PATTERN =
 // finding of these rules.
 const SENSITIVE_RULES = new Set(["secret", "private-data"]);
 const COMMENT_FINDING_LIMIT = 50;
+// GitHub refuses a comment longer than 65,536 characters.
+const COMMENT_LENGTH_LIMIT = 65_000;
 // Notes do not fail the check, so a long list of them is only noise.
 const NOTE_LIMIT = 3;
 const root = fileURLToPath(new URL("..", import.meta.url));
@@ -124,13 +191,105 @@ function pullRequestText(pull) {
   return `<pull_request>\nTitle: ${clean(pull.title)}\n\n${clean(pull.body) || "(no description)"}\n</pull_request>`;
 }
 
-function promptFor(event) {
-  const { base, head } = rangeOf(event);
+/**
+ * Returns the range of the pull request, and `from`, the commit after which
+ * the models look for new problems. `from` is the newest commit that each
+ * model read in an earlier review, when the pull request only added commits
+ * after it. Otherwise it is the merge base, and the models read each change.
+ */
+function scopeOf(event, earlier) {
+  const range = rangeOf(event);
+  const full = (reason) => ({ ...range, from: range.base, reason });
+  const reviewed = earlier?.reviewed;
+  if (!reviewed) {
+    return full("no earlier review has a commit that each model read");
+  }
+  // A rule can ask for a reason in the description, and the earlier review
+  // read the changes with the old description.
+  if (event.action === "edited") {
+    return full("the title or the description changed");
+  }
+  if (reviewed === range.head) {
+    return full("the earlier review read the same head");
+  }
+  // After a merge of the base branch, the changes after `reviewed` include
+  // changes of the base branch, which are not a part of the pull request.
+  if (earlier.base !== range.base) {
+    return full("the merge base changed");
+  }
+  const inHistory =
+    spawnSync("git", ["merge-base", "--is-ancestor", reviewed, range.head], {
+      cwd: root,
+    }).status === 0;
+  if (!inHistory) {
+    return full(
+      `${reviewed.slice(0, 7)} is not in the history of the head, for example after a rebase`,
+    );
+  }
+  // The earlier review read the earlier changes with the old rules.
+  const rulesChanged =
+    spawnSync(
+      "git",
+      ["diff", "--quiet", reviewed, range.head, "--", REVIEW_DIRECTORY],
+      { cwd: root },
+    ).status !== 0;
+  if (rulesChanged) {
+    return full("the rules of the review changed");
+  }
+  return {
+    ...range,
+    from: reviewed,
+    reason: `each model read each change up to ${reviewed.slice(0, 7)}`,
+  };
+}
+
+const PARTIAL_SCOPE = `Each model of an earlier review read each change from {{BASE}} to
+{{FROM}}, so this review looks for new problems only after {{FROM}}. A new
+change can break a rule together with text that an earlier commit of the pull
+request added, for example when it makes a document wrong. When a rule needs
+that text, read the other files, or \`git diff {{BASE}} {{HEAD}}\`. Do not
+report a problem in text that the changes from {{FROM}} to {{HEAD}} do not
+add, change, or make wrong.`;
+
+function promptFor(event, earlier) {
+  const { base, from, head, reason } = scopeOf(event, earlier);
+  console.log(
+    `The models look for new problems in ${from === base ? "each change" : `the changes after ${from}`}, because ${reason}.`,
+  );
   return readFileSync(path.join(root, PROMPT_FILE), "utf8")
     .replace("{{PROJECT_RULES}}", () => projectRules())
+    .replace("{{EARLIER_REVIEW}}", () => writeEarlierFindings(earlier))
+    .replace(/\{\{SCOPE\}\}\n\n/, () =>
+      from === base ? "" : `${PARTIAL_SCOPE}\n\n`,
+    )
     .replaceAll("{{BASE}}", base)
+    .replaceAll("{{FROM}}", from)
     .replaceAll("{{HEAD}}", head)
     .replace("{{PULL_REQUEST}}", () => pullRequestText(event.pull_request));
+}
+
+function writeEarlierFindings(earlier) {
+  // A finding that a maintainer accepted needs no status from the models.
+  const open = (earlier?.findings ?? []).filter((finding) => !finding.accepted);
+  if (open.length === 0) {
+    return "No earlier review of this pull request has an open finding. Return an empty list for `earlier`.";
+  }
+  const lines = [`# Findings of the review of ${earlier.head}`, ""];
+  for (const finding of open) {
+    lines.push(
+      `## E${finding.number}: ${finding.rule} in ${finding.file}${finding.line ? `:${finding.line}` : ""}`,
+      "",
+      finding.quote
+        ? quoteBlock(finding.quote)
+        : "The comment shows no quote for this finding. Find the text from the explanation.",
+      "",
+      finding.explanation,
+      "",
+    );
+  }
+  mkdirSync(path.dirname(path.join(root, EARLIER_FILE)), { recursive: true });
+  writeFileSync(path.join(root, EARLIER_FILE), lines.join("\n"));
+  return `The review of commit ${earlier.head} has ${count(open.length, "open finding")}. \`${EARLIER_FILE}\` has each one, with its ID.`;
 }
 
 /** Returns the name of each rule, which is the text of its heading. */
@@ -151,10 +310,12 @@ function readPages(route) {
 }
 
 function callApi({ method, route, body }) {
-  execFileSync("gh", ["api", "--method", method, route, "--input", "-"], {
-    encoding: "utf8",
-    input: JSON.stringify(body ?? {}),
-  });
+  const output = execFileSync(
+    "gh",
+    ["api", "--method", method, route, "--input", "-"],
+    { encoding: "utf8", input: JSON.stringify(body ?? {}) },
+  );
+  return output.trim() ? JSON.parse(output) : undefined;
 }
 
 const encode = (findings) =>
@@ -163,6 +324,12 @@ const flatten = (text) => text.replace(/\s+/g, " ").trim();
 const count = (number, word) => `${number} ${word}${number === 1 ? "" : "s"}`;
 const decode = (text) =>
   text ? JSON.parse(Buffer.from(text, "base64").toString("utf8")) : [];
+// The comment stores the findings, and gzip keeps them inside its limit.
+const pack = (value) => gzipSync(JSON.stringify(value)).toString("base64");
+const unpack = (text) =>
+  text
+    ? JSON.parse(gunzipSync(Buffer.from(text, "base64")).toString("utf8"))
+    : undefined;
 // Markdown shows a code span as it is, so an escape in it would show as text.
 const escapeOutsideCode = (text) =>
   text
@@ -193,7 +360,62 @@ function plan() {
     console.log(`A "${event.action}" event changes nothing for the review.`);
   }
   console.log(`Mode: ${mode}`);
-  writeOutputs({ mode });
+  writeOutputs({
+    mode,
+    earlier: mode === "review" ? earlierReview(event) : "",
+  });
+}
+
+function earlierReview(event) {
+  const comment = stickyComment({
+    repository: event.repository.full_name,
+    number: event.pull_request.number,
+  });
+  const [, head, , reviewed, base] = comment?.body.match(HEAD_PATTERN) ?? [];
+  if (!head) return "";
+  const stored = comment.body.match(FINDINGS_PATTERN)?.[1];
+  const findings = stored ? unpack(stored) : findingsInText(comment.body);
+  const accepted = findings.filter((finding) => finding.accepted).length;
+  console.log(
+    `The review of ${head} has ${count(findings.length - accepted, "open finding")}${accepted > 0 ? ` and ${accepted} accepted` : ""}.`,
+  );
+  return pack({ head, comment: comment.id, findings, reviewed, base });
+}
+
+/**
+ * A comment from before the comments stored their findings shows each
+ * finding up to COMMENT_FINDING_LIMIT, so the findings come from its text.
+ */
+function findingsInText(body) {
+  return body
+    .split(/^(?=\*\*\d+\. \[)/m)
+    .slice(1)
+    .flatMap((entry) => {
+      const match = entry.match(
+        /^\*\*(\d+)\. \[([^\]]+)\][^`]*`([^`]+?)(?::(\d+))?`\]\([^)]*\)(?: at commit \w+)? \(([^)]*)\)/,
+      );
+      if (!match) return [];
+      const [heading, number, rule, file, line, models] = match;
+      const quoteMatch = entry.match(/^(`{3,})text\n([\s\S]*?)\n\1$/m);
+      const rest = entry
+        .slice(heading.length)
+        .replace(quoteMatch?.[0] ?? "", "");
+      return [
+        {
+          number: Number(number),
+          rule,
+          file,
+          line: line ? Number(line) : null,
+          quote: quoteMatch?.[2] ?? "",
+          // The new comment escapes the explanation again.
+          explanation: (rest.trim().split(/\n\s*\n/)[0] ?? "")
+            .replaceAll("&lt;", "<")
+            .replaceAll("&gt;", ">")
+            .replaceAll("&amp;", "&"),
+          models: models.split(", "),
+        },
+      ];
+    });
 }
 
 function claude() {
@@ -206,7 +428,7 @@ function claude() {
     "claude",
     [
       "-p",
-      promptFor(readEvent()),
+      promptFor(readEvent(), unpack(process.env.EARLIER_REVIEW)),
       "--model",
       process.env.CLAUDE_MODEL,
       "--effort",
@@ -236,6 +458,7 @@ function claude() {
   }
   const findings = run?.structured_output?.findings;
   const notes = run?.structured_output?.notes ?? [];
+  const statuses = run?.structured_output?.earlier ?? [];
   if (result.status !== 0 || run?.is_error || !Array.isArray(findings)) {
     const message = flatten(
       `${run?.result ?? run?.subtype ?? ""} ${result.stderr ?? ""}`,
@@ -248,12 +471,13 @@ function claude() {
     return;
   }
   console.log(
-    `Claude Code: ${count(findings.length, "finding")}, ${count(notes.length, "note")}, ${run.num_turns} turns, $${run.total_cost_usd?.toFixed(2)} at API prices.`,
+    `Claude Code: ${count(findings.length, "finding")}, ${count(notes.length, "note")}, ${count(statuses.length, "earlier finding")} checked, ${run.num_turns} turns, $${run.total_cost_usd?.toFixed(2)} at API prices.`,
   );
   writeOutputs({
     status: "ok",
     findings: encode(findings),
     notes: encode(notes),
+    statuses: encode(statuses),
   });
 }
 
@@ -300,7 +524,7 @@ function codex() {
       "--output-last-message",
       lastMessage,
       "--json",
-      promptFor(readEvent()),
+      promptFor(readEvent(), unpack(process.env.EARLIER_REVIEW)),
     ],
     {
       encoding: "utf8",
@@ -317,6 +541,7 @@ function codex() {
   }
   const findings = output?.findings;
   const notes = output?.notes ?? [];
+  const statuses = output?.earlier ?? [];
   if (result.status !== 0 || !Array.isArray(findings)) {
     const message = flatten(result.stderr ?? "").slice(-500);
     console.log(`Codex failed with status ${result.status}: ${message}`);
@@ -330,12 +555,13 @@ function codex() {
     .map((match) => JSON.parse(match[1]))
     .at(-1);
   console.log(
-    `Codex: ${count(findings.length, "finding")}, ${count(notes.length, "note")}, ${usage?.input_tokens ?? "?"} input and ${usage?.output_tokens ?? "?"} output tokens.`,
+    `Codex: ${count(findings.length, "finding")}, ${count(notes.length, "note")}, ${count(statuses.length, "earlier finding")} checked, ${usage?.input_tokens ?? "?"} input and ${usage?.output_tokens ?? "?"} output tokens.`,
   );
   writeOutputs({
     status: "ok",
     findings: encode(findings),
     notes: encode(notes),
+    statuses: encode(statuses),
   });
 }
 
@@ -397,8 +623,9 @@ function saveCodexLogin() {
 /** Reads the result of one model's job from `toJSON(needs.<job>)`. */
 function modelResult({ name, model, job }) {
   const { result, outputs = {} } = JSON.parse(job || "{}");
+  const empty = { findings: [], notes: [], statuses: [] };
   if (outputs.status === "not-configured") {
-    return { name, model, state: "not-configured", findings: [], notes: [] };
+    return { name, model, state: "not-configured", ...empty };
   }
   if (result === "success" && outputs.status === "ok") {
     const withModel = (item) => ({ ...item, models: [name] });
@@ -408,6 +635,7 @@ function modelResult({ name, model, job }) {
       state: "ok",
       findings: decode(outputs.findings).map(withModel),
       notes: decode(outputs.notes).slice(0, NOTE_LIMIT).map(withModel),
+      statuses: decode(outputs.statuses),
     };
   }
   return {
@@ -416,8 +644,7 @@ function modelResult({ name, model, job }) {
     state: "failed",
     message:
       outputs.message || `The job ended with "${result ?? "no result"}".`,
-    findings: [],
-    notes: [],
+    ...empty,
   };
 }
 
@@ -550,6 +777,372 @@ function mergeFindings(findings) {
   return merged;
 }
 
+function sameFinding(one, other) {
+  if (one.file !== other.file) return false;
+  const first = flatten(one.quote ?? "");
+  const second = flatten(other.quote ?? "");
+  // The comment stores no quote of a sensitive rule, or from its file.
+  if (!first || !second || SENSITIVE_RULES.has(one.rule)) {
+    return one.rule === other.rule;
+  }
+  return first.includes(second) || second.includes(first);
+}
+
+function linesOfQuote({ file, quote, line }) {
+  const quoted = (quote ?? "")
+    .trim()
+    .split("\n")
+    .map((text) => text.trim());
+  if (!quoted[0]) return { start: line, end: line };
+  const lines = readFileSync(path.resolve(root, file), "utf8").split("\n");
+  // A short quote can be on more lines than one, so the line that the model
+  // gave goes first.
+  const index = lines[line - 1]?.includes(quoted[0])
+    ? line - 1
+    : lines.findIndex((text) => text.includes(quoted[0]));
+  return index === -1
+    ? { start: line, end: line }
+    : { start: index + 1, end: index + quoted.length };
+}
+
+/**
+ * Returns the lines that the pull request adds to the file. GitHub refuses a
+ * review with a comment on a line that is not in the diff.
+ */
+function addedLines(file, { base, head }) {
+  const diff = spawnSync(
+    "git",
+    [
+      "--literal-pathspecs",
+      "diff",
+      "--no-color",
+      "--no-ext-diff",
+      "--unified=0",
+      base,
+      head,
+      "--",
+      file,
+    ],
+    { cwd: root, encoding: "utf8", maxBuffer: 256 * 1024 * 1024 },
+  );
+  const hunks = (diff.stdout ?? "").matchAll(
+    /^@@ -\S+ \+(\d+)(?:,(\d+))? @@/gm,
+  );
+  return new Set(
+    [...hunks].flatMap(([, start, length = "1"]) =>
+      Array.from(
+        { length: Number(length) },
+        (_, offset) => Number(start) + offset,
+      ),
+    ),
+  );
+}
+
+// The key comes from the stored fields of the finding, so the finding has the
+// same key in each review that carries it.
+const keyOf = ({ rule, file, quote }) =>
+  createHash("sha256")
+    .update(`${rule}\n${file}\n${flatten(quote ?? "")}`)
+    .digest("hex")
+    .slice(0, 16);
+
+/**
+ * Returns a line comment for each new finding on lines that the pull request
+ * adds. The other findings are only in the summary comment. GitHub sends the
+ * lines around a line comment by email, so a finding in a file with a secret
+ * or private data gets none.
+ */
+function lineComments({ findings, addressed, range, ruleLink }) {
+  const sensitiveFiles = sensitiveFilesOf([...findings, ...addressed]);
+  return findings
+    .filter((finding) => finding.earlierNumber === undefined)
+    .slice(0, COMMENT_FINDING_LIMIT)
+    .filter((finding) => !sensitiveFiles.has(finding.file))
+    .flatMap((finding) => {
+      const { start, end } = linesOfQuote(finding);
+      const diffLines = addedLines(finding.file, range);
+      const inDiff = Array.from(
+        { length: end - start + 1 },
+        (_, offset) => start + offset,
+      ).filter((line) => diffLines.has(line));
+      if (inDiff.length === 0) return [];
+      const each = end > start && inDiff.length === end - start + 1;
+      return [
+        {
+          path: finding.file,
+          side: "RIGHT",
+          line: each ? end : inDiff[0],
+          ...(each && { start_line: start, start_side: "RIGHT" }),
+          body: [
+            `<!-- agent-review-line ${keyOf(finding)} -->`,
+            `- [ ] **${ruleLink(finding.rule)}** (${finding.models.join(", ")})`,
+            "",
+            escapeOutsideCode(flatten(finding.explanation).slice(0, 1000)),
+            "",
+            `Finding ${finding.number} of the agent review of ${range.head.slice(0, 7)}.`,
+          ].join("\n"),
+        },
+      ];
+    });
+}
+
+/**
+ * Checks the box of the line comment of each addressed or accepted finding,
+ * and says why. A person resolves the conversation, because GitHub can refuse
+ * `resolveReviewThread` to the token of a workflow, also with
+ * `pull-requests: write`.
+ */
+function markLines({ repository, number, addressed, accepted, link }) {
+  const byKey = new Map(
+    [
+      ...addressed.map((item) => ({
+        item,
+        lines: outcomeLines({ text: `Addressed in the ${link}`, item }),
+      })),
+      ...accepted.map((item) => ({
+        item,
+        lines: [`${item.acceptedBy} accepted this finding. See the ${link}.`],
+      })),
+    ].map((mark) => [keyOf(mark.item), mark]),
+  );
+  const comments = readPages(
+    `repos/${repository}/pulls/${number}/comments?per_page=100`,
+  ).flat();
+  for (const comment of comments) {
+    const mark = byKey.get(comment.body?.match(LINE_PATTERN)?.[1]);
+    if (
+      !mark ||
+      comment.user?.login !== "github-actions[bot]" ||
+      /^- \[x\] \*\*\[/m.test(comment.body)
+    ) {
+      continue;
+    }
+    callApi({
+      method: "PATCH",
+      route: `repos/${repository}/pulls/comments/${comment.id}`,
+      body: {
+        body: [
+          comment.body.replace(LINE_BOX, "- [x] "),
+          "",
+          ...mark.lines,
+        ].join("\n"),
+      },
+    });
+  }
+}
+
+/**
+ * Sorts the findings of the earlier review into the addressed and the open
+ * ones, and keeps only the new findings that no earlier finding covers. Each
+ * earlier finding keeps the status of each model that answered, with its
+ * reason, so that the comment can show where the models disagree.
+ *
+ * An earlier finding is addressed when its quote is not in its file now, or
+ * when each model that gave it a status says it is addressed. A finding of the
+ * script is addressed when the script does not report it again. Otherwise a
+ * finding that a maintainer accepted stays accepted, and is not open. A
+ * finding that a model reports again is open, whatever the statuses say.
+ */
+function followUp({ earlier, findings, models, accepted = new Map() }) {
+  if (!earlier) {
+    return { carried: [], accepted: [], addressed: [], added: findings };
+  }
+  const reported = new Set();
+  const added = findings.filter((finding) => {
+    const match = earlier.findings.find((old) => sameFinding(old, finding));
+    if (match) reported.add(match.number);
+    return !match;
+  });
+  const answered = models.filter((model) => model.state === "ok");
+  const carried = [];
+  const acceptedItems = [];
+  const addressed = [];
+  for (const old of earlier.findings) {
+    const votes = answered.map((model) => {
+      const status = model.statuses.find(({ id }) => id === `E${old.number}`);
+      return { model: model.name, ...status };
+    });
+    const statuses = votes.filter((vote) => vote.status);
+    const checkable = old.quote && !SENSITIVE_RULES.has(old.rule);
+    const item = { ...old, earlierNumber: old.number, votes };
+    // Only after the check of the quote, because a later commit can have
+    // deleted the file.
+    const lineNow = () => (checkable ? linesOfQuote(old).start : old.line);
+    const again = reported.has(old.number);
+    if (old.models.includes("script") && !again) {
+      addressed.push({ ...item, reason: "The script does not report it now." });
+    } else if (checkable && !quoteIsInFile(old)) {
+      addressed.push({
+        ...item,
+        reason: "The quoted text is not in the file now.",
+      });
+    } else if (
+      !again &&
+      statuses.length > 0 &&
+      statuses.every((status) => status.status === "addressed")
+    ) {
+      addressed.push(item);
+    } else if (accepted.has(old.number)) {
+      acceptedItems.push({
+        ...item,
+        line: lineNow(),
+        acceptedBy: accepted.get(old.number),
+      });
+    } else if (again) {
+      carried.push({
+        ...item,
+        line: lineNow(),
+        reason: "A model reported it again.",
+      });
+    } else {
+      carried.push({
+        ...item,
+        line: lineNow(),
+        ...(statuses.length === 0 && {
+          reason: "No model gave a status for it.",
+        }),
+      });
+    }
+  }
+  return { carried, accepted: acceptedItems, addressed, added };
+}
+
+/**
+ * Returns each check or clear of a box that a maintainer made, from the
+ * versions of a comment, oldest first. The key of a box is the number of its
+ * finding, or "line" for the box of a line comment.
+ */
+function boxChanges(versions) {
+  const boxesOf = (body) =>
+    new Map(
+      [...body.matchAll(BOX)].map(([, mark, number]) => [
+        number ? Number(number) : "line",
+        mark === "x",
+      ]),
+    );
+  return versions.flatMap(({ editor, at, body }, index) => {
+    if (index === 0 || !isMaintainer(editor)) return [];
+    const before = boxesOf(versions[index - 1].body);
+    return [...boxesOf(body)]
+      .filter(
+        ([key, checked]) => before.has(key) && before.get(key) !== checked,
+      )
+      .map(([key, checked]) => ({ key, checked, login: editor, at }));
+  });
+}
+
+/**
+ * Returns the maintainer who accepted each earlier finding, by its number. A
+ * maintainer accepts a finding with its box in the comment of the review or
+ * in its line comment, and clears the box to take the acceptance back. The
+ * comment stores each acceptance from before it, so only the changes after it
+ * count, and the newest change wins. A box that another person checks accepts
+ * nothing.
+ */
+function acceptedFindings({ repository, number, earlier, comment }) {
+  const accepted = new Map(
+    earlier.findings
+      .filter((finding) => finding.accepted)
+      .map((finding) => [finding.number, finding.accepted]),
+  );
+  const [owner, name] = repository.split("/");
+  let data;
+  try {
+    data = callApi({
+      method: "POST",
+      route: "graphql",
+      body: {
+        query: EDITS_QUERY,
+        variables: { comment: comment.node_id, owner, name, number },
+      },
+    })?.data;
+  } catch (error) {
+    console.log(
+      `::warning title=Agent review::GitHub did not give the versions of the comments, so the review sees no new acceptance: ${flatten(String(error.stderr || error.message)).slice(0, 300)}`,
+    );
+    return accepted;
+  }
+  // GitHub gives the newest version first, and the oldest is the comment as
+  // it was posted.
+  const versionsOf = (node) =>
+    (node?.userContentEdits?.nodes ?? [])
+      .map(({ editedAt, editor, diff }) => ({
+        at: editedAt,
+        editor: editor?.login,
+        body: diff ?? "",
+      }))
+      .reverse();
+  const numberOfKey = new Map(
+    earlier.findings.map((finding) => [keyOf(finding), finding.number]),
+  );
+  const lineChanges = (
+    data?.repository?.pullRequest?.reviewThreads?.nodes ?? []
+  ).flatMap((thread) => {
+    const line = thread.comments.nodes[0];
+    const findingNumber = numberOfKey.get(line?.body.match(LINE_PATTERN)?.[1]);
+    if (!findingNumber || !BOT_LOGINS.has(line.author?.login)) return [];
+    return boxChanges(versionsOf(line)).map((change) => ({
+      ...change,
+      key: findingNumber,
+    }));
+  });
+  const numbers = new Set(earlier.findings.map((finding) => finding.number));
+  const changes = [...boxChanges(versionsOf(data?.comment)), ...lineChanges]
+    .filter(({ key, at }) => numbers.has(key) && at > comment.created_at)
+    .sort((one, other) => one.at.localeCompare(other.at));
+  for (const { key, checked, login, at } of changes) {
+    console.log(
+      `${login} ${checked ? "checked" : "cleared"} the box of finding ${key} of the earlier review at ${at}.`,
+    );
+    if (checked) accepted.set(key, login);
+    else accepted.delete(key);
+  }
+  return accepted;
+}
+
+/**
+ * The status that each model gave an earlier finding, with its reason, as the
+ * lines of a Markdown list. With no status from any model, the reason of the
+ * outcome says it, so the list is empty.
+ */
+function voteLines(votes = []) {
+  if (!votes.some((vote) => vote.status)) return [];
+  return votes.map(({ model, status, explanation }) =>
+    status
+      ? `- ${model}: ${status}. ${escapeOutsideCode(flatten(explanation ?? "").slice(0, 300))}`
+      : `- ${model} gave no status.`,
+  );
+}
+
+function outcomeLines({ text, item }) {
+  return [
+    `${text}${item.reason ? `: ${escapeOutsideCode(flatten(item.reason).slice(0, 300))}` : "."}`,
+    ...(voteLines(item.votes).length > 0 ? ["", ...voteLines(item.votes)] : []),
+  ];
+}
+
+/**
+ * Checks the box of each addressed finding of the earlier comment, and puts a
+ * line under its heading that links to the follow-up. A line from an earlier
+ * follow-up goes first.
+ */
+function markEarlier(body, { carried, accepted, addressed, link }) {
+  const boxes = new Map([
+    ...addressed.map((item) => [item.earlierNumber, "- [x] "]),
+    ...accepted.map((item) => [item.earlierNumber, "- [x] "]),
+    ...carried.map((item) => [item.earlierNumber, "- [ ] "]),
+  ]);
+  return body
+    .replace(/\n\n> Follow-up: [^\n]*/, "")
+    .replace(OLD_MARK, "")
+    .replace(
+      /^### Agent review of .*$/m,
+      (heading) =>
+        `${heading}\n\n> Follow-up: ${link}: ${addressed.length} addressed, ${carried.length} not yet addressed${accepted.length > 0 ? `, ${accepted.length} accepted` : ""}.`,
+    )
+    .replace(FINDING_BOX, (box, number) => boxes.get(Number(number)) ?? box);
+}
+
 /**
  * Puts the quote in a code block, so that Markdown in it, such as a heading,
  * shows as text. The fence is longer than each run of backticks in the quote.
@@ -590,12 +1183,19 @@ function generalRules({ server, repository, head }) {
       };
 }
 
-function commentFor({ repository, head, findings, notes, models, deleted }) {
-  const server = process.env.GITHUB_SERVER_URL ?? "https://github.com";
-  const fileUrl = (file, commit = head) =>
-    `${server}/${repository}/blob/${commit}/${encodeURI(file)}`;
-  const link = ({ file, line, commit }) =>
-    `[\`${file}${line ? `:${line}` : ""}\`](${fileUrl(file, commit)}${line ? `#L${line}` : ""})${commit && commit !== head ? ` at commit ${commit.slice(0, 7)}` : ""}`;
+// A finding of another rule, or a note, can quote the line with the secret.
+const sensitiveFilesOf = (findings) =>
+  new Set(
+    findings
+      .filter((finding) => SENSITIVE_RULES.has(finding.rule))
+      .map((finding) => finding.file),
+  );
+
+/**
+ * Returns a function that links the name of a rule to its text. GitHub gives
+ * each heading of a Markdown file an anchor.
+ */
+function ruleLinkOf({ server, repository, head }) {
   const general = generalRules({ server, repository, head });
   const generalNames = new Set(
     [
@@ -604,41 +1204,152 @@ function commentFor({ repository, head, findings, notes, models, deleted }) {
       ),
     ].map(([, name]) => name),
   );
-  // GitHub gives each heading of a Markdown file an anchor, so the name links
-  // to the text of its rule.
-  const ruleLink = (rule) => {
+  const fileUrl = (file) =>
+    `${server}/${repository}/blob/${head}/${encodeURI(file)}`;
+  return (rule) => {
     if (generalNames.has(rule)) return `[${rule}](${general.url}#${rule})`;
     if (rule === "new-document") {
       return `[${rule}](${fileUrl("docs/agents/README.md")}#where-to-add-information)`;
     }
     return `[${rule}](${fileUrl(PROJECT_RULES_FILE)}#${rule})`;
   };
+}
+
+/**
+ * `findings` are the open findings, each with its number: first the ones that
+ * `carried` holds from the earlier review, then the new ones. `from` is the
+ * commit after which the models looked for new problems, when they did not
+ * read each change. `read` is the newest commit that each model read, which
+ * the comment stores for the next review.
+ */
+function commentFor({
+  repository,
+  number,
+  head,
+  from,
+  read,
+  earlier,
+  findings,
+  carried,
+  accepted,
+  addressed,
+  notes,
+  models,
+  deleted,
+  limit,
+}) {
+  const server = process.env.GITHUB_SERVER_URL ?? "https://github.com";
+  const fileUrl = (file, commit = head) =>
+    `${server}/${repository}/blob/${commit}/${encodeURI(file)}`;
+  const link = ({ file, line, commit }) =>
+    `[\`${file}${line ? `:${line}` : ""}\`](${fileUrl(file, commit)}${line ? `#L${line}` : ""})${commit && commit !== head ? ` at commit ${commit.slice(0, 7)}` : ""}`;
+  const general = generalRules({ server, repository, head });
+  const ruleLink = ruleLinkOf({ server, repository, head });
   const failed = models.filter((model) => model.state === "failed");
-  const blockers = findings.length + failed.length;
+  const open = findings.length - accepted.length;
+  const blockers = open + failed.length;
+  const sensitiveFiles = sensitiveFilesOf([...findings, ...addressed]);
+  const hidesQuote = (item) =>
+    SENSITIVE_RULES.has(item.rule) || sensitiveFiles.has(item.file);
+  // The next review reads these findings. A pull request can be public, so
+  // they keep no quote that the comment does not show.
+  const stored = findings.map(
+    ({
+      number,
+      rule,
+      file,
+      line,
+      quote,
+      explanation,
+      models,
+      commit,
+      acceptedBy,
+    }) => ({
+      number,
+      rule,
+      file,
+      line,
+      quote: hidesQuote({ rule, file }) ? "" : quote,
+      explanation: flatten(explanation).slice(0, 1000),
+      models,
+      commit,
+      accepted: acceptedBy,
+    }),
+  );
+  const earlierLink = earlier
+    ? `[review of ${earlier.head.slice(0, 7)}](${server}/${repository}/pull/${number}#issuecomment-${earlier.comment})`
+    : "";
   const lines = [
-    `${MARKER} head=${head} blockers=${blockers} -->`,
-    `### Agent review of ${head.slice(0, 7)}: ${findings.length === 0 ? "no findings" : count(findings.length, "finding")}`,
+    `${MARKER} head=${head} blockers=${blockers}${read.reviewed ? ` reviewed=${read.reviewed} base=${read.base}` : ""} -->`,
+    `<!-- agent-review-findings ${pack(stored)} -->`,
+    `### Agent review of ${head.slice(0, 7)}: ${open === 0 ? "no findings" : count(open, "finding")}${accepted.length > 0 ? `, ${accepted.length} accepted` : ""}`,
     "",
   ];
-  // A finding of another rule, or a note, can quote the line with the secret.
-  const sensitiveFiles = new Set(
-    findings
-      .filter((finding) => SENSITIVE_RULES.has(finding.rule))
-      .map((finding) => finding.file),
-  );
-  const entry = (item, title) => [
-    `**${title}** in ${link(item)} (${item.models.join(", ")})`,
+  if (earlier) {
+    lines.push(
+      `Follow-up of the ${earlierLink}: ${addressed.length} addressed, ${carried.length} not yet addressed, ${accepted.length > 0 ? `${accepted.length} accepted, ` : ""}${findings.length - carried.length - accepted.length} new.`,
+      "",
+    );
+  }
+  if (from) {
+    lines.push(
+      `The models looked for new problems only in [the changes after ${from.slice(0, 7)}](${server}/${repository}/compare/${from}...${head}). Each model read the changes before them in an earlier review.`,
+      "",
+    );
+  }
+  // Only a finding has a box, because a later review checks only findings.
+  const entry = ({ item, title, box = "" }) => [
+    `${box}**${title}** in ${link(item)} (${item.models.join(", ")})`,
     "",
     ...(sensitiveFiles.has(item.file) ? [] : [quoteBlock(item.quote), ""]),
     escapeOutsideCode(flatten(item.explanation).slice(0, 1000)),
     "",
+    ...(item.acceptedBy ? [`Accepted by ${item.acceptedBy}.`, ""] : []),
+    ...(item.earlierNumber === undefined || item.acceptedBy
+      ? []
+      : [...outcomeLines({ text: "Not yet addressed", item }), ""]),
   ];
-  findings.slice(0, COMMENT_FINDING_LIMIT).forEach((finding, index) => {
-    lines.push(...entry(finding, `${index + 1}. ${ruleLink(finding.rule)}`));
-  });
-  if (findings.length > COMMENT_FINDING_LIMIT) {
+  const kindOf = (finding) =>
+    finding.earlierNumber === undefined
+      ? "new"
+      : finding.acceptedBy
+        ? "accepted"
+        : "carried";
+  const headings = {
+    carried: `#### Not yet addressed from the ${earlierLink}`,
+    accepted: "#### Accepted by a maintainer",
+    new: "#### New findings",
+  };
+  findings.slice(0, limit).forEach((finding, index) => {
+    const kind = kindOf(finding);
+    if (earlier && (index === 0 || kind !== kindOf(findings[index - 1]))) {
+      lines.push(headings[kind], "");
+    }
     lines.push(
-      `${findings.length - COMMENT_FINDING_LIMIT} more findings are in the log of the workflow.`,
+      ...entry({
+        item: finding,
+        title: `${finding.number}. ${ruleLink(finding.rule)}`,
+        box: finding.acceptedBy ? "- [x] " : "- [ ] ",
+      }),
+    );
+  });
+  if (findings.length > limit) {
+    lines.push(
+      `${findings.length - limit} more findings are in the log of the workflow.`,
+      "",
+    );
+  }
+  if (addressed.length > 0) {
+    lines.push(
+      "<details>",
+      `<summary>Addressed since the review of ${earlier.head.slice(0, 7)}: ${addressed.length}</summary>`,
+      "",
+      ...addressed.flatMap((item) => [
+        `- [x] ${item.earlierNumber}. ${item.rule} in ${link({ file: item.file, line: item.line, commit: earlier.head })}${item.reason ? `: ${escapeOutsideCode(flatten(item.reason).slice(0, 300))}` : ""}`,
+        ...voteLines(item.votes).map((line) => `  ${line}`),
+      ]),
+      "",
+      "</details>",
       "",
     );
   }
@@ -675,7 +1386,7 @@ function commentFor({ repository, head, findings, notes, models, deleted }) {
       : "";
     lines.push(
       "",
-      `${generalText}${projectText} When each finding is wrong or accepted, a maintainer adds the \`${LABEL}\` label. A later review with findings removes the label.`,
+      `${generalText}${projectText} A maintainer accepts a finding with its checkbox, here or on its line, and the next review keeps it accepted. To accept each open finding of this commit now, a maintainer adds the \`${LABEL}\` label. A later review with open findings removes the label.`,
     );
   }
   if (notes.length > 0) {
@@ -689,7 +1400,7 @@ function commentFor({ repository, head, findings, notes, models, deleted }) {
       "",
     );
     notes.forEach((note, index) => {
-      lines.push(...entry(note, `${index + 1}.`));
+      lines.push(...entry({ item: note, title: `${index + 1}.` }));
     });
   }
   return { body: lines.join("\n").trimEnd(), blockers };
@@ -715,6 +1426,15 @@ function reviewVerdict(event) {
   if (current !== head) {
     console.log(`A newer push (${current}) replaced the review of ${head}.`);
     return true;
+  }
+  // The Claude job stops when a newer review of the pull request starts, such
+  // as after an edit of the description. That review posts the result, and a
+  // second comment for the head would mark the earlier comment again.
+  if (JSON.parse(process.env.CLAUDE_JOB || "{}").result === "cancelled") {
+    console.log(
+      "Something cancelled the Claude job: a newer review of this head, a person, or the time limit. So this review posts nothing. When no newer review runs, run the review again.",
+    );
+    return false;
   }
 
   const models = [
@@ -762,35 +1482,135 @@ function reviewVerdict(event) {
     }
     return !reason;
   });
-  const findings = mergeFindings(kept);
+  const earlier = unpack(process.env.EARLIER_REVIEW);
+  const { from } = scopeOf(event, earlier);
+  // A model that failed did not read the changes, so the next review reads
+  // them again, from the commit that each model read.
+  const read = models.every((model) => model.state !== "failed")
+    ? { reviewed: head, base: range.base }
+    : { reviewed: earlier?.reviewed, base: earlier?.base };
+  const previous =
+    earlier &&
+    readPages(`repos/${repository}/issues/comments/${earlier.comment}`)[0];
+  const { carried, accepted, addressed, added } = followUp({
+    earlier,
+    findings: mergeFindings(kept),
+    models,
+    accepted: previous
+      ? acceptedFindings({
+          repository,
+          number: pull.number,
+          earlier,
+          comment: previous,
+        })
+      : new Map(),
+  });
+  const findings = [...carried, ...accepted, ...added].map(
+    (finding, index) => ({
+      ...finding,
+      number: index + 1,
+    }),
+  );
   const allNotes = models.flatMap((model) => model.notes);
   const notes = mergeFindings(allNotes.filter(quoteIsInFile));
   deleted.quote += allNotes.length - allNotes.filter(quoteIsInFile).length;
-  const { body, blockers } = commentFor({
-    repository,
-    head,
-    findings,
-    notes,
-    models,
-    deleted,
-  });
-  console.log(body);
+  const commentWith = (limit) =>
+    commentFor({
+      repository,
+      number: pull.number,
+      head,
+      from: from === range.base ? undefined : from,
+      read,
+      earlier,
+      findings,
+      carried,
+      accepted,
+      addressed,
+      notes,
+      models,
+      deleted,
+      limit,
+    });
+  console.log(commentWith(Infinity).body);
+  let limit = COMMENT_FINDING_LIMIT;
+  let comment = commentWith(limit);
+  while (comment.body.length > COMMENT_LENGTH_LIMIT && limit > 0) {
+    limit = Math.max(0, limit - 5);
+    comment = commentWith(limit);
+  }
+  const { body, blockers } = comment;
 
-  const previous = stickyComment({ repository, number: pull.number });
+  // A new comment, and not an edit, so that GitHub sends a notification.
+  const posted = callApi({
+    method: "POST",
+    route: `repos/${repository}/issues/${pull.number}/comments`,
+    body: { body },
+  });
+  const link = posted?.html_url
+    ? `[review of ${head.slice(0, 7)}](${posted.html_url})`
+    : `review of ${head.slice(0, 7)}`;
   if (previous) {
-    // GitHub keeps each earlier version of an edited comment, so a later run
-    // does not hide the findings of an earlier one.
     callApi({
       method: "PATCH",
-      route: `repos/${repository}/issues/comments/${previous.id}`,
-      body: { body },
+      route: `repos/${repository}/issues/comments/${earlier.comment}`,
+      body: {
+        body: markEarlier(previous.body, {
+          carried,
+          accepted,
+          addressed,
+          link,
+        }),
+      },
     });
-  } else {
-    callApi({
-      method: "POST",
-      route: `repos/${repository}/issues/${pull.number}/comments`,
-      body: { body },
+  }
+
+  // The summary comment has each finding, so a line comment that GitHub
+  // refuses must not stop the verdict.
+  const lineFailed = (error) =>
+    console.log(
+      `::warning title=Agent review::GitHub refused a line comment: ${flatten(String(error.stderr || error.message)).slice(0, 300)}`,
+    );
+  try {
+    const comments = lineComments({
+      findings,
+      addressed,
+      range,
+      ruleLink: ruleLinkOf({
+        server: process.env.GITHUB_SERVER_URL ?? "https://github.com",
+        repository,
+        head,
+      }),
     });
+    if (comments.length > 0) {
+      // A review that requests changes blocks the merge until a person
+      // dismisses it, also after a maintainer accepts the findings with the
+      // label. The check already fails while a finding is open.
+      callApi({
+        method: "POST",
+        route: `repos/${repository}/pulls/${pull.number}/reviews`,
+        body: {
+          commit_id: head,
+          event: "COMMENT",
+          body: `${count(comments.length, "new finding")} of the agent review ${comments.length === 1 ? "is" : "are"} on lines of this change. The comment of the ${link} has each finding, and the result of the check.`,
+          comments,
+        },
+      });
+    }
+  } catch (error) {
+    lineFailed(error);
+  }
+  if (addressed.length > 0 || accepted.length > 0) {
+    try {
+      markLines({
+        repository,
+        number: pull.number,
+        addressed,
+        accepted,
+        link,
+      });
+    } catch (error) {
+      lineFailed(error);
+    }
   }
 
   if (blockers === 0) {
@@ -813,7 +1633,7 @@ function labelVerdict(event) {
   const repository = event.repository.full_name;
   const pull = event.pull_request;
   const marker = stickyComment({ repository, number: pull.number })?.body.match(
-    /^<!-- agent-review head=(\w+) blockers=(\d+) -->/,
+    HEAD_PATTERN,
   );
   if (marker?.[1] !== pull.head.sha) {
     console.log(
