@@ -352,12 +352,16 @@ test("keeps black box tests on page objects and the black box fixture", async (c
   const problems = await lint(context, {
     "frontend/src/features/core/black-box-tests/black-box-test.ts":
       "export const test = () => undefined;\n",
+    "frontend/src/features/auth/black-box-tests/sign-in-page-object.ts":
+      'import type { Page } from "@playwright/test";\nexport const signInPage = (page: Page) => page.getByRole("heading");\n',
     "frontend/src/features/notes/black-box-tests/notes-page-object.ts":
       'import type { Page } from "@playwright/test";\nexport const notesPage = (page: Page) => ({\n  note: (title: string) => page.getByRole("listitem").filter({ hasText: title }),\n  open: () => page.getByRole("heading", { name: "Edit note" }).waitFor(),\n});\n',
+    // A workflow can cross features, so a test may use the page objects of
+    // another feature.
     "frontend/src/features/notes/black-box-tests/notes.spec.ts":
       'import { expect } from "@playwright/test";\n' +
       fixture +
-      'import { notesPage } from "./notes-page-object.js";\nexport const check = (page: never) => [test, expect(notesPage(page).note("A"))];\n',
+      'import { signInPage } from "../../auth/black-box-tests/sign-in-page-object.js";\nimport { notesPage } from "./notes-page-object.js";\nexport const check = (page: never) => [test, signInPage(page), expect(notesPage(page).note("A"))];\n',
     "frontend/src/features/markup/black-box-tests/markup-page-object.ts":
       'import { expect, type Page } from "@playwright/test";\nexport const find = (page: Page) => [expect, page.locator(".note"), page.getByTestId("note")];\n',
     "frontend/src/features/finds/black-box-tests/finds.spec.ts":

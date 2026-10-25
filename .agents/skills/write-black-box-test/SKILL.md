@@ -34,6 +34,9 @@ before you start. This skill is the order of work.
    tests.
 
 4. Write or extend the page object of each page that the workflow uses:
+   - First look for the page objects that exist, in the `black-box-tests/`
+     directory of each feature. Each page has one page object, also for the
+     tests of other features.
    - Get the roles, labels, and texts from the page component, or from the
      accessibility tree in `error-context.md` after a run that failed.
    - Write a step for each thing that a user does on the page, and a locator

@@ -254,6 +254,8 @@ How to write a page object:
   the UI that many pages show, such as the header, gets a page object of its
   own in `core/black-box-tests/`. The header's page object is
   `AppShellPageObject`.
+- Each page has one page object. A test of another feature uses it too, and
+  lint permits that import, because a workflow can cross features.
 - A step is a method for one thing that a user wants to do. Name it after that
   goal, such as `signIn()`, not after the elements that it uses.
 - A locator is a field or a method that returns a Playwright `Locator`, for the
