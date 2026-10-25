@@ -91,6 +91,21 @@ console.log(JSON.stringify({ type: "turn.completed", usage: { input_tokens: 1000
 
 const git = (directory, ...args) =>
   spawnSync("git", args, { cwd: directory, encoding: "utf8" }).stdout.trim();
+const commitAll = (directory, message) => {
+  git(directory, "add", "--all");
+  git(
+    directory,
+    "-c",
+    "user.name=Test",
+    "-c",
+    "user.email=test@example.com",
+    "commit",
+    "--quiet",
+    "-m",
+    message,
+  );
+  return git(directory, "rev-parse", "HEAD");
+};
 
 /**
  * A repository with a base commit and a head commit. The head adds a
@@ -325,7 +340,7 @@ test("plan reviews each person's push, and skips a draft, a dependency update, a
   );
 });
 
-test("plan gives the open findings of the newest review, also from a comment that does not store them", async (context) => {
+test("plan gives the open findings of the newest review and the commit that each model read, also from a comment that does not store them", async (context) => {
   const repo = await repository(context);
   const stored = [
     {
@@ -350,7 +365,7 @@ test("plan gives the open findings of the newest review, also from a comment tha
 
   const fromData = await earlierOf([
     bot(
-      `<!-- agent-review head=abc1234 blockers=1 -->\n<!-- agent-review-findings ${pack(stored)} -->\n### Agent review of abc1234: 1 finding`,
+      `<!-- agent-review head=abc1234 blockers=1 reviewed=fed4321 base=0ba5e00 -->\n<!-- agent-review-findings ${pack(stored)} -->\n### Agent review of abc1234: 1 finding`,
     ),
   ]);
   const fromText = await earlierOf([
@@ -381,6 +396,8 @@ test("plan gives the open findings of the newest review, also from a comment tha
     head: "abc1234",
     comment: 99,
     findings: stored,
+    reviewed: "fed4321",
+    base: "0ba5e00",
   });
   assert.deepEqual(unpack(fromText), {
     head: "def5678",
@@ -464,6 +481,103 @@ test("claude gives the reviewer the open findings of the earlier review in a fil
     promptOf(withoutEarlier),
     /No earlier review of this pull request has an open finding\. Return an empty list for `earlier`\./,
   );
+});
+
+test("claude looks for new problems only after the commit that each model read, and reads each change when the history or the rules changed", async (context) => {
+  const repo = await repository(context);
+  await writeFile(
+    path.join(repo.directory, "docs/agents/plan.md"),
+    `# The plan\n\n${OVERRIDE}\n\nA new step.\n`,
+  );
+  const newer = commitAll(repo.directory, "Add a step");
+  // A commit that is not in the history of the head, as after a rebase.
+  const replaced = git(
+    repo.directory,
+    "commit-tree",
+    "HEAD^{tree}",
+    "-p",
+    repo.base,
+    "-m",
+    "Replaced",
+  );
+  const review = async ({ earlier, action = "synchronize", head = newer }) => {
+    const result = await run({
+      repo,
+      command: "claude",
+      action,
+      head,
+      env: {
+        CLAUDE_CODE_OAUTH_TOKEN: "token",
+        EARLIER_REVIEW: pack({
+          head: repo.head,
+          comment: 99,
+          findings: [],
+          ...earlier,
+        }),
+        FAKE_CLAUDE_OUTPUT: JSON.stringify({
+          structured_output: { findings: [], earlier: [] },
+        }),
+      },
+    });
+    const { args } = result.calls[0];
+    return { prompt: args[args.indexOf("-p") + 1], output: result.output };
+  };
+  const read = { reviewed: repo.head, base: repo.base };
+  const readsEachChange = ({ prompt }, head = newer) =>
+    prompt.includes(`git diff --stat ${repo.base} ${head}`) &&
+    prompt.includes(`git log --stat ${repo.base}..${head}`) &&
+    !prompt.includes("so this review looks for new problems only after");
+
+  const partial = await review({ earlier: read });
+  const notStored = await review({ earlier: {} });
+  const edited = await review({ earlier: read, action: "edited" });
+  const sameHead = await review({ earlier: read, head: repo.head });
+  const merged = await review({
+    earlier: { ...read, base: "0".repeat(40) },
+  });
+  const rebased = await review({ earlier: { ...read, reviewed: replaced } });
+  await writeFile(
+    path.join(repo.directory, ".agents/review/project-rules.md"),
+    PROJECT_RULES,
+  );
+  const withRule = commitAll(repo.directory, "Add a rule");
+  const newRules = await review({ earlier: read, head: withRule });
+
+  assert.ok(
+    partial.prompt.includes(
+      `Look for problems in the changes from ${repo.head} to\n${newer}. Start with \`git diff --stat ${repo.head} ${newer}\``,
+    ),
+    partial.prompt,
+  );
+  assert.ok(
+    partial.prompt.includes(
+      `Each model of an earlier review read each change from ${repo.base} to\n${repo.head}, so this review looks for new problems only after ${repo.head}.`,
+    ),
+    partial.prompt,
+  );
+  assert.ok(
+    partial.prompt.includes(`git diff ${repo.base} ${newer}`),
+    partial.prompt,
+  );
+  assert.ok(
+    partial.prompt.includes(`git log --stat ${repo.head}..${newer}`),
+    partial.prompt,
+  );
+  assert.doesNotMatch(partial.prompt, /\{\{/);
+  assert.match(
+    partial.output,
+    new RegExp(`in the changes after ${repo.head}, because each model read`),
+  );
+  assert.ok(readsEachChange(notStored), notStored.prompt);
+  assert.ok(readsEachChange(edited), edited.prompt);
+  assert.match(edited.output, /because the title or the description changed/);
+  assert.ok(readsEachChange(sameHead, repo.head), sameHead.prompt);
+  assert.ok(readsEachChange(merged), merged.prompt);
+  assert.match(merged.output, /because the merge base changed/);
+  assert.ok(readsEachChange(rebased), rebased.prompt);
+  assert.match(rebased.output, /is not in the history of the head/);
+  assert.ok(readsEachChange(newRules, withRule), newRules.prompt);
+  assert.match(newRules.output, /because the rules of the review changed/);
 });
 
 test("claude reports no setup without a token, and runs nothing", async (context) => {
@@ -688,7 +802,9 @@ test("verdict merges the findings, deletes one with a wrong quote, adds a new do
   const { body } = JSON.parse(posts[0].input);
   assert.match(
     body,
-    new RegExp(`^<!-- agent-review head=${repo.head} blockers=3 -->`),
+    new RegExp(
+      `^<!-- agent-review head=${repo.head} blockers=3 reviewed=${repo.head} base=${repo.base} -->`,
+    ),
   );
   assert.match(
     body,
@@ -763,7 +879,7 @@ test("verdict shows notes and links, and notes do not fail the check", async (co
 
   assert.equal(withFinding.status, 1, withFinding.output);
   const body = bodyOf(withFinding);
-  assert.match(body, /blockers=1 -->/);
+  assert.match(body, /blockers=1 reviewed=\w+ base=\w+ -->/);
   assert.match(body, /#### Other notes\n\nNo rule covers these notes/);
   assert.match(
     body,
@@ -795,7 +911,7 @@ test("verdict shows notes and links, and notes do not fail the check", async (co
   assert.equal(notesOnly.status, 0, notesOnly.output);
   assert.match(
     bodyOf(notesOnly),
-    /blockers=0 -->\n<!-- agent-review-findings \S+ -->\n### Agent review of \w{7}: no findings/,
+    /blockers=0 reviewed=\w+ base=\w+ -->\n<!-- agent-review-findings \S+ -->\n### Agent review of \w{7}: no findings/,
   );
 });
 
@@ -819,7 +935,7 @@ test("verdict passes with no findings, and posts a new comment", async (context)
   const { body } = JSON.parse(post.input);
   assert.match(
     body,
-    /blockers=0 -->\n<!-- agent-review-findings \S+ -->\n### Agent review of \w{7}: no findings/,
+    /blockers=0 reviewed=\w+ base=\w+ -->\n<!-- agent-review-findings \S+ -->\n### Agent review of \w{7}: no findings/,
   );
   assert.match(body, /- Codex \(gpt-test, high\): not set up/);
 });
@@ -910,7 +1026,9 @@ test("verdict repeats the open findings of the earlier review, lists the address
   const { body } = JSON.parse(post.input);
   assert.match(
     body,
-    new RegExp(`^<!-- agent-review head=${repo.head} blockers=3 -->`),
+    new RegExp(
+      `^<!-- agent-review head=${repo.head} blockers=3 reviewed=${repo.head} base=${repo.base} -->`,
+    ),
   );
   assert.match(
     body,
@@ -961,6 +1079,89 @@ test("verdict repeats the open findings of the earlier review, lists the address
   assert.match(marked, /^✅ Addressed · \*\*2\. \[/m);
   assert.match(marked, /^✅ Addressed · \*\*3\. \[/m);
   assert.match(marked, /^⏳ Not yet addressed · \*\*4\. \[/m);
+});
+
+test("verdict stores the commit that each model read, keeps the earlier one when a model failed, and links the changes that the models read", async (context) => {
+  const repo = await repository(context);
+  await writeFile(
+    path.join(repo.directory, "docs/agents/plan.md"),
+    `# The plan\n\n${OVERRIDE}\n\nA new step.\n`,
+  );
+  const newer = commitAll(repo.directory, "Add a step");
+  const verdict = async ({ earlier, codex = job([]) }) => {
+    const result = await run({
+      repo,
+      command: "verdict",
+      action: "synchronize",
+      head: newer,
+      answers: {
+        [`GET ${PULL}`]: { head: { sha: newer } },
+        [`GET repos/${REPOSITORY}/issues/comments/99`]: {
+          id: 99,
+          body: `<!-- agent-review head=${repo.head} blockers=0 -->\n### Agent review of ${repo.head.slice(0, 7)}: no findings`,
+        },
+      },
+      env: {
+        MODE: "review",
+        ...(earlier && {
+          EARLIER_REVIEW: pack({
+            head: repo.head,
+            comment: 99,
+            findings: [],
+            ...earlier,
+          }),
+        }),
+        CLAUDE_JOB: job([]),
+        CODEX_JOB: codex,
+      },
+    });
+    return JSON.parse(
+      result.calls.find(
+        ({ call }) => call === `POST repos/${REPOSITORY}/issues/7/comments`,
+      ).input,
+    ).body;
+  };
+  const read = { reviewed: repo.head, base: repo.base };
+
+  const partial = await verdict({ earlier: read });
+  const failed = await verdict({
+    earlier: read,
+    codex: JSON.stringify({ result: "cancelled", outputs: {} }),
+  });
+  const first = await verdict({});
+  const firstFailed = await verdict({
+    codex: JSON.stringify({ result: "failure", outputs: {} }),
+  });
+
+  assert.match(
+    partial,
+    new RegExp(
+      `^<!-- agent-review head=${newer} blockers=1 reviewed=${newer} base=${repo.base} -->`,
+    ),
+  );
+  assert.ok(
+    partial.includes(
+      `The models looked for new problems only in [the changes after ${repo.head.slice(0, 7)}](https://github.com/acme/project/compare/${repo.head}...${newer}).`,
+    ),
+    partial,
+  );
+  assert.match(
+    failed,
+    new RegExp(
+      `^<!-- agent-review head=${newer} blockers=2 reviewed=${repo.head} base=${repo.base} -->`,
+    ),
+  );
+  assert.match(
+    first,
+    new RegExp(
+      `^<!-- agent-review head=${newer} blockers=1 reviewed=${newer} base=${repo.base} -->`,
+    ),
+  );
+  assert.doesNotMatch(first, /looked for new problems only/);
+  assert.match(
+    firstFailed,
+    new RegExp(`^<!-- agent-review head=${newer} blockers=2 -->`),
+  );
 });
 
 test("verdict does nothing for a head that a newer push replaced", async (context) => {
@@ -1052,7 +1253,7 @@ test("verdict keeps a finding of a project rule, deletes one of a rule that the 
   const { body } = JSON.parse(
     result.calls.find(({ call }) => call.startsWith("POST ")).input,
   );
-  assert.match(body, /blockers=1 -->/);
+  assert.match(body, /blockers=1 reviewed=\w+ base=\w+ -->/);
   assert.match(
     body,
     /\[patient-data\]\([^)]*#patient-data\)\*\* in \[`docs\/agents\/setup\.md:3`\]\(https:\/\/github\.com\/acme\/project\/blob\/\w+\/docs\/agents\/setup\.md#L3\) \(Claude\)/,
@@ -1193,7 +1394,7 @@ test("verdict finds a secret that a later commit deletes, merges by file, and sh
   const { body } = JSON.parse(
     result.calls.find(({ call }) => call.startsWith("POST ")).input,
   );
-  assert.match(body, /blockers=6 -->/);
+  assert.match(body, /blockers=6 reviewed=\w+ base=\w+ -->/);
   assert.ok(
     body.includes(
       `in [\`src/settings.ts:3\`](https://github.com/acme/project/blob/${added}/src/settings.ts#L3) at commit ${added.slice(0, 7)} (Claude)\n\nA token.`,
@@ -1276,7 +1477,7 @@ test("a label accepts the findings only when a maintainer added it for the revie
       },
       env: { MODE: "label" },
     });
-  const reviewed = `<!-- agent-review head=${repo.head} blockers=2 -->`;
+  const reviewed = `<!-- agent-review head=${repo.head} blockers=2 reviewed=${repo.head} base=${repo.base} -->`;
 
   const byMaintainer = await accepted({
     marker: reviewed,

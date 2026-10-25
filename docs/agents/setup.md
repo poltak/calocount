@@ -288,8 +288,16 @@ The check works as follows:
   the open findings under "Not yet addressed", then gives the new findings,
   and lists the addressed ones in a fold. The earlier comment gets a mark on
   each finding and a link to the new comment.
-- The rules `secret` and `private-data` look at each commit of the pull
-  request, because a value that a later commit deletes stays on GitHub. The
+- The comment also stores the newest commit that each model read. When the
+  pull request only adds commits after it, the models look for new problems
+  only in those commits, and the comment links to them. The models can read
+  the earlier changes when a rule needs them. When a model fails, the next
+  review starts again from the newest commit that each model read. Each
+  change gets a new review after a rebase, a force push, or a merge of the
+  base branch, after a change in `.agents/review/`, and after an edit of the
+  title or the description.
+- The rules `secret` and `private-data` look at each commit, not only at the
+  diff, because a value that a later commit deletes stays on GitHub. The
   quote of their finding can be in any commit. GitHub can send the comment by
   email, so the comment shows no quote from a file that has such a finding.
 - Each model can also give up to three notes about a problem that no rule

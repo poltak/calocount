@@ -21,6 +21,10 @@
 // addressed. The new comment repeats the open ones, and the earlier comment
 // gets a mark on each finding.
 //
+// The comment also stores the newest commit that each model read. When the
+// pull request only added commits after it, the next review looks for new
+// problems only in those commits, so a small push costs a small review.
+//
 // Each command reads the event from GITHUB_EVENT_PATH, and writes its outputs
 // to GITHUB_OUTPUT. The maintainers are in TEMPLATE_MAINTAINERS, with commas or
 // spaces between them. `gh` reads its token from GH_TOKEN.
@@ -40,7 +44,11 @@ import { VERSION_FILE } from "./template-files.mjs";
 
 const LABEL = "agent-review-accepted";
 const MARKER = "<!-- agent-review";
-const HEAD_PATTERN = /^<!-- agent-review head=(\w+) blockers=(\d+) -->/;
+// `reviewed` is the newest commit that each model read, and `base` is the
+// merge base of that review. A comment from before they were stored has
+// neither.
+const HEAD_PATTERN =
+  /^<!-- agent-review head=(\w+) blockers=(\d+)(?: reviewed=(\w+) base=(\w+))? -->/;
 const FINDINGS_PATTERN = /^<!-- agent-review-findings (\S+) -->$/m;
 // The models read the findings of the earlier review from this file. The
 // checkout does not track it, so it is not a part of the pull request.
@@ -50,6 +58,7 @@ const NOT_ADDRESSED = "⏳ Not yet addressed · ";
 const PROMPT_FILE = ".agents/review/prompt.md";
 const PROJECT_RULES_FILE = ".agents/review/project-rules.md";
 const SCHEMA_FILE = ".agents/review/findings.schema.json";
+const REVIEW_DIRECTORY = ".agents/review/";
 const RULE_HEADING = /^### +(.+?) *$/gm;
 // A dependency update changes versions and the lockfile, and no text that the
 // rules are about.
@@ -139,12 +148,79 @@ function pullRequestText(pull) {
   return `<pull_request>\nTitle: ${clean(pull.title)}\n\n${clean(pull.body) || "(no description)"}\n</pull_request>`;
 }
 
-function promptFor(event, earlierText) {
-  const { base, head } = rangeOf(event);
+/**
+ * Returns the range of the pull request, and `from`, the commit after which
+ * the models look for new problems. `from` is the newest commit that each
+ * model read in an earlier review, when the pull request only added commits
+ * after it. Otherwise it is the merge base, and the models read each change.
+ */
+function scopeOf(event, earlier) {
+  const range = rangeOf(event);
+  const full = (reason) => ({ ...range, from: range.base, reason });
+  const reviewed = earlier?.reviewed;
+  if (!reviewed) {
+    return full("no earlier review has a commit that each model read");
+  }
+  // A rule can ask for a reason in the description, and the earlier review
+  // read the changes with the old description.
+  if (event.action === "edited") {
+    return full("the title or the description changed");
+  }
+  if (reviewed === range.head) {
+    return full("the earlier review read the same head");
+  }
+  // After a merge of the base branch, the changes after `reviewed` include
+  // changes of the base branch, which are not a part of the pull request.
+  if (earlier.base !== range.base) {
+    return full("the merge base changed");
+  }
+  const inHistory =
+    spawnSync("git", ["merge-base", "--is-ancestor", reviewed, range.head], {
+      cwd: root,
+    }).status === 0;
+  if (!inHistory) {
+    return full(
+      `${reviewed.slice(0, 7)} is not in the history of the head, for example after a rebase`,
+    );
+  }
+  // The earlier review read the earlier changes with the old rules.
+  const rulesChanged =
+    spawnSync(
+      "git",
+      ["diff", "--quiet", reviewed, range.head, "--", REVIEW_DIRECTORY],
+      { cwd: root },
+    ).status !== 0;
+  if (rulesChanged) {
+    return full("the rules of the review changed");
+  }
+  return {
+    ...range,
+    from: reviewed,
+    reason: `each model read each change up to ${reviewed.slice(0, 7)}`,
+  };
+}
+
+const PARTIAL_SCOPE = `Each model of an earlier review read each change from {{BASE}} to
+{{FROM}}, so this review looks for new problems only after {{FROM}}. A new
+change can break a rule together with text that an earlier commit of the pull
+request added, for example when it makes a document wrong. When a rule needs
+that text, read the other files, or \`git diff {{BASE}} {{HEAD}}\`. Do not
+report a problem in text that the changes from {{FROM}} to {{HEAD}} do not
+add, change, or make wrong.`;
+
+function promptFor(event, earlier) {
+  const { base, from, head, reason } = scopeOf(event, earlier);
+  console.log(
+    `The models look for new problems in ${from === base ? "each change" : `the changes after ${from}`}, because ${reason}.`,
+  );
   return readFileSync(path.join(root, PROMPT_FILE), "utf8")
     .replace("{{PROJECT_RULES}}", () => projectRules())
-    .replace("{{EARLIER_REVIEW}}", () => earlierText)
+    .replace("{{EARLIER_REVIEW}}", () => writeEarlierFindings(earlier))
+    .replace(/\{\{SCOPE\}\}\n\n/, () =>
+      from === base ? "" : `${PARTIAL_SCOPE}\n\n`,
+    )
     .replaceAll("{{BASE}}", base)
+    .replaceAll("{{FROM}}", from)
     .replaceAll("{{HEAD}}", head)
     .replace("{{PULL_REQUEST}}", () => pullRequestText(event.pull_request));
 }
@@ -153,8 +229,7 @@ function promptFor(event, earlierText) {
  * Writes the findings of the earlier review to EARLIER_FILE, and returns the
  * text that tells the model about them.
  */
-function writeEarlierFindings() {
-  const earlier = unpack(process.env.EARLIER_REVIEW);
+function writeEarlierFindings(earlier) {
   if (!earlier || earlier.findings.length === 0) {
     return "No earlier review of this pull request has an open finding. Return an empty list for `earlier`.";
   }
@@ -252,21 +327,22 @@ function plan() {
 
 /**
  * Returns the open findings of the newest review comment, with the head that
- * it reviewed and the ID of the comment.
+ * it reviewed, the ID of the comment, and the newest commit that each model
+ * read.
  */
 function earlierReview(event) {
   const comment = stickyComment({
     repository: event.repository.full_name,
     number: event.pull_request.number,
   });
-  const head = comment?.body.match(HEAD_PATTERN)?.[1];
+  const [, head, , reviewed, base] = comment?.body.match(HEAD_PATTERN) ?? [];
   if (!head) return "";
   const stored = comment.body.match(FINDINGS_PATTERN)?.[1];
   const findings = stored ? unpack(stored) : findingsInText(comment.body);
   console.log(
     `The review of ${head} has ${count(findings.length, "open finding")}.`,
   );
-  return pack({ head, comment: comment.id, findings });
+  return pack({ head, comment: comment.id, findings, reviewed, base });
 }
 
 /**
@@ -315,7 +391,7 @@ function claude() {
     "claude",
     [
       "-p",
-      promptFor(readEvent(), writeEarlierFindings()),
+      promptFor(readEvent(), unpack(process.env.EARLIER_REVIEW)),
       "--model",
       process.env.CLAUDE_MODEL,
       "--effort",
@@ -411,7 +487,7 @@ function codex() {
       "--output-last-message",
       lastMessage,
       "--json",
-      promptFor(readEvent(), writeEarlierFindings()),
+      promptFor(readEvent(), unpack(process.env.EARLIER_REVIEW)),
     ],
     {
       encoding: "utf8",
@@ -815,12 +891,17 @@ function generalRules({ server, repository, head }) {
 
 /**
  * `findings` are the open findings, each with its number: first the ones that
- * `carried` holds from the earlier review, then the new ones.
+ * `carried` holds from the earlier review, then the new ones. `from` is the
+ * commit after which the models looked for new problems, when they did not
+ * read each change. `read` is the newest commit that each model read, which
+ * the comment stores for the next review.
  */
 function commentFor({
   repository,
   number,
   head,
+  from,
+  read,
   earlier,
   findings,
   carried,
@@ -879,7 +960,7 @@ function commentFor({
     ? `[review of ${earlier.head.slice(0, 7)}](${server}/${repository}/pull/${number}#issuecomment-${earlier.comment})`
     : "";
   const lines = [
-    `${MARKER} head=${head} blockers=${blockers} -->`,
+    `${MARKER} head=${head} blockers=${blockers}${read.reviewed ? ` reviewed=${read.reviewed} base=${read.base}` : ""} -->`,
     `<!-- agent-review-findings ${pack(stored)} -->`,
     `### Agent review of ${head.slice(0, 7)}: ${findings.length === 0 ? "no findings" : count(findings.length, "finding")}`,
     "",
@@ -887,6 +968,12 @@ function commentFor({
   if (earlier) {
     lines.push(
       `Follow-up of the ${earlierLink}: ${addressed.length} addressed, ${carried.length} not yet addressed, ${findings.length - carried.length} new.`,
+      "",
+    );
+  }
+  if (from) {
+    lines.push(
+      `The models looked for new problems only in [the changes after ${from.slice(0, 7)}](${server}/${repository}/compare/${from}...${head}). Each model read the changes before them in an earlier review.`,
       "",
     );
   }
@@ -1055,6 +1142,12 @@ function reviewVerdict(event) {
     return !reason;
   });
   const earlier = unpack(process.env.EARLIER_REVIEW);
+  const { from } = scopeOf(event, earlier);
+  // A model that failed did not read the changes, so the next review reads
+  // them again, from the commit that each model read.
+  const read = models.every((model) => model.state !== "failed")
+    ? { reviewed: head, base: range.base }
+    : { reviewed: earlier?.reviewed, base: earlier?.base };
   const { carried, addressed, added } = followUp({
     earlier,
     findings: mergeFindings(kept),
@@ -1072,6 +1165,8 @@ function reviewVerdict(event) {
       repository,
       number: pull.number,
       head,
+      from: from === range.base ? undefined : from,
+      read,
       earlier,
       findings,
       carried,

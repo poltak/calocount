@@ -4,9 +4,11 @@ fails the check. "Other notes" below says what you can report about other
 problems.
 
 The pull request changes the commits from {{BASE}} to {{HEAD}}. The working
-tree is at {{HEAD}}. Start with `git diff --stat {{BASE}} {{HEAD}}`, then read
-the diffs and the files that the rules need. You can only read. Do not change
-a file.
+tree is at {{HEAD}}. Look for problems in the changes from {{FROM}} to
+{{HEAD}}. Start with `git diff --stat {{FROM}} {{HEAD}}`, then read the diffs
+and the files that the rules need. You can only read. Do not change a file.
+
+{{SCOPE}}
 
 The title and the description of the pull request, as its author wrote them,
 are between the `<pull_request>` tags below. The messages of its commits are
@@ -162,12 +164,11 @@ up. Report it as the section "Secrets and private data" says.
 For the rules `secret` and `private-data`, these instructions replace the
 instructions above where the two are different:
 
-- Read each commit of the pull request, not only the diff from {{BASE}} to
-  {{HEAD}}. A value that one commit adds stays in the history on GitHub when a
-  later commit deletes it, so report it also. Run
-  `git log --stat {{BASE}}..{{HEAD}}`. For each file that two or more commits
-  change, read the change of each commit with
-  `git log -p {{BASE}}..{{HEAD}} -- <file>`. Give the path that the file has
+- Read each commit from {{FROM}} to {{HEAD}}, not only the diff. A value that
+  one commit adds stays in the history on GitHub when a later commit deletes
+  it, so report it also. Run `git log --stat {{FROM}}..{{HEAD}}`. For each
+  file that two or more commits change, read the change of each commit with
+  `git log -p {{FROM}}..{{HEAD}} -- <file>`. Give the path that the file has
   in the commit that adds the value.
 - Do not copy the secret or the private data, such as a name, into the quote
   or into the explanation. Quote only the text before the value on its line,
