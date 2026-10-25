@@ -331,11 +331,6 @@ function plan() {
   });
 }
 
-/**
- * Returns the open findings of the newest review comment, with the head that
- * it reviewed, the ID of the comment, and the newest commit that each model
- * read.
- */
 function earlierReview(event) {
   const comment = stickyComment({
     repository: event.repository.full_name,
