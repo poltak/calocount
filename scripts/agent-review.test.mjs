@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import {
   chmod,
   cp,
@@ -428,7 +429,7 @@ test("plan gives the open findings of the newest review and the commit that each
   assert.equal(none, "");
 });
 
-test("claude gives the reviewer the open findings of the earlier review in a file", async (context) => {
+test("claude gives the reviewer the open findings of the earlier review in a file, and not the accepted ones", async (context) => {
   const repo = await repository(context);
   const review = (earlier) =>
     run({
@@ -465,6 +466,16 @@ test("claude gives the reviewer the open findings of the earlier review in a fil
         explanation: "A reason.",
         models: ["Claude"],
       },
+      {
+        number: 2,
+        rule: "stale-document",
+        file: "docs/agents/setup.md",
+        line: 3,
+        quote: "Run `pnpm run db:reset`",
+        explanation: "Another reason.",
+        models: ["Codex"],
+        accepted: "Owner",
+      },
     ],
   });
   const file = await readFile(
@@ -487,6 +498,7 @@ test("claude gives the reviewer the open findings of the earlier review in a fil
       `## E1: override in docs/agents/plan\\.md:3\n\n\`\`\`text\n${OVERRIDE}\n\`\`\`\n\nA reason\\.`,
     ),
   );
+  assert.doesNotMatch(file, /E2|Another reason/);
   assert.match(
     promptOf(withoutEarlier),
     /No earlier review of this pull request has an open finding\. Return an empty list for `earlier`\./,
@@ -861,7 +873,7 @@ test("verdict shows notes and links, and notes do not fail the check", async (co
       env: { MODE: "review", ...env },
     });
   const bodyOf = (result) =>
-    JSON.parse(result.calls.find(({ call }) => call.startsWith("POST ")).input)
+    JSON.parse(result.calls.find(({ call }) => call === SUMMARY_POST).input)
       .body;
 
   const withFinding = await verdict({
@@ -920,7 +932,7 @@ test("verdict shows notes and links, and notes do not fail the check", async (co
   );
   assert.match(
     body,
-    /The general rules are in \[`\.agents\/review\/prompt\.md`\]\(https:\/\/github\.com\/acme\/project\/blob\/\w+\/\.agents\/review\/prompt\.md\)\. When/,
+    /The general rules are in \[`\.agents\/review\/prompt\.md`\]\(https:\/\/github\.com\/acme\/project\/blob\/\w+\/\.agents\/review\/prompt\.md\)\. A maintainer accepts a finding with its checkbox/,
   );
   assert.equal(notesOnly.status, 0, notesOnly.output);
   assert.match(
@@ -944,7 +956,7 @@ test("verdict passes with no findings, and posts a new comment", async (context)
 
   assert.equal(result.status, 0, result.output);
   assert.ok(result.calls.every(({ call }) => !call.startsWith("PATCH ")));
-  const post = result.calls.find(({ call }) => call.startsWith("POST "));
+  const post = result.calls.find(({ call }) => call === SUMMARY_POST);
   assert.equal(post.call, `POST repos/${REPOSITORY}/issues/7/comments`);
   const { body } = JSON.parse(post.input);
   assert.match(
@@ -1039,7 +1051,7 @@ test("verdict repeats the open findings of the earlier review, lists the address
   });
 
   assert.equal(result.status, 1, result.output);
-  const post = result.calls.find(({ call }) => call.startsWith("POST "));
+  const post = result.calls.find(({ call }) => call === SUMMARY_POST);
   const { body } = JSON.parse(post.input);
   assert.match(
     body,
@@ -1378,6 +1390,322 @@ test("verdict marks the line comment of each addressed finding, and a review tha
   );
 });
 
+// The comment of an earlier review, with the box of each finding, and the
+// key of the line comment of a finding, as the script makes them.
+const earlierSummary = (marks) =>
+  [
+    "<!-- agent-review head=abc1234def blockers=5 -->",
+    `### Agent review of abc1234: ${marks.length} findings`,
+    "",
+    ...marks.map(
+      (mark, index) =>
+        `- [${mark}] **${index + 1}. [rule](https://example.com)** in [\`file\`](https://example.com) (Claude)\n`,
+    ),
+  ].join("\n");
+const lineKey = ({ rule, file, quote }) =>
+  createHash("sha256")
+    .update(`${rule}\n${file}\n${quote.replace(/\s+/g, " ").trim()}`)
+    .digest("hex")
+    .slice(0, 16);
+const lineBody = (finding, mark) =>
+  `<!-- agent-review-line ${lineKey(finding)} -->\n- [${mark}] **[${finding.rule}](https://example.com)** (Claude)\n\nA reason.\n\nFinding 1 of the agent review of abc1234.`;
+// GitHub gives the newest version of a comment first.
+const versions = (...list) => ({
+  userContentEdits: {
+    nodes: list
+      .map(([editedAt, login, diff]) => ({
+        editedAt,
+        editor: { login },
+        diff,
+      }))
+      .reverse(),
+  },
+});
+const POSTED = "2026-10-25T10:00:00Z";
+
+test("verdict keeps each finding that a maintainer accepted with its box, and counts only its own boxes", async (context) => {
+  const repo = await repository(context);
+  const accepted = (number, fields) => ({
+    number,
+    line: 3,
+    explanation: `Earlier reason ${number}.`,
+    models: ["Claude"],
+    ...fields,
+  });
+  const findings = [
+    accepted(1, {
+      rule: "override",
+      file: "docs/agents/plan.md",
+      quote: OVERRIDE,
+    }),
+    accepted(2, {
+      rule: "stale-document",
+      file: "docs/agents/setup.md",
+      quote: "Run `pnpm run db:reset`",
+    }),
+    accepted(3, {
+      rule: "decision-change",
+      file: "docs/agents/setup.md",
+      quote: "for a new database.",
+      accepted: "second-owner",
+    }),
+    accepted(4, {
+      rule: "stale-document",
+      file: "docs/agents/setup.md",
+      quote: "# Setup",
+      accepted: "Owner",
+    }),
+    accepted(5, {
+      rule: "override",
+      file: "docs/agents/plan.md",
+      quote: "# The plan",
+    }),
+  ];
+  const summary = versions(
+    [POSTED, "github-actions", earlierSummary([" ", " ", "x", "x", " "])],
+    [
+      "2026-10-25T10:01:00Z",
+      "Owner",
+      earlierSummary(["x", " ", "x", "x", " "]),
+    ],
+    [
+      "2026-10-25T10:02:00Z",
+      "contributor",
+      earlierSummary(["x", "x", "x", "x", " "]),
+    ],
+    [
+      "2026-10-25T10:03:00Z",
+      "Owner",
+      earlierSummary(["x", "x", "x", " ", " "]),
+    ],
+  );
+  const thread = (finding, ...list) => ({
+    comments: {
+      nodes: [
+        {
+          author: { login: "github-actions" },
+          body: lineBody(finding, list.at(-1)[2]),
+          ...versions(
+            ...list.map(([at, login, mark]) => [
+              at,
+              login,
+              lineBody(finding, mark),
+            ]),
+          ),
+        },
+      ],
+    },
+  });
+  const result = await run({
+    repo,
+    command: "verdict",
+    action: "synchronize",
+    answers: {
+      [`GET ${PULL}`]: { head: { sha: repo.head } },
+      [`GET repos/${REPOSITORY}/issues/comments/99`]: {
+        id: 99,
+        node_id: "IC_99",
+        created_at: POSTED,
+        body: earlierSummary(["x", "x", "x", " ", " "]),
+      },
+      "POST graphql": {
+        data: {
+          comment: summary,
+          repository: {
+            pullRequest: {
+              reviewThreads: {
+                nodes: [
+                  // A maintainer checked the box before the earlier review,
+                  // which did not accept the finding.
+                  thread(
+                    findings[1],
+                    ["2026-10-25T09:00:00Z", "github-actions", " "],
+                    ["2026-10-25T09:30:00Z", "Owner", "x"],
+                  ),
+                  thread(
+                    findings[4],
+                    ["2026-10-25T09:00:00Z", "github-actions", " "],
+                    ["2026-10-25T10:04:00Z", "second-owner", "x"],
+                  ),
+                ],
+              },
+            },
+          },
+        },
+      },
+      [SUMMARY_POST]: {
+        html_url: "https://github.com/acme/project/pull/7#issuecomment-124",
+      },
+      [`GET ${LINE_COMMENTS}`]: [
+        {
+          id: 11,
+          user: { login: "github-actions[bot]" },
+          body: lineBody(findings[0], " "),
+        },
+        {
+          id: 15,
+          user: { login: "github-actions[bot]" },
+          body: lineBody(findings[4], "x"),
+        },
+      ],
+    },
+    env: {
+      MODE: "review",
+      EARLIER_REVIEW: pack({ head: "abc1234def", comment: 99, findings }),
+      CLAUDE_JOB: job(
+        [
+          finding({
+            rule: "decision-change",
+            file: "docs/agents/setup.md",
+            quote: "for a new database.",
+          }),
+        ],
+        [],
+        ["E1", "E2", "E4", "E5"].map((id) => ({
+          id,
+          status: "open",
+          explanation: "It is still there.",
+        })),
+      ),
+      CODEX_JOB: NOT_SET_UP,
+    },
+  });
+
+  assert.equal(result.status, 1, result.output);
+  const graphql = result.calls.find(({ call }) => call === "POST graphql");
+  assert.deepEqual(JSON.parse(graphql.input).variables, {
+    comment: "IC_99",
+    owner: "acme",
+    name: "project",
+    number: 7,
+  });
+  const { body } = JSON.parse(
+    result.calls.find(({ call }) => call === SUMMARY_POST).input,
+  );
+  assert.match(body, /blockers=2 /);
+  assert.match(body, /### Agent review of \w+: 2 findings, 3 accepted\n/);
+  assert.match(body, /: 0 addressed, 2 not yet addressed, 3 accepted, 0 new\./);
+  assert.deepEqual(
+    body
+      .match(/^(####|- \[[ x]\] \*\*\d\.|Accepted by).*$/gm)
+      .map((line) => line.replace(/\]\(.*$/, "")),
+    [
+      "#### Not yet addressed from the [review of abc1234",
+      "- [ ] **1. [stale-document",
+      "- [ ] **2. [stale-document",
+      "#### Accepted by a maintainer",
+      "- [x] **3. [override",
+      "Accepted by Owner.",
+      "- [x] **4. [decision-change",
+      "Accepted by second-owner.",
+      "- [x] **5. [override",
+      "Accepted by second-owner.",
+    ],
+  );
+  const stored = unpack(body.match(/<!-- agent-review-findings (\S+) -->/)[1]);
+  assert.deepEqual(
+    stored.map(({ number, accepted }) => [number, accepted]),
+    [
+      [1, undefined],
+      [2, undefined],
+      [3, "Owner"],
+      [4, "second-owner"],
+      [5, "second-owner"],
+    ],
+  );
+
+  const marked = JSON.parse(
+    result.calls.find(
+      ({ call }) => call === `PATCH repos/${REPOSITORY}/issues/comments/99`,
+    ).input,
+  ).body;
+  assert.match(marked, /: 0 addressed, 2 not yet addressed, 3 accepted\./);
+  assert.deepEqual(marked.match(/^- \[[ x]\] \*\*\d/gm), [
+    "- [x] **1",
+    "- [ ] **2",
+    "- [x] **3",
+    "- [ ] **4",
+    "- [x] **5",
+  ]);
+  const lineMarks = result.calls.filter(({ call }) =>
+    call.startsWith(`PATCH repos/${REPOSITORY}/pulls/comments/`),
+  );
+  assert.deepEqual(
+    lineMarks.map(({ call }) => call),
+    [`PATCH repos/${REPOSITORY}/pulls/comments/11`],
+  );
+  assert.equal(
+    JSON.parse(lineMarks[0].input).body,
+    `${lineBody(findings[0], "x")}\n\nOwner accepted this finding. See the [review of ${repo.head.slice(0, 7)}](https://github.com/acme/project/pull/7#issuecomment-124).`,
+  );
+});
+
+test("verdict passes when a maintainer accepted each open finding, also one that the script reports again", async (context) => {
+  const repo = await repository(context);
+  const earlierFindings = [
+    {
+      number: 1,
+      rule: "override",
+      file: "docs/agents/plan.md",
+      line: 3,
+      quote: OVERRIDE,
+      explanation: "A reason.",
+      models: ["Claude"],
+    },
+    {
+      number: 2,
+      rule: "new-document",
+      file: "docs/agents/plan.md",
+      line: 1,
+      quote: "# The plan",
+      explanation: "A new document.",
+      models: ["script"],
+    },
+  ];
+  const result = await run({
+    repo,
+    command: "verdict",
+    action: "synchronize",
+    answers: {
+      [`GET ${PULL}`]: { head: { sha: repo.head } },
+      [`GET repos/${REPOSITORY}/issues/comments/99`]: {
+        id: 99,
+        node_id: "IC_99",
+        created_at: POSTED,
+        body: earlierSummary(["x", "x"]),
+      },
+      "POST graphql": {
+        data: {
+          comment: versions(
+            [POSTED, "github-actions", earlierSummary([" ", " "])],
+            ["2026-10-25T10:01:00Z", "owner", earlierSummary(["x", " "])],
+            ["2026-10-25T10:02:00Z", "Owner", earlierSummary(["x", "x"])],
+          ),
+          repository: { pullRequest: { reviewThreads: { nodes: [] } } },
+        },
+      },
+      [`GET ${LINE_COMMENTS}`]: [],
+    },
+    env: {
+      MODE: "review",
+      EARLIER_REVIEW: pack({
+        head: "abc1234def",
+        comment: 99,
+        findings: earlierFindings,
+      }),
+      CLAUDE_JOB: job([]),
+      CODEX_JOB: NOT_SET_UP,
+    },
+  });
+
+  assert.equal(result.status, 0, result.output);
+  const { body } = JSON.parse(
+    result.calls.find(({ call }) => call === SUMMARY_POST).input,
+  );
+  assert.match(body, /blockers=0 /);
+  assert.match(body, /### Agent review of \w+: no findings, 2 accepted\n/);
+});
+
 test("verdict does nothing for a head that a newer push replaced", async (context) => {
   const repo = await repository(context);
   const result = await run({
@@ -1435,7 +1763,7 @@ test("verdict counts a failed or cancelled model as an open item", async (contex
 
   assert.equal(result.status, 1, result.output);
   const { body } = JSON.parse(
-    result.calls.find(({ call }) => call.startsWith("POST ")).input,
+    result.calls.find(({ call }) => call === SUMMARY_POST).input,
   );
   assert.match(body, /blockers=1 -->/);
   assert.match(
@@ -1487,7 +1815,7 @@ test("verdict keeps a finding of a project rule, deletes one of a rule that the 
 
   assert.equal(result.status, 1, result.output);
   const { body } = JSON.parse(
-    result.calls.find(({ call }) => call.startsWith("POST ")).input,
+    result.calls.find(({ call }) => call === SUMMARY_POST).input,
   );
   assert.match(body, /blockers=1 reviewed=\w+ base=\w+ -->/);
   assert.match(
@@ -1628,7 +1956,7 @@ test("verdict finds a secret that a later commit deletes, merges by file, and sh
 
   assert.equal(result.status, 1, result.output);
   const { body } = JSON.parse(
-    result.calls.find(({ call }) => call.startsWith("POST ")).input,
+    result.calls.find(({ call }) => call === SUMMARY_POST).input,
   );
   assert.match(body, /blockers=6 reviewed=\w+ base=\w+ -->/);
   assert.ok(

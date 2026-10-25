@@ -290,8 +290,15 @@ The check works as follows:
   the status that each model gave, with the reason of the model, so a person
   sees where the models disagree. Each finding has a checkbox. In the
   earlier comment, the review checks the box of each addressed finding, and
-  adds a link to the new comment. A person who checks a box does not accept
-  the finding. Only the label accepts findings.
+  adds a link to the new comment.
+- A maintainer accepts one finding with its checkbox, in the comment of the
+  review or in its line comment. The next review does not count the finding
+  as open, and each later review keeps it accepted. To take the acceptance
+  back, a maintainer clears the box. GitHub keeps each version of a comment
+  with the person who made it, so the review counts only a box that a person
+  in `TEMPLATE_MAINTAINERS` checked or cleared. A finding that is fixed is
+  addressed, also when a maintainer accepted it. A box changes the check at
+  the next review, so to pass the check now, a maintainer adds the label.
 - The comment also stores the newest commit that each model read. When the
   pull request only adds commits after it, the models look for new problems
   only in those commits, and the comment links to them. The models can read
@@ -322,9 +329,10 @@ The check works as follows:
   stops the Claude job of a review of the same head, the stopped review posts
   no comment and fails, and the new review gives the result.
 - The job fails while a finding is open, and when a model that has its secret
-  fails. When each finding is wrong or accepted, a maintainer adds the
-  `agent-review-accepted` label. A later review with findings removes the
-  label.
+  fails. When each open finding is wrong or accepted, a maintainer adds the
+  `agent-review-accepted` label, and the check passes. The label is for that
+  head only: a later review with open findings removes it, and the findings
+  come back. A finding with a checked box stays accepted.
 - Each pull request gets the review, also one that a maintainer opened. A
   draft gets its review when its author marks it as ready. A dependency update
   from Renovate or Dependabot gets no review.

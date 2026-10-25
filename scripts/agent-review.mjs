@@ -11,10 +11,12 @@
 //   node scripts/agent-review.mjs save-codex-login  keep Codex's new login
 //   node scripts/agent-review.mjs verdict           the comment and the result
 //
-// The verdict fails while a finding is open. A maintainer accepts the findings
-// with the `agent-review-accepted` label. A later review with findings removes
-// the label, so an acceptance is for the findings that the maintainer saw. A
-// draft gets its review when it is ready, and a dependency update gets none.
+// The verdict fails while a finding is open. A maintainer accepts one finding
+// with its checkbox, and each later review keeps it accepted. The
+// `agent-review-accepted` label accepts each open finding of one head. A later
+// review with open findings removes the label, so it is for the findings that
+// the maintainer saw. A draft gets its review when it is ready, and a
+// dependency update gets none.
 //
 // Each review posts a new comment, which stores its open findings. The next
 // review gives them to the models, which say which ones the new commits
@@ -62,6 +64,35 @@ const EARLIER_FILE = ".agent-review/earlier-findings.md";
 const OLD_MARK = /^(?:✅ Addressed|⏳ Not yet addressed) · /gm;
 const FINDING_BOX = /^(?:- \[[ x]\] )?(?=\*\*(\d+)\. \[)/gm;
 const LINE_BOX = /^(?:- \[[ x]\] )?(?=\*\*\[)/m;
+// The box of a finding in the comment of a review, with its number, or the box
+// of a line comment, with none.
+const BOX = /^- \[([ x])\] \*\*(?:(\d+)\. )?\[/gm;
+// GraphQL and REST give the login of the token of a workflow in two forms.
+const BOT_LOGINS = new Set(["github-actions", "github-actions[bot]"]);
+// GitHub keeps each version of a comment, with the person who made it, so a
+// review can see who checked a box.
+const EDITS_QUERY = `query ($comment: ID!, $owner: String!, $name: String!, $number: Int!) {
+  comment: node(id: $comment) {
+    ... on IssueComment {
+      userContentEdits(first: 100) { nodes { editedAt editor { login } diff } }
+    }
+  }
+  repository(owner: $owner, name: $name) {
+    pullRequest(number: $number) {
+      reviewThreads(first: 100) {
+        nodes {
+          comments(first: 1) {
+            nodes {
+              author { login }
+              body
+              userContentEdits(first: 100) { nodes { editedAt editor { login } diff } }
+            }
+          }
+        }
+      }
+    }
+  }
+}`;
 // Each line comment has the key of its finding, so that a later review can
 // find the line comment of a finding that it addressed.
 const LINE_PATTERN = /<!-- agent-review-line (\w+) -->/;
@@ -236,11 +267,13 @@ function promptFor(event, earlier) {
 }
 
 function writeEarlierFindings(earlier) {
-  if (!earlier || earlier.findings.length === 0) {
+  // A finding that a maintainer accepted needs no status from the models.
+  const open = (earlier?.findings ?? []).filter((finding) => !finding.accepted);
+  if (open.length === 0) {
     return "No earlier review of this pull request has an open finding. Return an empty list for `earlier`.";
   }
   const lines = [`# Findings of the review of ${earlier.head}`, ""];
-  for (const finding of earlier.findings) {
+  for (const finding of open) {
     lines.push(
       `## E${finding.number}: ${finding.rule} in ${finding.file}${finding.line ? `:${finding.line}` : ""}`,
       "",
@@ -254,7 +287,7 @@ function writeEarlierFindings(earlier) {
   }
   mkdirSync(path.dirname(path.join(root, EARLIER_FILE)), { recursive: true });
   writeFileSync(path.join(root, EARLIER_FILE), lines.join("\n"));
-  return `The review of commit ${earlier.head} has ${count(earlier.findings.length, "open finding")}. \`${EARLIER_FILE}\` has each one, with its ID.`;
+  return `The review of commit ${earlier.head} has ${count(open.length, "open finding")}. \`${EARLIER_FILE}\` has each one, with its ID.`;
 }
 
 /** Returns the name of each rule, which is the text of its heading. */
@@ -816,10 +849,11 @@ const keyOf = ({ rule, file, quote }) =>
  * lines around a line comment by email, so a finding in a file with a secret
  * or private data gets none.
  */
-function lineComments({ findings, carried, addressed, range, ruleLink }) {
+function lineComments({ findings, addressed, range, ruleLink }) {
   const sensitiveFiles = sensitiveFilesOf([...findings, ...addressed]);
   return findings
-    .slice(carried.length, carried.length + COMMENT_FINDING_LIMIT)
+    .filter((finding) => finding.earlierNumber === undefined)
+    .slice(0, COMMENT_FINDING_LIMIT)
     .filter((finding) => !sensitiveFiles.has(finding.file))
     .flatMap((finding) => {
       const { start, end } = linesOfQuote(finding);
@@ -850,20 +884,31 @@ function lineComments({ findings, carried, addressed, range, ruleLink }) {
 }
 
 /**
- * Checks the box of the line comment of each addressed finding, and adds the
- * reason. A person resolves the conversation, because GitHub can refuse
+ * Checks the box of the line comment of each addressed or accepted finding,
+ * and says why. A person resolves the conversation, because GitHub can refuse
  * `resolveReviewThread` to the token of a workflow, also with
  * `pull-requests: write`.
  */
-function markAddressedLines({ repository, number, addressed, link }) {
-  const byKey = new Map(addressed.map((item) => [keyOf(item), item]));
+function markLines({ repository, number, addressed, accepted, link }) {
+  const byKey = new Map(
+    [
+      ...addressed.map((item) => ({
+        item,
+        lines: outcomeLines({ text: `Addressed in the ${link}`, item }),
+      })),
+      ...accepted.map((item) => ({
+        item,
+        lines: [`${item.acceptedBy} accepted this finding. See the ${link}.`],
+      })),
+    ].map((mark) => [keyOf(mark.item), mark]),
+  );
   const comments = readPages(
     `repos/${repository}/pulls/${number}/comments?per_page=100`,
   ).flat();
   for (const comment of comments) {
-    const item = byKey.get(comment.body?.match(LINE_PATTERN)?.[1]);
+    const mark = byKey.get(comment.body?.match(LINE_PATTERN)?.[1]);
     if (
-      !item ||
+      !mark ||
       comment.user?.login !== "github-actions[bot]" ||
       /^- \[x\] \*\*\[/m.test(comment.body)
     ) {
@@ -876,7 +921,7 @@ function markAddressedLines({ repository, number, addressed, link }) {
         body: [
           comment.body.replace(LINE_BOX, "- [x] "),
           "",
-          ...outcomeLines({ text: `Addressed in the ${link}`, item }),
+          ...mark.lines,
         ].join("\n"),
       },
     });
@@ -890,12 +935,15 @@ function markAddressedLines({ repository, number, addressed, link }) {
  * reason, so that the comment can show where the models disagree.
  *
  * An earlier finding is addressed when its quote is not in its file now, or
- * when each model that gave it a status says it is addressed. A finding that a
- * model reports again is open, whatever the statuses say. A finding of the
- * script is addressed when the script does not report it again.
+ * when each model that gave it a status says it is addressed. A finding of the
+ * script is addressed when the script does not report it again. Otherwise a
+ * finding that a maintainer accepted stays accepted, and is not open. A
+ * finding that a model reports again is open, whatever the statuses say.
  */
-function followUp({ earlier, findings, models }) {
-  if (!earlier) return { carried: [], addressed: [], added: findings };
+function followUp({ earlier, findings, models, accepted = new Map() }) {
+  if (!earlier) {
+    return { carried: [], accepted: [], addressed: [], added: findings };
+  }
   const reported = new Set();
   const added = findings.filter((finding) => {
     const match = earlier.findings.find((old) => sameFinding(old, finding));
@@ -904,6 +952,7 @@ function followUp({ earlier, findings, models }) {
   });
   const answered = models.filter((model) => model.state === "ok");
   const carried = [];
+  const acceptedItems = [];
   const addressed = [];
   for (const old of earlier.findings) {
     const votes = answered.map((model) => {
@@ -913,9 +962,9 @@ function followUp({ earlier, findings, models }) {
     const statuses = votes.filter((vote) => vote.status);
     const checkable = old.quote && !SENSITIVE_RULES.has(old.rule);
     const item = { ...old, earlierNumber: old.number, votes };
-    if (reported.has(old.number)) {
-      carried.push({ ...item, reason: "A model reported it again." });
-    } else if (old.models.includes("script")) {
+    const line = checkable ? linesOfQuote(old).start : old.line;
+    const again = reported.has(old.number);
+    if (old.models.includes("script") && !again) {
       addressed.push({ ...item, reason: "The script does not report it now." });
     } else if (checkable && !quoteIsInFile(old)) {
       addressed.push({
@@ -923,21 +972,120 @@ function followUp({ earlier, findings, models }) {
         reason: "The quoted text is not in the file now.",
       });
     } else if (
+      !again &&
       statuses.length > 0 &&
       statuses.every((status) => status.status === "addressed")
     ) {
       addressed.push(item);
+    } else if (accepted.has(old.number)) {
+      acceptedItems.push({
+        ...item,
+        line,
+        acceptedBy: accepted.get(old.number),
+      });
+    } else if (again) {
+      carried.push({ ...item, line, reason: "A model reported it again." });
     } else {
       carried.push({
         ...item,
-        line: checkable ? linesOfQuote(old).start : old.line,
+        line,
         ...(statuses.length === 0 && {
           reason: "No model gave a status for it.",
         }),
       });
     }
   }
-  return { carried, addressed, added };
+  return { carried, accepted: acceptedItems, addressed, added };
+}
+
+/**
+ * Returns each check or clear of a box that a maintainer made, from the
+ * versions of a comment, oldest first. The key of a box is the number of its
+ * finding, or "line" for the box of a line comment.
+ */
+function boxChanges(versions) {
+  const boxesOf = (body) =>
+    new Map(
+      [...body.matchAll(BOX)].map(([, mark, number]) => [
+        number ? Number(number) : "line",
+        mark === "x",
+      ]),
+    );
+  return versions.flatMap(({ editor, at, body }, index) => {
+    if (index === 0 || !isMaintainer(editor)) return [];
+    const before = boxesOf(versions[index - 1].body);
+    return [...boxesOf(body)]
+      .filter(
+        ([key, checked]) => before.has(key) && before.get(key) !== checked,
+      )
+      .map(([key, checked]) => ({ key, checked, login: editor, at }));
+  });
+}
+
+/**
+ * Returns the maintainer who accepted each earlier finding, by its number. A
+ * maintainer accepts a finding with its box in the comment of the review or
+ * in its line comment, and clears the box to take the acceptance back. The
+ * comment stores each acceptance from before it, so only the changes after it
+ * count, and the newest change wins. A box that another person checks accepts
+ * nothing.
+ */
+function acceptedFindings({ repository, number, earlier, comment }) {
+  const accepted = new Map(
+    earlier.findings
+      .filter((finding) => finding.accepted)
+      .map((finding) => [finding.number, finding.accepted]),
+  );
+  const [owner, name] = repository.split("/");
+  let data;
+  try {
+    data = callApi({
+      method: "POST",
+      route: "graphql",
+      body: {
+        query: EDITS_QUERY,
+        variables: { comment: comment.node_id, owner, name, number },
+      },
+    })?.data;
+  } catch (error) {
+    console.log(
+      `::warning title=Agent review::GitHub did not give the versions of the comments, so the review sees no new acceptance: ${flatten(String(error.stderr || error.message)).slice(0, 300)}`,
+    );
+    return accepted;
+  }
+  // GitHub gives the newest version first, and the oldest is the comment as
+  // it was posted.
+  const versionsOf = (node) =>
+    (node?.userContentEdits?.nodes ?? [])
+      .map(({ editedAt, editor, diff }) => ({
+        at: editedAt,
+        editor: editor?.login,
+        body: diff ?? "",
+      }))
+      .reverse();
+  const numberOfKey = new Map(
+    earlier.findings.map((finding) => [keyOf(finding), finding.number]),
+  );
+  const lineChanges = (
+    data?.repository?.pullRequest?.reviewThreads?.nodes ?? []
+  ).flatMap((thread) => {
+    const line = thread.comments.nodes[0];
+    const findingNumber = numberOfKey.get(line?.body.match(LINE_PATTERN)?.[1]);
+    if (!findingNumber || !BOT_LOGINS.has(line.author?.login)) return [];
+    return boxChanges(versionsOf(line)).map((change) => ({
+      ...change,
+      key: findingNumber,
+    }));
+  });
+  const numbers = new Set(earlier.findings.map((finding) => finding.number));
+  const changes = [...boxChanges(versionsOf(data?.comment)), ...lineChanges]
+    .filter(({ key, at }) => numbers.has(key) && at > comment.created_at)
+    .sort((one, other) => one.at.localeCompare(other.at));
+  for (const { key, checked, login } of changes) {
+    if (checked) accepted.set(key, login);
+    else accepted.delete(key);
+  }
+  return accepted;
 }
 
 /**
@@ -967,9 +1115,10 @@ function outcomeLines({ text, item }) {
  * line under its heading that links to the follow-up. A line from an earlier
  * follow-up goes first.
  */
-function markEarlier(body, { carried, addressed, link }) {
+function markEarlier(body, { carried, accepted, addressed, link }) {
   const boxes = new Map([
     ...addressed.map((item) => [item.earlierNumber, "- [x] "]),
+    ...accepted.map((item) => [item.earlierNumber, "- [x] "]),
     ...carried.map((item) => [item.earlierNumber, "- [ ] "]),
   ]);
   return body
@@ -978,7 +1127,7 @@ function markEarlier(body, { carried, addressed, link }) {
     .replace(
       /^### Agent review of .*$/m,
       (heading) =>
-        `${heading}\n\n> Follow-up: ${link}: ${addressed.length} addressed, ${carried.length} not yet addressed.`,
+        `${heading}\n\n> Follow-up: ${link}: ${addressed.length} addressed, ${carried.length} not yet addressed${accepted.length > 0 ? `, ${accepted.length} accepted` : ""}.`,
     )
     .replace(FINDING_BOX, (box, number) => boxes.get(Number(number)) ?? box);
 }
@@ -1071,6 +1220,7 @@ function commentFor({
   earlier,
   findings,
   carried,
+  accepted,
   addressed,
   notes,
   models,
@@ -1085,14 +1235,25 @@ function commentFor({
   const general = generalRules({ server, repository, head });
   const ruleLink = ruleLinkOf({ server, repository, head });
   const failed = models.filter((model) => model.state === "failed");
-  const blockers = findings.length + failed.length;
+  const open = findings.length - accepted.length;
+  const blockers = open + failed.length;
   const sensitiveFiles = sensitiveFilesOf([...findings, ...addressed]);
   const hidesQuote = (item) =>
     SENSITIVE_RULES.has(item.rule) || sensitiveFiles.has(item.file);
   // The next review reads these findings. A pull request can be public, so
   // they keep no quote that the comment does not show.
   const stored = findings.map(
-    ({ number, rule, file, line, quote, explanation, models, commit }) => ({
+    ({
+      number,
+      rule,
+      file,
+      line,
+      quote,
+      explanation,
+      models,
+      commit,
+      acceptedBy,
+    }) => ({
       number,
       rule,
       file,
@@ -1101,6 +1262,7 @@ function commentFor({
       explanation: flatten(explanation).slice(0, 1000),
       models,
       commit,
+      accepted: acceptedBy,
     }),
   );
   const earlierLink = earlier
@@ -1109,12 +1271,12 @@ function commentFor({
   const lines = [
     `${MARKER} head=${head} blockers=${blockers}${read.reviewed ? ` reviewed=${read.reviewed} base=${read.base}` : ""} -->`,
     `<!-- agent-review-findings ${pack(stored)} -->`,
-    `### Agent review of ${head.slice(0, 7)}: ${findings.length === 0 ? "no findings" : count(findings.length, "finding")}`,
+    `### Agent review of ${head.slice(0, 7)}: ${open === 0 ? "no findings" : count(open, "finding")}${accepted.length > 0 ? `, ${accepted.length} accepted` : ""}`,
     "",
   ];
   if (earlier) {
     lines.push(
-      `Follow-up of the ${earlierLink}: ${addressed.length} addressed, ${carried.length} not yet addressed, ${findings.length - carried.length} new.`,
+      `Follow-up of the ${earlierLink}: ${addressed.length} addressed, ${carried.length} not yet addressed, ${accepted.length > 0 ? `${accepted.length} accepted, ` : ""}${findings.length - carried.length - accepted.length} new.`,
       "",
     );
   }
@@ -1131,22 +1293,32 @@ function commentFor({
     ...(sensitiveFiles.has(item.file) ? [] : [quoteBlock(item.quote), ""]),
     escapeOutsideCode(flatten(item.explanation).slice(0, 1000)),
     "",
-    ...(item.earlierNumber === undefined
+    ...(item.acceptedBy ? [`Accepted by ${item.acceptedBy}.`, ""] : []),
+    ...(item.earlierNumber === undefined || item.acceptedBy
       ? []
       : [...outcomeLines({ text: "Not yet addressed", item }), ""]),
   ];
+  const kindOf = (finding) =>
+    finding.earlierNumber === undefined
+      ? "new"
+      : finding.acceptedBy
+        ? "accepted"
+        : "carried";
+  const headings = {
+    carried: `#### Not yet addressed from the ${earlierLink}`,
+    accepted: "#### Accepted by a maintainer",
+    new: "#### New findings",
+  };
   findings.slice(0, limit).forEach((finding, index) => {
-    if (earlier && index === 0 && carried.length > 0) {
-      lines.push(`#### Not yet addressed from the ${earlierLink}`, "");
-    }
-    if (earlier && index === carried.length) {
-      lines.push("#### New findings", "");
+    const kind = kindOf(finding);
+    if (earlier && (index === 0 || kind !== kindOf(findings[index - 1]))) {
+      lines.push(headings[kind], "");
     }
     lines.push(
       ...entry({
         item: finding,
         title: `${finding.number}. ${ruleLink(finding.rule)}`,
-        box: "- [ ] ",
+        box: finding.acceptedBy ? "- [x] " : "- [ ] ",
       }),
     );
   });
@@ -1203,7 +1375,7 @@ function commentFor({
       : "";
     lines.push(
       "",
-      `${generalText}${projectText} When each finding is wrong or accepted, a maintainer adds the \`${LABEL}\` label. A later review with findings removes the label.`,
+      `${generalText}${projectText} A maintainer accepts a finding with its checkbox, here or on its line, and the next review keeps it accepted. To accept each open finding of this commit now, a maintainer adds the \`${LABEL}\` label. A later review with open findings removes the label.`,
     );
   }
   if (notes.length > 0) {
@@ -1306,15 +1478,28 @@ function reviewVerdict(event) {
   const read = models.every((model) => model.state !== "failed")
     ? { reviewed: head, base: range.base }
     : { reviewed: earlier?.reviewed, base: earlier?.base };
-  const { carried, addressed, added } = followUp({
+  const previous =
+    earlier &&
+    readPages(`repos/${repository}/issues/comments/${earlier.comment}`)[0];
+  const { carried, accepted, addressed, added } = followUp({
     earlier,
     findings: mergeFindings(kept),
     models,
+    accepted: previous
+      ? acceptedFindings({
+          repository,
+          number: pull.number,
+          earlier,
+          comment: previous,
+        })
+      : new Map(),
   });
-  const findings = [...carried, ...added].map((finding, index) => ({
-    ...finding,
-    number: index + 1,
-  }));
+  const findings = [...carried, ...accepted, ...added].map(
+    (finding, index) => ({
+      ...finding,
+      number: index + 1,
+    }),
+  );
   const allNotes = models.flatMap((model) => model.notes);
   const notes = mergeFindings(allNotes.filter(quoteIsInFile));
   deleted.quote += allNotes.length - allNotes.filter(quoteIsInFile).length;
@@ -1328,6 +1513,7 @@ function reviewVerdict(event) {
       earlier,
       findings,
       carried,
+      accepted,
       addressed,
       notes,
       models,
@@ -1352,14 +1538,18 @@ function reviewVerdict(event) {
   const link = posted?.html_url
     ? `[review of ${head.slice(0, 7)}](${posted.html_url})`
     : `review of ${head.slice(0, 7)}`;
-  const previous =
-    earlier &&
-    readPages(`repos/${repository}/issues/comments/${earlier.comment}`)[0];
   if (previous) {
     callApi({
       method: "PATCH",
       route: `repos/${repository}/issues/comments/${earlier.comment}`,
-      body: { body: markEarlier(previous.body, { carried, addressed, link }) },
+      body: {
+        body: markEarlier(previous.body, {
+          carried,
+          accepted,
+          addressed,
+          link,
+        }),
+      },
     });
   }
 
@@ -1372,7 +1562,6 @@ function reviewVerdict(event) {
   try {
     const comments = lineComments({
       findings,
-      carried,
       addressed,
       range,
       ruleLink: ruleLinkOf({
@@ -1399,12 +1588,13 @@ function reviewVerdict(event) {
   } catch (error) {
     lineFailed(error);
   }
-  if (addressed.length > 0) {
+  if (addressed.length > 0 || accepted.length > 0) {
     try {
-      markAddressedLines({
+      markLines({
         repository,
         number: pull.number,
         addressed,
+        accepted,
         link,
       });
     } catch (error) {
