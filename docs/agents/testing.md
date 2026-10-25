@@ -218,10 +218,10 @@ inside changes.
   decides when it is stable. While the person still tries layouts and steps,
   the UI Logic tests are enough. `AGENTS.md` says when an agent asks.
 - Cover each rule that a user can see, because a refactor must keep each of
-  them. Leave to the UI Logic tests what a test cannot make the same way on
-  each run: a second click while a request runs, or a rule with a time window,
-  such as the limit of sign-in attempts. A slow run can go past the end of the
-  window, and the test then fails at random.
+  them. This includes the limit of 3 sign-in attempts in 10 seconds, because a
+  test makes 4 attempts in less than a second. Leave to the UI Logic tests
+  what a browser cannot do the same way on each run, such as a second click
+  while a request runs.
 - Write the cases from the specification of the workflow, not from the code.
   Take one input from each group of inputs that the specification treats the
   same, and the inputs at the edges of each group. For example, a password has

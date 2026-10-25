@@ -79,6 +79,10 @@ models, before you start. This skill is the order of work.
   `getByLabel("Note")` also finds a field with the label "Notes". Use
   `exact: true` when one name is a part of another.
 - A page object that waits with `expect` fails lint. Use `waitFor()` there.
+- In a test of a rule with a time window, such as 3 sign-in attempts in 10
+  seconds, change only one check in each run of step 7. Each changed soft
+  check waits for its timeout, and several of them can go past the end of the
+  window.
 - When the fixture reports "Normal use must not cause an error that no code
   caught", the page threw an error. Read the error in the report, and fix the
   page, not the test.

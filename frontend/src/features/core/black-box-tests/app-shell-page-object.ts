@@ -16,6 +16,14 @@ export class AppShellPageObject {
     return this.page.getByRole("banner").getByText(name, { exact: true });
   }
 
+  /**
+   * The reason for a sign-out that failed. It shows below the header. A page
+   * can also show an alert, so a test checks the text.
+   */
+  get signOutMessage(): Locator {
+    return this.page.getByRole("alert");
+  }
+
   async signOut(): Promise<void> {
     await this.page
       .getByRole("banner")
