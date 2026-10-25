@@ -503,6 +503,10 @@ test("claude looks for new problems only after the commit that each model read, 
   // A commit that is not in the history of the head, as after a rebase.
   const replaced = git(
     repo.directory,
+    "-c",
+    "user.name=Test",
+    "-c",
+    "user.email=test@example.com",
     "commit-tree",
     "HEAD^{tree}",
     "-p",
