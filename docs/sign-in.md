@@ -135,11 +135,19 @@ routes return `404`, and `/api/auth/status` returns `{ "mode": "access" }`.
 
 These steps keep the data. They change only the sign-in.
 
-1. In the Cloudflare dashboard, open the Worker, then **Settings > Variables
-   and Secrets**. Add a secret `CALOCOUNT_SETUP_CODE` with a long phrase of at
-   least 12 characters. Add a variable of the type **Text** with the name
-   `CALOCOUNT_AUTH_MODE` and the value `passkey`. `keep_vars` keeps both after
-   later deploys.
+1. Add two secrets to the Worker. In a clone of this repository, run:
+
+   ```sh
+   pnpm exec wrangler secret put CALOCOUNT_SETUP_CODE
+   pnpm exec wrangler secret put CALOCOUNT_AUTH_MODE
+   ```
+
+   For the setup code, type a long phrase of at least 12 characters. For the
+   mode, type `passkey`. Each command makes a new version of the Worker at
+   once, with the code that runs now. Versions before passkey support do not
+   read these values, so you can add them before the deploy. A deploy never
+   deletes a secret. You can also add them in the Cloudflare dashboard, in
+   **Settings > Variables and Secrets** of the Worker.
 2. Deploy this version of Calocount, for example with a push to `main`.
 3. Open `/owner`. Access asks you to sign in one last time. Then Calocount
    shows **Set up Calocount**. Type the setup code and save a passkey.
