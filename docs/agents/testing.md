@@ -1,7 +1,8 @@
 # Testing
 
 Read this before writing or changing a test. For the step-by-step workflow, use
-the `write-integration-test` skill.
+the `write-integration-test` skill for a UI Logic test, and the
+`write-black-box-test` skill for a black box test.
 
 ## What a test is here
 
@@ -28,7 +29,14 @@ LogicPlugin has a test file of its own, such as
 Backend code has no test runner of its own. Handlers, backend Logic, and Storage
 are covered through these tests.
 
+Each workflow that has stopped changing must also have
+[black box tests](#black-box-tests). They check the workflow in a real browser,
+and they know only what a user can see.
+
 ## Rules
+
+These rules are for the UI Logic tests. Black box tests have
+[rules of their own](#rules-of-black-box-tests).
 
 - **Test through a UI Logic method.** Do not render React components, and do not
   call backend Logic in place of the API path.
@@ -123,9 +131,9 @@ A few files that are not Logic classes have tests of their own:
 - `api-client.test.ts` checks only the client's types, which no running test
   can check. The UI Logic tests cover its behavior.
 - `latest-request.test.ts` tests a small helper that has no I/O.
-- `use-logic.test.tsx` is the only rendered test, because the hook's lifecycle
-  exists only inside React. Do not add other rendered tests; UI components
-  hold no logic of their own.
+- `use-logic.test.tsx` is the only Vitest test that renders components,
+  because the hook's lifecycle exists only inside React. Do not add other
+  rendered Vitest tests; UI components hold no logic of their own.
 - `backend-http.test.ts` covers backend behavior that no UI Logic reaches: the
   health routes, the security headers, the request ID and request log, the
   request size limit, and the answer to an unexpected error. It sends requests
@@ -139,20 +147,14 @@ A few files that are not Logic classes have tests of their own:
 ## Browser tests
 
 `pnpm run test:browser` opens the built frontend in a real browser, with
-Playwright. The tests are the `*.spec.ts` files in
-[`frontend/src/features/core/tests/browser/`](../../frontend/src/features/core/tests/browser/).
+Playwright. It runs two kinds of tests, the `*.spec.ts` files:
+
+- The build checks, in
+  [`built-app.spec.ts`](../../frontend/src/features/core/tests/browser/built-app.spec.ts).
+- The [black box tests](#black-box-tests), in the `black-box-tests/` directory
+  of each feature.
+
 Before the first run, `pnpm run test:browser:install` downloads the browser.
-
-They cover what only a real browser can show:
-
-- The build output loads and starts, and React Router changes pages.
-- The browser stores the session cookie from an API on another origin and
-  sends it again, and the client joins the configured base URL correctly.
-- The two error boundaries show their fallbacks and recover.
-
-They do not cover behavior. A UI Logic test does that, with the database
-assertions that a browser test cannot make. Add a browser test only for
-something that no UI Logic test can reach.
 
 How they run:
 
@@ -160,16 +162,180 @@ How they run:
   files on one origin. The test backend listens on another origin. It is the
   same backend as in the UI Logic tests, with an in-memory database and fake
   Services for third-party systems, so a run needs no database and no secrets.
-- One backend with one database serves the whole run. The tests in a file
-  therefore run in order, share one page, and each starts where the test
-  before it ended.
-- A test may answer a request itself with `page.route`, but only to produce an
-  answer that the real backend never sends, such as the malformed data that
-  makes a component throw.
+- The build has one backend address in it. Each test file of build checks, and
+  each black box test, starts its own backend at that address, so only one
+  test runs at a time.
 
 `pnpm run check` does not run them. CI runs them in a job of their own, on
-each pull request and on each push to `main`. Run them yourself after a change to `routes.tsx`, `main.tsx`,
-`vite.config.ts`, the API client's request options, or an error boundary.
+each pull request and on each push to `main`. Run them yourself after a change
+to `routes.tsx`, `main.tsx`, `vite.config.ts`, the API client's request
+options, an error boundary, or a page that has a page object.
+
+### Build checks
+
+The build checks cover what only a real browser can show:
+
+- The build output loads and starts, and React Router changes pages.
+- The browser stores the session cookie from an API on another origin and
+  sends it again, and the client joins the configured base URL correctly.
+- The two error boundaries show their fallbacks and recover.
+
+They do not cover the behavior of a feature. The UI Logic tests and the black
+box tests do that. Add a build check only for something that neither can
+reach.
+
+- One backend with one database serves the whole file. Its tests run in order,
+  share one page, and each starts where the test before it ended.
+- A build check may answer a request itself with `page.route`, but only to
+  produce an answer that the real backend never sends, such as the malformed
+  data that makes a component throw.
+
+## Black box tests
+
+A black box test knows only what a user can see. It opens the built app in a
+real browser, does the steps that a user does, and checks what the page shows.
+It knows nothing about the Logic classes, their state, the tables, or the API
+routes. So a refactor of the code inside does not change the test, and a
+failure means that the behavior changed.
+
+The models are
+[`session.spec.ts`](../../frontend/src/features/auth/black-box-tests/session.spec.ts)
+and
+[`sign-up.spec.ts`](../../frontend/src/features/auth/black-box-tests/sign-up.spec.ts),
+with their page objects beside them, and
+[`app-shell-page-object.ts`](../../frontend/src/features/core/black-box-tests/app-shell-page-object.ts)
+for the header.
+
+### When to write one
+
+Black box tests add to the UI Logic tests. They do not replace them. A UI Logic
+test is faster, it shows which layer broke, and it can hold a request or read
+the database while the request runs. A black box test shows that a workflow
+works for the user through the whole app, and it stays valid when the code
+inside changes.
+
+- Each workflow must have black box tests when it is stable. The person
+  decides when it is stable. While the person still tries layouts and steps,
+  the UI Logic tests are enough. `AGENTS.md` says when an agent asks.
+- Cover each rule that a user can see, because a refactor must keep each of
+  them. This includes the limit of 3 sign-in attempts in 10 seconds, because a
+  test makes 4 attempts in less than a second. Leave to the UI Logic tests
+  what a browser cannot do the same way on each run, such as a second click
+  while a request runs.
+- Write the cases from the specification of the workflow, not from the code.
+  Take one input from each group of inputs that the specification treats the
+  same, and the inputs at the edges of each group. For example, a password has
+  at least 8 characters, so `sign-up.spec.ts` tries a password of 7 characters
+  and one of 8.
+- Use inputs that pass the browser's own checks. The browser refuses an empty
+  required field, or an email with no "@", before the app sees it, and its
+  message is not on the page. So test an edge that the browser accepts and the
+  app refuses, such as `owner@example`.
+
+### Put the UI knowledge for each page in one place
+
+A page object is a class that holds what the tests know about one page: its
+path, how to find its elements, and the steps that a user does on it. The
+Playwright documentation calls this pattern the page object model. A test calls
+the steps of the page objects, and it checks the locators that they give. A
+test finds no element itself.
+
+The reason is the cost of a change to the UI. A black box test breaks when the
+text or the steps change for the user. Without page objects, each test that
+signs in has the labels "Email" and "Password" and the button "Sign in" in it.
+If the sign-in page then asks for the email first, and for the password on a
+second screen, each of those tests must change. With page objects, only
+`SignInPageObject.signIn()` changes, and each test that calls it stays the
+same. The tests describe the workflow, and the page objects describe the pages.
+
+Changes to style and layout break no test, because a page object finds
+elements by their role and accessible name, as a screen reader does. It does
+not find them by markup or position.
+
+How to write a page object:
+
+- Name it after the page as the user knows it: `SignInPageObject` in
+  `sign-in-page-object.ts` for the sign-in page. Put it in the
+  `black-box-tests/` directory of the feature that owns the page. A part of
+  the UI that many pages show, such as the header, gets a page object of its
+  own in `core/black-box-tests/`. The header's page object is
+  `AppShellPageObject`.
+- Each page has one page object. A test of another feature uses it too, and
+  lint permits that import, because a workflow can cross features.
+- A step is a method for one thing that a user wants to do. Name it after that
+  goal, such as `signIn()`, not after the elements that it uses.
+- A locator is a field or a method that returns a Playwright `Locator`, for the
+  checks of a test, such as `heading` or `userName(name)`.
+- Find elements with `getByRole`, `getByLabel`, or `getByText`. Do not use CSS,
+  XPath, or test IDs. When an element has no accessible name, give it one in
+  the component, such as a label. A screen reader needs it too.
+- A page object imports no application code, also not the product name. Find
+  a text that has the product name with a pattern, such as `/^Sign in to /`.
+- A page object does not check. The test checks with `expect`.
+- A step that always leaves its page ends with
+  `waitFor({ state: "hidden" })` on the heading of its page. Without the wait,
+  the next step can act on the old page. For example, a list page and the page
+  that edits one of its records can both have a "Title" field. The step waits
+  for its own page to go, so two pages that link to each other need not import
+  each other's page objects.
+
+### Rules of black box tests
+
+- **Take `test` from the black box fixture,**
+  [`black-box-test.ts`](../../frontend/src/features/core/black-box-tests/black-box-test.ts).
+  It gives each test its own backend.
+- **Check only what a user can see:** text, fields, headings, and the URL. To
+  check that the backend kept a change, reload the page or open it again. To
+  check that a refused attempt changed nothing, do the step again with valid
+  values, such as a sign-up with the same email.
+- **Check the new page before a hidden element.** A check that an element is
+  hidden passes at once, while the page has not changed yet. Put it after a
+  check of an element that the new page shows.
+- **Open a page with the `goto()` of its page object.** Use `page.goto()` only
+  when the address itself is part of the case, such as a link that a user
+  opens.
+- **Use no page of the notes example in a test of another feature.** A project
+  removes the example with the `remove-example` skill.
+- **Make the data through the UI.** Each test starts with a database that holds
+  only the owner account. The test makes the records that it needs with the
+  steps of the page objects.
+- **Produce a failure by real means:** invalid input, or
+  `context.setOffline(true)` for a lost connection. Go offline only after the
+  page shows its content, because the page's first requests fail too. Do not
+  answer a request in
+  the test with `page.route`, run code in the page with `page.evaluate`, or
+  read the browser's storage. If you cannot produce a condition this way,
+  extend the fixture, and record the new control here.
+- **Wait for what a user waits for.** Playwright's actions and checks wait
+  until the element is ready. Do not wait for a fixed time.
+- **Write no teardown.** The fixture closes the backend after each test.
+
+### The black box fixture
+
+| Field   | Meaning                                                                                                                                                 |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `page`  | A page with its own backend and database. The fixture signs the owner in, unless the test sets `authenticated: false`. The page has not opened the app. |
+| `owner` | The email, name, and password of the owner account.                                                                                                     |
+
+A test file sets the options with `test.use()`:
+
+- `authenticated`: sign the owner in before the test. Defaults to `true`. The
+  fixture signs in through the session route, so only the tests of the
+  sign-in page depend on that page.
+- `accountMode`: `singleOwner` or `openSignUp`. Defaults to the mode that the
+  project runs in, which is `singleOwner` in the template. In `openSignUp`
+  mode a visitor can sign up. A test that depends on one mode sets it.
+
+An error in the page that no code caught fails the test, because normal use
+must not cause one.
+
+Each worker builds the database template once, and each test starts its
+backend from a copy. A test takes about half a second on a laptop. To run one
+file after a first run has built the backend:
+`pnpm --filter frontend exec playwright test src/features/auth/black-box-tests/session.spec.ts`.
+When a test fails, Playwright writes a trace and `error-context.md` to
+`frontend/.browser-test/results/`. That file has the error and the page's
+accessibility tree, with the role and name of each element.
 
 ## The live start check
 
@@ -209,10 +375,11 @@ the backend as well as the frontend.
 
 ## Enforced by lint
 
-| Rule                      | What it checks                                                                                                                                                     |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `testing/ui-logic-tested` | Every `*-logic.ts` and `*-plugin.ts` file in a feature's `ui/` directory has a test file beside it.                                                                |
-| `testing/logic-tests`     | A UI Logic test builds its Logic with `setupLogicTest`, uses no `vi` test doubles and no `.concurrent`, and does not import React, a renderer, or a bare test app. |
+| Rule                      | What it checks                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `testing/ui-logic-tested` | Every `*-logic.ts` and `*-plugin.ts` file in a feature's `ui/` directory has a test file beside it.                                                                                                                                                                                                                                                                                                                                              |
+| `testing/logic-tests`     | A UI Logic test builds its Logic with `setupLogicTest`, uses no `vi` test doubles and no `.concurrent`, and does not import React, a renderer, or a bare test app.                                                                                                                                                                                                                                                                               |
+| `testing/black-box-tests` | A black box test takes `test` from the black box fixture, and finds no element itself. A page object finds elements only by role, label, or text, and does not check. Neither imports application code, calls the backend API, answers requests, runs code in the page, reads the browser's storage, or waits for a fixed time. Both live in a `black-box-tests/` directory, and that directory holds nothing else. The build checks are exempt. |
 
 Type checking enforces the task fields: `executeTask("create", …)` compiles
 only when the state declares `createState` and `createError`.

@@ -39,6 +39,11 @@ project information. Read the documents that apply to the task.
   very hard-to-grok code.
 - Do not write unit tests for modules. Full app integration tests should be written which fit our standards.
   Read [docs/agents/testing.md](docs/agents/testing.md) for more context.
+- When you finish a change to a page or a workflow that has no black box
+  tests, ask the person if the workflow is stable. If it is, write the tests
+  with the `write-black-box-test` skill. If it is not, file a beads issue to
+  write them, so that a later session sees it. Do not ask again while that
+  issue is open.
 - Do not add any new dependencies without explicit user authorization.
 - Do not change the data model without the person's approval. A change to the
   data model is a new or changed migration, which implies a new or changed
@@ -74,7 +79,8 @@ project information. Read the documents that apply to the task.
 - Run `pnpm run check` after TypeScript changes.
 - Run `pnpm run build` after changes to compiled code or package exports.
 - Run `pnpm run test:browser` after changes to routing, `main.tsx`, the Vite
-  config, or an error boundary. `pnpm run check` does not run it.
+  config, an error boundary, or a page that has a page object. `pnpm run check`
+  does not run it.
 - Check `git status` before and after edits. Preserve changes unrelated to the task.
 - Open a pull request only when the person asks for one. Open it as a draft
   unless the person says not to. Push to `main` only when the person asks for

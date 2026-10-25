@@ -89,6 +89,10 @@ const featureBoundaries = {
         target.workspace !== file.workspace ||
         target.feature === file.feature ||
         (options.sharedFeatures ?? []).includes(target.feature) ||
+        // Black box tests follow a workflow across features, so they may use
+        // the page objects of every feature.
+        (target.role === file.role &&
+          (options.sharedRoles ?? []).includes(file.role)) ||
         target.base === "types"
       ) {
         return;

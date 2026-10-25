@@ -220,9 +220,10 @@ entry to the choice, the reason, and any rule that follows from it.
   directly with standard `Request` objects: no network and no listening socket,
   while validation, handlers, and error mapping still run. A test can then
   assert on UI Logic state and on database rows together.
-- **Tests do not render components.** Behavior lives in UI Logic, so a rendered
-  test adds little and is slower to write and to read. The one exception is the
-  hook that owns a Logic's lifecycle, which exists only inside React.
+- **Vitest tests do not render components.** Behavior lives in UI Logic, so a
+  rendered test adds little and is slower to write and to read. The one
+  exception is the hook that owns a Logic's lifecycle, which exists only inside
+  React.
 - **Tests read the database with direct queries, not through Storage.** Storage
   has methods only for production paths. The operation under test already runs
   the production Storage code, and a direct query checks what it stored.
@@ -251,11 +252,26 @@ entry to the choice, the reason, and any rule that follows from it.
   in reverse order, so the Logic is cleaned up before the backend closes and no
   request outlives the database. This needs one test at a time within a file,
   so `it.concurrent` is not used.
-- **A few browser tests cover what the other tests cannot.** No other test
+- **A few build checks cover what the other tests cannot.** No other test
   loads the build output, the route table, or `main.tsx`, so an update to
   React Router or Vite could pass the check and still break the app.
   Playwright opens the built frontend and makes one visit: sign in, add a
   note, reload, change page, see both error boundaries, sign out.
+- **Black box tests check stable workflows through the built app.** Agents
+  write and refactor much of the code, and the UI Logic tests know the Logic
+  state and the tables, so a refactor changes those tests too. A black box test
+  knows only what a user sees. It stays the same through a refactor, so after
+  the refactor, a pass shows that the behavior stayed the same.
+- **Page objects hold what the black box tests know about each page.** A change
+  to a page then changes one file, not each test that uses the page. Lint keeps
+  the lookup of elements out of the test files.
+- **Black box tests find elements by role and accessible name.** A change of
+  style or layout then breaks no test. A missing label fails a test, as it
+  fails a screen reader user. CSS selectors and test IDs are not used.
+- **Each black box test has its own backend and database,** so the tests share
+  no data and any test can run alone. The build has one backend address in it,
+  so the tests run one at a time. Each worker builds the database template
+  once, which takes more than a second, and each test starts from a copy.
 - **The browser tests use the test backend, not the live one.** The live
   composition root needs a PostgreSQL, real secrets, and later the real
   third-party Services. The test root needs none of these, so the tests run

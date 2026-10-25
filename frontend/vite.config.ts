@@ -87,6 +87,8 @@ export default defineConfig(({ mode }) => {
         ],
         exclude: [
           "**/*.test.*",
+          // Playwright runs these, so Vitest measures none of their code.
+          "**/black-box-tests/**",
           "**/features/core/tests/**",
           "**/features/core/live/**",
         ],

@@ -56,6 +56,7 @@
       "error",
       {
         "sharedFeatures": ["core", "api"],
+        "sharedRoles": ["black-box-tests"],
         "compositionFiles": [
           "features/core/live/index.ts",
           "features/core/tests/index.ts",
@@ -148,7 +149,8 @@
           "ui",
           "handlers",
           "utils",
-          "scripts"
+          "scripts",
+          "black-box-tests"
         ],
         "rolesByFeature": {
           "core": [
@@ -226,6 +228,13 @@
         ]
       }
     ],
+    "testing/black-box-tests": [
+      "error",
+      {
+        "fixtureFile": "features/core/black-box-tests/black-box-test.ts",
+        "exemptFiles": ["features/core/tests/browser/built-app.spec.ts"]
+      }
+    ],
     "import/no-unassigned-import": [
       "warn",
       {
@@ -299,7 +308,8 @@
         "frontend/src/**/*.test.tsx",
         "frontend/src/features/core/tests/full-application.ts",
         "frontend/src/features/core/tests/global-setup.ts",
-        "frontend/src/features/core/tests/browser/global-setup.ts"
+        "frontend/src/features/core/black-box-tests/black-box-test.ts",
+        "frontend/src/features/core/tests/browser/built-app.spec.ts"
       ],
       "rules": {
         "no-restricted-imports": [
