@@ -286,7 +286,9 @@ The check works as follows:
   when its quote is not in its file now, or when each model that answered says
   so. A finding that a model reports again stays open. The new comment repeats
   the open findings under "Not yet addressed", then gives the new findings,
-  and lists the addressed ones in a fold. Each finding has a checkbox. In the
+  and lists the addressed ones in a fold. Under each earlier finding, it shows
+  the status that each model gave, with the reason of the model, so a person
+  sees where the models disagree. Each finding has a checkbox. In the
   earlier comment, the review checks the box of each addressed finding, and
   adds a link to the new comment. A person who checks a box does not accept
   the finding. Only the label accepts findings.

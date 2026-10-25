@@ -1059,7 +1059,10 @@ test("verdict repeats the open findings of the earlier review, lists the address
         body.indexOf("**3. [decision-change]"),
     body,
   );
-  assert.match(body, /Not yet addressed: The sentence is there\. \(Claude\)/);
+  assert.match(
+    body,
+    /Not yet addressed\.\n\n- Claude: open\. The sentence is there\.\n- Codex gave no status\./,
+  );
   assert.match(body, /Not yet addressed: A model reported it again\./);
   assert.match(
     body,
@@ -1071,7 +1074,7 @@ test("verdict repeats the open findings of the earlier review, lists the address
   );
   assert.match(
     body,
-    /- \[x\] 3\. stale-document in .*: The setup changed\. \(Claude, Codex\)/,
+    /- \[x\] 3\. stale-document in [^\n]*abc1234\n {2}- Claude: addressed\. The setup changed\.\n {2}- Codex: addressed\. It is correct now\./,
   );
   const stored = unpack(body.match(/<!-- agent-review-findings (\S+) -->/)[1]);
   assert.deepEqual(

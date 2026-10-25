@@ -873,7 +873,11 @@ function markAddressedLines({ repository, number, addressed, link }) {
       method: "PATCH",
       route: `repos/${repository}/pulls/comments/${comment.id}`,
       body: {
-        body: `${comment.body.replace(LINE_BOX, "- [x] ")}\n\nAddressed in the ${link}: ${escapeOutsideCode(flatten(item.reason).slice(0, 300))}`,
+        body: [
+          comment.body.replace(LINE_BOX, "- [x] "),
+          "",
+          ...outcomeLines({ text: `Addressed in the ${link}`, item }),
+        ].join("\n"),
       },
     });
   }
@@ -881,12 +885,14 @@ function markAddressedLines({ repository, number, addressed, link }) {
 
 /**
  * Sorts the findings of the earlier review into the addressed and the open
- * ones, and keeps only the new findings that no earlier finding covers.
+ * ones, and keeps only the new findings that no earlier finding covers. Each
+ * earlier finding keeps the status of each model that answered, with its
+ * reason, so that the comment can show where the models disagree.
  *
  * An earlier finding is addressed when its quote is not in its file now, or
- * when each model that answered says it is addressed. A finding that a model
- * reports again is open, whatever the statuses say. A finding of the script
- * is addressed when the script does not report it again.
+ * when each model that gave it a status says it is addressed. A finding that a
+ * model reports again is open, whatever the statuses say. A finding of the
+ * script is addressed when the script does not report it again.
  */
 function followUp({ earlier, findings, models }) {
   if (!earlier) return { carried: [], addressed: [], added: findings };
@@ -900,13 +906,13 @@ function followUp({ earlier, findings, models }) {
   const carried = [];
   const addressed = [];
   for (const old of earlier.findings) {
-    const statuses = answered.flatMap((model) =>
-      model.statuses
-        .filter((status) => status.id === `E${old.number}`)
-        .map((status) => ({ ...status, model: model.name })),
-    );
+    const votes = answered.map((model) => {
+      const status = model.statuses.find(({ id }) => id === `E${old.number}`);
+      return { model: model.name, ...status };
+    });
+    const statuses = votes.filter((vote) => vote.status);
     const checkable = old.quote && !SENSITIVE_RULES.has(old.rule);
-    const item = { ...old, earlierNumber: old.number };
+    const item = { ...old, earlierNumber: old.number, votes };
     if (reported.has(old.number)) {
       carried.push({ ...item, reason: "A model reported it again." });
     } else if (old.models.includes("script")) {
@@ -920,22 +926,40 @@ function followUp({ earlier, findings, models }) {
       statuses.length > 0 &&
       statuses.every((status) => status.status === "addressed")
     ) {
-      addressed.push({
-        ...item,
-        reason: `${statuses[0].explanation} (${statuses.map((status) => status.model).join(", ")})`,
-      });
+      addressed.push(item);
     } else {
-      const open = statuses.find((status) => status.status === "open");
       carried.push({
         ...item,
         line: checkable ? linesOfQuote(old).start : old.line,
-        reason: open
-          ? `${open.explanation} (${open.model})`
-          : "No model said that it is addressed.",
+        ...(statuses.length === 0 && {
+          reason: "No model gave a status for it.",
+        }),
       });
     }
   }
   return { carried, addressed, added };
+}
+
+/**
+ * The status that each model gave an earlier finding, with its reason, as the
+ * lines of a Markdown list. With no status from any model, the reason of the
+ * outcome says it, so the list is empty.
+ */
+function voteLines(votes = []) {
+  if (!votes.some((vote) => vote.status)) return [];
+  return votes.map(({ model, status, explanation }) =>
+    status
+      ? `- ${model}: ${status}. ${escapeOutsideCode(flatten(explanation ?? "").slice(0, 300))}`
+      : `- ${model} gave no status.`,
+  );
+}
+
+/** What the review decided about an earlier finding, and why. */
+function outcomeLines({ text, item }) {
+  return [
+    `${text}${item.reason ? `: ${escapeOutsideCode(flatten(item.reason).slice(0, 300))}` : "."}`,
+    ...(voteLines(item.votes).length > 0 ? ["", ...voteLines(item.votes)] : []),
+  ];
 }
 
 /**
@@ -1107,12 +1131,9 @@ function commentFor({
     ...(sensitiveFiles.has(item.file) ? [] : [quoteBlock(item.quote), ""]),
     escapeOutsideCode(flatten(item.explanation).slice(0, 1000)),
     "",
-    ...(item.reason
-      ? [
-          `Not yet addressed: ${escapeOutsideCode(flatten(item.reason).slice(0, 500))}`,
-          "",
-        ]
-      : []),
+    ...(item.earlierNumber === undefined
+      ? []
+      : [...outcomeLines({ text: "Not yet addressed", item }), ""]),
   ];
   findings.slice(0, limit).forEach((finding, index) => {
     if (earlier && index === 0 && carried.length > 0) {
@@ -1140,10 +1161,10 @@ function commentFor({
       "<details>",
       `<summary>Addressed since the review of ${earlier.head.slice(0, 7)}: ${addressed.length}</summary>`,
       "",
-      ...addressed.map(
-        (item) =>
-          `- [x] ${item.earlierNumber}. ${item.rule} in ${link({ file: item.file, line: item.line, commit: earlier.head })}: ${escapeOutsideCode(flatten(item.reason).slice(0, 300))}`,
-      ),
+      ...addressed.flatMap((item) => [
+        `- [x] ${item.earlierNumber}. ${item.rule} in ${link({ file: item.file, line: item.line, commit: earlier.head })}${item.reason ? `: ${escapeOutsideCode(flatten(item.reason).slice(0, 300))}` : ""}`,
+        ...voteLines(item.votes).map((line) => `  ${line}`),
+      ]),
       "",
       "</details>",
       "",
