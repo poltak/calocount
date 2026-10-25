@@ -154,6 +154,9 @@ vite.config.ts.timestamp-*
 # The build and the results of the browser tests
 .browser-test/
 
+# The Git worktrees that Claude Code makes for its agents
+.claude/worktrees/
+
 # BEGIN swamp managed section - DO NOT EDIT
 
 # Runtime data (not needed in version control)
