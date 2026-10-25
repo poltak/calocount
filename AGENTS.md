@@ -115,6 +115,15 @@ issue tracker. [Setup](docs/agents/setup.md#beads-issue-tracker) describes it.
   push again.
 - Never run `bd dolt push --force`. It replaces the issues on the remote, and
   the other persons lose their changes.
+- When the project copies its issues to GitHub Issues, beads keeps the
+  original. Update GitHub only with `pnpm exec bd github sync --push-only`.
+  Then run `pnpm exec bd dolt push`, because the sync writes the GitHub link
+  into each new issue. Do not run `bd github sync` without `--push-only`, and
+  do not run `bd github pull`. A pull writes the GitHub data over the issues
+  in beads, and it replaces their assignees. Give the token in
+  `GITHUB_TOKEN`, for example with `export GITHUB_TOKEN=$(gh auth token)`. Do
+  not set `github.token` with `bd config set`. That command writes the token
+  into `.beads/config.yaml`, and git tracks that file.
 - Do not put secrets or private data in an issue. The secret check and the
   agent review do not see issues.
 - When you find a problem outside your task, file an issue, and then continue
