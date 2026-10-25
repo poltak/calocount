@@ -217,14 +217,20 @@ inside changes.
 - Each workflow must have black box tests when it is stable. The person
   decides when it is stable. While the person still tries layouts and steps,
   the UI Logic tests are enough. `AGENTS.md` says when an agent asks.
-- Test the main workflows, and the rules that users rely on. Leave details and
-  timing cases, such as a second click while a request runs, to the UI Logic
-  tests.
+- Cover each rule that a user can see, because a refactor must keep each of
+  them. Leave to the UI Logic tests what a test cannot make the same way on
+  each run: a second click while a request runs, or a rule with a time window,
+  such as the limit of sign-in attempts. A slow run can go past the end of the
+  window, and the test then fails at random.
 - Write the cases from the specification of the workflow, not from the code.
   Take one input from each group of inputs that the specification treats the
   same, and the inputs at the edges of each group. For example, a password has
   at least 8 characters, so `sign-up.spec.ts` tries a password of 7 characters
   and one of 8.
+- Use inputs that pass the browser's own checks. The browser refuses an empty
+  required field, or an email with no "@", before the app sees it, and its
+  message is not on the page. So test an edge that the browser accepts and the
+  app refuses, such as `owner@example`.
 
 ### Put the UI knowledge for each page in one place
 
@@ -263,12 +269,15 @@ How to write a page object:
 - Find elements with `getByRole`, `getByLabel`, or `getByText`. Do not use CSS,
   XPath, or test IDs. When an element has no accessible name, give it one in
   the component, such as a label. A screen reader needs it too.
+- A page object imports no application code, also not the product name. Find
+  a text that has the product name with a pattern, such as `/^Sign in to /`.
 - A page object does not check. The test checks with `expect`.
-- A step that opens another page waits for that page when the next step can
-  find the same element on both pages. Wait with `waitFor()` on an element
-  that only the new page has, such as its heading. For example, a list page and
-  the page that edits one of its records can both have a "Title" field.
-  Without the wait, the next step can type into the field of the old page.
+- A step that always leaves its page ends with
+  `waitFor({ state: "hidden" })` on the heading of its page. Without the wait,
+  the next step can act on the old page. For example, a list page and the page
+  that edits one of its records can both have a "Title" field. The step waits
+  for its own page to go, so two pages that link to each other need not import
+  each other's page objects.
 
 ### Rules of black box tests
 
@@ -276,12 +285,24 @@ How to write a page object:
   [`black-box-test.ts`](../../frontend/src/features/core/black-box-tests/black-box-test.ts).
   It gives each test its own backend.
 - **Check only what a user can see:** text, fields, headings, and the URL. To
-  check that the backend kept a change, reload the page or open it again.
+  check that the backend kept a change, reload the page or open it again. To
+  check that a refused attempt changed nothing, do the step again with valid
+  values, such as a sign-up with the same email.
+- **Check the new page before a hidden element.** A check that an element is
+  hidden passes at once, while the page has not changed yet. Put it after a
+  check of an element that the new page shows.
+- **Open a page with the `goto()` of its page object.** Use `page.goto()` only
+  when the address itself is part of the case, such as a link that a user
+  opens.
+- **Use no page of the notes example in a test of another feature.** A project
+  removes the example with the `remove-example` skill.
 - **Make the data through the UI.** Each test starts with a database that holds
   only the owner account. The test makes the records that it needs with the
   steps of the page objects.
 - **Produce a failure by real means:** invalid input, or
-  `context.setOffline(true)` for a lost connection. Do not answer a request in
+  `context.setOffline(true)` for a lost connection. Go offline only after the
+  page shows its content, because the page's first requests fail too. Do not
+  answer a request in
   the test with `page.route`, run code in the page with `page.evaluate`, or
   read the browser's storage. If you cannot produce a condition this way,
   extend the fixture, and record the new control here.
@@ -302,7 +323,8 @@ A test file sets the options with `test.use()`:
   fixture signs in through the session route, so only the tests of the
   sign-in page depend on that page.
 - `accountMode`: `singleOwner` or `openSignUp`. Defaults to the mode that the
-  project runs in. In `openSignUp` mode a visitor can sign up.
+  project runs in, which is `singleOwner` in the template. In `openSignUp`
+  mode a visitor can sign up. A test that depends on one mode sets it.
 
 An error in the page that no code caught fails the test, because normal use
 must not cause one.
