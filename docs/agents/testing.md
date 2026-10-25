@@ -29,7 +29,7 @@ LogicPlugin has a test file of its own, such as
 Backend code has no test runner of its own. Handlers, backend Logic, and Storage
 are covered through these tests.
 
-A workflow that has stopped changing can also get
+Each workflow that has stopped changing must also have
 [black box tests](#black-box-tests). They check the workflow in a real browser,
 and they know only what a user can see.
 
@@ -214,9 +214,9 @@ the database while the request runs. A black box test shows that a workflow
 works for the user through the whole app, and it stays valid when the code
 inside changes.
 
-- Write black box tests for a workflow when the person says that its pages and
-  steps are stable, or when the person asks for them. While the person still
-  tries layouts and steps, the UI Logic tests are enough.
+- Each workflow must have black box tests when it is stable. The person
+  decides when it is stable. While the person still tries layouts and steps,
+  the UI Logic tests are enough. `AGENTS.md` says when an agent asks.
 - Test the main workflows, and the rules that users rely on. Leave details and
   timing cases, such as a second click while a request runs, to the UI Logic
   tests.

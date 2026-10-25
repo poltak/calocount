@@ -68,6 +68,5 @@ feature must be added to.
   message: it cites the rule in `code-architecture.md`.
 - Do not edit `backend/src/features/core/database/migrations.ts`. The
   migration command writes it.
-- A new feature gets no black box tests at first, because its pages still
-  change. Write them with the `write-black-box-test` skill when the person says
-  that the pages and steps are stable, or asks for the tests.
+- A new feature has no black box tests, because its pages still change. At
+  the end, ask the person if its workflow is stable, as `AGENTS.md` says.
