@@ -822,7 +822,7 @@ test("verdict merges the findings, deletes one with a wrong quote, adds a new do
   );
   assert.match(
     body,
-    /\*\*1\. \[override\]\([^)]*#override\)\*\* in \[`docs\/agents\/plan\.md:3`\]\(https:\/\/github\.com\/acme\/project\/blob\/\w+\/docs\/agents\/plan\.md#L3\) \(Claude, Codex\)/,
+    /^- \[ \] \*\*1\. \[override\]\([^)]*#override\)\*\* in \[`docs\/agents\/plan\.md:3`\]\(https:\/\/github\.com\/acme\/project\/blob\/\w+\/docs\/agents\/plan\.md#L3\) \(Claude, Codex\)/m,
   );
   assert.match(
     body,
@@ -990,14 +990,16 @@ test("verdict repeats the open findings of the earlier review, lists the address
       }),
     ],
   };
+  const heading = (number) =>
+    `**${number}. [rule](https://example.com)** in [\`file\`](https://example.com) (Claude)\n`;
   const earlierBody = [
     "<!-- agent-review head=abc1234def blockers=4 -->",
     "### Agent review of abc1234: 4 findings",
     "",
-    ...[1, 2, 3, 4].map(
-      (number) =>
-        `**${number}. [rule](https://example.com)** in [\`file\`](https://example.com) (Claude)\n`,
-    ),
+    `- [x] ${heading(1)}`,
+    `- [ ] ${heading(2)}`,
+    `⏳ Not yet addressed · ${heading(3)}`,
+    heading(4),
   ].join("\n");
   const result = await run({
     repo,
@@ -1065,11 +1067,11 @@ test("verdict repeats the open findings of the earlier review, lists the address
   );
   assert.match(
     body,
-    /- ~~2\. stale-document~~ in .*: The quoted text is not in the file now\./,
+    /- \[x\] 2\. stale-document in .*: The quoted text is not in the file now\./,
   );
   assert.match(
     body,
-    /- ~~3\. stale-document~~ in .*: The setup changed\. \(Claude, Codex\)/,
+    /- \[x\] 3\. stale-document in .*: The setup changed\. \(Claude, Codex\)/,
   );
   const stored = unpack(body.match(/<!-- agent-review-findings (\S+) -->/)[1]);
   assert.deepEqual(
@@ -1090,10 +1092,10 @@ test("verdict repeats the open findings of the earlier review, lists the address
       `### Agent review of abc1234: 4 findings\n\n> Follow-up: review of ${repo.head.slice(0, 7)}: 2 addressed, 2 not yet addressed\.\n\n`,
     ),
   );
-  assert.match(marked, /^⏳ Not yet addressed · \*\*1\. \[/m);
-  assert.match(marked, /^✅ Addressed · \*\*2\. \[/m);
-  assert.match(marked, /^✅ Addressed · \*\*3\. \[/m);
-  assert.match(marked, /^⏳ Not yet addressed · \*\*4\. \[/m);
+  assert.deepEqual(
+    marked.match(/^.*\*\*\d\. \[.*$/gm).map((line) => line.split(" [rule]")[0]),
+    ["- [ ] **1.", "- [x] **2.", "- [x] **3.", "- [ ] **4."],
+  );
 });
 
 test("verdict stores the commit that each model read, keeps the earlier one when a model failed, and links the changes that the models read", async (context) => {
@@ -1262,7 +1264,7 @@ test("verdict puts each new finding on lines of the diff in a review, and keeps 
   assert.match(
     review.comments[0].body,
     new RegExp(
-      `^<!-- agent-review-line [0-9a-f]{16} -->\n\\*\\*\\[override\\]\\([^)]*#override\\)\\*\\* \\(Claude\\)\n\nA reason\\.\n\nFinding 1 of the agent review of ${head.slice(0, 7)}\\.$`,
+      `^<!-- agent-review-line [0-9a-f]{16} -->\n- \\[ \\] \\*\\*\\[override\\]\\([^)]*#override\\)\\*\\* \\(Claude\\)\n\nA reason\\.\n\nFinding 1 of the agent review of ${head.slice(0, 7)}\\.$`,
     ),
   );
   assert.match(review.comments[1].body, /Finding 3 of the agent review/);
@@ -1321,6 +1323,11 @@ test("verdict marks the line comment of each addressed finding, and a review tha
         },
         { id: 6, user: { login: "contributor" }, body: overrideLine.body },
         {
+          id: 8,
+          user: { login: "github-actions[bot]" },
+          body: overrideLine.body.replace("- [ ] ", "- [x] "),
+        },
+        {
           id: 7,
           user: { login: "github-actions[bot]" },
           body: overrideLine.body.replace(/[0-9a-f]{16}/, "0".repeat(16)),
@@ -1357,7 +1364,7 @@ test("verdict marks the line comment of each addressed finding, and a review tha
   );
   assert.equal(
     JSON.parse(marks[0].input).body,
-    `✅ Addressed · [review of ${newer.slice(0, 7)}](https://github.com/acme/project/pull/7#issuecomment-124): The quoted text is not in the file now.\n\n${overrideLine.body}`,
+    `${overrideLine.body.replace("- [ ] ", "- [x] ")}\n\nAddressed in the [review of ${newer.slice(0, 7)}](https://github.com/acme/project/pull/7#issuecomment-124): The quoted text is not in the file now.`,
   );
   assert.ok(
     second.calls.some(

@@ -286,8 +286,10 @@ The check works as follows:
   when its quote is not in its file now, or when each model that answered says
   so. A finding that a model reports again stays open. The new comment repeats
   the open findings under "Not yet addressed", then gives the new findings,
-  and lists the addressed ones in a fold. The earlier comment gets a mark on
-  each finding and a link to the new comment.
+  and lists the addressed ones in a fold. Each finding has a checkbox. In the
+  earlier comment, the review checks the box of each addressed finding, and
+  adds a link to the new comment. A person who checks a box does not accept
+  the finding. Only the label accepts findings.
 - The comment also stores the newest commit that each model read. When the
   pull request only adds commits after it, the models look for new problems
   only in those commits, and the comment links to them. The models can read
@@ -300,10 +302,11 @@ The check works as follows:
   on those lines, in a review of the type "Comment". The review does not
   request changes, because the check already fails. A finding on other lines
   is only in the comment of the review. When a later review finds that a
-  finding is addressed, its line comment gets a mark. A person resolves the
-  conversation, because GitHub can refuse that to the token of a workflow.
-  GitHub sends the lines around a line comment by email, so a finding in a
-  file with a `secret` or `private-data` finding gets no line comment.
+  finding is addressed, it checks the box of the line comment, and adds the
+  reason. A person resolves the conversation, because GitHub can refuse that
+  to the token of a workflow. GitHub sends the lines around a line comment by
+  email, so a finding in a file with a `secret` or `private-data` finding gets
+  no line comment.
 - The rules `secret` and `private-data` look at each commit, not only at the
   diff, because a value that a later commit deletes stays on GitHub. The
   quote of their finding can be in any commit. GitHub can send the comment by

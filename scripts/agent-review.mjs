@@ -18,16 +18,16 @@
 //
 // Each review posts a new comment, which stores its open findings. The next
 // review gives them to the models, which say which ones the new commits
-// addressed. The new comment repeats the open ones, and the earlier comment
-// gets a mark on each finding.
+// addressed. The new comment repeats the open ones. In the earlier comment, the
+// review checks the box of each finding that is addressed.
 //
 // The comment also stores the newest commit that each model read. When the
 // pull request only added commits after it, the next review looks for new
 // problems only in those commits, so a small push costs a small review.
 //
 // Each new finding on a line that the pull request adds also gets a comment on
-// that line, in a review. When a later review finds that it is addressed, the
-// line comment gets a mark.
+// that line, in a review. When a later review finds that it is addressed, it
+// checks the box of the line comment.
 //
 // Each command reads the event from GITHUB_EVENT_PATH, and writes its outputs
 // to GITHUB_OUTPUT. The maintainers are in TEMPLATE_MAINTAINERS, with commas or
@@ -58,8 +58,10 @@ const FINDINGS_PATTERN = /^<!-- agent-review-findings (\S+) -->$/m;
 // The models read the findings of the earlier review from this file. The
 // checkout does not track it, so it is not a part of the pull request.
 const EARLIER_FILE = ".agent-review/earlier-findings.md";
-const ADDRESSED = "✅ Addressed · ";
-const NOT_ADDRESSED = "⏳ Not yet addressed · ";
+// A comment from before the checkboxes has these marks on its findings.
+const OLD_MARK = /^(?:✅ Addressed|⏳ Not yet addressed) · /gm;
+const FINDING_BOX = /^(?:- \[[ x]\] )?(?=\*\*(\d+)\. \[)/gm;
+const LINE_BOX = /^(?:- \[[ x]\] )?(?=\*\*\[)/m;
 // Each line comment has the key of its finding, so that a later review can
 // find the line comment of a finding that it addressed.
 const LINE_PATTERN = /<!-- agent-review-line (\w+) -->/;
@@ -841,7 +843,7 @@ function lineComments({ findings, carried, addressed, range, ruleLink }) {
           ...(each && { start_line: start, start_side: "RIGHT" }),
           body: [
             `<!-- agent-review-line ${keyOf(finding)} -->`,
-            `**${ruleLink(finding.rule)}** (${finding.models.join(", ")})`,
+            `- [ ] **${ruleLink(finding.rule)}** (${finding.models.join(", ")})`,
             "",
             escapeOutsideCode(flatten(finding.explanation).slice(0, 1000)),
             "",
@@ -853,9 +855,10 @@ function lineComments({ findings, carried, addressed, range, ruleLink }) {
 }
 
 /**
- * Puts a mark on the line comment of each addressed finding. A person
- * resolves the conversation, because GitHub can refuse `resolveReviewThread`
- * to the token of a workflow, also with `pull-requests: write`.
+ * Checks the box of the line comment of each addressed finding, and adds the
+ * reason. A person resolves the conversation, because GitHub can refuse
+ * `resolveReviewThread` to the token of a workflow, also with
+ * `pull-requests: write`.
  */
 function markAddressedLines({ repository, number, addressed, link }) {
   const byKey = new Map(addressed.map((item) => [keyOf(item), item]));
@@ -867,7 +870,7 @@ function markAddressedLines({ repository, number, addressed, link }) {
     if (
       !item ||
       comment.user?.login !== "github-actions[bot]" ||
-      comment.body.startsWith(ADDRESSED)
+      /^- \[x\] \*\*\[/m.test(comment.body)
     ) {
       continue;
     }
@@ -875,7 +878,7 @@ function markAddressedLines({ repository, number, addressed, link }) {
       method: "PATCH",
       route: `repos/${repository}/pulls/comments/${comment.id}`,
       body: {
-        body: `${ADDRESSED}${link}: ${escapeOutsideCode(flatten(item.reason).slice(0, 300))}\n\n${comment.body}`,
+        body: `${comment.body.replace(LINE_BOX, "- [x] ")}\n\nAddressed in the ${link}: ${escapeOutsideCode(flatten(item.reason).slice(0, 300))}`,
       },
     });
   }
@@ -941,28 +944,24 @@ function followUp({ earlier, findings, models }) {
 }
 
 /**
- * Puts a mark on each finding of the earlier comment, and a line under its
- * heading that links to the follow-up. A mark from an earlier follow-up goes
- * first.
+ * Checks the box of each addressed finding of the earlier comment, and puts a
+ * line under its heading that links to the follow-up. A line from an earlier
+ * follow-up goes first.
  */
 function markEarlier(body, { carried, addressed, link }) {
-  const marks = new Map([
-    ...addressed.map((item) => [item.earlierNumber, ADDRESSED]),
-    ...carried.map((item) => [item.earlierNumber, NOT_ADDRESSED]),
+  const boxes = new Map([
+    ...addressed.map((item) => [item.earlierNumber, "- [x] "]),
+    ...carried.map((item) => [item.earlierNumber, "- [ ] "]),
   ]);
   return body
     .replace(/\n\n> Follow-up: [^\n]*/, "")
-    .replaceAll(ADDRESSED, "")
-    .replaceAll(NOT_ADDRESSED, "")
+    .replace(OLD_MARK, "")
     .replace(
       /^### Agent review of .*$/m,
       (heading) =>
         `${heading}\n\n> Follow-up: ${link}: ${addressed.length} addressed, ${carried.length} not yet addressed.`,
     )
-    .replace(
-      /^\*\*(\d+)\. \[/gm,
-      (start, number) => `${marks.get(Number(number)) ?? ""}${start}`,
-    );
+    .replace(FINDING_BOX, (box, number) => boxes.get(Number(number)) ?? box);
 }
 
 /**
@@ -1106,8 +1105,9 @@ function commentFor({
       "",
     );
   }
-  const entry = (item, title) => [
-    `**${title}** in ${link(item)} (${item.models.join(", ")})`,
+  // Only a finding has a box, because a later review checks only findings.
+  const entry = ({ item, title, box = "" }) => [
+    `${box}**${title}** in ${link(item)} (${item.models.join(", ")})`,
     "",
     ...(sensitiveFiles.has(item.file) ? [] : [quoteBlock(item.quote), ""]),
     escapeOutsideCode(flatten(item.explanation).slice(0, 1000)),
@@ -1127,7 +1127,11 @@ function commentFor({
       lines.push("#### New findings", "");
     }
     lines.push(
-      ...entry(finding, `${finding.number}. ${ruleLink(finding.rule)}`),
+      ...entry({
+        item: finding,
+        title: `${finding.number}. ${ruleLink(finding.rule)}`,
+        box: "- [ ] ",
+      }),
     );
   });
   if (findings.length > limit) {
@@ -1143,7 +1147,7 @@ function commentFor({
       "",
       ...addressed.map(
         (item) =>
-          `- ~~${item.earlierNumber}. ${item.rule}~~ in ${link({ file: item.file, line: item.line, commit: earlier.head })}: ${escapeOutsideCode(flatten(item.reason).slice(0, 300))}`,
+          `- [x] ${item.earlierNumber}. ${item.rule} in ${link({ file: item.file, line: item.line, commit: earlier.head })}: ${escapeOutsideCode(flatten(item.reason).slice(0, 300))}`,
       ),
       "",
       "</details>",
@@ -1197,7 +1201,7 @@ function commentFor({
       "",
     );
     notes.forEach((note, index) => {
-      lines.push(...entry(note, `${index + 1}.`));
+      lines.push(...entry({ item: note, title: `${index + 1}.` }));
     });
   }
   return { body: lines.join("\n").trimEnd(), blockers };
