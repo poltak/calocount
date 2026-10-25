@@ -46,8 +46,8 @@ instructions.
 | The test fixture                               | `frontend/src/features/core/tests/full-application.ts`                                   |
 | A model integration test                       | `frontend/src/features/notes/ui/notes-logic.test.ts`                                     |
 | The build checks in a real browser             | `frontend/src/features/core/tests/browser/built-app.spec.ts`                             |
-| The black box test fixture                     | `frontend/src/features/core/tests/browser/black-box-test.ts`                             |
-| Model black box tests and page objects         | `frontend/src/features/auth/tests/`                                                      |
+| The black box test fixture                     | `frontend/src/features/core/black-box-tests/black-box-test.ts`                           |
+| Model black box tests and page objects         | `frontend/src/features/auth/black-box-tests/`                                            |
 
 ## Where to add information
 

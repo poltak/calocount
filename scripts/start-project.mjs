@@ -213,7 +213,7 @@ function fileEdits({ projectName, productName, accountMode }) {
           `${line}\n${indent}accountMode: "openSignUp",`,
       },
       {
-        file: "frontend/src/features/core/tests/browser/black-box-test.ts",
+        file: "frontend/src/features/core/black-box-tests/black-box-test.ts",
         find: /^( *)accountMode: \["singleOwner", \{ option: true \}\],$/gm,
         replace: (_line, indent) =>
           `${indent}accountMode: ["openSignUp", { option: true }],`,

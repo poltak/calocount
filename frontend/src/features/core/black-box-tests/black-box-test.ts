@@ -9,8 +9,12 @@ import {
   startTestBackendServer,
   type DatabaseTemplate,
 } from "backend/testing";
-import { TEST_OWNER_CREDENTIALS } from "../test-owner.js";
-import { BACKEND_ORIGIN, BACKEND_PORT, FRONTEND_ORIGIN } from "./origins.js";
+import { TEST_OWNER_CREDENTIALS } from "../tests/test-owner.js";
+import {
+  BACKEND_ORIGIN,
+  BACKEND_PORT,
+  FRONTEND_ORIGIN,
+} from "../tests/browser/origins.js";
 
 interface BlackBoxOptions {
   /** Sign the owner in before the test starts. Defaults to true. */

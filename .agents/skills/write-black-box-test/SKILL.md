@@ -7,15 +7,16 @@ description: Write black box tests of a user workflow, in Playwright against the
 
 A black box test does what a user does in a real browser, and checks only what
 the user can see. Read "Black box tests" in `docs/agents/testing.md` for the
-rules, and the files in `frontend/src/features/auth/tests/` for the models,
+rules, and the files in `frontend/src/features/auth/black-box-tests/` for the
+models,
 before you start. This skill is the order of work.
 
 ## Workflow
 
 1. Name the workflow from the user's view: what the user wants to do, and the
    result that the user sees. For example, "make an account, and be signed
-   in". The test file is `<workflow>.spec.ts`, in the `tests/` directory of the
-   feature that owns the workflow.
+   in". The test file is `<workflow>.spec.ts`, in the `black-box-tests/`
+   directory of the feature that owns the workflow.
 2. Write the specification of the workflow as a list of rules in plain words,
    such as "a password has at least 8 characters". Get the rules from the
    person's request, from the pages, and from the UI Logic tests. The code
@@ -69,7 +70,7 @@ before you start. This skill is the order of work.
   page, not the test.
 - When you cannot produce a condition through the UI or with
   `context.setOffline(true)`, extend the fixture in
-  `frontend/src/features/core/tests/browser/black-box-test.ts`, and record the
+  `frontend/src/features/core/black-box-tests/black-box-test.ts`, and record the
   new control in `docs/agents/testing.md`. Lint rejects `page.route` and
   `page.evaluate` in black box tests.
 - A change to the backend needs a new build of it. `pnpm run test:browser`

@@ -1,6 +1,6 @@
 import { expect } from "@playwright/test";
-import { AppShellPageObject } from "../../core/tests/browser/app-shell-page-object.js";
-import { test } from "../../core/tests/browser/black-box-test.js";
+import { AppShellPageObject } from "../../core/black-box-tests/app-shell-page-object.js";
+import { test } from "../../core/black-box-tests/black-box-test.js";
 import { SignUpPageObject } from "./sign-up-page-object.js";
 
 const VISITOR = {

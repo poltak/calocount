@@ -255,7 +255,7 @@ test("sets the open sign-up mode for the server and for the browser tests", asyn
   assert.match(
     await readClone(
       clone,
-      "frontend/src/features/core/tests/browser/black-box-test.ts",
+      "frontend/src/features/core/black-box-tests/black-box-test.ts",
     ),
     /\n {2}accountMode: \["openSignUp", \{ option: true \}\],\n/,
   );

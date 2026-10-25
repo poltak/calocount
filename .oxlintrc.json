@@ -149,10 +149,18 @@
           "handlers",
           "utils",
           "scripts",
-          "tests"
+          "black-box-tests"
         ],
         "rolesByFeature": {
-          "core": ["live", "server", "database", "errors", "events", "types"],
+          "core": [
+            "live",
+            "tests",
+            "server",
+            "database",
+            "errors",
+            "events",
+            "types"
+          ],
           "api": ["client"]
         }
       }
@@ -222,7 +230,7 @@
     "testing/black-box-tests": [
       "error",
       {
-        "fixtureFile": "features/core/tests/browser/black-box-test.ts",
+        "fixtureFile": "features/core/black-box-tests/black-box-test.ts",
         "exemptFiles": ["features/core/tests/browser/built-app.spec.ts"]
       }
     ],
@@ -299,7 +307,7 @@
         "frontend/src/**/*.test.tsx",
         "frontend/src/features/core/tests/full-application.ts",
         "frontend/src/features/core/tests/global-setup.ts",
-        "frontend/src/features/core/tests/browser/black-box-test.ts",
+        "frontend/src/features/core/black-box-tests/black-box-test.ts",
         "frontend/src/features/core/tests/browser/built-app.spec.ts"
       ],
       "rules": {

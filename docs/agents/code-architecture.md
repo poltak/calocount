@@ -73,7 +73,7 @@ best matches their responsibility.
 - `src/features/<feature>/utils/`: re-usable utility functions that might be used by multiple other parts of the feature X
 - `src/features/<feature>/handlers/`: backend transport handlers related to feature X, when needed
 - `src/features/<feature>/scripts/`: command-line entry points related to feature X
-- `src/features/<feature>/tests/`: in the frontend, the black box tests of feature X and their page objects
+- `src/features/<feature>/black-box-tests/`: in the frontend, the black box tests of feature X and the page objects of its pages, and nothing else
 
 A LogicPlugin lives in the same layer directory as the Logic classes that consume
 it. If Logic classes in different runtime layers need the same stateless behavior,
@@ -108,8 +108,8 @@ events.
 Put each test file beside the file it tests, named `<file>.test.ts`. Tests that
 span features, and the fixtures they share, live in `features/core/tests/`. A
 black box test tests a workflow, not a file. It is a `<workflow>.spec.ts` file
-in the `tests/` directory of the feature that owns the workflow, beside the
-page objects of the feature's pages. [Testing](testing.md) has the rules for
+in the `black-box-tests/` directory of the feature that owns the workflow,
+beside the page objects of the feature's pages. [Testing](testing.md) has the rules for
 what a test contains.
 
 ### `common` workspace

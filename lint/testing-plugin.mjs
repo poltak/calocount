@@ -27,6 +27,7 @@ const TEST_DOUBLES = [
 const TEST_FUNCTIONS = ["it", "test", "describe"];
 
 const BLACK_BOX_DOC = "See docs/agents/testing.md (Black box tests)";
+const BLACK_BOX_ROLE = "black-box-tests";
 /** The methods of Playwright that find elements. */
 const LOCATOR_METHODS = [
   "getByRole",
@@ -228,7 +229,11 @@ const blackBoxTests = {
     schema: [{ type: "object" }],
     messages: {
       location:
-        "Black box tests and page objects live in a feature's tests/ directory. " +
+        "Black box tests and page objects live in a feature's black-box-tests/ directory. " +
+        BLACK_BOX_DOC +
+        ".",
+      folder:
+        "A black-box-tests/ directory holds only black box tests (*.spec.ts) and page objects (*-page-object.ts). Put another test beside the file that it tests. " +
         BLACK_BOX_DOC +
         ".",
       fixture:
@@ -265,17 +270,30 @@ const blackBoxTests = {
     const options = context.options[0] ?? {};
     const filename = context.filename ?? context.getFilename();
     const file = describeFile(filename);
-    const kind = file ? blackBoxKind(file) : null;
-    if (!kind || isListed(file, options.exemptFiles ?? [])) {
+    const fixture = options.fixtureFile ?? "";
+    if (
+      !file ||
+      isListed(file, options.exemptFiles ?? []) ||
+      isListed(file, [fixture])
+    ) {
       return {};
     }
+    const kind = blackBoxKind(file);
+    if (!kind) {
+      return file.role === BLACK_BOX_ROLE
+        ? {
+            Program(node) {
+              context.report({ node, messageId: "folder" });
+            },
+          }
+        : {};
+    }
 
-    const fixture = options.fixtureFile ?? "";
     let usesFixture = false;
     let reportedFixture = false;
     return {
       Program(node) {
-        if (file.role !== "tests") {
+        if (file.role !== BLACK_BOX_ROLE) {
           context.report({ node, messageId: "location" });
         }
       },

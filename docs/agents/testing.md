@@ -151,8 +151,8 @@ Playwright. It runs two kinds of tests, the `*.spec.ts` files:
 
 - The build checks, in
   [`built-app.spec.ts`](../../frontend/src/features/core/tests/browser/built-app.spec.ts).
-- The [black box tests](#black-box-tests), in the `tests/` directory of each
-  feature.
+- The [black box tests](#black-box-tests), in the `black-box-tests/` directory
+  of each feature.
 
 Before the first run, `pnpm run test:browser:install` downloads the browser.
 
@@ -199,11 +199,11 @@ routes. So a refactor of the code inside does not change the test, and a
 failure means that the behavior changed.
 
 The models are
-[`session.spec.ts`](../../frontend/src/features/auth/tests/session.spec.ts)
+[`session.spec.ts`](../../frontend/src/features/auth/black-box-tests/session.spec.ts)
 and
-[`sign-up.spec.ts`](../../frontend/src/features/auth/tests/sign-up.spec.ts),
+[`sign-up.spec.ts`](../../frontend/src/features/auth/black-box-tests/sign-up.spec.ts),
 with their page objects beside them, and
-[`app-shell-page-object.ts`](../../frontend/src/features/core/tests/browser/app-shell-page-object.ts)
+[`app-shell-page-object.ts`](../../frontend/src/features/core/black-box-tests/app-shell-page-object.ts)
 for the header.
 
 ### When to write one
@@ -249,10 +249,11 @@ not find them by markup or position.
 How to write a page object:
 
 - Name it after the page as the user knows it: `SignInPageObject` in
-  `sign-in-page-object.ts` for the sign-in page. Put it in the `tests/`
-  directory of the feature that owns the page. A part of the UI that many
-  pages show, such as the header, gets a page object of its own in
-  `core/tests/browser/`. The header's page object is `AppShellPageObject`.
+  `sign-in-page-object.ts` for the sign-in page. Put it in the
+  `black-box-tests/` directory of the feature that owns the page. A part of
+  the UI that many pages show, such as the header, gets a page object of its
+  own in `core/black-box-tests/`. The header's page object is
+  `AppShellPageObject`.
 - A step is a method for one thing that a user wants to do. Name it after that
   goal, such as `signIn()`, not after the elements that it uses.
 - A locator is a field or a method that returns a Playwright `Locator`, for the
@@ -270,7 +271,7 @@ How to write a page object:
 ### Rules of black box tests
 
 - **Take `test` from the black box fixture,**
-  [`black-box-test.ts`](../../frontend/src/features/core/tests/browser/black-box-test.ts).
+  [`black-box-test.ts`](../../frontend/src/features/core/black-box-tests/black-box-test.ts).
   It gives each test its own backend.
 - **Check only what a user can see:** text, fields, headings, and the URL. To
   check that the backend kept a change, reload the page or open it again.
@@ -307,7 +308,7 @@ must not cause one.
 Each worker builds the database template once, and each test starts its
 backend from a copy. A test takes about half a second on a laptop. To run one
 file after a first run has built the backend:
-`pnpm --filter frontend exec playwright test src/features/auth/tests/session.spec.ts`.
+`pnpm --filter frontend exec playwright test src/features/auth/black-box-tests/session.spec.ts`.
 When a test fails, Playwright writes a trace and `error-context.md` to
 `frontend/.browser-test/results/`. That file has the error and the page's
 accessibility tree, with the role and name of each element.
@@ -350,11 +351,11 @@ the backend as well as the frontend.
 
 ## Enforced by lint
 
-| Rule                      | What it checks                                                                                                                                                                                                                                                                                                                                                           |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `testing/ui-logic-tested` | Every `*-logic.ts` and `*-plugin.ts` file in a feature's `ui/` directory has a test file beside it.                                                                                                                                                                                                                                                                      |
-| `testing/logic-tests`     | A UI Logic test builds its Logic with `setupLogicTest`, uses no `vi` test doubles and no `.concurrent`, and does not import React, a renderer, or a bare test app.                                                                                                                                                                                                       |
-| `testing/black-box-tests` | A black box test takes `test` from the black box fixture, and finds no element itself. A page object finds elements only by role, label, or text, and does not check. Neither imports application code, answers requests, runs code in the page, reads the browser's storage, or waits for a fixed time. Both live in a `tests/` directory. The build checks are exempt. |
+| Rule                      | What it checks                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `testing/ui-logic-tested` | Every `*-logic.ts` and `*-plugin.ts` file in a feature's `ui/` directory has a test file beside it.                                                                                                                                                                                                                                                                                                                       |
+| `testing/logic-tests`     | A UI Logic test builds its Logic with `setupLogicTest`, uses no `vi` test doubles and no `.concurrent`, and does not import React, a renderer, or a bare test app.                                                                                                                                                                                                                                                        |
+| `testing/black-box-tests` | A black box test takes `test` from the black box fixture, and finds no element itself. A page object finds elements only by role, label, or text, and does not check. Neither imports application code, answers requests, runs code in the page, reads the browser's storage, or waits for a fixed time. Both live in a `black-box-tests/` directory, and that directory holds nothing else. The build checks are exempt. |
 
 Type checking enforces the task fields: `executeTask("create", …)` compiles
 only when the state declares `createState` and `createError`.

@@ -10,7 +10,7 @@ const BUILD_DIRECTORY = ".browser-test/dist";
 
 export default defineConfig({
   // The build checks in `core/tests/browser/`, and the black box tests in each
-  // feature's `tests/` directory.
+  // feature's `black-box-tests/` directory.
   testDir: "src/features",
   testMatch: "**/*.spec.ts",
   outputDir: ".browser-test/results",
