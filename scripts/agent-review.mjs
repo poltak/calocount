@@ -1244,6 +1244,15 @@ function reviewVerdict(event) {
     console.log(`A newer push (${current}) replaced the review of ${head}.`);
     return true;
   }
+  // The Claude job stops when a newer review of the pull request starts, such
+  // as after an edit of the description. That review posts the result, and a
+  // second comment for the head would mark the earlier comment again.
+  if (JSON.parse(process.env.CLAUDE_JOB || "{}").result === "cancelled") {
+    console.log(
+      "Something cancelled the Claude job: a newer review of this head, a person, or the time limit. So this review posts nothing. When no newer review runs, run the review again.",
+    );
+    return false;
+  }
 
   const models = [
     modelResult({

@@ -318,7 +318,9 @@ The check works as follows:
   A note does not fail the check, and the label is not for notes.
 - The models get the title and the description of the pull request, and they
   can read its commit messages, so a rule can ask for a reason there. An edit
-  of the title or the description starts a new review.
+  of the title or the description starts a new review. When that review
+  stops the Claude job of a review of the same head, the stopped review posts
+  no comment and fails, and the new review gives the result.
 - The job fails while a finding is open, and when a model that has its secret
   fails. When each finding is wrong or accepted, a maintainer adds the
   `agent-review-accepted` label. A later review with findings removes the

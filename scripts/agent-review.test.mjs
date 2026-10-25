@@ -1394,6 +1394,28 @@ test("verdict does nothing for a head that a newer push replaced", async (contex
   );
 });
 
+test("verdict posts nothing and fails when something cancelled the Claude job", async (context) => {
+  const repo = await repository(context);
+  const result = await run({
+    repo,
+    command: "verdict",
+    action: "synchronize",
+    answers: { [`GET ${PULL}`]: { head: { sha: repo.head } } },
+    env: {
+      MODE: "review",
+      CLAUDE_JOB: JSON.stringify({ result: "cancelled", outputs: {} }),
+      CODEX_JOB: job([finding({ quote: OVERRIDE })]),
+    },
+  });
+
+  assert.equal(result.status, 1, result.output);
+  assert.match(result.output, /Something cancelled the Claude job/);
+  assert.deepEqual(
+    result.calls.map(({ call }) => call),
+    [`GET ${PULL}`],
+  );
+});
+
 test("verdict counts a failed or cancelled model as an open item", async (context) => {
   const repo = await repository(context);
   const result = await run({
