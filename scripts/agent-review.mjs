@@ -25,10 +25,15 @@
 // pull request only added commits after it, the next review looks for new
 // problems only in those commits, so a small push costs a small review.
 //
+// Each new finding on a line that the pull request adds also gets a comment on
+// that line, in a review. When a later review finds that it is addressed, the
+// line comment gets a mark.
+//
 // Each command reads the event from GITHUB_EVENT_PATH, and writes its outputs
 // to GITHUB_OUTPUT. The maintainers are in TEMPLATE_MAINTAINERS, with commas or
 // spaces between them. `gh` reads its token from GH_TOKEN.
 import { execFileSync, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import {
   appendFileSync,
   existsSync,
@@ -55,6 +60,9 @@ const FINDINGS_PATTERN = /^<!-- agent-review-findings (\S+) -->$/m;
 const EARLIER_FILE = ".agent-review/earlier-findings.md";
 const ADDRESSED = "✅ Addressed · ";
 const NOT_ADDRESSED = "⏳ Not yet addressed · ";
+// Each line comment has the key of its finding, so that a later review can
+// find the line comment of a finding that it addressed.
+const LINE_PATTERN = /<!-- agent-review-line (\w+) -->/;
 const PROMPT_FILE = ".agents/review/prompt.md";
 const PROJECT_RULES_FILE = ".agents/review/project-rules.md";
 const SCHEMA_FILE = ".agents/review/findings.schema.json";
@@ -752,17 +760,131 @@ function sameFinding(one, other) {
   return first.includes(second) || second.includes(first);
 }
 
-/** Returns the line of the head where the quote starts now. */
-function lineOfQuote({ file, quote, line }) {
-  const first = quote
-    ?.split("\n")
-    .find((text) => text.trim())
-    ?.trim();
-  if (!first) return line;
-  const index = readFileSync(path.resolve(root, file), "utf8")
+/** Returns the first and the last line of the head that the quote is on now. */
+function linesOfQuote({ file, quote, line }) {
+  const quoted = (quote ?? "")
+    .trim()
     .split("\n")
-    .findIndex((text) => text.includes(first));
-  return index === -1 ? line : index + 1;
+    .map((text) => text.trim());
+  if (!quoted[0]) return { start: line, end: line };
+  const lines = readFileSync(path.resolve(root, file), "utf8").split("\n");
+  // A short quote can be on more lines than one, so the line that the model
+  // gave goes first.
+  const index = lines[line - 1]?.includes(quoted[0])
+    ? line - 1
+    : lines.findIndex((text) => text.includes(quoted[0]));
+  return index === -1
+    ? { start: line, end: line }
+    : { start: index + 1, end: index + quoted.length };
+}
+
+/**
+ * Returns the lines that the pull request adds to the file. GitHub refuses a
+ * review with a comment on a line that is not in the diff.
+ */
+function addedLines(file, { base, head }) {
+  const diff = spawnSync(
+    "git",
+    [
+      "--literal-pathspecs",
+      "diff",
+      "--no-color",
+      "--no-ext-diff",
+      "--unified=0",
+      base,
+      head,
+      "--",
+      file,
+    ],
+    { cwd: root, encoding: "utf8", maxBuffer: 256 * 1024 * 1024 },
+  );
+  const hunks = (diff.stdout ?? "").matchAll(
+    /^@@ -\S+ \+(\d+)(?:,(\d+))? @@/gm,
+  );
+  return new Set(
+    [...hunks].flatMap(([, start, length = "1"]) =>
+      Array.from(
+        { length: Number(length) },
+        (_, offset) => Number(start) + offset,
+      ),
+    ),
+  );
+}
+
+// The key comes from the stored fields of the finding, so the finding has the
+// same key in each review that carries it.
+const keyOf = ({ rule, file, quote }) =>
+  createHash("sha256")
+    .update(`${rule}\n${file}\n${flatten(quote ?? "")}`)
+    .digest("hex")
+    .slice(0, 16);
+
+/**
+ * Returns a line comment for each new finding on lines that the pull request
+ * adds. The other findings are only in the summary comment. GitHub sends the
+ * lines around a line comment by email, so a finding in a file with a secret
+ * or private data gets none.
+ */
+function lineComments({ findings, carried, addressed, range, ruleLink }) {
+  const sensitiveFiles = sensitiveFilesOf([...findings, ...addressed]);
+  return findings
+    .slice(carried.length, carried.length + COMMENT_FINDING_LIMIT)
+    .filter((finding) => !sensitiveFiles.has(finding.file))
+    .flatMap((finding) => {
+      const { start, end } = linesOfQuote(finding);
+      const diffLines = addedLines(finding.file, range);
+      const inDiff = Array.from(
+        { length: end - start + 1 },
+        (_, offset) => start + offset,
+      ).filter((line) => diffLines.has(line));
+      if (inDiff.length === 0) return [];
+      const each = end > start && inDiff.length === end - start + 1;
+      return [
+        {
+          path: finding.file,
+          side: "RIGHT",
+          line: each ? end : inDiff[0],
+          ...(each && { start_line: start, start_side: "RIGHT" }),
+          body: [
+            `<!-- agent-review-line ${keyOf(finding)} -->`,
+            `**${ruleLink(finding.rule)}** (${finding.models.join(", ")})`,
+            "",
+            escapeOutsideCode(flatten(finding.explanation).slice(0, 1000)),
+            "",
+            `Finding ${finding.number} of the agent review of ${range.head.slice(0, 7)}.`,
+          ].join("\n"),
+        },
+      ];
+    });
+}
+
+/**
+ * Puts a mark on the line comment of each addressed finding. A person
+ * resolves the conversation, because GitHub can refuse `resolveReviewThread`
+ * to the token of a workflow, also with `pull-requests: write`.
+ */
+function markAddressedLines({ repository, number, addressed, link }) {
+  const byKey = new Map(addressed.map((item) => [keyOf(item), item]));
+  const comments = readPages(
+    `repos/${repository}/pulls/${number}/comments?per_page=100`,
+  ).flat();
+  for (const comment of comments) {
+    const item = byKey.get(comment.body?.match(LINE_PATTERN)?.[1]);
+    if (
+      !item ||
+      comment.user?.login !== "github-actions[bot]" ||
+      comment.body.startsWith(ADDRESSED)
+    ) {
+      continue;
+    }
+    callApi({
+      method: "PATCH",
+      route: `repos/${repository}/pulls/comments/${comment.id}`,
+      body: {
+        body: `${ADDRESSED}${link}: ${escapeOutsideCode(flatten(item.reason).slice(0, 300))}\n\n${comment.body}`,
+      },
+    });
+  }
 }
 
 /**
@@ -814,7 +936,7 @@ function followUp({ earlier, findings, models }) {
       const open = statuses.find((status) => status.status === "open");
       carried.push({
         ...item,
-        line: checkable ? lineOfQuote(old) : old.line,
+        line: checkable ? linesOfQuote(old).start : old.line,
         reason: open
           ? `${open.explanation} (${open.model})`
           : "No model said that it is addressed.",
@@ -889,6 +1011,38 @@ function generalRules({ server, repository, head }) {
       };
 }
 
+// A finding of another rule, or a note, can quote the line with the secret.
+const sensitiveFilesOf = (findings) =>
+  new Set(
+    findings
+      .filter((finding) => SENSITIVE_RULES.has(finding.rule))
+      .map((finding) => finding.file),
+  );
+
+/**
+ * Returns a function that links the name of a rule to its text. GitHub gives
+ * each heading of a Markdown file an anchor.
+ */
+function ruleLinkOf({ server, repository, head }) {
+  const general = generalRules({ server, repository, head });
+  const generalNames = new Set(
+    [
+      ...readFileSync(path.join(root, PROMPT_FILE), "utf8").matchAll(
+        RULE_HEADING,
+      ),
+    ].map(([, name]) => name),
+  );
+  const fileUrl = (file) =>
+    `${server}/${repository}/blob/${head}/${encodeURI(file)}`;
+  return (rule) => {
+    if (generalNames.has(rule)) return `[${rule}](${general.url}#${rule})`;
+    if (rule === "new-document") {
+      return `[${rule}](${fileUrl("docs/agents/README.md")}#where-to-add-information)`;
+    }
+    return `[${rule}](${fileUrl(PROJECT_RULES_FILE)}#${rule})`;
+  };
+}
+
 /**
  * `findings` are the open findings, each with its number: first the ones that
  * `carried` holds from the earlier review, then the new ones. `from` is the
@@ -917,30 +1071,10 @@ function commentFor({
   const link = ({ file, line, commit }) =>
     `[\`${file}${line ? `:${line}` : ""}\`](${fileUrl(file, commit)}${line ? `#L${line}` : ""})${commit && commit !== head ? ` at commit ${commit.slice(0, 7)}` : ""}`;
   const general = generalRules({ server, repository, head });
-  const generalNames = new Set(
-    [
-      ...readFileSync(path.join(root, PROMPT_FILE), "utf8").matchAll(
-        RULE_HEADING,
-      ),
-    ].map(([, name]) => name),
-  );
-  // GitHub gives each heading of a Markdown file an anchor, so the name links
-  // to the text of its rule.
-  const ruleLink = (rule) => {
-    if (generalNames.has(rule)) return `[${rule}](${general.url}#${rule})`;
-    if (rule === "new-document") {
-      return `[${rule}](${fileUrl("docs/agents/README.md")}#where-to-add-information)`;
-    }
-    return `[${rule}](${fileUrl(PROJECT_RULES_FILE)}#${rule})`;
-  };
+  const ruleLink = ruleLinkOf({ server, repository, head });
   const failed = models.filter((model) => model.state === "failed");
   const blockers = findings.length + failed.length;
-  // A finding of another rule, or a note, can quote the line with the secret.
-  const sensitiveFiles = new Set(
-    [...findings, ...addressed]
-      .filter((finding) => SENSITIVE_RULES.has(finding.rule))
-      .map((finding) => finding.file),
-  );
+  const sensitiveFiles = sensitiveFilesOf([...findings, ...addressed]);
   const hidesQuote = (item) =>
     SENSITIVE_RULES.has(item.rule) || sensitiveFiles.has(item.file);
   // The next review reads these findings. A pull request can be public, so
@@ -1191,18 +1325,67 @@ function reviewVerdict(event) {
     route: `repos/${repository}/issues/${pull.number}/comments`,
     body: { body },
   });
+  const link = posted?.html_url
+    ? `[review of ${head.slice(0, 7)}](${posted.html_url})`
+    : `review of ${head.slice(0, 7)}`;
   const previous =
     earlier &&
     readPages(`repos/${repository}/issues/comments/${earlier.comment}`)[0];
   if (previous) {
-    const link = posted?.html_url
-      ? `[review of ${head.slice(0, 7)}](${posted.html_url})`
-      : `review of ${head.slice(0, 7)}`;
     callApi({
       method: "PATCH",
       route: `repos/${repository}/issues/comments/${earlier.comment}`,
       body: { body: markEarlier(previous.body, { carried, addressed, link }) },
     });
+  }
+
+  // The summary comment has each finding, so a line comment that GitHub
+  // refuses must not stop the verdict.
+  const lineFailed = (error) =>
+    console.log(
+      `::warning title=Agent review::GitHub refused a line comment: ${flatten(String(error.stderr || error.message)).slice(0, 300)}`,
+    );
+  try {
+    const comments = lineComments({
+      findings,
+      carried,
+      addressed,
+      range,
+      ruleLink: ruleLinkOf({
+        server: process.env.GITHUB_SERVER_URL ?? "https://github.com",
+        repository,
+        head,
+      }),
+    });
+    if (comments.length > 0) {
+      // A review that requests changes blocks the merge until a person
+      // dismisses it, also after a maintainer accepts the findings with the
+      // label. The check already fails while a finding is open.
+      callApi({
+        method: "POST",
+        route: `repos/${repository}/pulls/${pull.number}/reviews`,
+        body: {
+          commit_id: head,
+          event: "COMMENT",
+          body: `${count(comments.length, "new finding")} of the agent review ${comments.length === 1 ? "is" : "are"} on lines of this change. The comment of the ${link} has each finding, and the result of the check.`,
+          comments,
+        },
+      });
+    }
+  } catch (error) {
+    lineFailed(error);
+  }
+  if (addressed.length > 0) {
+    try {
+      markAddressedLines({
+        repository,
+        number: pull.number,
+        addressed,
+        link,
+      });
+    } catch (error) {
+      lineFailed(error);
+    }
   }
 
   if (blockers === 0) {

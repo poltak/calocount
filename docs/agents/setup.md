@@ -296,6 +296,14 @@ The check works as follows:
   change gets a new review after a rebase, a force push, or a merge of the
   base branch, after a change in `.agents/review/`, and after an edit of the
   title or the description.
+- Each new finding on lines that the pull request adds also gets a comment
+  on those lines, in a review of the type "Comment". The review does not
+  request changes, because the check already fails. A finding on other lines
+  is only in the comment of the review. When a later review finds that a
+  finding is addressed, its line comment gets a mark. A person resolves the
+  conversation, because GitHub can refuse that to the token of a workflow.
+  GitHub sends the lines around a line comment by email, so a finding in a
+  file with a `secret` or `private-data` finding gets no line comment.
 - The rules `secret` and `private-data` look at each commit, not only at the
   diff, because a value that a later commit deletes stays on GitHub. The
   quote of their finding can be in any commit. GitHub can send the comment by
