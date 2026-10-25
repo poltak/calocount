@@ -70,7 +70,9 @@ const BOX = /^- \[([ x])\] \*\*(?:(\d+)\. )?\[/gm;
 // GraphQL and REST give the login of the token of a workflow in two forms.
 const BOT_LOGINS = new Set(["github-actions", "github-actions[bot]"]);
 // GitHub keeps each version of a comment, with the person who made it, so a
-// review can see who checked a box.
+// review can see who checked a box. The query reads 100 conversations and 100
+// versions of each comment, with no more pages. A box past that limit accepts
+// nothing, so its finding stays open.
 const EDITS_QUERY = `query ($comment: ID!, $owner: String!, $name: String!, $number: Int!) {
   comment: node(id: $comment) {
     ... on IssueComment {
@@ -373,8 +375,9 @@ function earlierReview(event) {
   if (!head) return "";
   const stored = comment.body.match(FINDINGS_PATTERN)?.[1];
   const findings = stored ? unpack(stored) : findingsInText(comment.body);
+  const accepted = findings.filter((finding) => finding.accepted).length;
   console.log(
-    `The review of ${head} has ${count(findings.length, "open finding")}.`,
+    `The review of ${head} has ${count(findings.length - accepted, "open finding")}${accepted > 0 ? ` and ${accepted} accepted` : ""}.`,
   );
   return pack({ head, comment: comment.id, findings, reviewed, base });
 }
@@ -962,7 +965,9 @@ function followUp({ earlier, findings, models, accepted = new Map() }) {
     const statuses = votes.filter((vote) => vote.status);
     const checkable = old.quote && !SENSITIVE_RULES.has(old.rule);
     const item = { ...old, earlierNumber: old.number, votes };
-    const line = checkable ? linesOfQuote(old).start : old.line;
+    // Only after the check of the quote, because a later commit can have
+    // deleted the file.
+    const lineNow = () => (checkable ? linesOfQuote(old).start : old.line);
     const again = reported.has(old.number);
     if (old.models.includes("script") && !again) {
       addressed.push({ ...item, reason: "The script does not report it now." });
@@ -980,15 +985,19 @@ function followUp({ earlier, findings, models, accepted = new Map() }) {
     } else if (accepted.has(old.number)) {
       acceptedItems.push({
         ...item,
-        line,
+        line: lineNow(),
         acceptedBy: accepted.get(old.number),
       });
     } else if (again) {
-      carried.push({ ...item, line, reason: "A model reported it again." });
+      carried.push({
+        ...item,
+        line: lineNow(),
+        reason: "A model reported it again.",
+      });
     } else {
       carried.push({
         ...item,
-        line,
+        line: lineNow(),
         ...(statuses.length === 0 && {
           reason: "No model gave a status for it.",
         }),
@@ -1081,7 +1090,10 @@ function acceptedFindings({ repository, number, earlier, comment }) {
   const changes = [...boxChanges(versionsOf(data?.comment)), ...lineChanges]
     .filter(({ key, at }) => numbers.has(key) && at > comment.created_at)
     .sort((one, other) => one.at.localeCompare(other.at));
-  for (const { key, checked, login } of changes) {
+  for (const { key, checked, login, at } of changes) {
+    console.log(
+      `${login} ${checked ? "checked" : "cleared"} the box of finding ${key} of the earlier review at ${at}.`,
+    );
     if (checked) accepted.set(key, login);
     else accepted.delete(key);
   }
@@ -1102,7 +1114,6 @@ function voteLines(votes = []) {
   );
 }
 
-/** What the review decided about an earlier finding, and why. */
 function outcomeLines({ text, item }) {
   return [
     `${text}${item.reason ? `: ${escapeOutsideCode(flatten(item.reason).slice(0, 300))}` : "."}`,

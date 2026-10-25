@@ -1572,6 +1572,11 @@ test("verdict keeps each finding that a maintainer accepted with its box, and co
   });
 
   assert.equal(result.status, 1, result.output);
+  assert.deepEqual(result.output.match(/^.* the box of finding .*$/gm), [
+    "Owner checked the box of finding 1 of the earlier review at 2026-10-25T10:01:00Z.",
+    "Owner cleared the box of finding 4 of the earlier review at 2026-10-25T10:03:00Z.",
+    "second-owner checked the box of finding 5 of the earlier review at 2026-10-25T10:04:00Z.",
+  ]);
   const graphql = result.calls.find(({ call }) => call === "POST graphql");
   assert.deepEqual(JSON.parse(graphql.input).variables, {
     comment: "IC_99",
@@ -1704,6 +1709,56 @@ test("verdict passes when a maintainer accepted each open finding, also one that
   );
   assert.match(body, /blockers=0 /);
   assert.match(body, /### Agent review of \w+: no findings, 2 accepted\n/);
+});
+
+test("verdict marks an earlier finding in a file that the head does not have as addressed", async (context) => {
+  const repo = await repository(context);
+  const result = await run({
+    repo,
+    command: "verdict",
+    action: "synchronize",
+    answers: {
+      [`GET ${PULL}`]: { head: { sha: repo.head } },
+      [`GET repos/${REPOSITORY}/issues/comments/99`]: {
+        id: 99,
+        node_id: "IC_99",
+        created_at: POSTED,
+        body: earlierSummary([" "]),
+      },
+      [`GET ${LINE_COMMENTS}`]: [],
+    },
+    env: {
+      MODE: "review",
+      EARLIER_REVIEW: pack({
+        head: "abc1234def",
+        comment: 99,
+        findings: [
+          {
+            number: 1,
+            rule: "stale-document",
+            file: "docs/agents/deleted.md",
+            line: 3,
+            quote: "Text of a deleted document.",
+            explanation: "A reason.",
+            models: ["Claude"],
+          },
+        ],
+      }),
+      CLAUDE_JOB: job(
+        [],
+        [],
+        [{ id: "E1", status: "open", explanation: "It is still there." }],
+      ),
+      CODEX_JOB: NOT_SET_UP,
+    },
+  });
+
+  const post = result.calls.find(({ call }) => call === SUMMARY_POST);
+  assert.ok(post, result.output);
+  assert.match(
+    JSON.parse(post.input).body,
+    /- \[x\] 1\. stale-document in [^\n]*: The quoted text is not in the file now\./,
+  );
 });
 
 test("verdict does nothing for a head that a newer push replaced", async (context) => {
