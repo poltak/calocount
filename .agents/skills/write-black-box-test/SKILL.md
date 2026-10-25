@@ -19,9 +19,10 @@ before you start. This skill is the order of work.
    directory of the feature that owns the workflow.
 2. Write the specification of the workflow as a list of rules in plain words,
    such as "a password has at least 8 characters". Get the rules from the
-   person's request, from the pages, and from the UI Logic tests. The code
-   shows what the app does now, not what it must do. When a rule is not clear,
-   or the app does something that looks wrong, ask the person.
+   person's request, from the pages, and from the UI Logic tests. For a
+   workflow that exists, what the app does now is the starting point. Ask the
+   person to confirm the rules that matter, and each behavior that looks
+   wrong.
 3. List the cases:
    - the success case of the main path;
    - for each rule about an input, one value from each group of values that the
@@ -68,6 +69,9 @@ before you start. This skill is the order of work.
   `getByLabel("Note")` also finds a field with the label "Notes". Use
   `exact: true` when one name is a part of another.
 - A page object that waits with `expect` fails lint. Use `waitFor()` there.
+- A test runs in the project's account mode by default. When a test depends
+  on one mode, set it with `test.use({ accountMode })`, because another
+  project can run in the other mode.
 - When the fixture reports "Normal use must not cause an error that no code
   caught", the page threw an error. Read the error in the report, and fix the
   page, not the test.
