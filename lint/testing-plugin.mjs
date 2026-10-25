@@ -264,6 +264,10 @@ const blackBoxTests = {
         "Do not wait for a fixed time. Wait for what a user waits for, such as the heading of the next page. " +
         BLACK_BOX_DOC +
         ".",
+      api:
+        "A black box test does not call the backend API. Make the data and check the result through the UI. " +
+        BLACK_BOX_DOC +
+        ".",
     },
   },
   create(context) {
@@ -335,6 +339,21 @@ const blackBoxTests = {
           context.report({ node, messageId: "pageObject", data: { name } });
         } else if (MARKUP_LOCATOR_METHODS.includes(name)) {
           context.report({ node, messageId: "markup", data: { name } });
+        }
+      },
+      // `page.request`, `context.request`, and the `request` fixture.
+      MemberExpression(node) {
+        if (!node.computed && node.property.name === "request") {
+          context.report({ node, messageId: "api" });
+        }
+      },
+      Property(node) {
+        if (
+          node.parent?.type === "ObjectPattern" &&
+          !node.computed &&
+          node.key.name === "request"
+        ) {
+          context.report({ node, messageId: "api" });
         }
       },
       "Program:exit"(node) {

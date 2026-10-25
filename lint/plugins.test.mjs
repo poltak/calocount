@@ -367,6 +367,9 @@ test("keeps black box tests on page objects and the black box fixture", async (c
     "frontend/src/features/finds/black-box-tests/finds.spec.ts":
       fixture +
       'export const steps = (page: never) => [test, page.getByRole("button"), page.route("**", () => undefined), page.waitForTimeout(100)];\n',
+    "frontend/src/features/calls/black-box-tests/calls.spec.ts":
+      fixture +
+      'export const seed = (page: never) => [test, page.request.post("/api/notes")];\nexport const run = async ({ request }: never) => request;\n',
     "frontend/src/features/plain/black-box-tests/plain.spec.ts":
       'import { test } from "@playwright/test";\nimport { PlainLogic } from "../ui/plain-logic.js";\nexport const uses = [test, PlainLogic];\n',
     "frontend/src/features/placed/ui/placed-page-object.ts":
@@ -381,6 +384,8 @@ test("keeps black box tests on page objects and the black box fixture", async (c
   });
 
   assert.deepEqual(problems, [
+    "frontend/src/features/calls/black-box-tests/calls.spec.ts: testing(black-box-tests)",
+    "frontend/src/features/calls/black-box-tests/calls.spec.ts: testing(black-box-tests)",
     "frontend/src/features/finds/black-box-tests/finds.spec.ts: testing(black-box-tests)",
     "frontend/src/features/finds/black-box-tests/finds.spec.ts: testing(black-box-tests)",
     "frontend/src/features/finds/black-box-tests/finds.spec.ts: testing(black-box-tests)",
