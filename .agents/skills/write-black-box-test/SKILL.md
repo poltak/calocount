@@ -83,6 +83,9 @@ models, before you start. This skill is the order of work.
   seconds, change only one check in each run of step 7. Each changed soft
   check waits for its timeout, and several of them can go past the end of the
   window.
+- Each sign-in counts against the limit of 3 sign-in attempts in 10 seconds,
+  also a correct one, and also the fixture's sign-in. So a test that starts
+  signed in can sign in only 2 more times in its first 10 seconds.
 - When the fixture reports "Normal use must not cause an error that no code
   caught", the page threw an error. Read the error in the report, and fix the
   page, not the test.
