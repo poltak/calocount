@@ -3,6 +3,8 @@
     "allow": [
       "Bash(pnpm run typecheck)",
       "Bash(pnpm run build)",
+      "Bash(pnpm run lint)",
+      "Bash(pnpm --filter frontend exec vitest run:*)",
       "Bash(pnpm run check)"
     ]
   },
