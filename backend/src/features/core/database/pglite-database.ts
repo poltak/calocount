@@ -25,7 +25,6 @@ export async function createDatabaseSnapshot({
   from,
   prepare,
 }: {
-  /** The snapshot to start from. Without it, the database starts empty. */
   from?: DatabaseSnapshot;
   prepare: (db: Database) => Promise<void>;
 }): Promise<DatabaseSnapshot> {
