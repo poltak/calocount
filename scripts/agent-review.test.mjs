@@ -340,7 +340,6 @@ const issue = (id, fields) => ({
   head: "abc1234def",
   ...fields,
 });
-/** The master comment after review 1 of abc1234def, with a text. */
 const masterComment = ({
   issues,
   reviews = [
