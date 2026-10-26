@@ -3,7 +3,6 @@ import { inject, onTestFinished } from "vitest";
 import { AuthLogic } from "../../auth/ui/auth-logic.js";
 import type { OwnedLogic } from "../logic/use-logic.js";
 import { createApp } from "./index.js";
-import { TEST_OWNER_CREDENTIALS } from "./test-owner.js";
 
 interface FullApplicationParams {
   /** Sign the owner in before the test starts. Defaults to true. */
@@ -24,23 +23,15 @@ export async function createFullApplication({
   authenticated = true,
   accountMode = "singleOwner",
 }: FullApplicationParams = {}) {
-  // `global-setup.ts` built the template once for the whole test run.
+  // `global-setup.ts` built the template once for the whole test run. The
+  // owner signed in there, so a test that starts signed in has that session.
   const backend = await createTestBackend({
     template: inject("databaseTemplate"),
+    signedIn: authenticated,
     accountMode,
   });
   onTestFinished(() => backend.close());
   const transport = backend.createBrowserTransport();
-  if (authenticated) {
-    const signIn = await transport.fetch("http://app.test/api/session", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(TEST_OWNER_CREDENTIALS),
-    });
-    if (!signIn.ok) {
-      throw new Error("Test owner sign-in failed");
-    }
-  }
   const frontend = createApp({ fetch: transport.fetch });
   // In a browser, the auth provider owns this Logic for the life of the app.
   const auth = new AuthLogic(frontend);

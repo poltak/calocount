@@ -95,7 +95,9 @@ returns:
 | `auth`                                                   | The session's Logic, not initialized. A Logic under test takes its `events` in `deps`.                      |
 | `transport`                                              | Controls for the requests the frontend sends. See below.                                                    |
 
-The owner is signed in unless the test passes `authenticated: false`.
+The owner is signed in unless the test passes `authenticated: false`. The
+owner signed in once, before the test run, so the database of a signed-in test
+already has that session and the rate-limit row of that sign-in.
 
 `auth` is the Logic that the auth provider owns in a browser. To test what a
 Logic does when the user signs out, call `auth.initialize()` and then
@@ -361,7 +363,8 @@ it, and CI does. Run it yourself after a change to `server/start.ts`,
 
 `pnpm --filter frontend test` measures which code ran during the tests and
 prints a report. Because UI Logic tests run the whole path, the report covers
-the backend as well as the frontend.
+the backend as well as the frontend. CI runs the tests in four jobs, and a
+fifth job, "Test coverage", merges their coverage and checks it.
 
 - Every function in a UI Logic or LogicPlugin file must run in a test, or the
   check fails and names the file. This counts callbacks, such as an event

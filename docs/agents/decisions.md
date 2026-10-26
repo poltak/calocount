@@ -236,7 +236,18 @@ entry to the choice, the reason, and any rule that follows from it.
   it in each test file put that time inside the limit of the file's first
   test, which then failed on a slow CI machine. The test time limit is 20
   seconds for the same reason: the first test of each file still starts the
-  database engine.
+  database engine. The snapshot is taken after a checkpoint. Without one,
+  each copy replayed the write-ahead log of the migrations when it started,
+  which was about a fifth of its start time. The snapshot also has no
+  `template0` and `template1` databases, because no test creates a database.
+  Without them, a copy starts about a quarter faster.
+- **A test that starts signed in starts from a second snapshot.** The global
+  setup signs the owner in once, takes a snapshot that has the session, and
+  keeps the session's cookies. Each signed-in test starts from a copy with
+  those cookies and does not sign in again. The sign-in hashes the password,
+  which was about a fifth of each such test. So that the cookies stay valid,
+  every backend of a test run has the same auth secret. A test with
+  `authenticated: false` starts from the first snapshot, which has no session.
 - **Logic tests run in plain Node, not a simulated browser.** They need no DOM,
   and the simulated browser adds startup time to every test file. The one
   rendered test opts into it.
@@ -324,13 +335,24 @@ entry to the choice, the reason, and any rule that follows from it.
   step is a `check:<name>` script, or `test:app` for the tests. Every step
   runs to the end even when one fails, and the output ends with a list of the
   steps that failed.
-- **CI runs three jobs at the same time: the checks, the tests, and the
-  browser tests with the live start.** With one job, a run took the sum of
-  the three. Now it takes as long as the tests job, which is the slowest. In
-  four pairs of runs on one commit, the wait went from about 93 seconds to
-  about 69. The cost is 4 billed minutes for each run in place of 2, because
-  each job repeats the setup and GitHub rounds each job up to a full minute.
-  That is far below the free limit at the present number of runs.
+- **CI runs its jobs at the same time: the checks, four jobs of tests, and
+  the browser tests with the live start.** With one job, a run took the sum of
+  the three. In four pairs of runs on one commit, three jobs in place of one
+  made the wait go from about 93 seconds to about 69. The tests then run in
+  four jobs, because the runner of a private repository has one core with two
+  threads. Vitest runs one worker there, and a second worker made Shadow's
+  538 tests only 4% faster, because one worker already uses most of both
+  threads. Shadow's tests took 5 minutes 48 seconds in one job, and 3 minutes
+  19 seconds in three. Vitest splits the files into shards by a hash of each
+  path, which put Shadow's two largest files in one shard. Each test takes
+  about the same time, so `vite.config.ts` splits the files by size instead.
+  A shard has only part of the coverage, so it does not check the thresholds.
+  The "Test coverage" job waits for the four test jobs, merges their results,
+  and checks them. The cost is more billed minutes, because each job repeats
+  the setup and GitHub rounds each job up to a full minute: a run of the
+  template takes 7 in place of 4, and a run of Shadow 15 in place of 10. In
+  October 2026 the organization used more minutes than its free plan has,
+  and paid $2.53 for the rest.
 - **CI skips a draft pull request.** Its author still changes a draft, and a
   run for each push used billed minutes for results that nobody needed yet.
   The jobs run when the author marks the pull request as ready, and for each

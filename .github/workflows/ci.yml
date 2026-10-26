@@ -18,8 +18,10 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# The three jobs run at the same time, so a run takes as long as its slowest
-# job and not as long as their sum. Each job must do the setup steps itself.
+# The jobs run at the same time, except the coverage job, which waits for the
+# test jobs. So a run takes as long as the slowest test job and the coverage
+# job together, or as long as a slower other job. Each job must do the setup
+# steps itself.
 # A push to `main` has no pull request, so the draft condition is true there.
 jobs:
   checks:
@@ -49,11 +51,20 @@ jobs:
       - name: Run checks
         run: pnpm run ci:checks
 
+  # The tests run in four jobs, each with a quarter of the test files. The
+  # runner has one core with two threads, and one Vitest worker already uses
+  # most of both, so a second worker in one job adds little. The coverage job
+  # merges the results of the four jobs and checks the coverage thresholds.
   tests:
-    name: Tests
+    name: Tests ${{ matrix.shard }} of 4
     if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    strategy:
+      # Report the failures of each shard, not only of the first one.
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
@@ -67,7 +78,43 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Run tests
-        run: pnpm --filter frontend run test
+        run: pnpm --filter frontend run test:shard --shard=${{ matrix.shard }}/4
+
+      - name: Keep the results for the coverage job
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-${{ matrix.shard }}
+          path: frontend/.vitest/blob/
+          include-hidden-files: true
+          retention-days: 1
+
+  coverage:
+    name: Test coverage
+    needs: tests
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 12.15.0
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Take the results of the test jobs
+        uses: actions/download-artifact@v8
+        with:
+          pattern: test-results-*
+          path: frontend/.vitest/blob
+          merge-multiple: true
+
+      - name: Check the coverage
+        run: pnpm --filter frontend run test:merge
 
   browser:
     name: Browser tests and live start

@@ -24,7 +24,6 @@ describe("backend HTTP app", () => {
   });
 
   it("should report that it is not ready when the database does not respond", async () => {
-    // Signing in opens the database connection, so that closing it has an effect.
     const { backend, transport } = await createFullApplication();
     await backend.db.destroy();
     const logged = backend.services.logger.entries.length;

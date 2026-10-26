@@ -20,6 +20,8 @@ lib-cov
 
 # Coverage directory used by tools like istanbul
 coverage
+# The results of a Vitest shard, for the merge of the coverage
+.vitest
 *.lcov
 
 # nyc test coverage

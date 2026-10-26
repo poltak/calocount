@@ -21,16 +21,36 @@ export function createDatabase({
   });
 }
 
-export async function createDatabaseSnapshot(
-  prepare: (db: Database) => Promise<void>,
-): Promise<DatabaseSnapshot> {
-  const pglite = new PGlite();
+export async function createDatabaseSnapshot({
+  from,
+  prepare,
+}: {
+  /** The snapshot to start from. Without it, the database starts empty. */
+  from?: DatabaseSnapshot;
+  prepare: (db: Database) => Promise<void>;
+}): Promise<DatabaseSnapshot> {
+  const pglite = new PGlite(from ? { loadDataDir: from } : {});
   const db = new Kysely<DatabaseSchema>({
     dialect: new PGliteDialect({ pglite: () => pglite }),
     plugins: [new DatabaseNames()],
   });
   try {
     await prepare(db);
+    if (!from) {
+      // No test creates a database, so a test needs no template database.
+      // Without them, each database that starts from the snapshot starts
+      // about a quarter faster. Postgres runs `DROP DATABASE` only as a
+      // statement of its own.
+      await pglite.exec(
+        "UPDATE pg_database SET datistemplate = false WHERE datname IN ('template0', 'template1')",
+      );
+      await pglite.exec("DROP DATABASE template0");
+      await pglite.exec("DROP DATABASE template1");
+    }
+    // Without a checkpoint, each database that starts from the snapshot
+    // replays the write-ahead log of the migrations first. That replay was
+    // about a fifth of the start time of each test.
+    await pglite.exec("CHECKPOINT");
     return await pglite.dumpDataDir("none");
   } finally {
     await db.destroy();

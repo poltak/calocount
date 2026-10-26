@@ -9,6 +9,8 @@
     "build": "vite build",
     "typecheck": "pnpm --filter backend... run build && tsc -p tsconfig.json",
     "test": "pnpm --filter backend... run build && vitest run --coverage",
+    "test:shard": "pnpm --filter backend... run build && VITEST_SHARD=1 vitest run --coverage --reporter=blob --reporter=default",
+    "test:merge": "pnpm --filter backend... run build && vitest run --merge-reports --coverage",
     "test:browser": "pnpm --filter backend... run build && playwright test"
   },
   "dependencies": {

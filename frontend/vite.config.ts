@@ -1,8 +1,44 @@
+import { statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { APP_NAME } from "@app/common/features/core/utils/app-name";
 import react from "@vitejs/plugin-react";
 import { loadEnv, type Plugin } from "vite";
 import { defineConfig } from "vitest/config";
+import { BaseSequencer, type TestSpecification } from "vitest/node";
+
+/**
+ * Vitest splits the test files into shards by a hash of each path, so the
+ * largest files can land in one shard, which then takes much longer than the
+ * others. Each test takes about the same time, so this split gives each shard
+ * about the same amount of test code: each file, the largest first, goes into
+ * the shard that has the least code so far.
+ */
+class SizeBalancedSequencer extends BaseSequencer {
+  override async shard(
+    files: TestSpecification[],
+  ): Promise<TestSpecification[]> {
+    const { index, count } = this.ctx.config.shard!;
+    const shards = Array.from({ length: count }, () => ({
+      size: 0,
+      files: [] as TestSpecification[],
+    }));
+    const bySize = files
+      .map((file) => ({ file, size: statSync(file.moduleId).size }))
+      // The path breaks a tie, so that each shard job makes the same split.
+      .toSorted(
+        (a, b) =>
+          b.size - a.size || (a.file.moduleId < b.file.moduleId ? -1 : 1),
+      );
+    for (const { file, size } of bySize) {
+      const smallest = shards.reduce((least, shard) =>
+        shard.size < least.size ? shard : least,
+      );
+      smallest.size += size;
+      smallest.files.push(file);
+    }
+    return shards[index - 1]!.files;
+  }
+}
 
 /** How long an API request waits for a backend that is starting or restarting. */
 const BACKEND_WAIT_MS = 10_000;
@@ -47,9 +83,11 @@ function writeAppName(): Plugin {
 export default defineConfig(({ mode }) => {
   // The backend takes HOST and PORT from the process environment, then from
   // the root `.env`. Read them the same way, so the proxy follows the backend.
+  // The `test:shard` script sets VITEST_SHARD.
   const env = loadEnv(mode, fileURLToPath(new URL("..", import.meta.url)), [
     "HOST",
     "PORT",
+    "VITEST_SHARD",
   ]);
   const backendOrigin = `http://${env.HOST || "127.0.0.1"}:${env.PORT || "3000"}`;
 
@@ -73,6 +111,8 @@ export default defineConfig(({ mode }) => {
       testTimeout: 20_000,
       // Builds the database that every test database starts from, once.
       globalSetup: ["src/features/core/tests/global-setup.ts"],
+      // CI runs the tests in shards. See `.github/workflows/ci.yml`.
+      sequence: { sequencer: SizeBalancedSequencer },
       // Enabled by the `test` script. See docs/agents/testing.md (Coverage).
       coverage: {
         provider: "v8",
@@ -92,12 +132,16 @@ export default defineConfig(({ mode }) => {
           "**/features/core/tests/**",
           "**/features/core/live/**",
         ],
-        thresholds: {
-          "src/features/*/ui/*-{logic,plugin}.ts": {
-            functions: 100,
-            perFile: true,
-          },
-        },
+        // A shard runs only some test files, so the job that merges the
+        // shards checks the thresholds, on the coverage of all of them.
+        thresholds: env.VITEST_SHARD
+          ? {}
+          : {
+              "src/features/*/ui/*-{logic,plugin}.ts": {
+                functions: 100,
+                perFile: true,
+              },
+            },
       },
     },
   };
