@@ -302,6 +302,17 @@ entry to the choice, the reason, and any rule that follows from it.
   second time and took about 10 seconds. That step also kept the dependency
   cache. The cache gave nothing: a run with a cache hit and a run that
   downloaded each package took the same time.
+- **CI runs the Vitest tests in four jobs at the same time.** The runner of a
+  private repository has one core with two threads, so Vitest runs one
+  worker. A second worker made Shadow's 538 tests only 4% faster, because one
+  worker already uses most of both threads. More jobs are the only way to run
+  more at once: in one job the tests took 5 minutes 48 seconds, and in three
+  jobs 3 minutes 19 seconds. Vitest splits the files into shards by a hash of
+  each path, which put Shadow's two largest files in one shard. Each test
+  takes about the same time, so `vite.config.ts` splits the files by their
+  size instead. A shard has only part of the coverage, so it does not check
+  the thresholds. A fifth job merges the results of the four and checks them.
+  The cost is more runner minutes, because each job does its own setup.
 - **In a browser test, the frontend and the backend have different origins.**
   The page then calls the API across origins, which also tests the CORS
   settings, the trusted origin check, the cookie across origins, and the base

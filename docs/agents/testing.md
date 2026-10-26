@@ -363,7 +363,8 @@ it, and CI does. Run it yourself after a change to `server/start.ts`,
 
 `pnpm --filter frontend test` measures which code ran during the tests and
 prints a report. Because UI Logic tests run the whole path, the report covers
-the backend as well as the frontend.
+the backend as well as the frontend. CI runs the tests in four jobs, and a
+fifth job, "Test coverage", merges their coverage and checks it.
 
 - Every function in a UI Logic or LogicPlugin file must run in a test, or the
   check fails and names the file. This counts callbacks, such as an event
