@@ -14,6 +14,8 @@ instructions.
   Read before changing a framework, authentication, the API transport, or test
   setup.
 - [Setup and commands](setup.md): read to run, configure, or check the project.
+- [Evals](evals.md): how to measure a prompt with real models. Read before
+  writing or running an eval.
 - [The template](template.md): how a project starts from this repository, how
   it takes later changes, and how dependency updates work. Read before work on
   the template itself.
@@ -48,6 +50,7 @@ instructions.
 | The build checks in a real browser             | `frontend/src/features/core/tests/browser/built-app.spec.ts`                             |
 | The black box test fixture                     | `frontend/src/features/core/black-box-tests/black-box-test.ts`                           |
 | Model black box tests and page objects         | `frontend/src/features/auth/black-box-tests/`                                            |
+| The eval harness and the model service         | `backend/src/features/core/evals/`, `…/core/scripts/eval-command.ts`, `…/ai/services/`   |
 
 ## Where to add information
 
