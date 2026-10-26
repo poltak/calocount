@@ -21,10 +21,15 @@ export function createDatabase({
   });
 }
 
-export async function createDatabaseSnapshot(
-  prepare: (db: Database) => Promise<void>,
-): Promise<DatabaseSnapshot> {
-  const pglite = new PGlite();
+export async function createDatabaseSnapshot({
+  from,
+  prepare,
+}: {
+  /** The snapshot to start from. Without it, the database starts empty. */
+  from?: DatabaseSnapshot;
+  prepare: (db: Database) => Promise<void>;
+}): Promise<DatabaseSnapshot> {
+  const pglite = new PGlite(from ? { loadDataDir: from } : {});
   const db = new Kysely<DatabaseSchema>({
     dialect: new PGliteDialect({ pglite: () => pglite }),
     plugins: [new DatabaseNames()],

@@ -239,6 +239,13 @@ entry to the choice, the reason, and any rule that follows from it.
   database engine. The snapshot is taken after a checkpoint. Without one,
   each copy replayed the write-ahead log of the migrations when it started,
   which was about a fifth of its start time.
+- **A test that starts signed in starts from a second snapshot.** The global
+  setup signs the owner in once, takes a snapshot that has the session, and
+  keeps the session's cookies. Each signed-in test starts from a copy with
+  those cookies and does not sign in again. The sign-in hashes the password,
+  which was about a fifth of each such test. So that the cookies stay valid,
+  every backend of a test run has the same auth secret. A test with
+  `authenticated: false` starts from the first snapshot, which has no session.
 - **Logic tests run in plain Node, not a simulated browser.** They need no DOM,
   and the simulated browser adds startup time to every test file. The one
   rendered test opts into it.

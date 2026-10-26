@@ -95,7 +95,9 @@ returns:
 | `auth`                                                   | The session's Logic, not initialized. A Logic under test takes its `events` in `deps`.                      |
 | `transport`                                              | Controls for the requests the frontend sends. See below.                                                    |
 
-The owner is signed in unless the test passes `authenticated: false`.
+The owner is signed in unless the test passes `authenticated: false`. The
+owner signed in once, before the test run, so the database of a signed-in test
+already has that session and the rate-limit row of that sign-in.
 
 `auth` is the Logic that the auth provider owns in a browser. To test what a
 Logic does when the user signs out, call `auth.initialize()` and then

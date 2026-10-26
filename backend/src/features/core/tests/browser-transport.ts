@@ -29,14 +29,39 @@ interface Hold {
 export function createBrowserTransport({
   fetch,
   origin,
+  setCookies = [],
 }: {
   fetch: typeof globalThis.fetch;
   origin: string;
+  /** `Set-Cookie` values that the browser has before its first request. */
+  setCookies?: string[];
 }): BrowserTransport {
   const cookies = new Map<string, { value: string; expiresAt: number }>();
   const holds: Hold[] = [];
   const gatewayFailures: number[] = [];
   let offline = false;
+
+  const storeCookie = (setCookie: string) => {
+    const [pair = "", ...attributes] = setCookie.split(";");
+    const separator = pair.indexOf("=");
+    const name = pair.slice(0, separator);
+    const content = pair.slice(separator + 1);
+    let expiresAt = Infinity;
+    for (const attribute of attributes) {
+      const [key = "", ...parts] = attribute.trim().split("=");
+      if (key.toLowerCase() === "max-age") {
+        expiresAt = Date.now() + Number(parts.join("=")) * 1000;
+      } else if (key.toLowerCase() === "expires" && expiresAt === Infinity) {
+        expiresAt = Date.parse(parts.join("="));
+      }
+    }
+    if (!content || expiresAt <= Date.now()) {
+      cookies.delete(name);
+    } else {
+      cookies.set(name, { value: content, expiresAt });
+    }
+  };
+  setCookies.forEach(storeCookie);
 
   const hold = (stage: Hold["stage"]): HeldRequest => {
     let reach!: () => void;
@@ -112,29 +137,7 @@ export function createBrowserTransport({
       await waitForRelease(held, request.signal);
     }
     if (useCookies) {
-      for (const value of response.headers.getSetCookie()) {
-        const [pair = "", ...attributes] = value.split(";");
-        const separator = pair.indexOf("=");
-        const name = pair.slice(0, separator);
-        const content = pair.slice(separator + 1);
-        let expiresAt = Infinity;
-        for (const attribute of attributes) {
-          const [key = "", ...parts] = attribute.trim().split("=");
-          if (key.toLowerCase() === "max-age") {
-            expiresAt = Date.now() + Number(parts.join("=")) * 1000;
-          } else if (
-            key.toLowerCase() === "expires" &&
-            expiresAt === Infinity
-          ) {
-            expiresAt = Date.parse(parts.join("="));
-          }
-        }
-        if (!content || expiresAt <= Date.now()) {
-          cookies.delete(name);
-        } else {
-          cookies.set(name, { value: content, expiresAt });
-        }
-      }
+      response.headers.getSetCookie().forEach(storeCookie);
     }
     return response;
   };

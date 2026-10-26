@@ -19,11 +19,14 @@ export function createApp({
   authBaseUrl = "http://app.test",
   trustedOrigins = [],
   accountMode = "singleOwner",
+  secret = randomBytes(32).toString("base64"),
 }: {
   db?: Database;
   authBaseUrl?: string;
   trustedOrigins?: string[];
   accountMode?: AccountMode;
+  /** The auth secret. A session cookie is valid only with the secret that signed it. */
+  secret?: string;
 } = {}): TestApp {
   const accountPolicy: AccountPolicy =
     accountMode === "openSignUp"
@@ -36,7 +39,7 @@ export function createApp({
     auth: new BetterAuthService({
       db,
       logger,
-      secret: randomBytes(32).toString("base64"),
+      secret,
       baseUrl: authBaseUrl,
       trustedOrigins,
       allowSignUp: accountPolicy.mode === "openSignUp",
