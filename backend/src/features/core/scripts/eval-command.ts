@@ -360,6 +360,8 @@ async function runCommand(
   let spent = 0;
   let saved = 0;
   let failed = 0;
+  // The first reason to stop stays, so that a worker that finishes later
+  // does not clear the stop of another worker, such as a changed prompt.
   let stopped: string | null = null;
   const limitReached = () =>
     options.mode === "api" && spent >= options.maxCost
@@ -415,7 +417,7 @@ async function runCommand(
         await settle();
         spent += costOf(calls);
         failed += 1;
-        stopped = limitReached();
+        stopped ??= limitReached();
         const message = error instanceof Error ? error.message : String(error);
         // An error is not a model result. It stays out of the answers, and
         // the next run sends the case again.
@@ -457,7 +459,7 @@ async function runCommand(
       );
       // The estimate before the run can be too low, so the real cost has the
       // last word.
-      stopped = limitReached();
+      stopped ??= limitReached();
     }
   }
   await Promise.all(
