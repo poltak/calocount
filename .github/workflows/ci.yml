@@ -18,8 +18,10 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# The jobs run at the same time, so a run takes as long as its slowest job and
-# not as long as their sum. Each job must do the setup steps itself.
+# The jobs run at the same time, except the coverage job, which waits for the
+# test jobs. So a run takes as long as the slowest test job and the coverage
+# job together, or as long as a slower other job. Each job must do the setup
+# steps itself.
 # A push to `main` has no pull request, so the draft condition is true there.
 jobs:
   checks:

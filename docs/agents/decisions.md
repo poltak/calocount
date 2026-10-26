@@ -302,17 +302,6 @@ entry to the choice, the reason, and any rule that follows from it.
   second time and took about 10 seconds. That step also kept the dependency
   cache. The cache gave nothing: a run with a cache hit and a run that
   downloaded each package took the same time.
-- **CI runs the Vitest tests in four jobs at the same time.** The runner of a
-  private repository has one core with two threads, so Vitest runs one
-  worker. A second worker made Shadow's 538 tests only 4% faster, because one
-  worker already uses most of both threads. More jobs are the only way to run
-  more at once: in one job the tests took 5 minutes 48 seconds, and in three
-  jobs 3 minutes 19 seconds. Vitest splits the files into shards by a hash of
-  each path, which put Shadow's two largest files in one shard. Each test
-  takes about the same time, so `vite.config.ts` splits the files by their
-  size instead. A shard has only part of the coverage, so it does not check
-  the thresholds. A fifth job merges the results of the four and checks them.
-  The cost is more runner minutes, because each job does its own setup.
 - **In a browser test, the frontend and the backend have different origins.**
   The page then calls the API across origins, which also tests the CORS
   settings, the trusted origin check, the cookie across origins, and the base
@@ -346,13 +335,24 @@ entry to the choice, the reason, and any rule that follows from it.
   step is a `check:<name>` script, or `test:app` for the tests. Every step
   runs to the end even when one fails, and the output ends with a list of the
   steps that failed.
-- **CI runs three jobs at the same time: the checks, the tests, and the
-  browser tests with the live start.** With one job, a run took the sum of
-  the three. Now it takes as long as the tests job, which is the slowest. In
-  four pairs of runs on one commit, the wait went from about 93 seconds to
-  about 69. The cost is 4 billed minutes for each run in place of 2, because
-  each job repeats the setup and GitHub rounds each job up to a full minute.
-  That is far below the free limit at the present number of runs.
+- **CI runs its jobs at the same time: the checks, four jobs of tests, and
+  the browser tests with the live start.** With one job, a run took the sum of
+  the three. In four pairs of runs on one commit, three jobs in place of one
+  made the wait go from about 93 seconds to about 69. The tests then run in
+  four jobs, because the runner of a private repository has one core with two
+  threads. Vitest runs one worker there, and a second worker made Shadow's
+  538 tests only 4% faster, because one worker already uses most of both
+  threads. Shadow's tests took 5 minutes 48 seconds in one job, and 3 minutes
+  19 seconds in three. Vitest splits the files into shards by a hash of each
+  path, which put Shadow's two largest files in one shard. Each test takes
+  about the same time, so `vite.config.ts` splits the files by size instead.
+  A shard has only part of the coverage, so it does not check the thresholds.
+  The "Test coverage" job waits for the four test jobs, merges their results,
+  and checks them. The cost is more billed minutes, because each job repeats
+  the setup and GitHub rounds each job up to a full minute: a run of the
+  template takes 7 in place of 4, and a run of Shadow 15 in place of 10. In
+  October 2026 the organization used more minutes than its free plan has,
+  and paid $2.53 for the rest.
 - **CI skips a draft pull request.** Its author still changes a draft, and a
   run for each push used billed minutes for results that nobody needed yet.
   The jobs run when the author marks the pull request as ready, and for each
