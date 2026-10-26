@@ -238,7 +238,9 @@ entry to the choice, the reason, and any rule that follows from it.
   seconds for the same reason: the first test of each file still starts the
   database engine. The snapshot is taken after a checkpoint. Without one,
   each copy replayed the write-ahead log of the migrations when it started,
-  which was about a fifth of its start time.
+  which was about a fifth of its start time. The snapshot also has no
+  `template0` and `template1` databases, because no test creates a database.
+  Without them, a copy starts about a quarter faster.
 - **A test that starts signed in starts from a second snapshot.** The global
   setup signs the owner in once, takes a snapshot that has the session, and
   keeps the session's cookies. Each signed-in test starts from a copy with
