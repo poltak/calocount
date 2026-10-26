@@ -96,7 +96,7 @@ if (process.env.FAKE_CODEX_LOGIN) {
   fs.writeFileSync(path.join(process.env.CODEX_HOME, "auth.json"), process.env.FAKE_CODEX_LOGIN);
 }
 fs.writeFileSync(args[args.indexOf("--output-last-message") + 1], process.env.FAKE_CODEX_MESSAGE ?? "");
-console.log(JSON.stringify({ type: "turn.completed", usage: { input_tokens: 1000, output_tokens: 20 } }));
+console.log(JSON.stringify({ type: "turn.completed", usage: { input_tokens: 1000, cached_input_tokens: 400, output_tokens: 20 } }));
 `;
 
 const git = (directory, ...args) =>
@@ -749,6 +749,15 @@ test("claude gives the findings, and gives the reviewer the merge base and only 
         is_error: false,
         num_turns: 4,
         total_cost_usd: 0.4,
+        modelUsage: {
+          "claude-opus": {
+            inputTokens: 1000,
+            cacheReadInputTokens: 50000,
+            cacheCreationInputTokens: 2000,
+            outputTokens: 900,
+          },
+          "claude-haiku": { inputTokens: 500, outputTokens: 100 },
+        },
         structured_output: { findings },
       }),
     },
@@ -757,7 +766,10 @@ test("claude gives the findings, and gives the reviewer the merge base and only 
   assert.equal(result.status, 0, result.output);
   assert.equal(result.outputs.status, "ok");
   assert.deepEqual(decode(result.outputs.findings), findings);
-  assert.equal(result.outputs.usage, "4 turns, $0.40 at API prices");
+  assert.equal(
+    result.outputs.usage,
+    "53,500 input tokens, 50,000 of them from the cache, and 1,000 output tokens, 4 turns, $0.40 at API prices",
+  );
   const { args } = result.calls[0];
   assert.match(
     args[args.indexOf("-p") + 1],
@@ -865,7 +877,10 @@ test("codex gives the findings, and the model's commands do not get the login va
   assert.equal(result.status, 0, result.output);
   assert.equal(result.outputs.status, "ok");
   assert.deepEqual(decode(result.outputs.findings), findings);
-  assert.equal(result.outputs.usage, "1000 input and 20 output tokens");
+  assert.equal(
+    result.outputs.usage,
+    "1,000 input tokens, 400 of them from the cache, and 20 output tokens",
+  );
   const [call] = result.calls;
   assert.equal(call.hasLoginVariable, false);
   assert.equal(call.login, '{"tokens":{"refresh_token":"one"}}');

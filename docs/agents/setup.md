@@ -288,7 +288,9 @@ The check works as follows:
 - The first review posts the master comment of the pull request. The master
   comment shows each issue under "Open issues" or "Addressed issues", and it
   stores the issues for the next review. It also has a table of the reviews,
-  and the turns or the tokens that each model used in the newest review.
+  and the input and output tokens that each model used in the newest review.
+  For Claude, it also gives the turns and the cost at API prices. Codex
+  gives no cost.
 - Each later review gives the open issues of the master comment to the
   models, which say for each one if it is addressed. An issue is addressed
   when its quote is not in its file now, or when each model that answered

@@ -481,9 +481,23 @@ function claude() {
     });
     return;
   }
-  const usage = `${run.num_turns} turns, $${run.total_cost_usd?.toFixed(2)} at API prices`;
+  // `usage` counts only some calls of the run, and `modelUsage` counts each
+  // call of each model, as `total_cost_usd` does.
+  const calls = Object.values(run.modelUsage ?? {});
+  const sum = (key) =>
+    calls.length === 0
+      ? undefined
+      : calls.reduce((total, call) => total + (call[key] ?? 0), 0);
+  const usage = `${tokenText({
+    input:
+      sum("inputTokens") +
+      sum("cacheReadInputTokens") +
+      sum("cacheCreationInputTokens"),
+    cached: sum("cacheReadInputTokens"),
+    output: sum("outputTokens"),
+  })}, ${run.num_turns} turns, $${run.total_cost_usd?.toFixed(2)} at API prices`;
   console.log(
-    `Claude Code: ${count(findings.length, "finding")}, ${count(notes.length, "note")}, ${count(statuses.length, "earlier issue")} checked, ${usage}.`,
+    `Claude Code:${count(findings.length, "finding")}, ${count(notes.length, "note")}, ${count(statuses.length, "earlier issue")} checked, ${usage}.`,
   );
   writeOutputs({
     status: "ok",
@@ -492,6 +506,14 @@ function claude() {
     statuses: encode(statuses),
     usage,
   });
+}
+
+// The input of each model includes the tokens from its cache, so that the
+// lines of the two models compare.
+function tokenText({ input, cached, output }) {
+  const number = (value) =>
+    Number.isFinite(value) ? value.toLocaleString("en-US") : "?";
+  return `${number(input)} input tokens, ${number(cached)} of them from the cache, and ${number(output)} output tokens`;
 }
 
 const codexHome = () =>
@@ -567,7 +589,12 @@ function codex() {
   const tokens = [...(result.stdout ?? "").matchAll(/"usage":(\{[^}]*\})/g)]
     .map((match) => JSON.parse(match[1]))
     .at(-1);
-  const usage = `${tokens?.input_tokens ?? "?"} input and ${tokens?.output_tokens ?? "?"} output tokens`;
+  // Codex counts the tokens from the cache in `input_tokens`.
+  const usage = tokenText({
+    input: tokens?.input_tokens,
+    cached: tokens?.cached_input_tokens,
+    output: tokens?.output_tokens,
+  });
   console.log(
     `Codex: ${count(findings.length, "finding")}, ${count(notes.length, "note")}, ${count(statuses.length, "earlier issue")} checked, ${usage}.`,
   );
