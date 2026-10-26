@@ -76,7 +76,13 @@ project information. Read the documents that apply to the task.
 
 ## Checks
 
-- Run `pnpm run check` after TypeScript changes.
+- While you work, run `pnpm run typecheck` and `pnpm run lint` after
+  TypeScript changes. Also run the app tests of each feature that you change,
+  such as `pnpm --filter frontend exec vitest run src/features/notes`. These
+  take seconds. `pnpm run check` takes minutes, because it runs each app test.
+- Run `pnpm run check` before you push, and before you tell the person that
+  the work is done. Each push starts CI and the agent review, so a failure
+  that CI finds costs a second review.
 - Run `pnpm run build` after changes to compiled code or package exports.
 - Run `pnpm run test:browser` after changes to routing, `main.tsx`, the Vite
   config, an error boundary, or a page that has a page object. `pnpm run check`
