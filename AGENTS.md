@@ -81,8 +81,9 @@ project information. Read the documents that apply to the task.
   such as `pnpm --filter frontend exec vitest run src/features/notes`. These
   take seconds. `pnpm run check` takes minutes, because it runs each app test.
 - Run `pnpm run check` before you push, and before you tell the person that
-  the work is done. Each push starts CI and the agent review, so a failure
-  that CI finds costs a second review.
+  the work is done. Each push to a pull request that is ready for review
+  starts CI and the agent review, so a failure that CI finds costs a second
+  review.
 - Run `pnpm run build` after changes to compiled code or package exports.
 - Run `pnpm run test:browser` after changes to routing, `main.tsx`, the Vite
   config, an error boundary, or a page that has a page object. `pnpm run check`
