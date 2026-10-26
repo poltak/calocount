@@ -187,21 +187,24 @@ instructions above where the two are different:
 
 {{EARLIER_REVIEW}}
 
-Check each earlier finding before you look for new problems. Each one has an
-ID, such as `E12`. For each one, give its ID in `earlier` with one of these
-statuses, and one sentence that says why:
+Check each earlier finding and note before you look for new problems. Each
+one has an ID. A finding has an ID such as `F12`, and a note has an ID such
+as `N3`. For each one, give its ID in `earlier` with one of these statuses,
+and one sentence that says why:
 
-- `addressed`: at {{HEAD}}, the text no longer breaks the rule. The author can
-  have changed the quoted text, or other text, such as the code that a
-  document describes.
-- `open`: at {{HEAD}}, the text still breaks the rule.
+- `addressed`: at {{HEAD}}, the text no longer breaks the rule of the
+  finding, or no longer has the problem of the note. The author can have
+  changed the quoted text, or other text, such as the code that a document
+  describes.
+- `open`: at {{HEAD}}, the text still breaks the rule, or still has the
+  problem.
 
 To see what changed since the earlier review, start with
 `git diff <earlier commit> {{HEAD}}`. When Git does not have the earlier
-commit, compare the files at {{HEAD}} with the findings.
+commit, compare the files at {{HEAD}} with the findings and the notes.
 
-Do not report an earlier finding again under `findings`. Under `findings`,
-report only a problem that no earlier finding covers.
+Do not report an earlier finding or note again under `findings` or `notes`.
+Report only a problem that no earlier finding or note covers.
 
 ## Other notes
 

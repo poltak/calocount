@@ -3,9 +3,10 @@ name: Agent review
 # Two models read each pull request and report text that breaks a rule that no
 # lint rule or test can check. The general rules are in
 # `.agents/review/prompt.md`, and a project adds its own in
-# `.agents/review/project-rules.md`. The "Agent review" job fails while a
-# finding is open, until a maintainer accepts the findings with the
-# `agent-review-accepted` label.
+# `.agents/review/project-rules.md`. The first review posts a master comment
+# with each issue, and each later review edits it and posts a summary. The
+# "Agent review" job fails while a rule violation is open, until a maintainer
+# accepts it with its checkbox or with the `agent-review-accepted` label.
 # `scripts/agent-review.mjs` has the logic, and `docs/agents/setup.md` the
 # secrets of a project.
 #
@@ -41,7 +42,7 @@ jobs:
     name: Plan
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    # The plan reads the comment of the earlier review.
+    # The plan reads the master comment of the earlier reviews.
     permissions:
       contents: read
       issues: read
@@ -78,6 +79,7 @@ jobs:
       notes: ${{ steps.review.outputs.notes }}
       statuses: ${{ steps.review.outputs.statuses }}
       message: ${{ steps.review.outputs.message }}
+      usage: ${{ steps.review.outputs.usage }}
     steps:
       # npm refuses to run in the repository, because `devEngines` names pnpm.
       - name: Install Claude Code
@@ -121,6 +123,7 @@ jobs:
       notes: ${{ steps.review.outputs.notes }}
       statuses: ${{ steps.review.outputs.statuses }}
       message: ${{ steps.review.outputs.message }}
+      usage: ${{ steps.review.outputs.usage }}
     steps:
       - name: Install Codex
         working-directory: ${{ runner.temp }}
@@ -170,7 +173,7 @@ jobs:
       issues: read
       pull-requests: write
     # One verdict at a time for each pull request, in order, so that a label
-    # event reads the comment of the review before it.
+    # event reads the master comment after the review before it.
     concurrency:
       group: agent-review-verdict-${{ github.event.pull_request.number }}
       cancel-in-progress: false
@@ -182,7 +185,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Post the findings, and pass or fail
+      - name: Post the issues, and pass or fail
         run: node scripts/agent-review.mjs verdict
         env:
           GH_TOKEN: ${{ github.token }}

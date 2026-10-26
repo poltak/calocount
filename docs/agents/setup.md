@@ -278,61 +278,83 @@ line that starts with "Release note:". Quote the changed text.
 
 The check works as follows:
 
-- Each review posts a new comment on the pull request, so GitHub sends a
-  notification. The comment stores its open findings. The job deletes each
-  finding whose quote is not in the file that it names.
-- The next review gives the open findings of the newest comment to the
-  models, which say for each one if it is addressed. A finding is addressed
-  when its quote is not in its file now, or when each model that answered says
-  so. A finding that a model reports again stays open. The new comment repeats
-  the open findings under "Not yet addressed", then gives the new findings,
-  and lists the addressed ones in a fold. Under each earlier finding, it shows
-  the status that each model gave, with the reason of the model, so a person
-  sees where the models disagree. Each finding has a checkbox. In the
-  earlier comment, the review checks the box of each addressed finding, and
-  adds a link to the new comment.
-- A maintainer accepts one finding with its checkbox, in the comment of the
-  review or in its line comment. The next review does not count the finding
-  as open, and each later review keeps it accepted. To take the acceptance
-  back, a maintainer clears the box. GitHub keeps each version of a comment
-  with the person who made it, so the review counts only a box that a person
-  in `TEMPLATE_MAINTAINERS` checked or cleared. A finding that is fixed is
-  addressed, also when a maintainer accepted it. A box changes the check at
-  the next review, so to pass the check now, a maintainer adds the label.
-- The comment also stores the newest commit that each model read. When the
-  pull request only adds commits after it, the models look for new problems
-  only in those commits, and the comment links to them. The models can read
-  the earlier changes when a rule needs them. When a model fails, the next
-  review starts again from the newest commit that each model read. Each
-  change gets a new review after a rebase, a force push, or a merge of the
-  base branch, after a change in `.agents/review/`, and after an edit of the
-  title or the description.
-- Each new finding on lines that the pull request adds also gets a comment
-  on those lines, in a review of the type "Comment". The review does not
-  request changes, because the check already fails. A finding on other lines
-  is only in the comment of the review. When a later review finds that a
-  finding is addressed, it checks the box of the line comment, and adds the
-  reason. A person resolves the conversation, because GitHub can refuse that
-  to the token of a workflow. GitHub sends the lines around a line comment by
-  email, so a finding in a file with a `secret` or `private-data` finding gets
-  no line comment.
+- The models report two kinds of issue. A rule violation breaks a rule. Its
+  ID is such as `F3`, and it fails the check while it is open. An other
+  issue is a problem that no rule covers, such as a likely bug. Its ID is
+  such as `N2`, and it does not fail the check. Each model gives up to three
+  other issues in a review. The ID of an issue does not change in later
+  reviews. The job deletes each issue whose quote is not in the file that it
+  names.
+- The first review posts the master comment of the pull request. The master
+  comment shows each issue under "Open issues" or "Addressed issues", and it
+  stores the issues for the next review. It also has a table of the reviews,
+  and the input and output tokens that each model used in the newest review.
+  For Claude, it also gives the turns and the cost at API prices. Codex
+  gives no cost.
+- Each later review gives the open issues of the master comment to the
+  models, which say for each one if it is addressed. An issue is addressed
+  when its quote is not in its file now, or when each model that answered
+  says so. An issue that a model reports again stays open. An addressed issue
+  that a model reports again is open again. The review edits the master
+  comment. Under each issue that the models checked, the master comment
+  shows the status that each model gave, with the reason of the model, so a
+  person sees where the models disagree. The summary does not repeat them.
+- Each later review also posts a summary comment, so GitHub sends a
+  notification. The summary gives the result of the check. It lists the
+  issues that the review addressed, the new issues, the issues that are open
+  again, and the issues where the models disagree. Each issue links to its
+  entry in the master comment. The review hides the summary of the review
+  before it as outdated. If GitHub refuses that to the token of the workflow,
+  the job logs a warning.
+- A maintainer accepts one issue as it is with its checkbox, in the master
+  comment or in its line comment. The next review moves the issue to the
+  addressed issues, and each later review keeps it accepted. To take the
+  acceptance back, a maintainer clears the box, and the next review opens the
+  issue again. GitHub keeps each version of a comment with the person who
+  made it. So the review counts only a box that a person in
+  `TEMPLATE_MAINTAINERS` checked or cleared after the newest edit of the
+  review. An issue that is fixed is addressed, also when a maintainer
+  accepted it. A box changes the check at the next review, so to pass the
+  check now, a maintainer adds the label.
+- The master comment also stores the newest commit that each model read.
+  When the pull request only adds commits after it, the models look for new
+  problems only in those commits, and the summary links to them. The models
+  can read the earlier changes when a rule needs them. When a model fails,
+  the next review starts again from the newest commit that each model read.
+  Each change gets a new review after a rebase, a force push, or a merge of
+  the base branch, after a change in `.agents/review/`, and after an edit of
+  the title or the description.
+- Each new issue on lines that the pull request adds also gets a comment on
+  those lines, in a review of the type "Comment". The line comment links to
+  the issue in the master comment, and the master comment links to the line
+  comment. The review does not request changes, because the check already
+  fails. An issue on other lines is only in the master comment. When a later
+  review finds that an issue is addressed, it checks the box of the line
+  comment, and adds the reason. A person resolves the conversation, because
+  GitHub can refuse that to the token of a workflow. GitHub sends the lines
+  around a line comment by email, so an issue in a file with a `secret` or
+  `private-data` rule violation gets no line comment.
 - The rules `secret` and `private-data` look at each commit, not only at the
   diff, because a value that a later commit deletes stays on GitHub. The
-  quote of their finding can be in any commit. GitHub can send the comment by
-  email, so the comment shows no quote from a file that has such a finding.
-- Each model can also give up to three notes about a problem that no rule
-  covers, such as a likely bug. The comment shows them under "Other notes".
-  A note does not fail the check, and the label is not for notes.
+  quote of their rule violation can be in any commit. GitHub can send a
+  comment by email, so the comments show no quote from a file that has such
+  a rule violation.
 - The models get the title and the description of the pull request, and they
   can read its commit messages, so a rule can ask for a reason there. An edit
   of the title or the description starts a new review. When that review
   stops the Claude job of a review of the same head, the stopped review posts
-  no comment and fails, and the new review gives the result.
-- The job fails while a finding is open, and when a model that has its secret
-  fails. When each open finding is wrong or accepted, a maintainer adds the
-  `agent-review-accepted` label, and the check passes. The label is for that
-  head only: a later review with open findings removes it, and the findings
-  come back. A finding with a checked box stays accepted.
+  nothing and fails, and the new review gives the result.
+- The job fails while a rule violation is open, and when a model that has
+  its secret fails. When each open rule violation is wrong or accepted, a
+  maintainer adds the `agent-review-accepted` label, and the check passes.
+  The label is for that head only: a later review with open rule violations
+  removes it, and they come back. An issue with a checked box stays accepted.
+  The label does not change other issues.
+- A pull request with a comment of a review from before the master comment
+  gets a master comment at its next review. That review takes the open
+  findings of the newest old comment, and gives them the IDs `F1` and up. A
+  box that a maintainer checked in the old comment after its review does not
+  count.
 - Each pull request gets the review, also one that a maintainer opened. A
   draft gets its review when its author marks it as ready. A dependency update
   from Renovate or Dependabot gets no review.
