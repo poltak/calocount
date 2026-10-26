@@ -64,7 +64,7 @@
         "properties": {
           "id": {
             "type": "string",
-            "description": "The ID of the earlier finding, such as E12"
+            "description": "The ID of the earlier finding or note, such as F12 or N3"
           },
           "status": {
             "type": "string",
