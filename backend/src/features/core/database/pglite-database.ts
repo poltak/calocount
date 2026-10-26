@@ -31,6 +31,10 @@ export async function createDatabaseSnapshot(
   });
   try {
     await prepare(db);
+    // Without a checkpoint, each database that starts from the snapshot
+    // replays the write-ahead log of the migrations first. That replay was
+    // about a fifth of the start time of each test.
+    await pglite.exec("CHECKPOINT");
     return await pglite.dumpDataDir("none");
   } finally {
     await db.destroy();

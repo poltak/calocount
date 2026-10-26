@@ -236,7 +236,9 @@ entry to the choice, the reason, and any rule that follows from it.
   it in each test file put that time inside the limit of the file's first
   test, which then failed on a slow CI machine. The test time limit is 20
   seconds for the same reason: the first test of each file still starts the
-  database engine.
+  database engine. The snapshot is taken after a checkpoint. Without one,
+  each copy replayed the write-ahead log of the migrations when it started,
+  which was about a fifth of its start time.
 - **Logic tests run in plain Node, not a simulated browser.** They need no DOM,
   and the simulated browser adds startup time to every test file. The one
   rendered test opts into it.
