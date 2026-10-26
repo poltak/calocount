@@ -330,7 +330,6 @@ const MASTER_URL = "https://github.com/acme/project/pull/7#issuecomment-99";
 const SUMMARY_URL = "https://github.com/acme/project/pull/7#issuecomment-124";
 const ISSUE_URL = "https://github.com/acme/project/pull/7#user-content-";
 
-/** An issue that review 1 of abc1234def found. */
 const issue = (id, fields) => ({
   id,
   line: 3,

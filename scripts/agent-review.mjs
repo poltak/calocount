@@ -497,7 +497,7 @@ function claude() {
     output: sum("outputTokens"),
   })}, ${run.num_turns} turns, $${run.total_cost_usd?.toFixed(2)} at API prices`;
   console.log(
-    `Claude Code:${count(findings.length, "finding")}, ${count(notes.length, "note")}, ${count(statuses.length, "earlier issue")} checked, ${usage}.`,
+    `Claude Code: ${count(findings.length, "finding")}, ${count(notes.length, "note")}, ${count(statuses.length, "earlier issue")} checked, ${usage}.`,
   );
   writeOutputs({
     status: "ok",
@@ -1684,8 +1684,9 @@ function summaryBody({
 }
 
 /**
- * Returns the master comment of the pull request, or else the newest comment
- * of a review from before the master comment.
+ * A pull request that had its reviews before the master comment existed has
+ * one comment for each review. The newest of them has the issues that the
+ * next review must keep.
  */
 function reviewComment({ repository, number }) {
   const comments = readPages(
