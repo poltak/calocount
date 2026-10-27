@@ -94,6 +94,7 @@ returns:
 | `owner`                                                  | The owner account as stored when the test starts.                                                           |
 | `auth`                                                   | The session's Logic, not initialized. A Logic under test takes its `events` in `deps`.                      |
 | `transport`                                              | Controls for the requests the frontend sends. See below.                                                    |
+| `restartBackend()`                                       | A second backend on the same database, with new Services, as after a restart of the server.                 |
 
 The owner is signed in unless the test passes `authenticated: false`. The
 owner signed in once, before the test run, so the database of a signed-in test
@@ -106,6 +107,12 @@ Logic does when the user signs out, call `auth.initialize()` and then
 The backend runs in single-owner mode unless the test passes
 `accountMode: "openSignUp"`. In that mode a visitor can sign up, and the owner
 is one user among others. The sign-up tests in `auth-logic.test.ts` use it.
+
+`backendOptions` gives a test other inputs of the test backend: the inputs
+that `createApp` in `backend/src/features/core/tests/index.ts` takes, past the
+ones that the fixture sets. A project adds an input there, such as a setting
+that only some tests turn on, and does not change the fixture. The fixture
+files come from the template, and `templateOwned` lists them.
 
 ### Transport controls
 

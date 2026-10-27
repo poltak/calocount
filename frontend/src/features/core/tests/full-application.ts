@@ -1,4 +1,4 @@
-import { createTestBackend } from "backend/testing";
+import { createTestBackend, type TestAppOptions } from "backend/testing";
 import { inject, onTestFinished } from "vitest";
 import { AuthLogic } from "../../auth/ui/auth-logic.js";
 import type { OwnedLogic } from "../logic/use-logic.js";
@@ -12,6 +12,11 @@ interface FullApplicationParams {
    * a visitor can sign up, and the owner is one user among others.
    */
   accountMode?: "singleOwner" | "openSignUp";
+  /**
+   * Inputs of the project's test backend, which `createApp` in
+   * `backend/src/features/core/tests/index.ts` takes.
+   */
+  backendOptions?: TestAppOptions;
 }
 
 /**
@@ -22,6 +27,7 @@ interface FullApplicationParams {
 export async function createFullApplication({
   authenticated = true,
   accountMode = "singleOwner",
+  backendOptions = {},
 }: FullApplicationParams = {}) {
   // `global-setup.ts` built the template once for the whole test run. The
   // owner signed in there, so a test that starts signed in has that session.
@@ -29,6 +35,7 @@ export async function createFullApplication({
     template: inject("databaseTemplate"),
     signedIn: authenticated,
     accountMode,
+    backendOptions,
   });
   onTestFinished(() => backend.close());
   const transport = backend.createBrowserTransport();

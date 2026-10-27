@@ -95,6 +95,15 @@ export async function createDatabaseTemplate(
   };
 }
 
+/**
+ * The inputs of the project's test app that a test can set. The fixture sets
+ * the other inputs itself.
+ */
+export type TestAppOptions = Omit<
+  NonNullable<Parameters<typeof createApp>[0]>,
+  "db" | "authBaseUrl" | "trustedOrigins" | "accountMode" | "secret"
+>;
+
 /** Node-only fixture: real handlers and validation, with no listening socket. */
 export async function createTestBackend({
   template,
@@ -102,6 +111,7 @@ export async function createTestBackend({
   baseUrl = "http://app.test",
   trustedOrigins = [],
   accountMode = "singleOwner",
+  backendOptions = {},
 }: {
   template: DatabaseTemplate;
   /**
@@ -116,9 +126,15 @@ export async function createTestBackend({
    * is one user among others.
    */
   accountMode?: AccountMode;
+  /**
+   * Inputs of the project's test app, which `createApp` in `tests/index.ts`
+   * takes, such as a setting that only some tests turn on.
+   */
+  backendOptions?: TestAppOptions;
 }) {
   const snapshot = signedIn ? template.signedIn.snapshot : template.snapshot;
   const app = createApp({
+    ...backendOptions,
     db: createDatabase({
       snapshot: new Blob([snapshot], { type: "application/x-tar" }),
     }),
@@ -167,6 +183,7 @@ export async function createTestBackend({
      */
     restart: async () => {
       const again = createApp({
+        ...backendOptions,
         db: app.db,
         authBaseUrl: baseUrl,
         trustedOrigins,
