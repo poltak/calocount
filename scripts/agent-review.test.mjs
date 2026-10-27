@@ -2095,6 +2095,58 @@ test("verdict leaves the oldest addressed issues out of a master comment that is
   assert.equal(stateIn(body).issues.length, 401);
 });
 
+test("verdict leaves the oldest addressed issues out of a master comment that is too long, also when no issue is open", async (context) => {
+  const repo = await repository(context);
+  // Without the new document, the script finds nothing, so no issue is open.
+  await rm(path.join(repo.directory, "docs/agents/plan.md"));
+  await writeFile(
+    path.join(repo.directory, "docs/agents/setup.md"),
+    "# Setup\n\nRun `pnpm run db:reset` for an empty database.\n",
+  );
+  const head = commitAll(repo.directory, "Change the setup");
+  const master = masterComment({
+    issues: Array.from({ length: 400 }, (_, index) =>
+      issue(`F${index + 1}`, {
+        rule: "stale-document",
+        file: "docs/agents/setup.md",
+        quote: `Old text ${index + 1}.`,
+        explanation:
+          `The old text ${index + 1} was wrong, because the setup changed. `.repeat(
+            4,
+          ),
+        status: "fixed",
+        fixedIn: 1,
+        reason: "The quoted text is not in the file now.",
+      }),
+    ),
+  });
+  const result = await run({
+    repo,
+    command: "verdict",
+    action: "synchronize",
+    head,
+    answers: {
+      [`GET ${PULL}`]: { head: { sha: head } },
+      [MASTER_GET]: master,
+    },
+    env: {
+      MODE: "review",
+      EARLIER_REVIEW: earlierOf(master),
+      CLAUDE_JOB: job([]),
+      CODEX_JOB: job([]),
+    },
+  });
+
+  const { body } = inputOf(result, MASTER_PATCH);
+  assert.match(body, /No issue is open\./);
+  assert.ok(body.length <= 65_000, String(body.length));
+  assert.match(
+    body,
+    /\d+ older addressed issues are only in the summaries of their reviews\./,
+  );
+  assert.equal(stateIn(body).issues.length, 400);
+});
+
 test("verdict does nothing for a head that a newer push replaced", async (context) => {
   const repo = await repository(context);
   const result = await run({

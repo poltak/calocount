@@ -1595,7 +1595,10 @@ function masterBody({
   let limits = { open: open.length, addressed: addressed.length };
   const full = render(limits);
   let body = full;
-  while (body.length > COMMENT_LENGTH_LIMIT && limits.open > 0) {
+  while (
+    body.length > COMMENT_LENGTH_LIMIT &&
+    (limits.open > 0 || limits.addressed > 0)
+  ) {
     limits =
       limits.addressed > 0
         ? { ...limits, addressed: Math.max(0, limits.addressed - 10) }
