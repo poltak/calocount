@@ -58,6 +58,11 @@
     "scripts/sync-template.mjs",
     "scripts/sync-template.test.mjs",
     "scripts/template-files.mjs",
-    "scripts/template-paths.json"
+    "scripts/template-paths.json",
+    "backend/src/features/core/database/pglite-database.ts",
+    "backend/src/features/core/tests/api.ts",
+    "backend/src/features/core/tests/browser-transport.ts",
+    "frontend/src/features/core/tests/full-application.ts",
+    "frontend/src/features/core/tests/global-setup.ts"
   ]
 }

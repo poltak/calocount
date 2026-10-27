@@ -372,7 +372,12 @@ entry to the choice, the reason, and any rule that follows from it.
   files. An edit in the project makes the next sync conflict, and the rules
   for agents and for the architecture are then different in each project.
   The list has `.oxlintrc.json` also, because it turns each lint rule on and
-  sets its options, and an agent can turn off an architecture rule there. In
+  sets its options, and an agent can turn off an architecture rule there. It
+  also has the shared files of the test fixture. Shadow changed its copies of
+  them for its own features, so each template change to them conflicted in a
+  sync. A project now changes its test app in `core/tests/index.ts`, gives a
+  test its inputs through `backendOptions`, and lists its PGlite extensions in
+  `core/database/pglite-extensions.ts`, which it owns. In
   Claude Code the hook asks the person. In Codex it refuses the edit, because
   Codex does not support "ask" yet. Codex reports such a hook as failed and
   makes the edit. The hook does not see a file that a shell command writes,
