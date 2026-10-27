@@ -45,6 +45,8 @@ export async function createFullApplication({
      */
     auth,
     backend: backend.app,
+    /** A second backend on the same database, as after a restart of the server. */
+    restartBackend: backend.restart,
     transport,
     /** The owner account as the database holds it at the start of the test. */
     owner: backend.owner,

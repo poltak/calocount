@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, inject, it } from "vitest";
 import { createFullApplication } from "./full-application.js";
 import { TEST_OWNER_CREDENTIALS } from "./test-owner.js";
 
@@ -21,5 +21,19 @@ describe("full application fixture", () => {
 
     expect(await readNames(first)).toEqual(["Changed"]);
     expect(await readNames(second)).toEqual([TEST_OWNER_CREDENTIALS.name]);
+  });
+
+  it("should start the backend again on the same database, where the session of the owner is still valid", async () => {
+    const { owner, restartBackend } = await createFullApplication();
+    const cookie = inject("databaseTemplate")
+      .signedIn.setCookies.map((setCookie) => setCookie.split(";")[0])
+      .join("; ");
+
+    const restarted = await restartBackend();
+
+    const session = await restarted.services.auth.getSession({
+      headers: new Headers({ cookie }),
+    });
+    expect(session?.user.id).toEqual(owner.id);
   });
 });

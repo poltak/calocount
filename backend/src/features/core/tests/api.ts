@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { serve, type ServerType } from "@hono/node-server";
 import { createHttpApp } from "../server/http-app.js";
-import { createApp, type AccountMode } from "./index.js";
+import { createApp, type AccountMode, type TestApp } from "./index.js";
 import { createBrowserTransport } from "./browser-transport.js";
 import { cleanupLogic, initializeLogic } from "../logic/lifecycle.js";
 import {
@@ -127,6 +127,7 @@ export async function createTestBackend({
     accountMode,
     secret: template.secret,
   });
+  const restarted: TestApp[] = [];
   try {
     await initializeLogic({ logic: app.logic });
     // The database opens at the first query, and closing a database that is
@@ -159,7 +160,30 @@ export async function createTestBackend({
         origin: new URL(baseUrl).origin,
         setCookies: signedIn ? template.signedIn.setCookies : [],
       }),
-    close: () => app.close(),
+    /**
+     * Start the backend again on the same database, as a restart of the
+     * server does. The new backend has new Services, and no request reaches
+     * it.
+     */
+    restart: async () => {
+      const again = createApp({
+        db: app.db,
+        authBaseUrl: baseUrl,
+        trustedOrigins,
+        accountMode,
+        secret: template.secret,
+      });
+      restarted.push(again);
+      await initializeLogic({ logic: again.logic });
+      return again;
+    },
+    close: async () => {
+      // The restarted backends share the database, so only `app` closes it.
+      for (const again of restarted) {
+        await cleanupLogic({ logic: again.logic });
+      }
+      await app.close();
+    },
   };
 }
 
