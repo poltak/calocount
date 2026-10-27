@@ -454,6 +454,11 @@ by hand.
   query write `userId`.
 - Put `"user"` in quotes in SQL, because `user` is a reserved word in
   PostgreSQL. Quotes around each other name are optional.
+- A migration that creates an extension, such as `CREATE EXTENSION pg_trgm`,
+  also adds it to `PGLITE_EXTENSIONS` in
+  `core/database/pglite-extensions.ts`. The test databases are PGlite, which
+  loads only the extensions in that list. The project owns that file, so a
+  template sync does not change it.
 - Before the merge, put each change to a table that the branch creates into
   the migration that creates the table, and run `pnpm run db:reset`. A pull
   request then has one migration for each new table or group of tables, and

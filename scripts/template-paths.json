@@ -21,7 +21,11 @@
     ".agents/skills/remove-example/",
     ".claude/skills/remove-example"
   ],
-  "projectOwned": ["README.md", ".agents/review/project-rules.md"],
+  "projectOwned": [
+    "README.md",
+    ".agents/review/project-rules.md",
+    "backend/src/features/core/database/pglite-extensions.ts"
+  ],
   "templateOwned": [
     "AGENTS.md",
     "docs/agents/code-architecture.md",
