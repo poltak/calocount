@@ -41,7 +41,7 @@ export const MCP_PROTOCOL_VERSION = "2025-11-25";
 const SUPPORTED_PROTOCOL_VERSIONS = [MCP_PROTOCOL_VERSION, "2025-03-26"];
 const MAX_BODY_BYTES = 1_000_000;
 const SECURITY_SCHEMES = [{ type: "oauth2", scopes: [] }] as const;
-const SERVER_INSTRUCTIONS = "Dates use the saved timezone. Use get_nutrition_summary for totals and get_nutrition_history for request_id and item IDs. Estimate macros before logging. Call add_meals only when asked to log a meal; use a new UUID v4 per meal, reuse only for exact add retries. Call update_meal only when asked to edit; keep the saved request_id. Pass supplied photo values unchanged in photos with photo_meal_indices. Never invent file IDs or URLs. Photos: JPEG, PNG, WebP, HEIC. Report photos only when has_image is true.";
+const SERVER_INSTRUCTIONS = "Dates use the saved timezone. Use get_nutrition_summary for totals and get_nutrition_history for request_id and item IDs. Before logging, estimate calories, macros and every supported nutrient. Use null only when no reasonable estimate exists; unknown is not 0. Call add_meals only when asked to log a meal; use a new UUID v4 per meal, reuse only for exact add retries. Call update_meal only when asked to edit; keep the saved request_id. Pass supplied photo values unchanged in photos with photo_meal_indices. Never invent file IDs or URLs. Photos: JPEG, PNG, WebP, HEIC. Report photos only when has_image is true.";
 type McpIdentity = { ownerKey: string };
 
 export type McpHandlerDependencies = {
@@ -63,7 +63,7 @@ function nutrientInputProperties(
       type: ["number", "null"],
       minimum: 0,
       maximum: nutrient.maximum,
-      description: `${nutrient.label} in ${nutrient.unit}. Use null when the value is unknown.`,
+      description: `${nutrient.label} in ${nutrient.unit}. Use null only when no reasonable estimate exists.`,
     },
   ]));
 }
@@ -95,7 +95,7 @@ const mealProperties = {
     type: "object",
     properties: nutrientProperties,
     additionalProperties: false,
-    description: "Optional nutrient values. Omit unknown fields or set a field to null.",
+    description: "Estimate every field that standard food composition data supports for this meal. Use null only when no reasonable estimate exists. Do not use 0 for unknown.",
   },
 };
 
@@ -547,7 +547,7 @@ const UPDATE_MEAL_TOOL = {
 const ADD_MEALS_TOOL = {
   name: "add_meals",
   title: "Add meals to Calocount",
-  description: "Save one or more meals to the signed-in Calocount account. Before calling, generate a UUID v4 request_id for each new meal with a code tool when available. Reuse an ID only for an exact retry of the same meal.",
+  description: "Save one or more meals to the signed-in Calocount account. Estimate calories, macros and all supported nutrients that you can reasonably estimate. Before calling, generate a UUID v4 request_id for each new meal with a code tool when available. Reuse an ID only for an exact retry of the same meal.",
   inputSchema: {
     type: "object",
     properties: {
@@ -821,7 +821,25 @@ function toolSummary(value: JsonObject): string {
   return "The meal request returned a result. See the structured data for details.";
 }
 
-async function parseToolResponse(response: Response) {
+function hasNutrientValue(nutrients: unknown): boolean {
+  return isObject(nutrients) && Object.values(nutrients).some((value) => isFiniteNumber(value));
+}
+
+/** Names of the new meals that were saved without nutrient values, so the model can check its estimate. */
+function mealsWithoutNutrients(payload: JsonObject, arguments_: JsonObject): string[] {
+  if (!Array.isArray(payload.meals) || !Array.isArray(arguments_.meals)) return [];
+  const requested = new Map(arguments_.meals.filter(isObject).map((meal) => [meal.request_id, meal]));
+  return payload.meals
+    .filter((meal): meal is JsonObject => isObject(meal) && meal.status === "created")
+    .filter((meal) => !hasNutrientValue(requested.get(meal.request_id)?.nutrients))
+    .map((meal) => String(meal.name));
+}
+
+function nutrientWarning(names: string[]): string {
+  return ` No nutrient values were saved for: ${names.join(", ")}. If you can estimate them, call update_meal with the saved request_id.`;
+}
+
+async function parseToolResponse(response: Response, arguments_: JsonObject) {
   if (!response.ok) {
     return toolErrorResult("meal_request_failed", `Calocount returned HTTP ${response.status}. Check the meal list before retrying.`);
   }
@@ -836,8 +854,9 @@ async function parseToolResponse(response: Response) {
     return toolErrorResult("invalid_meal_response", "Calocount returned an invalid result. Check the meal list before retrying.");
   }
 
+  const missing = mealsWithoutNutrients(payload, arguments_);
   return {
-    content: [{ type: "text" as const, text: toolSummary(payload) }],
+    content: [{ type: "text" as const, text: toolSummary(payload) + (missing.length > 0 ? nutrientWarning(missing) : "") }],
     structuredContent: payload,
     isError: false,
   };
@@ -845,7 +864,7 @@ async function parseToolResponse(response: Response) {
 
 async function createToolCall(ownerKey: string, arguments_: JsonObject, dependencies: McpHandlerDependencies) {
   try {
-    return await parseToolResponse(await dependencies.addMeals(ownerKey, mappedMealBody(arguments_)));
+    return await parseToolResponse(await dependencies.addMeals(ownerKey, mappedMealBody(arguments_)), arguments_);
   } catch (error) {
     const safe = safeToolError(error);
     return toolErrorResult(safe.code, safe.message);

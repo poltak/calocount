@@ -184,8 +184,9 @@ test("initializes and lists the meal write tool and both nutrition read tools wi
     capabilities: { tools: {} },
     serverInfo: { name: "calocount", version: "0.1.0" },
   });
-  assert.ok(instructions.length <= 512);
-  assert.match(instructions, /Estimate macros before logging/u);
+  assert.ok(instructions.length <= 640);
+  assert.match(instructions, /estimate calories, macros and every supported nutrient/u);
+  assert.match(instructions, /null only when no reasonable estimate exists; unknown is not 0/u);
   assert.match(instructions, /add_meals only when asked to log a meal/u);
   assert.match(instructions, /get_nutrition_history for request_id and item IDs/u);
   assert.match(instructions, /update_meal only when asked to edit; keep the saved request_id/u);
@@ -210,6 +211,7 @@ test("initializes and lists the meal write tool and both nutrition read tools wi
   const [tool] = listPayload.result.tools;
   assert.equal(tool?.name, "add_meals");
   assert.match(tool?.description as string, /generate a UUID v4 request_id.*code tool when available/u);
+  assert.match(tool?.description as string, /Estimate calories, macros and all supported nutrients/u);
   const uuidInputSchema = tool?.inputSchema as {
     properties: { meals: { items: { properties: { request_id: { description: string } } } } };
   };
@@ -795,7 +797,10 @@ test("returns exact batch data and reports duplicate request IDs without claimin
     result: { content: Array<{ text: string }>; isError: boolean; structuredContent: unknown };
   };
   assert.equal(createdPayload.result.isError, false);
-  assert.equal(createdPayload.result.content[0]?.text, "Added 1 new meal. 0 meals were already saved.");
+  assert.equal(
+    createdPayload.result.content[0]?.text,
+    "Added 1 new meal. 0 meals were already saved. No nutrient values were saved for: Lunch. If you can estimate them, call update_meal with the saved request_id.",
+  );
   assert.deepEqual(createdPayload.result.structuredContent, {
     status: "batch_processed",
     created_count: 1,
@@ -823,6 +828,54 @@ test("returns exact batch data and reports duplicate request IDs without claimin
   assert.equal(duplicatePayload.result.content[0]?.text, "Added 0 new meals. 1 meal was already saved.");
   assert.equal(duplicatePayload.result.structuredContent.created_count, 0);
   assert.equal(duplicatePayload.result.structuredContent.already_exists_count, 1);
+});
+
+test("warns only about new meals that were saved without nutrient values", async () => {
+  const route = handler({
+    addMeals: async (_ownerKey, body) => {
+      const meals = body.meals as Array<{ request_id: string; name: string }>;
+      return Response.json({
+        status: "batch_processed",
+        created_count: meals.length,
+        already_exists_count: 0,
+        meals: meals.map((meal, index) => ({
+          status: "created",
+          meal_id: `meal-${index}`,
+          request_id: meal.request_id,
+          name: meal.name,
+          kcal: 500,
+          protein: 30,
+          carbs: 50,
+          fat: 15,
+          eaten_at: "2026-09-24T05:00:00.000Z",
+          has_image: false,
+        })),
+      }, { status: 201 });
+    },
+  });
+  const meal = { kcal: 500, protein: 30, carbs: 50, fat: 15, eaten_at: "2026-09-24T12:00:00+07:00" };
+  const response = await route.POST(request({
+    jsonrpc: "2.0",
+    id: 4,
+    method: "tools/call",
+    params: {
+      name: "add_meals",
+      arguments: {
+        meals: [
+          { ...meal, request_id: "c5a84680-d0c7-4af6-a4f5-89495c3923ec", name: "Oats", nutrients: { fiberG: 8, vitaminDMcg: null } },
+          { ...meal, request_id: "0b7f5f43-5c55-4b0e-9a4f-2f8a8b3c1d01", name: "Toast", nutrients: { fiberG: null } },
+          { ...meal, request_id: "5e2d6a1c-3b4f-4c8e-8d2a-7f1e9c0b4a12", name: "Tea" },
+        ],
+      },
+    },
+  }));
+  const payload = await response.json() as { result: { content: Array<{ text: string }>; isError: boolean } };
+
+  assert.equal(payload.result.isError, false);
+  assert.equal(
+    payload.result.content[0]?.text,
+    "Added 3 new meals. 0 meals were already saved. No nutrient values were saved for: Toast, Tea. If you can estimate them, call update_meal with the saved request_id.",
+  );
 });
 
 test("rejects oversized bodies before protocol checks or meal tracking", async () => {
