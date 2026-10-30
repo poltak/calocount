@@ -1,4 +1,6 @@
 import { getDb, getEnvBinding, getEnvValue } from "../../../db";
+import { getSettings } from "../../../db/repository";
+import { parseProfile, profileDataKey, type Profile } from "../../profile";
 import { isSameOriginWrite, readSessionCookie } from "../../auth/cookies";
 import { resolveAuthMode, type AuthMode } from "../../auth/mode";
 import { bearerChallenge, verifyAccessToken } from "../../auth/oauth";
@@ -37,6 +39,10 @@ export class ApiError extends Error {
 }
 
 export type ApiIdentity = {
+  /** The key of the sign-in data: passkeys, sessions and connected apps. */
+  accountKey: string;
+  profile: Profile;
+  /** The key of the data of `profile`. */
   ownerKey: string;
   userId: string | null;
   email: string | null;
@@ -107,7 +113,7 @@ export async function requireSessionIdentity(request: Request): Promise<ApiIdent
   if (!readSessionCookie(request)) throw new ApiError(401, "sign_in_required", "Sign in to continue.");
   if (!isSameOriginWrite(request)) throw new ApiError(403, "invalid_origin", "The request must come from this site.");
   if (!(await readSession(request))) throw new ApiError(401, "sign_in_required", "Sign in to continue.");
-  return { ownerKey, userId: null, email: null };
+  return { ownerKey, accountKey: ownerKey, profile: "owner", userId: null, email: null };
 }
 
 /**
@@ -117,7 +123,7 @@ export async function requireSessionIdentity(request: Request): Promise<ApiIdent
  */
 export async function authorizeMcpRequest(request: Request): Promise<ApiIdentity | Response> {
   if (isLocalAuth() || configuredAuthMode() === "access") {
-    return requireApiIdentity(request, { accessAudience: getEnvValue("CALOCOUNT_MCP_ACCESS_AUDIENCE") });
+    return requireAccountIdentity(request, { accessAudience: getEnvValue("CALOCOUNT_MCP_ACCESS_AUDIENCE") });
   }
   const ownerKey = configuredOwnerKey();
   const origin = new URL(request.url).origin;
@@ -129,7 +135,7 @@ export async function authorizeMcpRequest(request: Request): Promise<ApiIdentity
       { status: 401, headers: { "www-authenticate": bearerChallenge({ origin, invalidToken: token !== null }) } },
     );
   }
-  return { ownerKey, userId: null, email: null };
+  return { ownerKey, accountKey: ownerKey, profile: "owner", userId: null, email: null };
 }
 
 /**
@@ -137,7 +143,7 @@ export async function authorizeMcpRequest(request: Request): Promise<ApiIdentity
  * Sites identity in Access mode. Anonymous access is only enabled when
  * CALOCOUNT_ALLOW_LOCAL is explicitly set to "true".
  */
-export async function requireApiIdentity(
+async function requireAccountIdentity(
   request: Request,
   options?: { accessAudience?: string },
 ): Promise<ApiIdentity> {
@@ -198,8 +204,11 @@ export async function requireApiIdentity(
       throw new ApiError(403, "forbidden", "This account is not allowed.");
     }
 
+    const accountKey = getEnvValue("CALOCOUNT_OWNER_KEY")?.trim() || identity.userId || identity.email || "owner";
     return {
-      ownerKey: getEnvValue("CALOCOUNT_OWNER_KEY")?.trim() || identity.userId || identity.email || "owner",
+      accountKey,
+      profile: "owner",
+      ownerKey: accountKey,
       userId: identity.userId,
       email: identity.email,
     };
@@ -209,6 +218,30 @@ export async function requireApiIdentity(
   }
 
   return localApiIdentity({ ownerKey: getEnvValue("CALOCOUNT_OWNER_KEY"), userId, email });
+}
+
+/** True when the owner keeps a partner profile. The setting is in the owner's settings row. */
+export async function readPartnerProfileEnabled(accountKey: string): Promise<boolean> {
+  return (await getSettings(getRequestDb(), accountKey))?.partnerProfileEnabled === true;
+}
+
+/**
+ * Set `ownerKey` to the data key of the requested profile. The partner
+ * profile answers only while the owner has it on. Sign-in data stays under
+ * `accountKey`.
+ */
+async function resolveProfileIdentity(request: Request, identity: ApiIdentity): Promise<ApiIdentity> {
+  const profile = parseProfile(new URL(request.url).searchParams.get("profile"));
+  if (!profile) throw new ApiError(400, "invalid_profile", "profile must be owner or partner.");
+  if (profile === "partner" && !(await readPartnerProfileEnabled(identity.accountKey))) {
+    throw new ApiError(404, "profile_off", "The partner profile is off.");
+  }
+  return { ...identity, profile, ownerKey: profileDataKey({ accountKey: identity.accountKey, profile }) };
+}
+
+/** Require the owner's identity, with `ownerKey` set to the data key of the `profile` query value. */
+export async function requireApiIdentity(request: Request, options?: { accessAudience?: string }): Promise<ApiIdentity> {
+  return resolveProfileIdentity(request, await requireAccountIdentity(request, options));
 }
 
 export function jsonResponse(data: unknown, init?: ResponseInit): Response {

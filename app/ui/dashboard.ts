@@ -42,6 +42,7 @@ import { scheduleDashboardClock } from "../dashboard-clock";
 import { mealKind, mealKindForTime, mealKindLabels, type MealKind } from "../meal-kind";
 import { browserTimeZone, dateKeyInTimeZone, localTimeValue, mealDateTimestamp } from "../meal-time";
 import { photoUrlForKey, publicPhotoUrlForMealId } from "../photo-url";
+import { withProfile, type Profile } from "../profile";
 import { readThemePreference, subscribeToTheme, writeThemePreference, type ThemePreference } from "../theme";
 import {
   aggregateNutrientValues,
@@ -151,6 +152,8 @@ const defaultProteinGoal: ProteinGoalSummary = {
 export type DashboardOptions = {
   readOnly?: boolean;
   publicView?: boolean;
+  /** The log that the owner view shows. The public view shows the owner's log. */
+  profile?: Profile;
 };
 
 // Neutral placeholders stay hidden until the live summary has loaded.
@@ -285,7 +288,7 @@ function apiErrorMessage(body: unknown, fallback: string): string {
   return stringOr(asRecord(asRecord(body)?.error)?.message, fallback);
 }
 
-function mapRemoteMeal(meal: SerializedMeal, { publicView, timeZone }: { publicView: boolean; timeZone: string }): Meal {
+function mapRemoteMeal(meal: SerializedMeal, { publicView, profile, timeZone }: { publicView: boolean; profile: Profile; timeZone: string }): Meal {
   const kind = mealKind(meal.mealType);
   const itemNames = meal.items.map((item) => item.name).filter(Boolean);
   const name = itemNames[0] || meal.caption.split(",")[0]?.trim() || (kind ? `${mealKindLabels[kind]} entry` : "Entry");
@@ -305,13 +308,13 @@ function mapRemoteMeal(meal: SerializedMeal, { publicView, timeZone }: { publicV
     photoMimeType: publicView ? null : meal.photoMimeType,
     photoUrl: publicView
       ? meal.hasPhoto ? publicPhotoUrlForMealId(meal.id) : null
-      : photoUrlForKey(meal.photoKey),
+      : photoUrlForKey(meal.photoKey, profile),
     items: meal.items,
     kind,
   };
 }
 
-function buildLiveDays(summary: DashboardSummary, { timeZone, publicView }: { timeZone: string; publicView: boolean }): Day[] {
+function buildLiveDays(summary: DashboardSummary, { timeZone, publicView, profile }: { timeZone: string; publicView: boolean; profile: Profile }): Day[] {
   const summaryDate = new Date(`${summary.date}T12:00:00.000Z`);
   const mealsByDate = new Map<string, Meal[]>();
   const weightsByDate = new Map(
@@ -323,7 +326,7 @@ function buildLiveDays(summary: DashboardSummary, { timeZone, publicView }: { ti
   for (const serializedMeal of summary.recentMeals) {
     const key = dateKeyInTimeZone(serializedMeal.consumedAt, timeZone);
     const meals = mealsByDate.get(key) ?? [];
-    meals.push(mapRemoteMeal(serializedMeal, { publicView, timeZone }));
+    meals.push(mapRemoteMeal(serializedMeal, { publicView, profile, timeZone }));
     mealsByDate.set(key, meals);
   }
   return Array.from({ length: 7 }, (_, index) => {
@@ -450,6 +453,8 @@ type State = {
   failedPhotoUrls: Set<string>;
   clockNow: Date;
   summaryTimeZone: string | null;
+  /** True when the owner keeps a partner profile. The profile switcher shows then. */
+  partnerProfileEnabled: boolean;
 };
 
 const sections: readonly DashboardSection[] = ["today", "meals", "trend", "macros", "nutrition"];
@@ -468,7 +473,7 @@ function gridLines() {
  * A change to it asks for a render, and a render swaps only the parts of the
  * page whose inputs changed. Returns a function that stops the dashboard.
  */
-export function mountDashboard(root: HTMLElement, { readOnly = false, publicView = false }: DashboardOptions = {}): () => void {
+export function mountDashboard(root: HTMLElement, { readOnly = false, publicView = false, profile = "owner" }: DashboardOptions = {}): () => void {
   const initialTargets: TargetState = { calories: calorieTarget, proteinG: proteinTarget, nutrients: defaultNutrientTargets };
   const browserZone = browserTimeZone();
   const state: State = {
@@ -512,7 +517,11 @@ export function mountDashboard(root: HTMLElement, { readOnly = false, publicView
     failedPhotoUrls: new Set(),
     clockNow: new Date(),
     summaryTimeZone: null,
+    partnerProfileEnabled: false,
   };
+
+  /** A private API URL for the log of this page. */
+  const api = (url: string) => withProfile({ url, profile });
 
   let actionToken = 0;
   let olderDayRequest = 0;
@@ -796,11 +805,11 @@ export function mountDashboard(root: HTMLElement, { readOnly = false, publicView
       : "The read-only dashboard could not be loaded. Try again later.";
     async function loadDashboard() {
       try {
-        const endpoint = publicView ? "/api/public/summary" : `/api/dashboard/summary?timezone=${encodeURIComponent(browserTimeZone())}`;
+        const endpoint = publicView ? "/api/public/summary" : api(`/api/dashboard/summary?timezone=${encodeURIComponent(browserTimeZone())}`);
         // Saved entries load beside the summary. Their failure must not hide a loaded summary.
         const savedEntriesRequest = readOnly
           ? null
-          : fetch("/api/saved-entries", { cache: "no-store", signal: controller.signal })
+          : fetch(api("/api/saved-entries"), { cache: "no-store", signal: controller.signal })
             .then(async (savedResponse) => savedResponse.ok ? parseSavedEntriesResponse(await savedResponse.json()) : null)
             .catch(() => null);
         const response = await fetch(endpoint, { cache: "no-store", signal: controller.signal });
@@ -824,7 +833,7 @@ export function mountDashboard(root: HTMLElement, { readOnly = false, publicView
         const parsed = parseDashboardPayload(await response.json());
         if (!parsed) throw new Error("invalid_dashboard_summary");
         if (stale()) return;
-        const liveDays = buildLiveDays(parsed, { timeZone: publicView ? parsed.timezone ?? "UTC" : browserTimeZone(), publicView });
+        const liveDays = buildLiveDays(parsed, { timeZone: publicView ? parsed.timezone ?? "UTC" : browserTimeZone(), publicView, profile });
         const parsedSavedEntries = await savedEntriesRequest;
         if (stale()) return;
         const previousDate = loadedSummaryDate;
@@ -832,6 +841,7 @@ export function mountDashboard(root: HTMLElement, { readOnly = false, publicView
         update({
           ...(parsedSavedEntries ? { savedEntries: parsedSavedEntries } : {}),
           summaryTimeZone: parsed.timezone,
+          partnerProfileEnabled: parsed.partnerProfileEnabled === true,
           proteinGoal: parsed.proteinGoal,
           vitaminB6UsFnbAdultUlEnabled: parsed.referenceSettings?.vitaminB6UsFnbAdultUlEnabled === true,
           usFnbAdultUlEnabled: parsed.referenceSettings?.usFnbAdultUlEnabled === true,
@@ -963,7 +973,7 @@ export function mountDashboard(root: HTMLElement, { readOnly = false, publicView
   }
 
   function replaceRemoteMeal(remoteMeal: SerializedMeal) {
-    const nextMeal = mapRemoteMeal(remoteMeal, { publicView, timeZone: displayTimeZone() });
+    const nextMeal = mapRemoteMeal(remoteMeal, { publicView, profile, timeZone: displayTimeZone() });
     const date = dateKeyInTimeZone(remoteMeal.consumedAt, displayTimeZone());
     if (state.historicalMeal?.id === nextMeal.id) update({ historicalMeal: nextMeal });
     updateLoadedDays((day) => {
@@ -982,7 +992,7 @@ export function mountDashboard(root: HTMLElement, { readOnly = false, publicView
   }
 
   function reconcileMeal(optimisticId: string, remoteMeal: SerializedMeal) {
-    const nextMeal = mapRemoteMeal(remoteMeal, { publicView, timeZone: displayTimeZone() });
+    const nextMeal = mapRemoteMeal(remoteMeal, { publicView, profile, timeZone: displayTimeZone() });
     const date = dateKeyInTimeZone(remoteMeal.consumedAt, displayTimeZone());
     updateLoadedDays((day) => {
       const withoutOptimistic = day.meals.filter((meal) => meal.id !== optimisticId && meal.id !== nextMeal.id);
@@ -1016,7 +1026,7 @@ export function mountDashboard(root: HTMLElement, { readOnly = false, publicView
     await runAction({
       kind: "meal-save",
       id: mealId,
-      request: () => fetch(`/api/meals/${encodeURIComponent(meal.id)}`, {
+      request: () => fetch(api(`/api/meals/${encodeURIComponent(meal.id)}`), {
         method: "PATCH",
         ...mealRequestOptions(mealPatchPayload(meal, canonicalMeal), state.mealPhotoDrafts[mealId]),
       }),
@@ -1057,7 +1067,7 @@ export function mountDashboard(root: HTMLElement, { readOnly = false, publicView
     await runAction({
       kind: "meal-delete",
       id: mealId,
-      request: () => fetch(`/api/meals/${encodeURIComponent(mealId)}`, { method: "DELETE" }),
+      request: () => fetch(api(`/api/meals/${encodeURIComponent(mealId)}`), { method: "DELETE" }),
       parse: (body) => asRecord(body) ?? {},
       failure: "The entry could not be deleted.",
       success: (result) => {
@@ -1097,7 +1107,7 @@ export function mountDashboard(root: HTMLElement, { readOnly = false, publicView
         });
         return () => removeMealFromDays(optimisticId(action));
       },
-      request: () => fetch(`/api/meals/${encodeURIComponent(mealId)}/copy`, {
+      request: () => fetch(api(`/api/meals/${encodeURIComponent(mealId)}/copy`), {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ consumedAt }),
@@ -1117,7 +1127,7 @@ export function mountDashboard(root: HTMLElement, { readOnly = false, publicView
     await runAction({
       kind: "saved-entry-add",
       id: mealId,
-      request: () => fetch("/api/saved-entries", {
+      request: () => fetch(api("/api/saved-entries"), {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ sourceEntryId: mealId }),
@@ -1136,7 +1146,7 @@ export function mountDashboard(root: HTMLElement, { readOnly = false, publicView
     await runAction({
       kind: "saved-entry-remove",
       id: savedEntryId,
-      request: () => fetch(`/api/saved-entries/${encodeURIComponent(savedEntryId)}`, { method: "DELETE" }),
+      request: () => fetch(api(`/api/saved-entries/${encodeURIComponent(savedEntryId)}`), { method: "DELETE" }),
       parse: () => true,
       failure: "The saved entry could not be removed.",
       success: () => update({
@@ -1174,7 +1184,7 @@ export function mountDashboard(root: HTMLElement, { readOnly = false, publicView
         });
         return () => removeMealFromDays(optimisticId(action));
       },
-      request: () => fetch(`/api/saved-entries/${encodeURIComponent(savedEntry.id)}/track`, {
+      request: () => fetch(api(`/api/saved-entries/${encodeURIComponent(savedEntry.id)}/track`), {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ consumedAt }),
@@ -1251,7 +1261,7 @@ export function mountDashboard(root: HTMLElement, { readOnly = false, publicView
         addMealToDate(selectedDate, { ...nextMeal, id: optimisticId(action) });
         return () => removeMealFromDays(optimisticId(action));
       },
-      request: () => fetch("/api/meals", {
+      request: () => fetch(api("/api/meals"), {
         method: "POST",
         ...mealRequestOptions(mealPayload(nextMeal, consumedAt), photo),
       }),
@@ -1300,7 +1310,7 @@ export function mountDashboard(root: HTMLElement, { readOnly = false, publicView
         setWeightForDate(logicalDate, { logicalDate, weightKg, recordedAt: state.clockNow.getTime() });
         return () => setWeightForDate(logicalDate, previousWeight);
       },
-      request: () => fetch("/api/weights", {
+      request: () => fetch(api("/api/weights"), {
         method: "PUT",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ logicalDate, weightKg }),
@@ -1339,6 +1349,7 @@ export function mountDashboard(root: HTMLElement, { readOnly = false, publicView
         getThemePreference: () => state.themePreference,
         onThemeChange: changeThemePreference,
         deviceTimeZone: browserZone,
+        profile,
       });
       update();
     });
@@ -1359,7 +1370,7 @@ export function mountDashboard(root: HTMLElement, { readOnly = false, publicView
       usFnbAdultUlEnabled: state.usFnbAdultUlEnabled,
     }), { showSettings: true, actionError: null, actionStatus: null });
     try {
-      const response = await fetch("/api/settings", { cache: "no-store" });
+      const response = await fetch(api("/api/settings"), { cache: "no-store" });
       if (!response.ok) {
         if (response.status === 401 || response.status === 503) return;
         throw new Error("The current targets could not be loaded.");
@@ -1387,6 +1398,7 @@ export function mountDashboard(root: HTMLElement, { readOnly = false, publicView
         vitaminB6UsFnbAdultUlEnabled: parsed.vitaminB6UsFnbAdultUlEnabled,
         usFnbAdultUlEnabled: parsed.usFnbAdultUlEnabled,
         publicViewEnabled: parsed.publicViewEnabled,
+        partnerProfileEnabled: parsed.partnerProfileEnabled,
       }), {
         targets: nextTargets,
         proteinGoal: nextProteinGoal,
@@ -1449,7 +1461,7 @@ export function mountDashboard(root: HTMLElement, { readOnly = false, publicView
         });
         return () => update(previous);
       },
-      request: () => fetch("/api/settings", {
+      request: () => fetch(api("/api/settings"), {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
@@ -1461,7 +1473,9 @@ export function mountDashboard(root: HTMLElement, { readOnly = false, publicView
           nutrientTargets: nutrientTargetOverrides,
           vitaminB6UsFnbAdultUlEnabled: settingsDraft.vitaminB6UsFnbAdultUlEnabled,
           usFnbAdultUlEnabled: settingsDraft.usFnbAdultUlEnabled,
-          ...(settingsDraft.publicViewEnabled === null ? {} : { publicViewEnabled: settingsDraft.publicViewEnabled }),
+          // The public view and the partner switch change only on the owner profile.
+          ...(profile !== "owner" || settingsDraft.publicViewEnabled === null ? {} : { publicViewEnabled: settingsDraft.publicViewEnabled }),
+          ...(profile !== "owner" || settingsDraft.partnerProfileEnabled === null ? {} : { partnerProfileEnabled: settingsDraft.partnerProfileEnabled }),
         }),
       }),
       // A response without readable settings still counts as saved; the draft values stay.
@@ -1473,6 +1487,7 @@ export function mountDashboard(root: HTMLElement, { readOnly = false, publicView
           : draftTargets,
         vitaminB6UsFnbAdultUlEnabled: saved?.vitaminB6UsFnbAdultUlEnabled ?? settingsDraft.vitaminB6UsFnbAdultUlEnabled,
         usFnbAdultUlEnabled: saved?.usFnbAdultUlEnabled ?? settingsDraft.usFnbAdultUlEnabled,
+        partnerProfileEnabled: saved?.partnerProfileEnabled ?? settingsDraft.partnerProfileEnabled ?? state.partnerProfileEnabled,
         showSettings: false,
         actionStatus: "Targets saved.",
       }),
@@ -1507,14 +1522,14 @@ export function mountDashboard(root: HTMLElement, { readOnly = false, publicView
     try {
       const endpoint = publicView
         ? `/api/public/summary?view=day&date=${date}`
-        : `/api/days/${date}?timezone=${encodeURIComponent(displayTimeZone())}`;
+        : api(`/api/days/${date}?timezone=${encodeURIComponent(displayTimeZone())}`);
       const response = await fetch(endpoint, { cache: "no-store" });
       const responseBody = await response.json().catch(() => null);
       if (!response.ok) throw new Error(apiErrorMessage(responseBody, "The day could not be loaded."));
       const parsed = parseDayLog(responseBody);
       if (!parsed || parsed.date !== date) throw new Error("The day response was invalid.");
       if (olderDayRequest !== requestId || state.pendingAction) return;
-      const meals = parsed.meals.map((meal) => mapRemoteMeal(meal, { publicView, timeZone: displayTimeZone() }));
+      const meals = parsed.meals.map((meal) => mapRemoteMeal(meal, { publicView, profile, timeZone: displayTimeZone() }));
       resetDayEditing({
         olderDay: {
           day: dayWithMeals({ key: dayKeyForDate(date), date, ...dayLabelForDate(date), calories: 0, protein: 0, meals: [], weight: parsed.weight }, meals),
@@ -1551,14 +1566,14 @@ export function mountDashboard(root: HTMLElement, { readOnly = false, publicView
       mealPhotoDrafts: {},
     });
     try {
-      const response = await fetch(`/api/meals/${encodeURIComponent(entryId)}`, { cache: "no-store" });
+      const response = await fetch(api(`/api/meals/${encodeURIComponent(entryId)}`), { cache: "no-store" });
       const responseBody = await response.json().catch(() => null);
       if (!response.ok) {
         throw new Error(apiErrorMessage(responseBody, "The historical entry could not be loaded."));
       }
       const parsedMeal = parseMealResponse(responseBody);
       if (!parsedMeal) throw new Error("The historical entry response was invalid.");
-      const mappedMeal = mapRemoteMeal(parsedMeal, { publicView: false, timeZone: displayTimeZone() });
+      const mappedMeal = mapRemoteMeal(parsedMeal, { publicView: false, profile, timeZone: displayTimeZone() });
       const mappedDate = dateKeyInTimeZone(mappedMeal.consumedAt, displayTimeZone());
       if (mappedDate !== date) throw new Error("The historical entry date no longer matches the insight.");
       if (historicalMealRequest !== requestId) return;
@@ -1691,6 +1706,8 @@ export function mountDashboard(root: HTMLElement, { readOnly = false, publicView
       h("div", { class: "topbar-actions" },
         h("span", { class: "sync-status" }, h("span", { class: "status-dot", "aria-hidden": "true" }), ` ${readOnly ? "Public read-only" : live ? "Live data" : state.dataMode === "loading" ? "Loading" : "Unavailable"}`),
         readOnly ? h("a", { class: "secondary-button owner-link", href: "/owner" }, "Open owner view") : null,
+        // The partner page keeps the switcher, so a page whose profile is off still links back.
+        !readOnly && (state.partnerProfileEnabled || profile === "partner") ? profileSwitch() : null,
         !readOnly && live ? h("button", { class: "icon-button", type: "button", onclick: () => void openSettings(), disabled: view.actionInProgress, "aria-label": "Open settings", "aria-expanded": state.showSettings, "aria-controls": "settings-panel", "aria-busy": view.settingsLoadPending },
           view.settingsLoadPending
             ? h("span", { "aria-hidden": "true" }, "…")
@@ -1700,7 +1717,7 @@ export function mountDashboard(root: HTMLElement, { readOnly = false, publicView
               svg("circle", { cx: "5.25", cy: "11.5", r: "2" }),
             ),
         ) : null,
-        h("span", { class: "avatar", "aria-label": readOnly ? "Public read-only view" : "Account" }, h("span", { "aria-hidden": "true" }, readOnly ? "↗" : "M")),
+        h("span", { class: "avatar", "aria-label": readOnly ? "Public read-only view" : "Account" }, h("span", { "aria-hidden": "true" }, readOnly ? "↗" : profile === "partner" ? "P" : "M")),
       ),
     );
   }
@@ -1759,6 +1776,11 @@ export function mountDashboard(root: HTMLElement, { readOnly = false, publicView
         ),
       ),
     );
+  }
+
+  function profileSwitch() {
+    const link = (target: Profile, label: string, href: string) => h("a", { class: cx("profile-switch-link", profile === target && "active"), href, "aria-current": profile === target ? "page" : undefined }, label);
+    return h("nav", { class: "profile-switch", "aria-label": "Profile" }, link("owner", "Owner", "/owner"), link("partner", "Partner", "/owner/partner"));
   }
 
   function jumpNav() {
@@ -2264,6 +2286,7 @@ export function mountDashboard(root: HTMLElement, { readOnly = false, publicView
           selectedDate: selected.date,
           timeZone: view.timeZone,
           publicView,
+          profile,
           refreshKey: state.dashboardReloadKey,
           disabled: actionInProgress,
           onSelectDate: selectCalendarDate,

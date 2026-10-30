@@ -672,6 +672,28 @@ summary:focus-visible {
   white-space: nowrap;
 }
 
+.profile-switch {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+}
+
+.profile-switch-link {
+  padding: 4px 9px;
+  border-radius: calc(var(--radius-control) - 2px);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.profile-switch-link:hover,
+.profile-switch-link.active {
+  background: var(--surface);
+  color: var(--foreground);
+}
+
 .nutrient-goal-fieldset {
   min-width: 0;
   margin: 0;

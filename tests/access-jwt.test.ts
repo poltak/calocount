@@ -299,11 +299,15 @@ test("legacy identity headers cannot replace the Access JWT", async () => {
 test("local development may keep its header identity without a JWT", () => {
   assert.deepEqual(localApiIdentity({ ownerKey: "local-owner" }), {
     ownerKey: "local-owner",
+    accountKey: "local-owner",
+    profile: "owner",
     userId: null,
     email: null,
   });
   assert.deepEqual(localApiIdentity({ userId: "local-user", email: "local@example.com" }), {
     ownerKey: "local-user",
+    accountKey: "local-user",
+    profile: "owner",
     userId: "local-user",
     email: "local@example.com",
   });

@@ -53,7 +53,7 @@ export type AccessIdentity = {
   email: string | null;
 };
 
-export type LocalApiIdentity = AccessIdentity & { ownerKey: string };
+export type LocalApiIdentity = AccessIdentity & { ownerKey: string; accountKey: string; profile: "owner" };
 
 export function localApiIdentity(options: {
   ownerKey?: string;
@@ -63,8 +63,11 @@ export function localApiIdentity(options: {
   const ownerKey = options.ownerKey?.trim();
   const userId = options.userId?.trim() || null;
   const email = options.email?.trim() || null;
+  const accountKey = ownerKey || userId || email || "local";
   return {
-    ownerKey: ownerKey || userId || email || "local",
+    ownerKey: accountKey,
+    accountKey,
+    profile: "owner",
     userId,
     email,
   };

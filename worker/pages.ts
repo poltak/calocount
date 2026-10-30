@@ -202,10 +202,15 @@ export function renderOAuthErrorPage(request: Request, { status, message }: { st
   return html(document({ request, title: "Connection error — Calocount", body, scripts: false }), status, NO_FRAME_HEADERS);
 }
 
+/** The owner dashboard paths: the owner's log and the partner's log. */
+export function isOwnerPagePath(pathname: string): boolean {
+  return pathname === "/owner" || pathname === "/owner/partner";
+}
+
 /** Answer a request for a page. Returns null when no page has the path. */
 export function renderPage(request: Request, pathname: string): Response | null {
   if (pathname === "/") return html(document({ request, body: dashboardShell({ publicView: true }) }));
-  if (pathname === "/owner") return renderOwnerPage(request);
+  if (isOwnerPagePath(pathname)) return renderOwnerPage(request);
   if (pathname === "/privacy") {
     return html(document({
       request,

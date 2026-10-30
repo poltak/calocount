@@ -19,6 +19,7 @@ import {
   listNutritionHistoryPage,
 } from "../db/repository";
 import { createSqliteTestDb } from "./helpers/sqlite-db";
+import { profileDataKey } from "../app/profile";
 
 const OWNER = "owner-a";
 const REQUEST_ID = "9dd78408-9209-4b4d-9d42-dfa369d75ff0";
@@ -80,7 +81,8 @@ function routeFor(fixture: ReturnType<typeof createSqliteTestDb>, ownerKey = OWN
   };
 
   return createMcpHandler({
-    authorize: async () => ({ ownerKey }),
+    authorize: async () => ({ accountKey: ownerKey }),
+    resolveProfileOwnerKey: async ({ accountKey, profile }) => profileDataKey({ accountKey, profile }),
     addMeals: (owner, body) => handleAuthorizedAddMealRequest(owner, body, addMealOptions),
     updateMeal: (owner, input) => updateMcpMealByRequestId({
       db: fixture.db,

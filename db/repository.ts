@@ -149,6 +149,7 @@ export type SettingsPatch = Partial<{
   nutrientTargets: NutrientGoalOverrides | null;
   vitaminB6UsFnbAdultUlEnabled: boolean;
   usFnbAdultUlEnabled: boolean;
+  partnerProfileEnabled: boolean;
   publicViewEnabled: boolean;
 }>;
 
@@ -1280,6 +1281,7 @@ export async function upsertSettings(db: AppDb, ownerKey: string, patch: Setting
   const usFnbAdultUlConfirmedAt = patch.usFnbAdultUlEnabled === undefined
     ? existing?.usFnbAdultUlConfirmedAt ?? null
     : usFnbAdultUlEnabled ? existing?.usFnbAdultUlConfirmedAt ?? timestamp : null;
+  const partnerProfileEnabled = patch.partnerProfileEnabled ?? existing?.partnerProfileEnabled === true;
   const publicViewEnabled = patch.publicViewEnabled ?? existing?.publicViewEnabled === true;
   if (existing) {
     const settingsUpdate = db.update(settings).set({
@@ -1292,6 +1294,7 @@ export async function upsertSettings(db: AppDb, ownerKey: string, patch: Setting
       vitaminB6UsFnbAdultUlConfirmedAt,
       usFnbAdultUlEnabled,
       usFnbAdultUlConfirmedAt,
+      partnerProfileEnabled,
       publicViewEnabled,
       updatedAt: timestamp,
     }).where(and(eq(settings.id, id), eq(settings.ownerKey, ownerKey)));
@@ -1307,6 +1310,7 @@ export async function upsertSettings(db: AppDb, ownerKey: string, patch: Setting
       vitaminB6UsFnbAdultUlConfirmedAt,
       usFnbAdultUlEnabled,
       usFnbAdultUlConfirmedAt,
+      partnerProfileEnabled,
       publicViewEnabled,
       createdAt: timestamp,
       updatedAt: timestamp,

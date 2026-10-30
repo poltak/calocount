@@ -51,6 +51,7 @@ The application has two dashboard entry points:
 - `/` is the public read-only dashboard. It loads the explicit projection from
   `GET /api/public/summary` and projected images from `GET /meal-photos/<mealId>`.
 - `/owner` is the private read-write dashboard. It uses the existing signed-JWT owner APIs.
+- `/owner/partner` is the same dashboard for the partner profile. See [Profiles](#profiles).
 
 `/api/public/summary` resolves the configured stable owner key, fails closed when
 that key is absent, returns `Cache-Control: no-store`, and removes owner keys,
@@ -111,6 +112,29 @@ deployment, give explicit privacy and Access review to every new page outside
 `/api`. Verify the anonymous and owner behavior from deployed requests. This is
 a repository rule for future changes; the current layout was verified on
 2026-08-26.
+
+## Profiles
+
+One instance can keep two logs under one sign-in: the `owner` profile and the
+`partner` profile. The owner turns the partner profile on with the
+`partnerProfileEnabled` setting in `PATCH /api/settings`. It is off for an owner
+with no saved settings.
+
+- Sign-in data, such as passkeys, sessions and OAuth grants, uses the account
+  key. In passkey mode that is `CALOCOUNT_OWNER_KEY`.
+- The owner's data uses the account key too, so data from before profiles stays
+  where it is. The partner's data uses `<account key>:partner`.
+- A private API route reads the profile from the `profile` query value. With no
+  value, it uses the owner. With `partner`, it returns `404` with the code
+  `profile_off` while the setting is off. Any other value returns `400` with
+  the code `invalid_profile`. `publicViewEnabled` and `partnerProfileEnabled`
+  change only on the owner profile.
+- The dashboard at `/owner/partner` adds `profile=partner` to each private API
+  request and photo URL. The `/api/auth/*` routes do not use a profile.
+- Each MCP tool takes an optional `profile` argument (`owner` or `partner`), and
+  each result names the profile that it used.
+- The public view, `/meal-photos/<mealId>`, `/llms.txt` and the deprecated
+  `POST /api/add-meal` serve only the owner profile.
 
 ## Meal flow
 

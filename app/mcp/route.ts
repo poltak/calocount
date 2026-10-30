@@ -1,13 +1,18 @@
 import { getDb } from "../../db";
-import { getNutritionSummary, getWeightHistory, listNutritionHistoryPage } from "../../db/repository";
+import { getNutritionSummary, getSettings, getWeightHistory, listNutritionHistoryPage } from "../../db/repository";
 import { handleAuthorizedAddMealRequest } from "../api/_lib/add-meal";
 import { createAddMealRuntimeOptions } from "../api/_lib/add-meal-runtime";
 import { authorizeMcpRequest } from "../api/_lib/http";
+import { profileDataKey } from "../profile";
 import { createMcpHandler } from "./handler";
 import { updateMcpMealByRequestId } from "./meal-update";
 
 const handler = createMcpHandler({
   authorize: authorizeMcpRequest,
+  resolveProfileOwnerKey: async ({ accountKey, profile }) => profile === "partner"
+    && (await getSettings(getDb(), accountKey))?.partnerProfileEnabled !== true
+    ? null
+    : profileDataKey({ accountKey, profile }),
   addMeals: (ownerKey, body) => handleAuthorizedAddMealRequest(
     ownerKey,
     body,

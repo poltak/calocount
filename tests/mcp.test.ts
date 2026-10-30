@@ -12,7 +12,7 @@ import { createMcpHandler, MCP_PROTOCOL_VERSION, type McpHandlerDependencies } f
 import { resolveNutrientGoals } from "../domain/nutrient-goals";
 
 const ACCEPT = "application/json, text/event-stream";
-const OWNER = { ownerKey: "owner-1", userId: "user-1", email: "owner@example.test" };
+const OWNER = { accountKey: "owner-1", ownerKey: "owner-1", userId: "user-1", email: "owner@example.test" };
 
 function request(body: unknown, options: {
   headers?: Record<string, string>;
@@ -134,6 +134,7 @@ function toolCall(arguments_: Record<string, unknown>, id = 10): Request {
 function handler(overrides: Partial<McpHandlerDependencies> = {}) {
   return createMcpHandler({
     authorize: async () => OWNER,
+    resolveProfileOwnerKey: async ({ accountKey, profile }) => profile === "partner" ? `${accountKey}:partner` : accountKey,
     addMeals: async () => new Response("{}", { status: 201 }),
     updateMeal: async () => null,
     getNutritionHistory: async () => ({ timezone: "UTC", meals: [], hasMore: false }),
@@ -805,6 +806,7 @@ test("returns exact batch data and reports duplicate request IDs without claimin
     status: "batch_processed",
     created_count: 1,
     already_exists_count: 0,
+    profile: "owner",
     meals: [{
       status: "created",
       meal_id: "meal-1",

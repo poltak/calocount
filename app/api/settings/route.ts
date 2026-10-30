@@ -18,7 +18,9 @@ import {
   jsonResponse,
   optionalNumber,
   parseJsonBody,
+  readPartnerProfileEnabled,
   requireApiIdentity,
+  type ApiIdentity,
   requireString,
   withApiErrors,
 } from "../_lib/http";
@@ -88,6 +90,12 @@ function parseSettingsPatch(body: Record<string, unknown>): SettingsPatch {
     }
     patch.usFnbAdultUlEnabled = body.usFnbAdultUlEnabled;
   }
+  if (body.partnerProfileEnabled !== undefined) {
+    if (typeof body.partnerProfileEnabled !== "boolean") {
+      throw new ApiError(400, "invalid_field", "partnerProfileEnabled must be a boolean.");
+    }
+    patch.partnerProfileEnabled = body.partnerProfileEnabled;
+  }
   if (body.publicViewEnabled !== undefined) {
     if (typeof body.publicViewEnabled !== "boolean") {
       throw new ApiError(400, "invalid_field", "publicViewEnabled must be a boolean.");
@@ -115,11 +123,18 @@ function publicSettings(value: Awaited<ReturnType<typeof getSettings>>) {
   };
 }
 
+/** The settings of the profile, with the profile and the owner's partner switch. */
+async function settingsResponse(identity: ApiIdentity, settings: Awaited<ReturnType<typeof getSettings>>): Promise<Response> {
+  const partnerProfileEnabled = identity.profile === "owner"
+    ? settings?.partnerProfileEnabled === true
+    : await readPartnerProfileEnabled(identity.accountKey);
+  return jsonResponse({ settings: publicSettings(settings), profile: identity.profile, partnerProfileEnabled });
+}
+
 export async function GET(request: Request): Promise<Response> {
   return withApiErrors(async () => {
     const identity = await requireApiIdentity(request);
-    const settings = await getSettings(getRequestDb(), identity.ownerKey);
-    return jsonResponse({ settings: publicSettings(settings) });
+    return settingsResponse(identity, await getSettings(getRequestDb(), identity.ownerKey));
   });
 }
 
@@ -127,7 +142,12 @@ export async function PATCH(request: Request): Promise<Response> {
   return withApiErrors(async () => {
     const identity = await requireApiIdentity(request);
     const patch = parseSettingsPatch(await parseJsonBody(request));
-    const settings = await upsertSettings(getRequestDb(), identity.ownerKey, patch);
-    return jsonResponse({ settings: publicSettings(settings) });
+    // The public view and the partner switch belong to the owner's log.
+    if (identity.profile !== "owner") {
+      for (const field of ["publicViewEnabled", "partnerProfileEnabled"] as const) {
+        if (patch[field] !== undefined) throw new ApiError(400, "owner_only_setting", `${field} can only change on the owner profile.`);
+      }
+    }
+    return settingsResponse(identity, await upsertSettings(getRequestDb(), identity.ownerKey, patch));
   });
 }

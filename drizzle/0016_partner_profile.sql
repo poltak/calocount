@@ -1,0 +1,1 @@
+ALTER TABLE `settings` ADD `partner_profile_enabled` integer DEFAULT false NOT NULL;

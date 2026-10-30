@@ -72,7 +72,7 @@ export async function mockDashboardApi(page: Page) {
     date,
     meals: [structuredClone(initialMeal)],
     weights: [{ logicalDate: "2026-09-11", weightKg: 70, recordedAt: Date.parse(`${date}T12:00:00Z`) }],
-    settings: { timezone: "UTC", dailyCalorieTarget: 2400, dailyProteinTargetG: 160, proteinGoalMode: "grams" as ProteinGoalMode, dailyProteinTargetPerKg: 1.6, nutrientTargets: null, vitaminB6UsFnbAdultUlEnabled: false, usFnbAdultUlEnabled: false, publicViewEnabled: false },
+    settings: { timezone: "UTC", dailyCalorieTarget: 2400, dailyProteinTargetG: 160, proteinGoalMode: "grams" as ProteinGoalMode, dailyProteinTargetPerKg: 1.6, nutrientTargets: null, vitaminB6UsFnbAdultUlEnabled: false, usFnbAdultUlEnabled: false, publicViewEnabled: false, partnerProfileEnabled: false },
     savedEntries: [] as SavedEntry[],
     /** Every request the page made to the API, in order. */
     requests: [] as RecordedRequest[],
@@ -122,6 +122,7 @@ export async function mockDashboardApi(page: Page) {
       targets: { calories: state.settings.dailyCalorieTarget, proteinG: proteinGoal.targetG, nutrients: resolveNutrientGoals() },
       proteinGoal, today: byDate[29], sevenDay: { calories: 500, proteinG: 30, averageCalories: 0, averageProteinG: 0, daysWithMeals: 1 },
       recentMeals, recentWeights: state.weights,
+      partnerProfileEnabled: state.settings.partnerProfileEnabled,
       insights: {
         fromDate: insightStart,
         toDate: state.date,
@@ -266,7 +267,7 @@ export async function mockDashboardApi(page: Page) {
       await route.fulfill({ json: { deleted: true } });
     } else if (pathname === "/api/settings") {
       if (request.method() === "PATCH") Object.assign(state.settings, request.postDataJSON());
-      await route.fulfill({ json: { settings: state.settings } });
+      await route.fulfill({ json: { settings: state.settings, partnerProfileEnabled: state.settings.partnerProfileEnabled } });
     } else if (pathname === "/api/weights") {
       const body = request.postDataJSON();
       const weight = { ...body, recordedAt: Date.now() };

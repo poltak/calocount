@@ -1,9 +1,12 @@
-export function photoUrlForKey(photoKey: string | null | undefined): string | null {
+import { withProfile, type Profile } from "./profile";
+
+/** The private image URL of a photo of the profile. */
+export function photoUrlForKey(photoKey: string | null | undefined, profile: Profile = "owner"): string | null {
   if (!photoKey) return null;
 
   const segments = photoKey.split("/");
   if (segments.some((segment) => segment.length === 0)) return null;
-  return `/api/photos/${segments.map((segment) => encodeURIComponent(segment)).join("/")}`;
+  return withProfile({ url: `/api/photos/${segments.map((segment) => encodeURIComponent(segment)).join("/")}`, profile });
 }
 
 /** Build the public image URL from a meal ID, without exposing its R2 key. */

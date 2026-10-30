@@ -20,15 +20,18 @@ export type SettingsDraft = {
   timezone: string;
   /** Null until the saved settings load. A save leaves the setting as it is then. */
   publicViewEnabled: boolean | null;
+  /** The owner's partner profile switch. Null until the saved settings load. */
+  partnerProfileEnabled: boolean | null;
 };
 
-export function settingsDraftForTargets({ targets, proteinGoal, timezone, vitaminB6UsFnbAdultUlEnabled = false, usFnbAdultUlEnabled = false, publicViewEnabled = null }: {
+export function settingsDraftForTargets({ targets, proteinGoal, timezone, vitaminB6UsFnbAdultUlEnabled = false, usFnbAdultUlEnabled = false, publicViewEnabled = null, partnerProfileEnabled = null }: {
   targets: TargetState;
   proteinGoal: ProteinGoalSummary;
   timezone: string;
   vitaminB6UsFnbAdultUlEnabled?: boolean;
   usFnbAdultUlEnabled?: boolean;
   publicViewEnabled?: boolean | null;
+  partnerProfileEnabled?: boolean | null;
 }): SettingsDraft {
   return {
     timezone,
@@ -40,5 +43,6 @@ export function settingsDraftForTargets({ targets, proteinGoal, timezone, vitami
     vitaminB6UsFnbAdultUlEnabled,
     usFnbAdultUlEnabled,
     publicViewEnabled,
+    partnerProfileEnabled,
   };
 }

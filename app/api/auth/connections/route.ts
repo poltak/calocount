@@ -7,6 +7,6 @@ export async function GET(request: Request): Promise<Response> {
   return withApiErrors(async () => {
     const identity = await requireApiIdentity(request);
     requirePasskeyAuth();
-    return jsonResponse({ connections: await listConnections({ db: getRequestDb(), ownerKey: identity.ownerKey }) });
+    return jsonResponse({ connections: await listConnections({ db: getRequestDb(), ownerKey: identity.accountKey }) });
   });
 }

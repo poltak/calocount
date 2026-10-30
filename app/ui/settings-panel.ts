@@ -5,6 +5,7 @@ import { nutrientGoalDraftFromMap } from "../nutrition/nutrient-goal-draft";
 import { nutrientGoalSettings } from "./nutrient-goal-settings";
 import type { ThemePreference } from "../theme";
 import { createAccountSettings } from "./account-settings";
+import type { Profile } from "../profile";
 
 type SettingsPanelOptions = {
   /** Read the draft. The dashboard owns it, and it can change while the panel is open. */
@@ -17,6 +18,8 @@ type SettingsPanelOptions = {
   onThemeChange: (preference: ThemePreference) => void;
   /** The timezone of the device showing the panel. */
   deviceTimeZone: string;
+  /** The profile of the settings. The public view and the partner switch show only for the owner. */
+  profile: Profile;
 };
 
 export type SettingsPanel = {
@@ -46,7 +49,7 @@ function inputValue(event: Event) {
  * goes to the draft and the field keeps it. The form is built again only when
  * its fields change, and then it reads every value from the draft.
  */
-export function createSettingsPanel({ getDraft, setDraft, onSave, onClose, getThemePreference, onThemeChange, deviceTimeZone }: SettingsPanelOptions): SettingsPanel {
+export function createSettingsPanel({ getDraft, setDraft, onSave, onClose, getThemePreference, onThemeChange, deviceTimeZone, profile }: SettingsPanelOptions): SettingsPanel {
   const content = slot();
   const el = keep(h("section", { class: "settings-panel", id: "settings-panel", role: "dialog", "aria-labelledby": "settings-title" }, ...content.anchors));
   // The sign-in section keeps its own state, so the form rebuilds leave it as it is.
@@ -89,7 +92,7 @@ export function createSettingsPanel({ getDraft, setDraft, onSave, onClose, getTh
 
   function checkboxSetting({ id, field, label, detail, draft, disabled }: {
     id: string;
-    field: "vitaminB6UsFnbAdultUlEnabled" | "usFnbAdultUlEnabled" | "publicViewEnabled";
+    field: "vitaminB6UsFnbAdultUlEnabled" | "usFnbAdultUlEnabled" | "publicViewEnabled" | "partnerProfileEnabled";
     label: string;
     detail: string;
     draft: SettingsDraft;
@@ -143,13 +146,24 @@ export function createSettingsPanel({ getDraft, setDraft, onSave, onClose, getTh
             draft.timezone !== deviceTimeZone ? h("button", { class: "secondary-button", type: "button", disabled, onclick: () => change((current) => ({ ...current, timezone: deviceTimeZone }), { rebuild: true }) }, `Use this device's timezone (${deviceTimeZone.replaceAll("_", " ")})`) : null,
           ),
         ),
-        h("section", { class: "settings-section public-view-settings", "aria-labelledby": "public-view-title" },
+        profile !== "owner" ? null : h("section", { class: "settings-section public-view-settings", "aria-labelledby": "public-view-title" },
           sectionHeading({ id: "public-view-title", title: "Public dashboard", detail: "Who can see your log" }),
           checkboxSetting({
             id: "public-view-enabled",
             field: "publicViewEnabled",
             label: "Show my log to anyone who opens the site address",
             detail: "Visitors see your entries, food items, nutrients, weights and the photos of the last seven days. They cannot make changes. Notes and captions stay private. When this is off, the site address opens your own dashboard after you sign in.",
+            draft,
+            disabled,
+          }),
+        ),
+        profile !== "owner" ? null : h("section", { class: "settings-section partner-profile-settings", "aria-labelledby": "partner-profile-title" },
+          sectionHeading({ id: "partner-profile-title", title: "Partner profile", detail: "A second log on this site" }),
+          checkboxSetting({
+            id: "partner-profile-enabled",
+            field: "partnerProfileEnabled",
+            label: "Keep a second log for a partner",
+            detail: "Adds a Partner profile at /owner/partner with its own entries, weights and goals. It uses your sign-in, and ChatGPT can log to it when you ask. The public dashboard shows only your log.",
             draft,
             disabled,
           }),

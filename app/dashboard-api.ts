@@ -94,6 +94,8 @@ export type DashboardSummary = {
   };
   recentMeals: SerializedMeal[];
   recentWeights: DailyWeight[];
+  /** True when the owner keeps a partner profile. The public summary leaves it out. */
+  partnerProfileEnabled?: boolean;
   insights?: InsightHistory;
   trend?: { byDate: TrendDay[]; weights: DailyWeight[] };
   nutrition?: {
@@ -344,6 +346,7 @@ export function parseDashboardPayload(value: unknown): DashboardSummary | null {
     timezone: isValidTimeZone(record.timezone) ? record.timezone : null,
     targets: parsedTargets,
     referenceSettings,
+    ...(record.partnerProfileEnabled === true ? { partnerProfileEnabled: true } : {}),
     proteinGoal: parseProteinGoal(record.proteinGoal, parsedTargets.proteinG),
     today: {
       calories: numberOr(today.calories),
@@ -426,6 +429,7 @@ export function parseDayLog(value: unknown): DayLog | null {
 export function dashboardFailureMessage(status: number, responseBody: unknown): string {
   const errorCode = asRecord(asRecord(responseBody)?.error)?.code;
   if (status === 401) return "Your saved log could not be loaded. Sign in again and try again.";
+  if (errorCode === "profile_off") return "The partner profile is off. Turn it on in the owner profile's settings.";
   if (errorCode === "database_unavailable") {
     return "Your saved log is unavailable because the database is not configured.";
   }
@@ -493,5 +497,6 @@ export function parseSettingsTargets(value: unknown) {
     vitaminB6UsFnbAdultUlEnabled: settings.vitaminB6UsFnbAdultUlEnabled === true,
     usFnbAdultUlEnabled: settings.usFnbAdultUlEnabled === true,
     publicViewEnabled: typeof settings.publicViewEnabled === "boolean" ? settings.publicViewEnabled : null,
+    partnerProfileEnabled: typeof record?.partnerProfileEnabled === "boolean" ? record.partnerProfileEnabled : null,
   };
 }

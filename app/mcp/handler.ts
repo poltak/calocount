@@ -35,6 +35,7 @@ import {
 } from "./meal-update";
 import { readBoundedBytes } from "../api/_lib/bounded-read";
 import { hasOnlyKeys, isObject, type JsonObject } from "./objects";
+import { isProfile, PROFILES, type Profile } from "../profile";
 
 export const MCP_PROTOCOL_VERSION = "2025-11-25";
 
@@ -42,11 +43,13 @@ const SUPPORTED_PROTOCOL_VERSIONS = [MCP_PROTOCOL_VERSION, "2025-03-26"];
 const MAX_BODY_BYTES = 1_000_000;
 const SECURITY_SCHEMES = [{ type: "oauth2", scopes: [] }] as const;
 const SERVER_INSTRUCTIONS = "Dates use the saved timezone. Use get_nutrition_summary for totals and get_nutrition_history for request_id and item IDs. Before logging, estimate calories, macros and every supported nutrient. Use null only when no reasonable estimate exists; unknown is not 0. Call add_meals only when asked to log a meal; use a new UUID v4 per meal, reuse only for exact add retries. Call update_meal only when asked to edit; keep the saved request_id. Pass supplied photo values unchanged in photos with photo_meal_indices. Never invent file IDs or URLs. Photos: JPEG, PNG, WebP, HEIC. Report photos only when has_image is true.";
-type McpIdentity = { ownerKey: string };
+type McpIdentity = { accountKey: string };
 
 export type McpHandlerDependencies = {
   /** The owner of the request. A returned response, such as an OAuth challenge, goes to the client as it is. */
   authorize: (request: Request) => Promise<McpIdentity | Response>;
+  /** The data key of a profile, or null when the owner has the partner profile off. */
+  resolveProfileOwnerKey: (input: { accountKey: string; profile: Profile }) => Promise<string | null>;
   addMeals: (ownerKey: string, body: JsonObject) => Promise<Response>;
   updateMeal: (ownerKey: string, input: McpMealUpdateInput) => Promise<MealWithItems | null>;
   getNutritionHistory: (ownerKey: string, input: ReturnType<typeof parseNutritionHistoryInput>) => Promise<NutritionHistoryPage>;
@@ -1028,19 +1031,69 @@ async function addOpenAISecuritySchemes(response: Response): Promise<Response> {
   });
 }
 
+const PROFILE_INPUT = {
+  type: "string",
+  enum: PROFILES,
+  description: "Whose log to use. Omit it for the owner's log. Use partner only when the user clearly means their partner or spouse, for example 'log this for my wife'.",
+};
+
+/**
+ * Add the optional profile to the input of a tool, and to each result
+ * branch of its output that is not the error branch.
+ */
+function withProfileField<T extends { inputSchema: object; outputSchema: { oneOf: readonly object[] } }>(definition: T): T {
+  const inputSchema = definition.inputSchema as JsonObject;
+  const resultBranch = (branch: JsonObject) => isObject(branch.properties) && !Object.hasOwn(branch.properties, "error")
+    ? { ...branch, properties: { ...branch.properties, profile: { type: "string", enum: PROFILES } } }
+    : branch;
+  return {
+    ...definition,
+    inputSchema: { ...inputSchema, properties: { ...(inputSchema.properties as JsonObject), profile: PROFILE_INPUT } },
+    outputSchema: { ...definition.outputSchema, oneOf: definition.outputSchema.oneOf.map((branch) => resultBranch(branch as JsonObject)) },
+  };
+}
+
 // One entry per tool: listing, dispatch, and the security-scheme rewrite all read this table.
 const TOOLS = [
-  { definition: ADD_MEALS_TOOL, call: createToolCall },
-  { definition: GET_NUTRITION_HISTORY_TOOL, call: createNutritionHistoryToolCall },
-  { definition: GET_NUTRITION_SUMMARY_TOOL, call: createNutritionSummaryToolCall },
-  { definition: GET_WEIGHT_HISTORY_TOOL, call: createWeightHistoryToolCall },
-  { definition: UPDATE_MEAL_TOOL, call: createMealUpdateToolCall },
+  { definition: withProfileField(ADD_MEALS_TOOL), call: createToolCall },
+  { definition: withProfileField(GET_NUTRITION_HISTORY_TOOL), call: createNutritionHistoryToolCall },
+  { definition: withProfileField(GET_NUTRITION_SUMMARY_TOOL), call: createNutritionSummaryToolCall },
+  { definition: withProfileField(GET_WEIGHT_HISTORY_TOOL), call: createWeightHistoryToolCall },
+  { definition: withProfileField(UPDATE_MEAL_TOOL), call: createMealUpdateToolCall },
 ] as const;
 const TOOL_CALLS = new Map<string, (typeof TOOLS)[number]["call"]>(
   TOOLS.map((tool) => [tool.definition.name, tool.call]),
 );
 
-function createServer(ownerKey: string, dependencies: McpHandlerDependencies): Server {
+/**
+ * Run a tool on the data of the requested profile. The tool functions do
+ * not see the profile argument. A result names the profile that it used.
+ */
+async function callWithProfile({ call, accountKey, arguments_, dependencies }: {
+  call: (typeof TOOLS)[number]["call"];
+  accountKey: string;
+  arguments_: JsonObject;
+  dependencies: McpHandlerDependencies;
+}) {
+  const { profile = "owner", ...toolArguments } = arguments_;
+  if (!isProfile(profile)) return toolErrorResult("invalid_profile", "profile must be owner or partner.");
+  let ownerKey: string | null;
+  try {
+    ownerKey = await dependencies.resolveProfileOwnerKey({ accountKey, profile });
+  } catch {
+    return toolErrorResult("internal_error", "Calocount could not read the profile. Try again later.");
+  }
+  if (!ownerKey) return toolErrorResult("profile_off", "The partner profile is off. The owner can turn it on in Calocount settings.");
+  const result = await call(ownerKey, toolArguments, dependencies);
+  if (result.isError) return result;
+  return {
+    ...result,
+    content: result.content.map((part) => profile === "partner" ? { ...part, text: `Partner profile. ${part.text}` } : part),
+    structuredContent: { ...result.structuredContent, profile },
+  };
+}
+
+function createServer(accountKey: string, dependencies: McpHandlerDependencies): Server {
   const server = new Server(
     { name: "calocount", version: "0.1.0" },
     {
@@ -1060,7 +1113,7 @@ function createServer(ownerKey: string, dependencies: McpHandlerDependencies): S
     if (!isObject(request.params.arguments)) {
       throw new ProtocolError(INVALID_PARAMS, "Tool arguments must be an object.");
     }
-    return call(ownerKey, request.params.arguments, dependencies);
+    return callWithProfile({ call, accountKey, arguments_: request.params.arguments, dependencies });
   });
   return server;
 }
@@ -1102,7 +1155,7 @@ export function createMcpHandler(dependencies: McpHandlerDependencies) {
     const versionError = validateProtocolVersion(request, message);
     if (versionError) return versionError;
 
-    const server = createServer(identity.ownerKey, dependencies);
+    const server = createServer(identity.accountKey, dependencies);
     const transport = new WebStandardStreamableHTTPServerTransport({
       sessionIdGenerator: undefined,
       enableJsonResponse: true,

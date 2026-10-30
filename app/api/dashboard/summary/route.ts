@@ -4,6 +4,7 @@ import {
   ApiError,
   getRequestDb,
   jsonResponse,
+  readPartnerProfileEnabled,
   requireApiIdentity,
   withApiErrors,
 } from "../../_lib/http";
@@ -16,11 +17,14 @@ export async function GET(request: Request): Promise<Response> {
     if (timezone !== null && !isValidTimeZone(timezone)) {
       throw new ApiError(400, "invalid_query", "timezone must be a valid IANA timezone.");
     }
-    const summary = await getDashboardSummary(getRequestDb(), identity.ownerKey, {
-      timezone: timezone ?? undefined,
-    });
+    const [summary, partnerProfileEnabled] = await Promise.all([
+      getDashboardSummary(getRequestDb(), identity.ownerKey, { timezone: timezone ?? undefined }),
+      readPartnerProfileEnabled(identity.accountKey),
+    ]);
     return jsonResponse({
       ...summary,
+      profile: identity.profile,
+      partnerProfileEnabled,
       recentMeals: serialiseMeals(summary.recentMeals),
       recentWeights: summary.recentWeights.map(withoutOwnerKey),
     });

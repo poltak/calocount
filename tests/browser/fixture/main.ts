@@ -1,5 +1,7 @@
 import { mountDashboard } from "../../../app/ui/dashboard";
 import "../../../app/globals.css";
 
-const publicView = new URLSearchParams(location.search).has("public");
-mountDashboard(document.querySelector<HTMLElement>("main")!, { publicView, readOnly: publicView });
+const search = new URLSearchParams(location.search);
+const publicView = search.has("public");
+// The fixture serves one page, so `?partner` stands in for the /owner/partner path.
+mountDashboard(document.querySelector<HTMLElement>("main")!, { publicView, readOnly: publicView, profile: search.has("partner") ? "partner" : "owner" });

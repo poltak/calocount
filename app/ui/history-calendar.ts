@@ -2,6 +2,7 @@ import { component, cx, h, type Component } from "./dom";
 import { shiftMonthKey } from "../../domain/logical-date";
 import { parseCalendarMonth, type CalendarMonth } from "../dashboard-api";
 import { calendarWeeks } from "../history-calendar-grid";
+import { withProfile, type Profile } from "../profile";
 
 type HistoryCalendarProps = {
   /** Today in the timezone of the dashboard. */
@@ -10,6 +11,8 @@ type HistoryCalendarProps = {
   /** The owner view counts days in this timezone. The public view uses the owner's saved timezone. */
   timeZone: string;
   publicView: boolean;
+  /** The profile of the owner view. */
+  profile: Profile;
   /** Changes when saved entries can be different, so the months load again. */
   refreshKey: number;
   disabled: boolean;
@@ -37,9 +40,9 @@ export function createHistoryCalendar({ selectedDate }: { selectedDate: string }
   let request: { key: string; controller: AbortController } | null = null;
 
   /** Load the month in view when its totals are missing or older than the last save. */
-  function loadWhenStale({ timeZone, publicView, refreshKey }: HistoryCalendarProps) {
+  function loadWhenStale({ timeZone, publicView, profile, refreshKey }: HistoryCalendarProps) {
     const current = loadedMonths[month]?.refreshKey === refreshKey;
-    const key = [current, month, publicView, refreshKey, retryCount, timeZone].join("|");
+    const key = [current, month, publicView, profile, refreshKey, retryCount, timeZone].join("|");
     if (request?.key === key) return;
     request?.controller.abort();
     request = null;
@@ -51,7 +54,7 @@ export function createHistoryCalendar({ selectedDate }: { selectedDate: string }
       try {
         const endpoint = publicView
           ? `/api/public/summary?view=month&month=${requestedMonth}`
-          : `/api/days?month=${requestedMonth}&timezone=${encodeURIComponent(timeZone)}`;
+          : withProfile({ url: `/api/days?month=${requestedMonth}&timezone=${encodeURIComponent(timeZone)}`, profile });
         const response = await fetch(endpoint, { cache: "no-store", signal: controller.signal });
         const parsed = response.ok ? parseCalendarMonth(await response.json()) : null;
         if (controller.signal.aborted) return;

@@ -2,7 +2,7 @@
 import { clearedSessionCookie, readSessionCookie, sessionCookie } from "../app/auth/cookies";
 import { resolveAuthMode } from "../app/auth/mode";
 import type { CleanupBucket } from "./photo-cleanup";
-import { renderNotFound, renderOwnerPage, renderPage, renderSignInPage } from "./pages";
+import { isOwnerPagePath, renderNotFound, renderOwnerPage, renderPage, renderSignInPage } from "./pages";
 import { handleRoute } from "./routes";
 import { runScheduledAuthCleanup, runScheduledPhotoCleanup } from "./scheduled";
 
@@ -40,7 +40,7 @@ async function gatePublicPage(request: Request, pathname: string, env: Env): Pro
  * The owner dashboard, or the sign-in page when passkeys protect this instance
  * and the browser has no live session. Opening the dashboard renews the cookie.
  */
-async function ownerPage(request: Request, env: Env): Promise<Response> {
+async function ownerPage(request: Request, pathname: string, env: Env): Promise<Response> {
   const mode = resolveAuthMode({
     mode: env.CALOCOUNT_AUTH_MODE,
     accessTeamDomain: env.CALOCOUNT_ACCESS_TEAM_DOMAIN,
@@ -58,7 +58,7 @@ async function ownerPage(request: Request, env: Env): Promise<Response> {
     // A failed read keeps the cookie. The dashboard checks the session again and shows the error.
     if (live === null) return renderOwnerPage(request);
   }
-  return renderSignInPage(request, { returnTo: "/owner", headers: token ? { "set-cookie": clearedSessionCookie(url) } : {} });
+  return renderSignInPage(request, { returnTo: pathname, headers: token ? { "set-cookie": clearedSessionCookie(url) } : {} });
 }
 
 const worker = {
@@ -71,8 +71,8 @@ const worker = {
     if (request.method !== "GET" && request.method !== "HEAD") {
       return new Response("Method Not Allowed", { status: 405, headers: { allow: "GET, HEAD" } });
     }
-    const page = pathname === "/owner"
-      ? await ownerPage(request, env)
+    const page = isOwnerPagePath(pathname)
+      ? await ownerPage(request, pathname, env)
       : await gatePublicPage(request, pathname, env) ?? renderPage(request, pathname) ?? renderNotFound(request);
     return request.method === "HEAD" ? new Response(null, page) : page;
   },

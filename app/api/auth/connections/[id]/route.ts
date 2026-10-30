@@ -9,7 +9,7 @@ export async function DELETE(request: Request, context: RouteContext): Promise<R
     const identity = await requireApiIdentity(request);
     requirePasskeyAuth();
     const { id } = await context.params;
-    if (!(await removeConnection({ db: getRequestDb(), ownerKey: identity.ownerKey, id }))) {
+    if (!(await removeConnection({ db: getRequestDb(), ownerKey: identity.accountKey, id }))) {
       throw new ApiError(404, "not_found", "Connection not found.");
     }
     return jsonResponse({ removed: true });

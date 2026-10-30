@@ -35,6 +35,8 @@ export const settings = sqliteTable(
     vitaminB6UsFnbAdultUlConfirmedAt: integer("vitamin_b6_us_fnb_adult_ul_confirmed_at", { mode: "number" }),
     usFnbAdultUlEnabled: integer("us_fnb_adult_ul_enabled", { mode: "boolean" }).notNull().default(false),
     usFnbAdultUlConfirmedAt: integer("us_fnb_adult_ul_confirmed_at", { mode: "number" }),
+    /** Keep a second log for the owner's partner at `/owner/partner`. Off for a new owner. */
+    partnerProfileEnabled: integer("partner_profile_enabled", { mode: "boolean" }).notNull().default(false),
     /** Show the read-only dashboard at `/` to anyone. Off for a new owner. */
     publicViewEnabled: integer("public_view_enabled", { mode: "boolean" }).notNull().default(false),
     activeAiProfileId: text("active_ai_profile_id"),

@@ -11,7 +11,7 @@ export async function DELETE(request: Request, context: RouteContext): Promise<R
     requirePasskeyAuth();
     const { id } = await context.params;
     const session = await readSession(request);
-    const result = await deletePasskey({ db: getRequestDb(), ownerKey: identity.ownerKey, id });
+    const result = await deletePasskey({ db: getRequestDb(), ownerKey: identity.accountKey, id });
     if (result === "last") throw new ApiError(409, "last_passkey", "Add another passkey before you remove this one.");
     if (result === "missing") throw new ApiError(404, "not_found", "Passkey not found.");
     const signedOut = session?.passkeyId === id;

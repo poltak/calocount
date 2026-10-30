@@ -5,6 +5,7 @@ import { createMcpHandler, MCP_PROTOCOL_VERSION } from "../app/mcp/handler";
 import { getNutritionSummary, getWeightHistory, listNutritionHistoryPage } from "../db/repository";
 import { NUTRIENT_KEYS, NUTRIENT_UPPER_LIMIT_KEYS } from "../domain/nutrients";
 import { createSqliteTestDb } from "./helpers/sqlite-db";
+import { profileDataKey } from "../app/profile";
 
 const OWNER = "owner-a";
 const ACCEPT = "application/json, text/event-stream";
@@ -23,7 +24,8 @@ function request(body: unknown): Request {
 
 function routeFor(fixture: ReturnType<typeof createSqliteTestDb>, ownerKey = OWNER) {
   return createMcpHandler({
-    authorize: async () => ({ ownerKey }),
+    authorize: async () => ({ accountKey: ownerKey }),
+    resolveProfileOwnerKey: async ({ accountKey, profile }) => profileDataKey({ accountKey, profile }),
     addMeals: async () => Response.json({}),
     updateMeal: async () => null,
     getNutritionHistory: (_ownerKey, input) => listNutritionHistoryPage({
@@ -433,6 +435,7 @@ test("weight history is owner-scoped, oldest first, and reports the first weight
     startDate: "2026-09-01",
     endDate: "2026-09-03",
     firstWeightDate: "2026-08-20",
+    profile: "owner",
     weights: [
       { date: "2026-09-01", weightKg: 69.5, recordedAt: "2026-09-01T01:30:00.000Z" },
       { date: "2026-09-03", weightKg: 69.1, recordedAt: "2026-09-03T01:00:00.000Z" },
@@ -441,7 +444,7 @@ test("weight history is owner-scoped, oldest first, and reports the first weight
   assert.match(result.content[0]?.text ?? "", /2 weights in kilograms/u);
 
   const noWeights = await callTool(routeFor(fixture, "owner-c"), "get_weight_history", { start_date: "2026-09-01", end_date: "2026-09-03" }, 2);
-  assert.deepEqual(noWeights.structuredContent, { startDate: "2026-09-01", endDate: "2026-09-03", firstWeightDate: null, weights: [] });
+  assert.deepEqual(noWeights.structuredContent, { startDate: "2026-09-01", endDate: "2026-09-03", firstWeightDate: null, weights: [], profile: "owner" });
 
   const oversized = await callTool(route, "get_weight_history", { start_date: "2025-01-01", end_date: "2026-01-02" }, 3);
   assert.equal(oversized.isError, true);

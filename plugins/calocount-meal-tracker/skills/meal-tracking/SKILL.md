@@ -7,6 +7,17 @@ description: Answer questions about recorded nutrition, estimate meal nutrition,
 
 Use this skill to estimate meal nutrition, log new meals, and edit saved meals in Calocount. Use `add_meals` only when the user clearly asks to log a new meal. Use `update_meal` only when the user clearly asks to change a saved meal.
 
+## Choose the profile
+
+Calocount can keep a second log for the user's partner. Every tool takes an optional `profile`.
+
+- Omit `profile` for the user's own log.
+- Set `profile: "partner"` on every tool call, for reads, logs and edits, when the user clearly means their partner or spouse. Examples: `log this for my wife`, `what did my husband eat today`, `fix my partner's lunch`.
+- If it is not clear who ate the meal, ask before you log it.
+- A meal belongs to one profile. To edit the partner's meal, read history and call `update_meal` with `profile: "partner"`.
+- If a tool returns `profile_off`, tell the user that the partner profile is off and that they can turn it on in Calocount settings.
+- When you log to or read from the partner's log, say so in the reply.
+
 ## Answer nutrition questions
 
 For questions about recorded food, nutrients, or trends, use the read tools. Do not use `add_meals` for a question.
