@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "calocount-meal-tracker",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Read logged nutrition history and summaries, estimate meal nutrition, and log meals to Calocount.",
   "extensions": {
     "com.openai": {
