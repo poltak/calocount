@@ -1,0 +1,12 @@
+{
+  "name": "calocount",
+  "interface": { "displayName": "Calocount" },
+  "plugins": [
+    {
+      "name": "calocount-meal-tracker",
+      "source": { "source": "local", "path": "./plugins/calocount-meal-tracker" },
+      "policy": { "installation": "AVAILABLE", "authentication": "ON_INSTALL" },
+      "category": "Productivity"
+    }
+  ]
+}

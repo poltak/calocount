@@ -1,6 +1,6 @@
 # Calocount private MCP app
 
-The owner's standard Chat uses the existing Calocount MCP connection in ChatGPT developer mode. After deployment and refresh, it exposes five tools: `add_meals`, `update_meal`, `get_nutrition_summary`, `get_nutrition_history`, and `get_weight_history`. The repository also contains a [meal-tracking skill draft](../../plugins/calocount-meal-tracker/skills/meal-tracking/SKILL.md). The owner has not installed this draft in standard Chat, and it does not control the existing connection.
+The owner's standard Chat uses the existing Calocount MCP connection in ChatGPT developer mode. After deployment and refresh, it exposes five tools: `add_meals`, `update_meal`, `get_nutrition_summary`, `get_nutrition_history`, and `get_weight_history`. The repository also contains a plugin package with a [meal-tracking skill](../../plugins/calocount-meal-tracker/skills/meal-tracking/SKILL.md). The package links the skill to the registered MCP app. See [Install the skill with the app](#install-the-skill-with-the-app).
 
 The tool contract is one argument object with a `meals` array and optional top-level `photos` and `photo_meal_indices` arrays. It accepts 1 to 20 meals in a call. Each meal follows the current `/api/add-meal` meal fields. Each `photos` entry is a ChatGPT file value. The entry at `photos[i]` belongs to the meal at `meals[photo_meal_indices[i]]`; indices start at zero. Both arrays must have the same length, with no more than one photo per meal and 20 photos per call. The tool returns the meal batch result, `daily_totals`, and whether each meal has an image.
 
@@ -36,7 +36,7 @@ The ID must identify a completed meal in the signed-in account. The tool accepts
 
 OpenAI requires the MCP tool metadata to declare `photos` as a file parameter in `_meta["openai/fileParams"]`. ChatGPT provides the file value with `download_url` and `file_id`, and may include `mime_type` and `file_name`. See the [OpenAI file APIs reference](https://developers.openai.com/plugins/reference#file-apis).
 
-The MCP server sends short workflow instructions during initialization. Its `add_meals` tool description and `request_id` field description ask ChatGPT to generate a UUID v4 with a code tool when available and reuse it only for an exact retry. The `update_meal` tool uses the existing `request_id` from history. These descriptions guide the model; the server validates the UUID but cannot verify how ChatGPT generated it. After deploying the server change, refresh the existing Calocount connection in ChatGPT Plugins, confirm that all five tools are listed, and start a new chat ([Connect and test your plugin](https://developers.openai.com/plugins/deploy/connect-chatgpt)).
+The MCP server sends short workflow instructions during initialization. Its `add_meals` tool description and `request_id` field description ask ChatGPT to generate a UUID v4 with a code tool when available and reuse it only for an exact retry. The `update_meal` tool uses the existing `request_id` from history. These descriptions guide the model; the server validates the UUID but cannot verify how ChatGPT generated it. The instructions and the `nutrients` field descriptions also ask ChatGPT to estimate every supported nutrient, and to use null only when no reasonable estimate exists. When `add_meals` saves a new meal without nutrient values, the result text names the meal and tells ChatGPT to add them with `update_meal`. The server does not reject such a meal. After deploying the server change, refresh the existing Calocount connection in ChatGPT Plugins, confirm that all five tools are listed, and start a new chat ([Connect and test your plugin](https://developers.openai.com/plugins/deploy/connect-chatgpt)).
 
 ## Sign-in for the MCP connection
 
@@ -106,6 +106,24 @@ Use the owner's Personal Plus or Pro account in ChatGPT web. OpenAI's current [d
 7. Upload a meal photo and clearly ask ChatGPT to log the meal. Confirm that it sends only the file values supplied by ChatGPT and maps the photo to the correct meal. ChatGPT can say that the photo was stored only when the result has `has_image: true`. If ChatGPT supplies no file value, the meal can be logged without the photo.
 8. Use `get_nutrition_history` to find one of the test meals and copy its `request_id`. Clearly ask ChatGPT to change one field. Confirm that it calls `update_meal` with the same ID, keeps the other values and any photo, and returns the updated meal. Repeat the original `add_meals` request with the same ID and confirm that it returns the edited meal without adding a duplicate or restoring old values.
 
-## Skill draft
+## Install the skill with the app
 
-The skill draft and its portable manifest remain in the repository for possible future use. They are not linked to the registered ChatGPT app. OpenAI documents standalone skills in desktop clients and skills bundled with installed plugins in supported ChatGPT chats ([Build skills](https://learn.chatgpt.com/docs/build-skills)). Its [local marketplace instructions](https://developers.openai.com/plugins/build/plugins) do not establish that a repository-local install will reach this owner's Personal standard web Chat. Keep using the working MCP app unless that path is confirmed with a live test.
+The MCP connection alone gives ChatGPT only the server instructions and the tool descriptions. The skill gives the full estimate and logging rules. OpenAI makes skills that are bundled in an installed plugin available in Chat and Work on ChatGPT web, desktop, and mobile ([Build skills](https://learn.chatgpt.com/docs/build-skills)).
+
+The package has these parts:
+
+- `plugins/calocount-meal-tracker/plugin.json`: the portable manifest. `extensions.com.openai.apps` points to `./.app.json`.
+- `plugins/calocount-meal-tracker/skills/meal-tracking/SKILL.md`: the skill.
+- `plugins/calocount-meal-tracker/.app.json`: maps the plugin to the registered MCP app of your instance. Git ignores this file, because each instance has its own app ID. Copy `.app.example.json` to `.app.json` and replace the ID.
+- `.agents/plugins/marketplace.json`: the local marketplace entry for the package.
+
+To install it:
+
+1. In [ChatGPT Plugins](https://chatgpt.com/plugins), open your Calocount app. Copy the `plugin_asdk_app_...` ID from the browser URL into `.app.json`.
+2. Make the marketplace available to the ChatGPT desktop app. Use the repository entry in `.agents/plugins/marketplace.json`, or add the same entry to `~/.agents/plugins/marketplace.json`. The `path` is relative to the marketplace root and must stay inside it ([Build plugins](https://developers.openai.com/plugins/build/plugins)).
+3. Restart the ChatGPT desktop app, and install `calocount-meal-tracker` from the Plugins Directory.
+4. Start a new standard Chat on the web. Select Calocount and ask it to log a meal. Confirm that the reply and the `add_meals` call include detailed nutrients, not only calories and macros.
+
+ChatGPT keeps a copy of the installed package in `~/.codex/plugins/cache/`. After you change the skill, increase `version` in `plugin.json`, then restart the desktop app.
+
+OpenAI documents the local install through the desktop app only. A live test must confirm that the installed skill reaches standard web Chat for a Personal account. Until it does, the server instructions and tool descriptions still carry the core nutrient rule.
