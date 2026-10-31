@@ -101,6 +101,11 @@ project information. Read the documents that apply to the task.
 - When the "Agent review" check of a pull request fails, tell the person about
   each finding. Change the text only where a finding is correct. Do not run
   the review again to get a different result.
+- After you finish work on a finding of the agent review, update the pull
+  request too. When the fix is pushed, or when the person confirmed the
+  finding, check its box in its line comment and in the master comment, and
+  resolve the conversation of its line comment. Do not check a box for work
+  that is not pushed. Tell the person which boxes you checked.
 
 ## Issue tracking
 
