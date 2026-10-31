@@ -255,6 +255,10 @@ which layer owns the decision:
 - External boundary details belong in Service or Storage classes.
 - State transitions and product behavior belong in Logic or LogicPlugin classes.
 - Rendering and presentational logic belongs in UI components.
+- A UI component keeps no state of its own and does not call `useState`. A
+  small piece of state, such as an open list or a hover, also goes in a Logic.
+  A reusable component makes its own small Logic with `useLogic`. The lint
+  rule `no-restricted-imports` enforces this.
 
 Classify a boundary by what it does:
 
