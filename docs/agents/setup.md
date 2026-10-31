@@ -292,9 +292,12 @@ The check works as follows:
   For Claude, it also gives the turns and the cost at API prices. Codex
   gives no cost.
 - Each later review gives the open issues of the master comment to the
-  models, which say for each one if it is addressed. An issue is addressed
-  when its quote is not in its file now, or when each model that answered
-  says so. An issue that a model reports again stays open. An addressed issue
+  models, which say for each one if it is addressed. The models also get what
+  a maintainer wrote about the issue: a reply to its line comment, or a comment
+  on the pull request that names its ID. They also read the code comments near
+  the text. An answer that settles the issue addresses it. An issue is
+  addressed when its quote is not in its file now, or when each model that
+  answered says so. An issue that a model reports again stays open. An addressed issue
   that a model reports again is open again. The review edits the master
   comment. Under each issue that the models checked, the master comment
   shows the status that each model gave, with the reason of the model, so a

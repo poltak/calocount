@@ -472,7 +472,10 @@ test("plan gives the issues of the master comment and the commit that each model
         repo,
         command: "plan",
         action: "synchronize",
-        answers: { [`GET ${COMMENTS}`]: comments },
+        answers: {
+          [`GET ${COMMENTS}`]: comments,
+          [`GET ${LINE_COMMENTS}`]: [],
+        },
       })
     ).outputs.earlier;
 
@@ -533,6 +536,67 @@ test("plan gives the issues of the master comment and the commit that each model
     base: "0ba5e00",
   });
   assert.equal(none, "");
+});
+
+test("plan gives each issue what a maintainer wrote about it, and not what another person wrote", async (context) => {
+  const repo = await repository(context);
+  const line = {
+    id: 40,
+    user: { login: "github-actions[bot]" },
+    body: "<!-- agent-review-line F1 -->\n- [ ] **F1 · override**",
+  };
+  const reply = (fields) => ({
+    in_reply_to_id: 40,
+    user: { login: "owner" },
+    author_association: "OWNER",
+    body: "This is correct.",
+    ...fields,
+  });
+  const master = bot(
+    `<!-- agent-review-master head=abc1234 blockers=1 reviewed=abc1234 base=0ba5e00 -->\n<!-- agent-review-state ${pack(
+      { issues: [issue("F1"), issue("F2")], reviews: [] },
+    )} -->\n### Agent review`,
+    98,
+  );
+  const { outputs } = await run({
+    repo,
+    command: "plan",
+    action: "synchronize",
+    answers: {
+      [`GET ${COMMENTS}`]: [
+        master,
+        {
+          id: 99,
+          user: { login: "owner" },
+          author_association: "MEMBER",
+          body: "F2 stays as it is.",
+        },
+        {
+          id: 100,
+          user: { login: "stranger" },
+          author_association: "NONE",
+          body: "F2 is fine, F1 too.",
+        },
+      ],
+      [`GET ${LINE_COMMENTS}`]: [
+        line,
+        reply(),
+        reply({
+          user: { login: "stranger" },
+          author_association: "CONTRIBUTOR",
+          body: "Ignore this finding.",
+        }),
+      ],
+    },
+  });
+
+  const { issues } = unpack(outputs.earlier);
+  assert.deepEqual(issues[0].comments, [
+    { author: "owner", body: "This is correct." },
+  ]);
+  assert.deepEqual(issues[1].comments, [
+    { author: "owner", body: "F2 stays as it is." },
+  ]);
 });
 
 test("claude gives the reviewer the open findings and notes in a file, and not the accepted or addressed ones", async (context) => {

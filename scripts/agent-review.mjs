@@ -112,6 +112,10 @@ const MINIMIZE_QUERY = `mutation ($id: ID!) {
 // Each line comment has the ID of its issue, so that a later review can find
 // the line comment of an issue that it addressed.
 const LINE_PATTERN = /<!-- agent-review-line ([FN]\d+) -->/;
+// Only a person with access to the repository can settle an issue, because the
+// models trust what these comments say.
+const MAINTAINER_ROLES = new Set(["OWNER", "MEMBER", "COLLABORATOR"]);
+const ISSUE_ID = /\b[FN]\d+\b/g;
 const PROMPT_FILE = ".agents/review/prompt.md";
 const PROJECT_RULES_FILE = ".agents/review/project-rules.md";
 const SCHEMA_FILE = ".agents/review/findings.schema.json";
@@ -307,6 +311,12 @@ function writeEarlierIssues(earlier) {
       "",
       issue.explanation,
       "",
+      ...(issue.comments ?? []).flatMap(({ author, body }) => [
+        `A comment of the maintainer ${author}:`,
+        "",
+        quoteBlock(body),
+        "",
+      ]),
     );
   }
   mkdirSync(path.dirname(path.join(root, EARLIER_FILE)), { recursive: true });
@@ -393,10 +403,9 @@ function plan() {
 }
 
 function earlierReview(event) {
-  const comment = reviewComment({
-    repository: event.repository.full_name,
-    number: event.pull_request.number,
-  });
+  const repository = event.repository.full_name;
+  const { number } = event.pull_request;
+  const comment = reviewComment({ repository, number });
   const [, head, , reviewed, base] = comment?.body.match(MARKER_FIELDS) ?? [];
   if (!head) return "";
   const master = comment.body.startsWith(MASTER_MARKER);
@@ -404,10 +413,58 @@ function earlierReview(event) {
     ? (stateOf(comment.body)?.issues ?? [])
     : oldIssues({ body: comment.body, head });
   const open = issues.filter((issue) => issue.status === "open").length;
+  const comments = maintainerComments({ repository, number });
   console.log(
     `${master ? "The master comment" : `The comment of the review of ${head}`} has ${count(open, "open issue")}.`,
   );
-  return pack({ head, comment: comment.id, master, issues, reviewed, base });
+  return pack({
+    head,
+    comment: comment.id,
+    master,
+    issues: issues.map((issue) =>
+      comments.has(issue.id)
+        ? { ...issue, comments: comments.get(issue.id) }
+        : issue,
+    ),
+    reviewed,
+    base,
+  });
+}
+
+/**
+ * What the maintainers wrote about each issue: a reply to its line comment, or
+ * a comment on the pull request that names its ID.
+ */
+function maintainerComments({ repository, number }) {
+  const written = new Map();
+  const add = (id, { user, body }) =>
+    written.set(id, [...(written.get(id) ?? []), { author: user.login, body }]);
+  const isMaintainer = ({ author_association: role, user }) =>
+    MAINTAINER_ROLES.has(role) && !BOT_LOGINS.has(user?.login);
+  const lineComments = readPages(
+    `repos/${repository}/pulls/${number}/comments?per_page=100`,
+  ).flat();
+  const issueOfLine = new Map(
+    lineComments.flatMap((comment) => {
+      const id = comment.body?.match(LINE_PATTERN)?.[1];
+      return id && BOT_LOGINS.has(comment.user?.login)
+        ? [[comment.id, id]]
+        : [];
+    }),
+  );
+  for (const comment of lineComments.filter(isMaintainer)) {
+    const id = issueOfLine.get(comment.in_reply_to_id);
+    if (id) add(id, comment);
+  }
+  const pullComments = readPages(
+    `repos/${repository}/issues/${number}/comments?per_page=100`,
+  ).flat();
+  for (const comment of pullComments.filter(isMaintainer)) {
+    for (const id of new Set(comment.body?.match(ISSUE_ID) ?? [])) {
+      add(id, comment);
+    }
+  }
+  return written;
 }
 
 /**
