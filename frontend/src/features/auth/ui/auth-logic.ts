@@ -241,7 +241,10 @@ export class AuthLogic extends Logic<AuthProps, AuthState, AuthEvent> {
         return;
       }
       // Having no session is an answer, not a failure.
-      if (error instanceof ApiRequestError && error.status === 401) {
+      if (
+        error instanceof ApiRequestError &&
+        error.code === "UNAUTHENTICATED"
+      ) {
         this.setState(SIGNED_OUT);
         return;
       }

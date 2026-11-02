@@ -35,7 +35,7 @@ export function createApiClient({
       }
       throw error;
     }
-    if (response.status === 401) {
+    if (await isSessionRejected(response)) {
       onSessionRejected?.();
     }
     return response;
@@ -94,12 +94,7 @@ function isApiRequestIssue(value: unknown): value is ApiRequestIssue {
   );
 }
 
-/** Common transport error handling, rather than a wrapper per feature. */
-export async function requireApiSuccess(response: Response): Promise<void> {
-  if (response.ok) {
-    return;
-  }
-
+async function readApiError(response: Response) {
   let code: string | undefined;
   let message = `Request failed with status ${response.status}`;
   let issues: ApiRequestIssue[] | undefined;
@@ -122,5 +117,28 @@ export async function requireApiSuccess(response: Response): Promise<void> {
   } catch {
     // A non-JSON error still has its HTTP status.
   }
-  throw new ApiRequestError({ status: response.status, code, message, issues });
+  return { code, message, issues };
+}
+
+/**
+ * Only the backend's own refusal ends a session. A proxy in front of the
+ * backend can also answer 401, and that says nothing about the session.
+ */
+async function isSessionRejected(response: Response): Promise<boolean> {
+  if (response.status !== 401) {
+    return false;
+  }
+  const { code } = await readApiError(response.clone());
+  return code === "UNAUTHENTICATED";
+}
+
+/** Common transport error handling, rather than a wrapper per feature. */
+export async function requireApiSuccess(response: Response): Promise<void> {
+  if (response.ok) {
+    return;
+  }
+  throw new ApiRequestError({
+    status: response.status,
+    ...(await readApiError(response)),
+  });
 }

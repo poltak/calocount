@@ -781,6 +781,31 @@ describe("AuthLogic tests", () => {
     expect(logic.state.userId).toEqual(owner.id);
   });
 
+  it("should stay signed in when a gateway answers 401 to a page's request", async () => {
+    const { frontend, logic, transport } = await setupTest();
+    transport.failNextRequestAtGateway(401);
+
+    expect(logic.state.isSignedIn).toEqual(true);
+
+    // A page's Logic sends a request like this one.
+    const response = await frontend.api.notes.$get();
+
+    expect(response.status).toEqual(401);
+    expect(logic.state.isSignedIn).toEqual(true);
+  });
+
+  it("should stay signed in when a gateway answers 401 to a session check", async () => {
+    const { logic, transport } = await setupTest();
+    transport.failNextRequestAtGateway(401);
+
+    expect(logic.state.isSignedIn).toEqual(true);
+
+    await logic.refresh();
+
+    expect(logic.state.loadSessionState).toEqual("error");
+    expect(logic.state.isSignedIn).toEqual(true);
+  });
+
   it("should stay signed in when the database fails a session check", async () => {
     const { backend, logic, owner } = await setupTest();
     await backend.db.destroy();

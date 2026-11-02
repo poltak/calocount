@@ -17,7 +17,7 @@ export interface BrowserTransport {
    * Answer the next request with a plain-text failure before the backend
    * receives it, as a proxy or gateway in front of the backend does.
    */
-  failNextRequestAtGateway(status: 502 | 503 | 504): void;
+  failNextRequestAtGateway(status: 401 | 502 | 503 | 504): void;
 }
 
 interface Hold {
