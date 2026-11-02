@@ -179,14 +179,6 @@ function fileEdits({ projectName, productName, accountMode }) {
       find: /^(DATABASE_URL=\S+\/)[^/\s]+$/gm,
       replace: (_line, start) => `${start}${projectName}`,
     },
-    {
-      file: "docs/agents/README.md",
-      find: /^- \[The template\]\(template\.md\):.*\n(?: {2}.*\n)*/gm,
-      replace: () =>
-        `- [Template version](../../${VERSION_FILE}): the template that this project\n` +
-        "  started from, and the last template commit that the project has. The\n" +
-        "  `sync-template` skill reads and updates it.\n",
-    },
   ];
   if (existsSync(path.join(root, SWAMP_MARKER))) {
     // A project is a repository of its own for Swamp, with its own ID. Swamp

@@ -1,6 +1,9 @@
 # Decisions
 
-Choices specific to this project, with their reasons.
+The choices of the template, with their reasons. In a project made from the
+template, this file comes from the template, and the project's own choices are
+in `docs/agents/project/decisions.md`.
+
 Add an entry when a choice has a reason that the code cannot show. Keep each
 entry to the choice, the reason, and any rule that follows from it.
 
@@ -391,6 +394,15 @@ entry to the choice, the reason, and any rule that follows from it.
   With no file, an absent file is the normal case, and both agents ignore it.
   `AGENTS.override.md` is not an option, because Codex reads it in place of
   `AGENTS.md`.
+- **`decisions.md`, `setup.md`, and `docs/agents/README.md` come from the
+  template, and a project's text goes in `docs/agents/project/`.** In 164
+  template commits, these three files took 77 file changes, and the first
+  project edited the same files, so a change could conflict in each sync.
+  Prettier also padded each table row when a project changed one cell. With no
+  project text in them, a template change has nothing to conflict with. A project that already wrote in them makes one commit that
+  moves the text. `start-project` also stopped changing `docs/agents/README.md`.
+  A row names a file that only the template has, in plain text, so the document
+  is true in both places.
 - **A project reverses a template decision only in a list that a person
   approves.** Before this list, a project that had a good reason to differ had
   no allowed text. An edit of an owned file conflicts at the next sync, and a

@@ -159,13 +159,15 @@ test("turns a new clone of the template into a project", async (context) => {
     await readClone(clone, "README.md"),
     /pnpm run auth:setup-owner/,
   );
-  assert.match(
-    await readClone(clone, "docs/agents/README.md"),
-    /^- \[Template version\]\(\.\.\/\.\.\/template-version\.json\):/m,
-  );
+  // A document from the template has no link to a file that a project is
+  // without, so the script does not need to change it.
   assert.doesNotMatch(
     await readClone(clone, "docs/agents/README.md"),
-    /template\.md/,
+    /\]\(template\.md\)/,
+  );
+  assert.equal(
+    git(clone, "diff", "--name-only", "HEAD", "--", "docs/agents/README.md"),
+    "",
   );
   assert.deepEqual(
     JSON.parse(await readClone(clone, "template-version.json")),
@@ -182,7 +184,6 @@ test("turns a new clone of the template into a project", async (context) => {
       "package.json",
       "README.md",
       "template-version.json",
-      "docs/agents/README.md",
       "common/src/features/core/utils/app-name.ts",
     ],
     { cwd: clone },

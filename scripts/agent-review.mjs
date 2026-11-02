@@ -701,6 +701,8 @@ function newDocuments({ base, head }) {
     head,
     "--",
     "docs/agents/",
+    // `docs/agents/README.md` permits a project these files with no request.
+    ":(exclude)docs/agents/project/",
   )
     .split("\n")
     .filter((file) => file.endsWith(".md"))

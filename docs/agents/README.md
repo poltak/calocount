@@ -10,15 +10,18 @@ instructions.
   code in any workspace.
 - [Testing](testing.md): what a test contains and how to write one. Read
   before writing or changing a test.
-- [Decisions](decisions.md): choices specific to this project and their reasons.
+- [Decisions](decisions.md): the choices of the template and their reasons.
   Read before changing a framework, authentication, the API transport, or test
   setup.
 - [Setup and commands](setup.md): read to run, configure, or check the project.
 - [Evals](evals.md): how to measure a prompt with real models. Read before
   writing or running an eval.
-- [The template](template.md): how a project starts from this repository, how
-  it takes later changes, and how dependency updates work. Read before work on
-  the template itself.
+- `docs/agents/template.md`: how a project starts from the template, how it
+  takes later changes, and how dependency updates work. Read before work on
+  the template itself. Only the template has this file.
+- `template-version.json`: the template that a project started from, and the
+  last template commit that it has. The `sync-template` skill reads and
+  updates it. Only a project has this file.
 - [Open work](todos/initial-setup.md): unfinished work and temporary behavior.
   Read and update it as work completes.
 
@@ -34,6 +37,10 @@ a file when it needs one:
 - `reversals.md`: each decision of the template that this project reverses.
   `AGENTS.md` loads this file too. See [Reverse a decision](#reverse-a-decision)
   below.
+- `decisions.md`: the project's own choices, with their reasons. Read it when
+  you read [decisions](decisions.md).
+- `setup.md`: how to run or configure what the project adds. Read it when you
+  read [setup and commands](setup.md).
 
 ## Where to start reading the code
 
@@ -73,21 +80,23 @@ that. Record only what a reader cannot get from the code:
 - A rule that applies to any project built this way goes in
   [code architecture](code-architecture.md).
 - A rule about what tests contain goes in [testing](testing.md).
-- In a project made from the template, those two documents come from the
-  template. A new rule for them goes to the template first.
-- A choice specific to this project, with its reason, goes in
-  [decisions](decisions.md). In a project made from the template, most of
-  that file comes from the template. Add the project's own decisions there. A
-  change to a decision that came from the template goes to the template
-  first, and the project gets it with a sync.
+- A choice of the template, with its reason, goes in
+  [decisions](decisions.md).
 - How to run or configure something goes in [setup and commands](setup.md).
 - Unfinished work and temporary behavior go in beads. `AGENTS.md` ("Issue
   tracking") has the rules.
 
+In a project made from the template, each item of that list goes to the
+template first, and the project gets it with a sync. A rule, a choice, or a
+setup step of the project itself goes in `docs/agents/project/`, as
+[A project's own documents](#a-projects-own-documents) says.
+
 Add information to an existing document. Make a new document in
 `docs/agents/`, or in a directory in it, only when the person asks for one.
 Then add it to the list of documents at the top of this file, in the same
-change, because an agent finds a document through that list.
+change, because an agent finds a document through that list. In a project,
+`docs/agents/project/rules.md` has that list, and the files that
+[A project's own documents](#a-projects-own-documents) names need no request.
 
 When a change makes a fact in another document wrong, change that document in
 the same change. Do not write that one document is correct where two

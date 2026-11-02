@@ -225,9 +225,9 @@ person or an agent runs the same commands, and the result is the same.
 `templateOwned` in
 [`scripts/template-paths.json`](../../scripts/template-paths.json) lists the
 files that a project takes from the template and does not change, such as
-`AGENTS.md`, the architecture document, the lint rules, and `.oxlintrc.json`,
-which turns the lint rules on. A change to one of them goes to the template
-first.
+`AGENTS.md`, the documents in `docs/agents/`, the lint rules, and
+`.oxlintrc.json`, which turns the lint rules on. A change to one of them goes
+to the template first. A project's own text goes in `docs/agents/project/`.
 
 In a project, a hook stops an agent's edit of one of those files. Claude Code
 asks you first. Codex refuses the edit, and its agent describes the change to

@@ -31,7 +31,10 @@
   "personOnly": ["docs/agents/project/reversals.md"],
   "templateOwned": [
     "AGENTS.md",
+    "docs/agents/README.md",
     "docs/agents/code-architecture.md",
+    "docs/agents/decisions.md",
+    "docs/agents/setup.md",
     "docs/agents/testing.md",
     "lint/",
     ".oxlintrc.json",
