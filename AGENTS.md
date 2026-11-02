@@ -4,6 +4,8 @@ These instructions apply to the whole repository. Use this file for rules that
 Codex and Claude Code must follow on every task. Use `docs/agents/` for longer
 project information. Read the documents that apply to the task.
 
+Read and follow @docs/agents/project/rules.md when that file exists.
+
 ## Repository
 
 - This is a pnpm workspace with `backend`, `frontend`, and `common` packages.

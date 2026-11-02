@@ -180,6 +180,20 @@ into the project. The `sync-template` skill has the order of its commands, and
 one. `pnpm run template:sync plan` changes no file. It fetches the template
 and lists the new commits.
 
+### Rules of one project
+
+`AGENTS.md` comes from the template, so a project writes its own rules for each
+task in `docs/agents/project/rules.md`. A bare line in `AGENTS.md` loads that
+file. Claude Code expands the `@` import when it loads `AGENTS.md`, and Codex
+opens the file because the line tells it to. When the file does not exist,
+neither agent shows an error.
+
+A `CLAUDE.md`, `.claude/CLAUDE.md`, or `CLAUDE.local.md` in the working
+directory or above it stops Claude Code from reading `AGENTS.md`, so it then
+reads neither file. This includes a personal `CLAUDE.local.md`. Put the line
+`@AGENTS.md` in such a file. Claude Code before version 2.1.277 reads only
+`CLAUDE.md` files, so it needs the same line.
+
 ### Swamp
 
 The workflows in `workflows/` run those commands in order, with

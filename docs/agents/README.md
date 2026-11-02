@@ -22,6 +22,16 @@ instructions.
 - [Open work](todos/initial-setup.md): unfinished work and temporary behavior.
   Read and update it as work completes.
 
+## A project's own documents
+
+A project made from the template keeps its own text in `docs/agents/project/`.
+The template has no such files, and a sync never changes them. A project adds
+a file when it needs one:
+
+- `rules.md`: rules that apply to each task in this project. `AGENTS.md` makes
+  Codex and Claude Code read this file when it exists. A note for a skill goes
+  under a heading with the name of the skill.
+
 ## Where to start reading the code
 
 | To understand                                  | Start at                                                                                 |
@@ -81,8 +91,11 @@ the same change. Do not write that one document is correct where two
 documents disagree. A reader then has to compare the two, and the other
 document stays wrong.
 
-Keep always-needed instructions in the root `AGENTS.md`. Do not create another
-`AGENTS.md` or a `CLAUDE.md` for this repository. Put repeatable task workflows
+Keep always-needed instructions in the root `AGENTS.md`, or in
+`docs/agents/project/rules.md` in a project. Do not create another `AGENTS.md`.
+Do not put rules in a `CLAUDE.md`, because Claude Code then stops reading
+`AGENTS.md`. A `CLAUDE.md` that has only the line `@AGENTS.md` is safe. Use one
+when a session cannot read `AGENTS.md` directly. Put repeatable task workflows
 in skills. Codex discovers repository skills in `.agents/skills/`; Claude Code
 discovers them in `.claude/skills/`.
 

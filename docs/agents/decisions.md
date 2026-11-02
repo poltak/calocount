@@ -382,6 +382,15 @@ entry to the choice, the reason, and any rule that follows from it.
   Codex does not support "ask" yet. Codex reports such a hook as failed and
   makes the edit. The hook does not see a file that a shell command writes,
   so it stops a mistake and does not lock the files.
+- **A project keeps its own rules in `docs/agents/project/rules.md`, and the
+  template has no such file.** `AGENTS.md` comes from the template, so a rule
+  for each task had no place in a project. One bare line in `AGENTS.md` loads
+  the file in both agents. The line has no backticks, because Claude Code does
+  not expand an import in a code span. A file that the template shipped would
+  reach only new projects, because a sync leaves out each `projectOwned` path.
+  With no file, an absent file is the normal case, and both agents ignore it.
+  `AGENTS.override.md` is not an option, because Codex reads it in place of
+  `AGENTS.md`.
 - **A CI check finds each change to those files in a pull request, and a
   maintainer approves it with a label.** The check sees what the hook does
   not, such as a file that a shell command wrote. Its trigger is

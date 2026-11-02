@@ -59,7 +59,7 @@ const TEMPLATE_PATHS = {
     "backend/src/features/core/database/migrations/1791009406-create-note.ts",
     ".agents/skills/remove-example/",
   ],
-  projectOwned: ["README.md"],
+  projectOwned: ["README.md", "docs/agents/project/"],
 };
 
 function git(directory, ...args) {
@@ -324,6 +324,38 @@ async function addExampleMigration({ template, files }) {
   });
   return { pathsFile, migration };
 }
+
+test("leaves out a template change to a project-owned directory", async (context) => {
+  const { template, project } = await createProject(context);
+  await write(project, {
+    "docs/agents/project/rules.md": "# Rules of the project\n",
+  });
+  commit(project, "Add the rules of the project");
+  await templateCommit({
+    template,
+    message: "Change a file and add a document for projects",
+    files: {
+      "src/app.txt": "one\ntwo\nthree\nfour\n",
+      "docs/agents/project/rules.md": "# Rules of the template\n",
+      "docs/agents/project/decisions.md": "# Decisions of the template\n",
+    },
+  });
+
+  sync(project, "plan");
+
+  const result = sync(project, "apply");
+
+  assert.equal(result.status, 0, result.output);
+  assert.equal(
+    git(project, "show", "--name-only", "--format=", "HEAD"),
+    "src/app.txt",
+  );
+  assert.equal(
+    await readProjectFile(project, "docs/agents/project/rules.md"),
+    "# Rules of the project\n",
+  );
+  assert.equal(git(project, "status", "--porcelain"), "");
+});
 
 test("gives a project that has the example each new part of the example", async (context) => {
   const { template, project } = await createProject(context);
