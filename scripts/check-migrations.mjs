@@ -15,8 +15,10 @@
 //   a new development database.
 //
 // The branch is the working tree, with the files that are not committed, and
-// it starts at the commit where it left `main`. The check reads the table
-// names from the SQL, which is plain, as docs/agents/database.md requires.
+// it starts at the commit where it left `main`. A migration that the template
+// has at the commit in `template-version.json` is not a migration of the
+// branch. The check reads the table names from the SQL, which is plain, as
+// docs/agents/database.md requires.
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";

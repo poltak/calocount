@@ -2,7 +2,7 @@
 // migrations that a branch adds or changes, and the tables that a migration
 // creates or changes.
 import path from "node:path";
-import { git } from "./template-files.mjs";
+import { git, readVersionFile } from "./template-files.mjs";
 
 export const MIGRATIONS_DIRECTORY =
   "backend/src/features/core/database/migrations";
@@ -56,11 +56,39 @@ export function tablesOf(source) {
 }
 
 /**
+ * The migrations of the template at the commit that the project records. A
+ * merge of unrelated histories makes each one a new file of the branch, but
+ * the template wrote them, and each can change a table that an earlier one
+ * creates. A clone without that commit gets an empty list.
+ */
+function templateMigrations({ root }) {
+  const commit = readVersionFile({ root })?.commit;
+  if (!commit) {
+    return new Set();
+  }
+  const { status, stdout } = git({
+    root,
+    args: [
+      "ls-tree",
+      "-r",
+      "--name-only",
+      commit,
+      "--",
+      `${MIGRATIONS_DIRECTORY}/`,
+    ],
+    allowFailure: true,
+  });
+  return new Set(status === 0 ? stdout.split("\n") : []);
+}
+
+/**
  * The migrations of the working tree that differ from the commit where the
  * branch left `main`: the new ones, the changed ones, and the deleted ones.
  * The working tree has the files that are not committed too, so an agent
  * sees a problem before it commits. A moved file is a deleted one and a new
- * one. Returns `null` when the repository has no `main` to compare with.
+ * one. A new file that the template has at its recorded commit is not a
+ * migration of the branch. Returns `null` when the repository has no `main`
+ * to compare with.
  */
 export function branchMigrations({ root }) {
   const base = ["origin/main", "main"]
@@ -102,8 +130,11 @@ export function branchMigrations({ root }) {
       ],
     }).stdout,
   );
+  const fromTemplate = templateMigrations({ root });
   return {
-    added: [...byStatus("A"), ...untracked].sort(),
+    added: [...byStatus("A"), ...untracked]
+      .filter((file) => !fromTemplate.has(file))
+      .sort(),
     changed: byStatus("M"),
     removed: byStatus("D"),
   };

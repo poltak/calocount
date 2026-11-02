@@ -156,6 +156,94 @@ test("rejects a new migration that changes a table that another new migration cr
   assert.match(result.output, /run `pnpm run db:reset`/);
 });
 
+/**
+ * The branch of `createRepository` after a merge of the template, which has no
+ * commit in common with `main`. The second template migration changes the
+ * table of the first, as `set-note-updated-at-with-a-trigger` does.
+ */
+async function adoptTemplate({ git, write }) {
+  const person = ["-c", "user.name=Test", "-c", "user.email=test@example.test"];
+  git("switch", "--quiet", "--orphan", "template");
+  await write(
+    `${MIGRATIONS}/1790000000-create-activity.ts`,
+    migration('create table "activity" ("id" uuid primary key)'),
+  );
+  await write(
+    `${MIGRATIONS}/1790000001-add-activity-time.ts`,
+    migration('alter table "activity" add column "at" timestamptz'),
+  );
+  git("add", ".");
+  git(...person, "commit", "--quiet", "-m", "Start the template");
+  const templateCommit = git("rev-parse", "HEAD").trim();
+  git("switch", "--quiet", "feature");
+  git(
+    ...person,
+    "merge",
+    "--quiet",
+    "--no-edit",
+    "--allow-unrelated-histories",
+    "template",
+  );
+  return templateCommit;
+}
+
+const versionFile = (commit) =>
+  JSON.stringify({ template: "template-url", commit, skipped: [] });
+
+test("leaves out the template's migrations on the branch that adopts the template", async (context) => {
+  const { directory, git, write } = await createRepository(context);
+  const templateCommit = await adoptTemplate({ git, write });
+
+  const withoutRecord = check(directory);
+
+  assert.equal(withoutRecord.status, 1);
+  assert.match(
+    withoutRecord.output,
+    /1790000001-add-activity-time changes "activity"/,
+  );
+
+  await write("template-version.json", versionFile(templateCommit));
+
+  const adopted = check(directory);
+
+  assert.equal(adopted.status, 0, adopted.output);
+  assert.equal(adopted.output, "");
+});
+
+test("still checks the project's own migrations on the branch that adopts the template", async (context) => {
+  const { directory, git, write } = await createRepository(context);
+  const templateCommit = await adoptTemplate({ git, write });
+  await write("template-version.json", versionFile(templateCommit));
+  await write(
+    `${MIGRATIONS}/1792000000-create-profile.ts`,
+    migration('create table "profile" ("id" uuid primary key)'),
+  );
+  await write(
+    `${MIGRATIONS}/1792000001-add-profile-name.ts`,
+    migration('alter table "profile" add column "name" text'),
+  );
+
+  const result = check(directory);
+
+  assert.equal(result.status, 1);
+  assert.match(result.output, /1792000001-add-profile-name changes "profile"/);
+  assert.doesNotMatch(result.output, /activity/);
+});
+
+test("reads no template migrations when this clone is without the recorded commit", async (context) => {
+  const { directory, git, write } = await createRepository(context);
+  await adoptTemplate({ git, write });
+  await write("template-version.json", versionFile("0".repeat(40)));
+
+  const result = check(directory);
+
+  assert.equal(result.status, 1);
+  assert.match(
+    result.output,
+    /1790000001-add-activity-time changes "activity"/,
+  );
+});
+
 test("allows a change to a migration of main while no database with data is deployed", async (context) => {
   const { directory, write } = await createRepository(context);
   await write(
