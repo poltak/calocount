@@ -113,9 +113,11 @@ template. Some reasons come from what happened in it.
   frontend has a type-only import from `backend/api`. Writing the contract by
   hand in `common` would remove that exception. Reconsider it when a second
   client or server needs the API, or when responses need runtime validation.
-- **All business routes sit under `/api` behind one authentication gate.** Only
-  the session routes are outside it. Add new routes inside the gated app, so a
-  route cannot be exposed by omission.
+- **All business routes sit under `/api` behind one authentication gate.** Add
+  new routes inside the gated app. A route outside the gate is a deliberate
+  choice, and it needs a line in `PUBLIC_ROUTES` in `backend-http.test.ts`. That
+  test sends a request with no session to each route, so a route cannot be
+  exposed by omission.
 - **Two health routes sit outside `/api` and need no session.** `GET /health`
   answers when the process runs. `GET /health/ready` also queries the database
   and answers 503 when it does not respond. A host uses the first to restart a

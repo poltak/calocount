@@ -1,8 +1,22 @@
 import { routeBodyLimit } from "backend/testing";
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
+import { inspectRoutes } from "hono/dev";
 import { createFullApplication } from "./full-application.js";
 import { TEST_OWNER_CREDENTIALS } from "./test-owner.js";
+
+/**
+ * Each route that a caller with no session can reach. A new route outside the
+ * session gate needs a line here, so that no route goes public by omission.
+ */
+const PUBLIC_ROUTES = [
+  "GET /health",
+  "GET /health/ready",
+  "POST /api/session",
+  "DELETE /api/session",
+  "GET /api/sign-up",
+  "POST /api/sign-up",
+];
 
 const ORIGIN = "http://app.test";
 const KILOBYTE = 1024;
@@ -35,6 +49,28 @@ const LARGE_REQUESTS = [
 // No UI Logic reaches this behavior of the backend's HTTP app, so these tests
 // send requests through the same transport that the frontend uses.
 describe("backend HTTP app", () => {
+  it("should refuse a caller with no session on each route that is not public", async () => {
+    const { httpApp, transport } = await createFullApplication({
+      authenticated: false,
+    });
+    const routes = inspectRoutes(httpApp).filter(
+      ({ isMiddleware }) => !isMiddleware,
+    );
+
+    const reached: string[] = [];
+    for (const { method, path } of routes) {
+      const response = await transport.fetch(
+        `${ORIGIN}${path.replaceAll(/:\w+/g, "value")}`,
+        { method: method === "ALL" ? "POST" : method },
+      );
+      if (response.status !== 401) {
+        reached.push(`${method} ${path}`);
+      }
+    }
+
+    expect(reached).toEqual(PUBLIC_ROUTES);
+  });
+
   it("should answer the health routes without a session", async () => {
     const { backend, transport } = await createFullApplication({
       authenticated: false,

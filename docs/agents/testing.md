@@ -203,8 +203,9 @@ A few files that are not Logic classes have tests of their own:
   because the hook's lifecycle exists only inside React. Do not add other
   rendered Vitest tests; UI components hold no logic of their own.
 - `backend-http.test.ts` covers backend behavior that no UI Logic reaches: the
-  health routes, the security headers, the request ID and request log, the
-  request size limit, and the answer to an unexpected error. It sends requests
+  list of public routes, the health routes, the security headers, the request
+  ID and request log, the request size limit, and the answer to an unexpected
+  error. It sends requests
   through the fixture's transport, so the whole backend still runs. Add a test
   there only for behavior of the HTTP app itself. A route that a UI Logic calls
   gets its tests through that Logic.

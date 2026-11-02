@@ -43,7 +43,7 @@ function createBusinessHttpApp({ app }: ApiHttpAppProps) {
 /**
  * Routes under `/api`. The session and sign-up routes come first so they stay
  * reachable without a session; every other route passes the authentication
- * gate.
+ * gate. `PUBLIC_ROUTES` in `backend-http.test.ts` lists each route before it.
  */
 export function createApiHttpApp({ app }: ApiHttpAppProps) {
   return new Hono()
