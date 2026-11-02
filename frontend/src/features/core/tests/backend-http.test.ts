@@ -1,8 +1,36 @@
+import { routeBodyLimit } from "backend/testing";
+import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
 import { createFullApplication } from "./full-application.js";
 import { TEST_OWNER_CREDENTIALS } from "./test-owner.js";
 
 const ORIGIN = "http://app.test";
+const KILOBYTE = 1024;
+/** More than the default limit of 100 kB. */
+const LARGE_BODY = "x".repeat(200 * KILOBYTE);
+
+/** A body with no `Content-Length`, which the server must count as it reads. */
+function chunkedBody(text: string) {
+  const bytes = new TextEncoder().encode(text);
+  let sentBytes = 0;
+  const stream = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      const chunk = bytes.subarray(sentBytes, sentBytes + 16 * KILOBYTE);
+      sentBytes += chunk.length;
+      if (chunk.length > 0) {
+        controller.enqueue(chunk);
+      } else {
+        controller.close();
+      }
+    },
+  });
+  return { init: { body: stream, duplex: "half" }, sentBytes: () => sentBytes };
+}
+
+const LARGE_REQUESTS = [
+  { form: "with a Content-Length", init: () => ({ body: LARGE_BODY }) },
+  { form: "chunked", init: () => chunkedBody(LARGE_BODY).init },
+];
 
 // No UI Logic reaches this behavior of the backend's HTTP app, so these tests
 // send requests through the same transport that the frontend uses.
@@ -156,6 +184,91 @@ describe("backend HTTP app", () => {
     expect(
       await backend.db.selectFrom("session").selectAll().execute(),
     ).toEqual([]);
+  });
+
+  it.each(LARGE_REQUESTS)(
+    "should apply a route's own limit in place of the default to a body $form",
+    async ({ init }) => {
+      const { httpApp, transport } = await createFullApplication();
+      httpApp
+        .post("/api/uploads", routeBodyLimit(300 * KILOBYTE), async (context) =>
+          context.json({ receivedBytes: (await context.req.text()).length }),
+        )
+        .post("/api/avatars", routeBodyLimit(150 * KILOBYTE), (context) =>
+          context.text("stored"),
+        );
+      const send = (path: string) =>
+        transport.fetch(`${ORIGIN}${path}`, { method: "POST", ...init() });
+
+      const allowed = await send("/api/uploads");
+      expect(allowed.status).toEqual(200);
+      expect(await allowed.json()).toEqual({
+        receivedBytes: LARGE_BODY.length,
+      });
+
+      const refused = await send("/api/avatars");
+      expect(refused.status).toEqual(413);
+      expect(await refused.json()).toEqual({
+        error: {
+          code: "PAYLOAD_TOO_LARGE",
+          message: "The request is too large",
+        },
+      });
+
+      // The higher limit of one route does not reach any other route.
+      expect((await send("/api/notes")).status).toEqual(413);
+    },
+  );
+
+  it("should apply a route's own limit that is lower than the default", async () => {
+    const { httpApp, transport } = await createFullApplication();
+    httpApp.post("/api/tags", routeBodyLimit(KILOBYTE), (context) =>
+      context.text("stored"),
+    );
+
+    const response = await transport.fetch(`${ORIGIN}/api/tags`, {
+      method: "POST",
+      body: "x".repeat(2 * KILOBYTE),
+    });
+
+    expect(response.status).toEqual(413);
+  });
+
+  it("should find a route's own limit in a sub-app with its own error handler", async () => {
+    const { httpApp, transport } = await createFullApplication();
+    httpApp.route(
+      "/api/uploads",
+      new Hono()
+        .onError((_error, context) => context.text("failed", 500))
+        .post("/", routeBodyLimit(300 * KILOBYTE), (context) =>
+          context.text("stored"),
+        ),
+    );
+
+    const response = await transport.fetch(`${ORIGIN}/api/uploads`, {
+      method: "POST",
+      body: LARGE_BODY,
+    });
+
+    expect(response.status).toEqual(200);
+  });
+
+  it("should not read a large body before the session gate", async () => {
+    const { httpApp, transport } = await createFullApplication({
+      authenticated: false,
+    });
+    httpApp.post("/api/uploads", routeBodyLimit(300 * KILOBYTE), (context) =>
+      context.text("stored"),
+    );
+    const body = chunkedBody(LARGE_BODY);
+
+    const response = await transport.fetch(`${ORIGIN}/api/uploads`, {
+      method: "POST",
+      ...body.init,
+    });
+
+    expect(response.status).toEqual(401);
+    expect(body.sentBytes()).toBeLessThan(LARGE_BODY.length);
   });
 
   it("should hide an unexpected error from the caller and log it with the request ID", async () => {

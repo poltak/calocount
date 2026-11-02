@@ -52,6 +52,11 @@ export async function createFullApplication({
      */
     auth,
     backend: backend.app,
+    /**
+     * The backend's HTTP app. A test of the app itself can read its routes, or
+     * add a route before the first request.
+     */
+    httpApp: backend.httpApp,
     /** A second backend on the same database, as after a restart of the server. */
     restartBackend: backend.restart,
     transport,

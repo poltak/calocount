@@ -17,6 +17,9 @@ import {
 import { createBrowserTransport } from "./browser-transport.js";
 import { cleanupLogic, initializeLogic } from "../logic/lifecycle.js";
 
+// A test adds a route with its own limit, because the template has none.
+export { routeBodyLimit } from "../handlers/body-limit.js";
+
 /**
  * A migrated database that already holds the owner account, as plain data that
  * the test runner can hand to each test file.

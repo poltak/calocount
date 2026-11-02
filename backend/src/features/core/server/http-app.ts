@@ -1,5 +1,4 @@
 import { Hono } from "hono";
-import { bodyLimit } from "hono/body-limit";
 import { cors } from "hono/cors";
 import { requestId } from "hono/request-id";
 import { secureHeaders } from "hono/secure-headers";
@@ -9,7 +8,7 @@ import { createProfileHandlers } from "../../auth/handlers/profile-handlers.js";
 import { createSessionHandlers } from "../../auth/handlers/session-handlers.js";
 import { createSignUpHandlers } from "../../auth/handlers/sign-up-handlers.js";
 import type { AuthEnvironment } from "../../auth/handlers/types.js";
-import { AppError } from "../errors/app-error.js";
+import { defaultBodyLimit } from "../handlers/body-limit.js";
 import { resolveClientAddress } from "../handlers/client-address.js";
 import {
   createErrorHandler,
@@ -21,7 +20,7 @@ import { createHealthHandlers } from "../../health/handlers/health-handlers.js";
 import { createNotesHandlers } from "../../notes/handlers/notes-handlers.js";
 import type { App } from "../types.js";
 
-/** The server refuses a larger request body. Raise it for a route that takes uploads. */
+/** The server refuses a larger request body. A route that takes more uses `routeBodyLimit`. */
 const MAX_REQUEST_BODY_BYTES = 100 * 1024;
 
 interface ApiHttpAppProps {
@@ -72,18 +71,7 @@ export function createHttpApp({ app, clientAddressHeader }: HttpAppProps) {
       // the request log, so the probes do not fill it.
       .route("/health", createHealthHandlers({ logic: app.logic }))
       .use("*", logRequests({ services: app.services }))
-      .use(
-        "*",
-        bodyLimit({
-          maxSize: MAX_REQUEST_BODY_BYTES,
-          onError: () => {
-            throw new AppError({
-              code: "PAYLOAD_TOO_LARGE",
-              message: "The request is too large",
-            });
-          },
-        }),
-      )
+      .use("*", defaultBodyLimit(MAX_REQUEST_BODY_BYTES))
       .use("*", resolveClientAddress({ header: clientAddressHeader }))
       .route("/api", createApiHttpApp({ app }))
       .onError(createErrorHandler({ services: app.services }))

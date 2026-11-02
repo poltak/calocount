@@ -125,7 +125,9 @@ template. Some reasons come from what happened in it.
 - **Every response has security headers, and request bodies have a size
   limit.** Hono's `secureHeaders` sets its defaults on every response. The
   limit is 100 kB, set in `http-app.ts`, and a larger body gets
-  `PAYLOAD_TOO_LARGE`. A route that takes uploads needs its own limit. A
+  `PAYLOAD_TOO_LARGE`. A route that takes more sets its own limit with
+  `routeBodyLimit`. That limit runs after the session gate, so a higher limit
+  on one route does not let a caller without a session send a large body. A
   content security policy for the page belongs to whatever serves the page,
   which is not decided yet.
 - **Logging uses no library.** The logger is a Core Service with three
