@@ -4,7 +4,6 @@ import { test } from "../../core/black-box-tests/black-box-test.js";
 import { SignInPageObject } from "./sign-in-page-object.js";
 
 const REFUSED_CREDENTIALS = "Invalid email or password";
-/** Chromium's text for a request that has no connection. */
 const NO_CONNECTION =
   "No connection. Check your internet connection and try again.";
 
