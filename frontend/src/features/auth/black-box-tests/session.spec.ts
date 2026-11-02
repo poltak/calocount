@@ -205,6 +205,29 @@ test.describe("sign-in", () => {
 });
 
 test.describe("a signed-in user", () => {
+  test("should open the start page after sign-out and another sign-in", async ({
+    page,
+    owner,
+  }) => {
+    const appShell = new AppShellPageObject(page);
+    const signInPage = new SignInPageObject(page);
+    const address = "/an-address-from-a-link?view=all";
+    await page.goto(address);
+    await expect(appShell.userName(owner.name)).toBeVisible();
+    await expect(page).toHaveURL(
+      (url) => url.pathname + url.search === address,
+    );
+
+    await appShell.signOut();
+    await expect(signInPage.heading).toBeVisible();
+    await signInPage.signIn(owner);
+
+    await expect(appShell.userName(owner.name)).toBeVisible();
+    await expect(page).not.toHaveURL(
+      (url) => url.pathname + url.search === address,
+    );
+  });
+
   test("should go to the start page from the sign-in page", async ({
     page,
     owner,
