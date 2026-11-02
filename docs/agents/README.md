@@ -8,6 +8,8 @@ instructions.
 
 - [Code architecture](code-architecture.md): the rules. Read before changing
   code in any workspace.
+- [Database](database.md): the rules for transactions and for the schema. Read
+  before changing a table, a migration, or a transaction.
 - [Testing](testing.md): what a test contains and how to write one. Read
   before writing or changing a test.
 - [Decisions](decisions.md): choices specific to this project and their reasons.
@@ -59,6 +61,8 @@ that. Record only what a reader cannot get from the code:
 
 - A rule that applies to any project built this way goes in
   [code architecture](code-architecture.md).
+- A rule about tables, migrations, or transactions goes in
+  [database](database.md).
 - A rule about what tests contain goes in [testing](testing.md).
 - In a project made from the template, those two documents come from the
   template. A new rule for them goes to the template first.

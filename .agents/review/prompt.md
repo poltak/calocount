@@ -86,8 +86,8 @@ comment.
 
 ### code-architecture
 
-A change breaks a rule of `docs/agents/code-architecture.md`. Read that
-document before you read the code. Do not report a rule that lint checks,
+A change breaks a rule of `docs/agents/code-architecture.md` or
+`docs/agents/database.md`. Read those documents before you read the code. Do not report a rule that lint checks,
 which is each rule of the plugins in `lint/` and of `.oxlintrc.json`. CI runs
 lint, and lint fails the pull request without this review.
 

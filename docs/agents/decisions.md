@@ -424,6 +424,12 @@ entry to the choice, the reason, and any rule that follows from it.
   differs from the files. The tests still pass, because each one starts from a
   new database. The hash is of the SQL that the migration sends to a driver
   that sends nothing, so a new compiler or formatter does not change it.
+- **The rules for the database are in a file of their own.** `database.md`
+  holds the transaction and schema rules, and `code-architecture.md` names no
+  database. A rule that is false on another stack is otherwise false text in a
+  file that a project cannot change. With one file, a project on another
+  database replaces that file, and the other documents stay true for it. The
+  cost for the default stack is one more file to read for database work.
 - **`hasDeployedDatabase` decides if a merged migration can change.** Before
   the first deploy, such a change costs only a new development database, and
   the history stays short. After it, the change never reaches the deployed

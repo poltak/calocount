@@ -14,7 +14,7 @@ export interface BackendLogicProps<
  *
  * `run` receives every Storage class, bound to the transaction. This is the
  * one place where a Logic class can use the Storage of another feature. See
- * docs/agents/code-architecture.md (Transactions).
+ * docs/agents/database.md (Transactions).
  */
 export type RunTransaction = <Result>(
   run: (storage: BackendStorage) => Promise<Result>,

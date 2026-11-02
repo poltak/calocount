@@ -151,7 +151,7 @@ the secrets and private data that the check cannot find. See
 - `pnpm run db:migration:create <name>` creates a migration file in
   `backend/src/features/core/database/migrations/` and adds it to the list.
   The rules for its content are in
-  [code architecture](code-architecture.md#database-schema).
+  [database](database.md#database-schema).
 - `pnpm run db:migrate` applies every migration that the database in
   `DATABASE_URL` does not have yet. It prints the database name and host first.
 - To migrate another database, set the URL for that one command:

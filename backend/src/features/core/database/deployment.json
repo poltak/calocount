@@ -1,4 +1,4 @@
 {
-  "description": "Set hasDeployedDatabase to true before the first deploy of a database with data. docs/agents/code-architecture.md (Database schema) says what it changes.",
+  "description": "Set hasDeployedDatabase to true before the first deploy of a database with data. docs/agents/database.md (Database schema) says what it changes.",
   "hasDeployedDatabase": false
 }
