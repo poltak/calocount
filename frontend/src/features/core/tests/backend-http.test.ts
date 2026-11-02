@@ -8,6 +8,7 @@ import { TEST_OWNER_CREDENTIALS } from "./test-owner.js";
 /**
  * Each route that a caller with no session can reach. A new route outside the
  * session gate needs a line here, so that no route goes public by omission.
+ * See docs/agents/recipes/route-classes.md.
  */
 const PUBLIC_ROUTES = [
   "GET /health",

@@ -24,6 +24,8 @@ instructions.
   in CI. Read before a change to its rules, its workflow, or its secrets.
 - [Evals](evals.md): how to measure a prompt with real models. Read before
   writing or running an eval.
+- [Route classes](recipes/route-classes.md): the rules for a route that needs
+  no session. Read before adding a public route or a route that a token opens.
 - `docs/agents/template.md`: how a project starts from the template, how it
   takes later changes, and how dependency updates work. Read before work on
   the template itself. Only the template has this file.

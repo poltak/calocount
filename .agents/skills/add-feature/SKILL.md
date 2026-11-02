@@ -37,7 +37,9 @@ feature must be added to.
    - `backend/src/features/core/compose-app.ts`: `createStorage`, and the
      `logic` object.
    - `backend/src/features/core/server/http-app.ts`: the route, in
-     `createBusinessHttpApp` so that it is behind the session gate.
+     `createBusinessHttpApp` so that it is behind the session gate. For a
+     route with no session, read
+     [route classes](../../../docs/agents/recipes/route-classes.md) first.
 7. Run `pnpm --filter backend... run build`. The frontend takes the API types
    from the build.
 8. Write the UI Logic class in `frontend/src/features/<feature>/ui/`, and its

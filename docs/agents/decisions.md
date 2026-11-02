@@ -117,7 +117,8 @@ template. Some reasons come from what happened in it.
   new routes inside the gated app. A route outside the gate is a deliberate
   choice, and it needs a line in `PUBLIC_ROUTES` in `backend-http.test.ts`. That
   test sends a request with no session to each route, so a route cannot be
-  exposed by omission.
+  exposed by omission. [Route classes](recipes/route-classes.md) has the rules
+  for a public route and for a route that a token opens.
 - **Two health routes sit outside `/api` and need no session.** `GET /health`
   answers when the process runs. `GET /health/ready` also queries the database
   and answers 503 when it does not respond. A host uses the first to restart a
