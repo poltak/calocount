@@ -264,7 +264,9 @@ test.describe("a signed-in user", () => {
   }) => {
     const appShell = new AppShellPageObject(page);
     const signInPage = new SignInPageObject(page);
-    await appShell.goto();
+    // This address has no page of its own, so it sends no request. A request
+    // of a page that is still loading can fail too, and show a second alert.
+    await page.goto("/an-address-from-a-link");
     await expect(appShell.userName(owner.name)).toBeVisible();
     await page.context().setOffline(true);
 
