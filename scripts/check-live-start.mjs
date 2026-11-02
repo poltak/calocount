@@ -13,12 +13,12 @@
 // the values in `.env`. The database comes from `dev-database.mjs`: a
 // PostgreSQL that already answers at the URL in `.env.example`, or the
 // embedded one.
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseEnv } from "node:util";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
@@ -170,6 +170,31 @@ async function checkServer({ server, exited }) {
   }
 }
 
+/**
+ * `DATABASE_URL` belongs to the PostgreSQL root. A root on another engine reads
+ * the shared settings with no such variable, and the PostgreSQL root still
+ * stops at its start when the variable is missing.
+ */
+async function checkDatabaseUrlIsOutOfTheSharedSettings() {
+  const { DATABASE_URL: _databaseUrl, ...environment } = process.env;
+  const { readLiveConfig } = await import(
+    pathToFileURL(path.join(root, "backend/dist/features/core/live/config.js"))
+      .href
+  );
+  readLiveConfig(environment);
+
+  const result = spawnSync(
+    process.execPath,
+    ["backend/dist/features/core/server/start.js"],
+    { cwd: root, env: environment, encoding: "utf8" },
+  );
+  if (result.status === 0 || !result.stderr.includes("DATABASE_URL")) {
+    throw new Error(
+      `The server must stop without DATABASE_URL and name it. Exit code ${result.status}: ${result.stderr}`,
+    );
+  }
+}
+
 async function runCheck() {
   const server = spawn(
     process.execPath,
@@ -187,6 +212,7 @@ async function runCheck() {
 
   try {
     await checkServer({ server, exited });
+    await checkDatabaseUrlIsOutOfTheSharedSettings();
     console.log("The live server started, answered, and stopped.");
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));

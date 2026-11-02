@@ -4,8 +4,9 @@ import { z } from "zod";
 import type { AuthConfiguration } from "../../auth/services/types.js";
 import type { AccountPolicy } from "../../auth/types.js";
 
+// The settings of any root. A setting of one engine or one host is apart from
+// these, so a root on another engine does not need it. See docs/agents/hosting.md.
 const environmentVariablesSchema = z.object({
-  DATABASE_URL: z.string().trim().min(1),
   BETTER_AUTH_SECRET: z.string().min(32),
   BETTER_AUTH_URL: z.url().refine((value) => {
     const url = new URL(value);
@@ -74,7 +75,6 @@ const environmentSchema = environmentVariablesSchema.transform(
 );
 
 export interface LiveConfig {
-  databaseUrl: string;
   auth: AuthConfiguration;
   accountPolicy: AccountPolicy;
   server: {
@@ -90,7 +90,6 @@ export function readLiveConfig(
 ): LiveConfig {
   const parsed = environmentSchema.parse(env);
   return {
-    databaseUrl: parsed.DATABASE_URL,
     auth: {
       secret: parsed.BETTER_AUTH_SECRET,
       baseUrl: parsed.BETTER_AUTH_URL,
@@ -105,4 +104,15 @@ export function readLiveConfig(
     },
     log: { format: parsed.LOG_FORMAT, level: parsed.LOG_LEVEL },
   };
+}
+
+const databaseVariablesSchema = z.object({
+  DATABASE_URL: z.string().trim().min(1),
+});
+
+/** The connection URL of the PostgreSQL root. */
+export function readDatabaseUrl(
+  env: Record<string, string | undefined> = process.env,
+): string {
+  return databaseVariablesSchema.parse(env).DATABASE_URL;
 }
