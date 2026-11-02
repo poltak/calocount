@@ -733,6 +733,66 @@ test("stops at a conflict that no rule resolves, and continues after a person re
   assert.equal(git(project, "status", "--porcelain"), "");
 });
 
+/** One template commit that changes the word that `apply` prints for a commit. */
+async function changeTheSyncScript({ template }) {
+  const script = "scripts/sync-template.mjs";
+  const text = await readProjectFile(template, script);
+  const changed = text.replace("`took  ${short", "`taken  ${short");
+  assert.notEqual(changed, text);
+  await templateCommit({
+    template,
+    message: "Change the sync script",
+    files: { [script]: changed },
+  });
+}
+
+test("takes each commit after a change to the sync script with the new script", async (context) => {
+  const { template, project } = await createProject(context);
+  const before = git(project, "rev-parse", "HEAD");
+  await changeTheSyncScript({ template });
+  await templateCommit({
+    template,
+    message: "Change the application",
+    files: { "src/app.txt": "one\ntwo\nthree\nfour\n" },
+  });
+  sync(project, "plan");
+
+  const result = sync(project, "apply");
+
+  assert.equal(result.status, 0, result.output);
+  assert.match(result.output, /took  \w{7}  Change the sync script/);
+  assert.match(result.output, /taken  \w{7}  Change the application/);
+  assert.match(result.output, new RegExp(`git reset --hard ${short(before)}`));
+  assert.equal(git(project, "status", "--porcelain"), "");
+});
+
+test("keeps one commit to go back to when a stop comes after a change to the sync script", async (context) => {
+  const { template, project } = await createProject(context);
+  await write(project, { "src/app.txt": "one\ntwo of the project\nthree\n" });
+  commit(project, "Change the second line");
+  const before = git(project, "rev-parse", "HEAD");
+  await changeTheSyncScript({ template });
+  await templateCommit({
+    template,
+    message: "Change the second line",
+    files: { "src/app.txt": "one\ntwo of the template\nthree\n" },
+  });
+  sync(project, "plan");
+
+  const stopped = sync(project, "apply");
+
+  assert.equal(stopped.status, 1);
+  assert.match(stopped.output, /Stopped at template commit/);
+  await write(project, { "src/app.txt": "one\ntwo of both\nthree\n" });
+  git(project, "add", "src/app.txt");
+  const continued = sync(project, "apply");
+  assert.equal(continued.status, 0, continued.output);
+  assert.match(
+    continued.output,
+    new RegExp(`git reset --hard ${short(before)}`),
+  );
+});
+
 test("leaves out the commit that apply stopped at, with the reason in the version file", async (context) => {
   const { template, project } = await createProject(context);
   await write(project, { "src/app.txt": "one\ntwo of the project\nthree\n" });

@@ -65,6 +65,8 @@ what the template changed, and its message gives the reason.
 - It takes the commits oldest first, with the author and the date of each
   one. The message of the new commit names its source, as `git cherry-pick -x`
   does.
+- After a commit that changes the script, it starts again, so the commits
+  after that one follow the new rules.
 - It leaves out each change to a file that the project is without. Such a
   file is one that only the template needs, or a file of the notes example
   after the project removed the example. `scripts/template-paths.json` has

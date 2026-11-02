@@ -99,6 +99,10 @@ workflow file, run `swamp workflow validate`.
   file. When a commit changes one of those files, the "Start project" workflow
   of CI makes a project from the commit and runs each check on the project.
   When that workflow fails, correct the edit in the script.
+- A new rule in `sync-template.mjs` or `template-files.mjs` applies from the
+  commit that adds it, because `apply` starts again after such a commit. A
+  project with a script from before that restart runs each commit of that sync
+  with its old rules. `plan` prints what the project's current script decides.
 - Do not add email, background jobs, file upload, or a component library. Each
   project needs different ones, and each adds dependencies that must stay
   current.
