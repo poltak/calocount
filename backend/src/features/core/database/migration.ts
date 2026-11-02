@@ -11,19 +11,18 @@ export interface DatabaseMigration {
 }
 
 /**
- * Define the migration that one file in `migrations/` holds. Pass
- * `import.meta.url` as `file`, so that the migration's name is always the
- * file's name.
+ * Define the migration that one file in `migrations/` holds. `migrations.ts`
+ * gives it its name. See docs/agents/decisions.md for why the name does not
+ * come from `import.meta.url`.
  *
  * @public Migration files use it; the unused-code check must keep it.
  */
 export function defineMigration({
-  file,
   up,
 }: {
-  file: string;
+  /** Older migrations still pass this, and it has no effect. Do not change them. */
+  file?: string;
   up: DatabaseMigration["up"];
-}): DatabaseMigration {
-  const fileName = new URL(file).pathname.split("/").at(-1) ?? "";
-  return { name: fileName.replace(/\.[cm]?[jt]s$/, ""), up };
+}): Pick<DatabaseMigration, "up"> {
+  return { up };
 }
