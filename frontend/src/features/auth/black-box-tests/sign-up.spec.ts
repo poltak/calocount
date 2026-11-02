@@ -139,6 +139,15 @@ test.describe("in open sign-up mode", () => {
       await signUpPage.signUp(attempt);
 
       await expect(signUpPage.messages).toHaveText([message]);
+      await expect(signUpPage.nameField).toHaveAccessibleDescription(
+        fields.name === undefined ? "" : message,
+      );
+      await expect(signUpPage.emailField).toHaveAccessibleDescription(
+        fields.email === undefined ? "" : message,
+      );
+      await expect(signUpPage.passwordField).toHaveAccessibleDescription(
+        fields.password === undefined ? "" : message,
+      );
       await expectFieldsToHold(signUpPage, attempt);
 
       // A signed-in user does not see the form, and an address that has an

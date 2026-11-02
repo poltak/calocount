@@ -120,6 +120,10 @@ test.describe("sign-in", () => {
     await signInPage.signIn({ email, password: owner.password });
 
     await expect(signInPage.message).toHaveText("Enter a valid email address");
+    await expect(signInPage.emailField).toHaveAccessibleDescription(
+      "Enter a valid email address",
+    );
+    await expect(signInPage.passwordField).toHaveAccessibleDescription("");
     await expect(signInPage.emailField).toHaveValue(email);
     await appShell.goto();
     await expect(signInPage.heading).toBeVisible();

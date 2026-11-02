@@ -47,6 +47,10 @@ export function SignUpPage() {
         <input
           id="sign-up-name"
           name="name"
+          aria-invalid={state.signUpFieldErrors?.name ? true : undefined}
+          aria-describedby={
+            state.signUpFieldErrors?.name ? "sign-up-name-error" : undefined
+          }
           autoComplete="name"
           required
           value={state.signUpName}
@@ -54,12 +58,18 @@ export function SignUpPage() {
           disabled={signingUp}
         />
         {state.signUpFieldErrors?.name && (
-          <p role="alert">{state.signUpFieldErrors.name}</p>
+          <p id="sign-up-name-error" role="alert">
+            {state.signUpFieldErrors.name}
+          </p>
         )}
         <label htmlFor="sign-up-email">Email</label>
         <input
           id="sign-up-email"
           name="email"
+          aria-invalid={state.signUpFieldErrors?.email ? true : undefined}
+          aria-describedby={
+            state.signUpFieldErrors?.email ? "sign-up-email-error" : undefined
+          }
           type="email"
           autoComplete="username"
           required
@@ -68,12 +78,20 @@ export function SignUpPage() {
           disabled={signingUp}
         />
         {state.signUpFieldErrors?.email && (
-          <p role="alert">{state.signUpFieldErrors.email}</p>
+          <p id="sign-up-email-error" role="alert">
+            {state.signUpFieldErrors.email}
+          </p>
         )}
         <label htmlFor="sign-up-password">Password</label>
         <input
           id="sign-up-password"
           name="password"
+          aria-invalid={state.signUpFieldErrors?.password ? true : undefined}
+          aria-describedby={
+            state.signUpFieldErrors?.password
+              ? "sign-up-password-error"
+              : undefined
+          }
           type="password"
           autoComplete="new-password"
           required
@@ -82,7 +100,9 @@ export function SignUpPage() {
           disabled={signingUp}
         />
         {state.signUpFieldErrors?.password && (
-          <p role="alert">{state.signUpFieldErrors.password}</p>
+          <p id="sign-up-password-error" role="alert">
+            {state.signUpFieldErrors.password}
+          </p>
         )}
         {state.signUpError && !state.signUpFieldErrors && (
           <p role="alert">{state.signUpError}</p>

@@ -34,6 +34,10 @@ export function LoginPage() {
         <input
           id="email"
           name="email"
+          aria-invalid={state.signInFieldErrors?.email ? true : undefined}
+          aria-describedby={
+            state.signInFieldErrors?.email ? "sign-in-email-error" : undefined
+          }
           type="email"
           autoComplete="username"
           required
@@ -42,12 +46,20 @@ export function LoginPage() {
           disabled={signingIn || checkingSession}
         />
         {state.signInFieldErrors?.email && (
-          <p role="alert">{state.signInFieldErrors.email}</p>
+          <p id="sign-in-email-error" role="alert">
+            {state.signInFieldErrors.email}
+          </p>
         )}
         <label htmlFor="password">Password</label>
         <input
           id="password"
           name="password"
+          aria-invalid={state.signInFieldErrors?.password ? true : undefined}
+          aria-describedby={
+            state.signInFieldErrors?.password
+              ? "sign-in-password-error"
+              : undefined
+          }
           type="password"
           autoComplete="current-password"
           required
@@ -56,7 +68,9 @@ export function LoginPage() {
           disabled={signingIn || checkingSession}
         />
         {state.signInFieldErrors?.password && (
-          <p role="alert">{state.signInFieldErrors.password}</p>
+          <p id="sign-in-password-error" role="alert">
+            {state.signInFieldErrors.password}
+          </p>
         )}
         {error && !state.signInFieldErrors && <p role="alert">{error}</p>}
         {checkingSession && <output>Checking your session…</output>}
