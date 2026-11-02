@@ -531,6 +531,9 @@ entry to the choice, the reason, and any rule that follows from it.
   and pre-commit hooks set up. Main reason is for consistently formatted code for ease of reading.
 - **oxlint chosen for linting.** One blank-line rule comes from the stylistic ESLint
   plugin, loaded through oxlint's JS plugin support.
+  `unicorn/require-post-message-target-origin` is off in `workers/` and
+  `services/`, because it reports each `postMessage` call with one argument,
+  and the `postMessage` of a `Worker` has no target origin.
 - **Architecture rules are a local lint plugin, not a separate tool.** The rules
   in `lint/` use the standard ESLint rule API, so one mechanism covers imports,
   naming, and layout, each error cites the architecture document, and ESLint
