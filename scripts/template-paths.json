@@ -3,6 +3,7 @@
     "docs/agents/template.md",
     "renovate.json",
     ".agents/skills/start-project/",
+    "scripts/document-links.test.mjs",
     ".claude/skills/start-project",
     ".github/workflows/start-project.yml",
     "scripts/start-project.mjs",
