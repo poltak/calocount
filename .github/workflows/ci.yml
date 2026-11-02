@@ -40,7 +40,7 @@ jobs:
       - name: Set up pnpm
         uses: pnpm/action-setup@v6
         with:
-          version: 12.15.0
+          version: 12.16.1
 
       # No step sets up Node. pnpm downloads the Node version in
       # `devEngines.runtime` and runs each script on it. pnpm itself runs on the
@@ -72,7 +72,7 @@ jobs:
       - name: Set up pnpm
         uses: pnpm/action-setup@v6
         with:
-          version: 12.15.0
+          version: 12.16.1
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -101,7 +101,7 @@ jobs:
       - name: Set up pnpm
         uses: pnpm/action-setup@v6
         with:
-          version: 12.15.0
+          version: 12.16.1
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -128,7 +128,7 @@ jobs:
       - name: Set up pnpm
         uses: pnpm/action-setup@v6
         with:
-          version: 12.15.0
+          version: 12.16.1
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
