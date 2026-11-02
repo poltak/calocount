@@ -542,6 +542,14 @@ template. Some reasons come from what happened in it.
   flags that stop both are hard to remember. `pnpm run issues:init` holds the
   flags and the clean-up of the commit, so nobody needs the bare command. It
   fails when `core.hooksPath` is set after all.
+- **`pnpm run check` runs the secret check on each commit of the branch.** The
+  pre-commit hook was the only place that ran it, and `core.hooksPath` turns the
+  hook off with no message. A scan only in CI finds a secret after the push, so
+  `pnpm run check` runs it, because `AGENTS.md` requires that before a push. It
+  reads each commit and not the diff of the branch, because a later commit that
+  deletes a value leaves it on GitHub. A person accepts a value with a line in
+  the commit message, because CI has no way to get an environment variable from
+  one commit, and the line stays with the value through a rebase.
 - **Two models review each pull request for rules that no script can check,
   and the check fails on a finding.** In the first project, a pull
   request wrote that its plan doc was correct where the data model doc disagreed, and

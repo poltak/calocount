@@ -169,10 +169,17 @@ configuration in `package.json` runs three commands on the staged files:
 3. Prettier formats the staged files.
 
 When a value that the check finds is not a secret, such as a key that only a
-test uses, commit again with `SKIP_SECRET_CHECK=1` in the environment. An
-agent asks its person first. The agent review of each pull request looks for
-the secrets and private data that the check cannot find. See
+test uses, commit again with `SKIP_SECRET_CHECK=1` in the environment, and add
+the line `Not-a-secret: <reason>` to the commit message. An agent asks its
+person first. The agent review of each pull request looks for the secrets and
+private data that the check cannot find. See
 [Agent review of pull requests](agent-review.md).
+
+Git does not run this hook when `core.hooksPath` is set, and it gives no
+message. So `pnpm run check`, and CI with it, runs the same check on each commit
+that the branch adds to `main`. It finds a value that a later commit deleted,
+because that value stays in the history. It leaves out a commit with a
+`Not-a-secret:` line, and it prints a warning when `core.hooksPath` is set.
 
 ## Database migrations
 

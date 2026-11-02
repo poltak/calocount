@@ -49,8 +49,8 @@ async function stage(directory, files) {
   git(directory, "add", "--force", "--all");
 }
 
-function check(directory, env = {}) {
-  const result = spawnSync(process.execPath, [SCRIPT], {
+function check(directory, env = {}, args = []) {
+  const result = spawnSync(process.execPath, [SCRIPT, ...args], {
     cwd: directory,
     encoding: "utf8",
     env: { PATH: process.env.PATH, HOME: process.env.HOME, ...env },
@@ -157,4 +157,119 @@ test("SKIP_SECRET_CHECK=1 skips the check", async (context) => {
 
   assert.equal(result.status, 0, result.output);
   assert.match(result.output, /the secret check did not run/);
+});
+
+function commit(directory, message) {
+  git(
+    directory,
+    "-c",
+    "user.name=Test",
+    "-c",
+    "user.email=test@example.com",
+    "commit",
+    "--quiet",
+    "-m",
+    message,
+  );
+  return git(directory, "rev-parse", "--short=7", "HEAD").stdout.trim();
+}
+
+/** A repository on a branch that starts at `main`. */
+async function branch(context) {
+  const directory = await repository(context, { "README.md": "# Base\n" });
+  git(directory, "switch", "--quiet", "-c", "feature/work");
+  git(directory, "branch", "--force", "main", "HEAD");
+  return directory;
+}
+
+test("--branch finds a secret in a commit, also when a later commit deletes it", async (context) => {
+  const directory = await branch(context);
+  await stage(directory, {
+    "src/settings.ts": `const key = "${GITHUB_TOKEN}";\n`,
+  });
+  const added = commit(directory, "Add a setting");
+  await stage(directory, { "src/settings.ts": 'const key = "";\n' });
+  commit(directory, "Remove the value");
+
+  const result = check(directory, {}, ["--branch"]);
+
+  assert.equal(result.status, 1);
+  assert.match(
+    result.output,
+    new RegExp(`^ {2}${added} src/settings\\.ts:1: a GitHub token$`, "m"),
+  );
+  assert.ok(!result.output.includes(GITHUB_TOKEN));
+});
+
+test("--branch finds a file of secrets, and reads no commit of main", async (context) => {
+  const directory = await repository(context, {
+    ".env.production": `TOKEN=${GITHUB_TOKEN}\n`,
+  });
+  git(directory, "switch", "--quiet", "-c", "feature/work");
+  git(directory, "branch", "--force", "main", "HEAD");
+
+  const clean = check(directory, {}, ["--branch"]);
+
+  await stage(directory, { "keys/server.key": "not read\n" });
+  const added = commit(directory, "Add a key");
+  const result = check(directory, {}, ["--branch"]);
+
+  assert.equal(clean.status, 0, clean.output);
+  assert.equal(clean.output, "");
+  assert.equal(result.status, 1);
+  assert.match(
+    result.output,
+    new RegExp(`^ {2}${added} keys/server\\.key: a private key file$`, "m"),
+  );
+});
+
+test("--branch leaves out a commit that says that the value is not a secret", async (context) => {
+  const directory = await branch(context);
+  await stage(directory, {
+    "src/key.test.ts": `const key = "${PRIVATE_KEY}";\n`,
+  });
+  commit(directory, "Add a test key\n\nNot-a-secret: only a test reads it.");
+
+  const result = check(directory, {}, ["--branch"]);
+
+  assert.equal(result.status, 0, result.output);
+});
+
+test("--branch passes on main, and with no main to compare with", async (context) => {
+  const onMain = await branch(context);
+  git(onMain, "switch", "--quiet", "main");
+  const noMain = await repository(context, {
+    "src/settings.ts": `const key = "${GITHUB_TOKEN}";\n`,
+  });
+  git(noMain, "branch", "--move", "feature/work");
+
+  assert.equal(check(onMain, {}, ["--branch"]).status, 0);
+  assert.equal(check(noMain, {}, ["--branch"]).status, 0);
+});
+
+test("--branch warns when Git does not run the hook, and does not fail", async (context) => {
+  const directory = await branch(context);
+  git(directory, "config", "core.hooksPath", ".beads/hooks");
+
+  const result = check(directory, {}, ["--branch"]);
+
+  assert.equal(result.status, 0, result.output);
+  assert.match(result.output, /`core\.hooksPath` is "\.beads\/hooks"/);
+});
+
+test("reads the staged changes when lint-staged gives the names of the files", async (context) => {
+  const directory = await repository(context);
+  await stage(directory, {
+    "src/settings.ts": `const key = "${GITHUB_TOKEN}";\n`,
+  });
+
+  const result = check(directory, {}, [
+    path.join(directory, "src/settings.ts"),
+  ]);
+
+  assert.equal(result.status, 1);
+  assert.match(
+    result.output,
+    /The staged changes have what looks like a secret/,
+  );
 });

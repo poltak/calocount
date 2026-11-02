@@ -14,6 +14,7 @@
     "check:migrations": "node scripts/check-migrations.mjs",
     "check:pnpm-version": "node scripts/check-pnpm-version.mjs",
     "check:scripts": "pnpm run test:scripts",
+    "check:secrets": "node scripts/check-staged-secrets.mjs --branch",
     "check:unused": "pnpm run unused:check",
     "node-version:check": "node scripts/check-node-version.mjs",
     "build": "pnpm -r --filter '!legacy' --if-present run build",
