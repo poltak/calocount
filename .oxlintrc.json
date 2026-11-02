@@ -216,6 +216,12 @@
         ]
       }
     ],
+    "stack/no-component-state": [
+      "error",
+      {
+        "hooks": ["useState", "useReducer", "useActionState", "useOptimistic"]
+      }
+    ],
     "testing/ui-logic-tested": "error",
     "testing/logic-tests": [
       "error",

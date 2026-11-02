@@ -1,4 +1,4 @@
-import React, { createContext, useContext, type ReactNode } from "react";
+import { createContext, useContext, type ReactNode } from "react";
 import type { App } from "../types.js";
 
 const FrontendAppContext = createContext<App | null>(null);

@@ -255,6 +255,13 @@ which layer owns the decision:
 - External boundary details belong in Service or Storage classes.
 - State transitions and product behavior belong in Logic or LogicPlugin classes.
 - Rendering and presentational logic belongs in UI components.
+- A UI component keeps no state of its own. It does not call `useState` or
+  another hook that `stack/no-component-state` lists in `.oxlintrc.json`. A
+  small piece of state, such as an open list or a hover, also goes in a Logic.
+  A reusable component makes its own small Logic with `useLogic`. The rule also
+  stops default, namespace, dynamic, and `require` imports of `react` in
+  frontend code, because a check of hook names cannot see `React.useState`.
+  Test files have no such limit.
 
 Classify a boundary by what it does:
 
