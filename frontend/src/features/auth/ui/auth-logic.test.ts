@@ -397,7 +397,9 @@ describe("AuthLogic tests", () => {
     await logic.initialize();
 
     expect(logic.state.loadSignUpStatusState).toEqual("error");
-    expect(logic.state.loadSignUpStatusError).toEqual("Failed to fetch");
+    expect(logic.state.loadSignUpStatusError).toEqual(
+      "No connection. Check your internet connection and try again.",
+    );
     expect(logic.state.isSignUpOpen).toEqual(false);
 
     transport.goOnline();
@@ -572,7 +574,9 @@ describe("AuthLogic tests", () => {
     await failedP;
 
     expect(logic.state.signUpState).toEqual("error");
-    expect(logic.state.signUpError).toEqual("Failed to fetch");
+    expect(logic.state.signUpError).toEqual(
+      "No connection. Check your internet connection and try again.",
+    );
     expect(logic.state.isSignedIn).toEqual(false);
     expect(logic.state.password).toEqual(VISITOR.password);
     expect(await readUserEmails(backend.db)).toEqual([owner.email]);
@@ -648,7 +652,9 @@ describe("AuthLogic tests", () => {
     await signOutP;
 
     expect(logic.state.signOutState).toEqual("error");
-    expect(logic.state.signOutError).toEqual("Failed to fetch");
+    expect(logic.state.signOutError).toEqual(
+      "No connection. Check your internet connection and try again.",
+    );
     expect(logic.state.isSignedIn).toEqual(true);
     expect(logic.state.userName).toEqual(owner.name);
     expect(heard).toEqual([]);
@@ -687,7 +693,9 @@ describe("AuthLogic tests", () => {
     await initializeP;
 
     expect(logic.state.loadSessionState).toEqual("error");
-    expect(logic.state.loadSessionError).toEqual("Failed to fetch");
+    expect(logic.state.loadSessionError).toEqual(
+      "No connection. Check your internet connection and try again.",
+    );
     expect(logic.state.isSignedIn).toEqual(false);
     expect(logic.state.userName).toEqual(null);
 

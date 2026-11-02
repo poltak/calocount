@@ -271,7 +271,9 @@ describe("NoteEditLogic tests", () => {
     await saveP;
 
     expect(logic.state.saveState).toEqual("error");
-    expect(logic.state.saveError).toEqual("Failed to fetch");
+    expect(logic.state.saveError).toEqual(
+      "No connection. Check your internet connection and try again.",
+    );
     expect(logic.state.isDone).toEqual(false);
     expect(frontend.browserStorage.getItem(draftKey)).toEqual(
       JSON.stringify({ title: CHANGED.title, body: SAVED.body }),

@@ -1,6 +1,9 @@
 import type { ApiType } from "backend/api";
 import { hc } from "hono/client";
 
+const NO_CONNECTION =
+  "No connection. Check your internet connection and try again.";
+
 export interface ApiClientProps {
   baseUrl?: string;
   fetch?: typeof globalThis.fetch;
@@ -18,7 +21,16 @@ export function createApiClient({
 }: ApiClientProps = {}) {
   const transport = fetch ?? globalThis.fetch.bind(globalThis);
   const authenticatedFetch: typeof globalThis.fetch = async (input, init) => {
-    const response = await transport(input, init);
+    let response: Response;
+    try {
+      response = await transport(input, init);
+    } catch (error) {
+      // fetch rejects with a TypeError without a connection. Its message differs in each browser.
+      if (error instanceof TypeError) {
+        throw new Error(NO_CONNECTION, { cause: error });
+      }
+      throw error;
+    }
     if (response.status === 401) {
       onSessionRejected?.();
     }
