@@ -815,6 +815,9 @@ describe("AuthLogic tests", () => {
     await logic.refresh();
 
     expect(logic.state.loadSessionState).toEqual("error");
+    expect(logic.state.loadSessionError).toEqual(
+      "The service is not available. Try again later.",
+    );
     expect(logic.state.isSignedIn).toEqual(true);
     expect(logic.state.userId).toEqual(owner.id);
   });

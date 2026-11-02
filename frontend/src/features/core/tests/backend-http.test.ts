@@ -312,7 +312,14 @@ describe("backend HTTP app", () => {
     const { backend, transport } = await createFullApplication();
     await backend.db.destroy();
 
-    const response = await transport.fetch(`${ORIGIN}/api/me`);
+    const response = await transport.fetch(`${ORIGIN}/api/session`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        email: TEST_OWNER_CREDENTIALS.email,
+        password: TEST_OWNER_CREDENTIALS.password,
+      }),
+    });
     expect(response.status).toEqual(500);
     expect(await response.json()).toEqual({
       error: { code: "INTERNAL", message: "Internal server error" },
@@ -325,9 +332,32 @@ describe("backend HTTP app", () => {
       level: "error",
       fields: {
         requestId: response.headers.get("x-request-id"),
-        method: "GET",
-        path: "/api/me",
+        method: "POST",
+        path: "/api/session",
       },
+    });
+    expect(failure?.fields?.error).toBeInstanceOf(Error);
+  });
+
+  it("should answer UNAVAILABLE, and refuse nobody, when the session gate cannot read the session", async () => {
+    const { backend, transport } = await createFullApplication();
+    await backend.db.destroy();
+
+    const response = await transport.fetch(`${ORIGIN}/api/me`);
+
+    expect(response.status).toEqual(503);
+    expect(await response.json()).toEqual({
+      error: {
+        code: "UNAVAILABLE",
+        message: "The service is not available. Try again later.",
+      },
+    });
+    const failure = backend.services.logger.entries.find(
+      (entry) => entry.message === "Session check failed",
+    );
+    expect(failure).toMatchObject({
+      level: "error",
+      fields: { requestId: response.headers.get("x-request-id") },
     });
     expect(failure?.fields?.error).toBeInstanceOf(Error);
   });
