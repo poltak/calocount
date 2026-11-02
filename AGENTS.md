@@ -9,7 +9,9 @@ project information. Read the documents that apply to the task.
 - This is a pnpm workspace with `backend`, `frontend`, and `common` packages.
 - Put code used by both apps in `common`. Code imported by `frontend` must work in a browser. Keep server-only code in `backend`.
 - `backend` code never imports from `frontend`, and vice-versa. Though this has a narrow exception: frontend code may use `import type` from `backend/api`.
-- Only Node test files may load `backend/testing`.
+- Only test files may load `backend/testing`. They run on Node, and a project
+  can add a second host for the same tests, as
+  [testing](docs/agents/testing.md#a-second-test-host) says.
 - Use the Node version in `.nvmrc` and the pnpm version in `package.json`.
   pnpm runs scripts on the Node version pinned in `devEngines.runtime`, so run
   Node through pnpm (`pnpm run …`, `pnpm exec node …`), not bare `node`. The
