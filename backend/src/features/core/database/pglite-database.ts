@@ -5,22 +5,33 @@ import { DatabaseNames } from "./database-names.js";
 import { PGLITE_EXTENSIONS } from "./pglite-extensions.js";
 import type { Database, DatabaseSchema } from "./database.js";
 
-export type DatabaseSnapshot = Awaited<ReturnType<PGlite["dumpDataDir"]>>;
+/**
+ * A test database as plain data, because the test runner hands it to each test
+ * file. PGlite makes a tar file of its data directory.
+ */
+export type DatabaseSnapshot = ArrayBuffer;
+
+function pgliteOptions(snapshot?: DatabaseSnapshot) {
+  return {
+    extensions: PGLITE_EXTENSIONS,
+    ...(snapshot
+      ? { loadDataDir: new Blob([snapshot], { type: "application/x-tar" }) }
+      : {}),
+  };
+}
 
 /**
  * Create an in-memory PostgreSQL database for one test app. It starts empty,
- * or with the contents of a snapshot, which is several times faster.
+ * or with the contents of a snapshot, which is several times faster. The
+ * fixture awaits this, because an engine on a server must copy a database
+ * first.
  */
-export function createDatabase({
+export async function createDatabase({
   snapshot,
-}: { snapshot?: DatabaseSnapshot } = {}): Database {
+}: { snapshot?: DatabaseSnapshot } = {}): Promise<Database> {
   return new Kysely<DatabaseSchema>({
     dialect: new PGliteDialect({
-      pglite: () =>
-        new PGlite({
-          extensions: PGLITE_EXTENSIONS,
-          ...(snapshot ? { loadDataDir: snapshot } : {}),
-        }),
+      pglite: () => new PGlite(pgliteOptions(snapshot)),
     }),
     plugins: [new DatabaseNames()],
   });
@@ -33,10 +44,7 @@ export async function createDatabaseSnapshot({
   from?: DatabaseSnapshot;
   prepare: (db: Database) => Promise<void>;
 }): Promise<DatabaseSnapshot> {
-  const pglite = new PGlite({
-    extensions: PGLITE_EXTENSIONS,
-    ...(from ? { loadDataDir: from } : {}),
-  });
+  const pglite = new PGlite(pgliteOptions(from));
   const db = new Kysely<DatabaseSchema>({
     dialect: new PGliteDialect({ pglite: () => pglite }),
     plugins: [new DatabaseNames()],
@@ -58,7 +66,8 @@ export async function createDatabaseSnapshot({
     // replays the write-ahead log of the migrations first. That replay was
     // about a fifth of the start time of each test.
     await pglite.exec("CHECKPOINT");
-    return await pglite.dumpDataDir("none");
+    const dump = await pglite.dumpDataDir("none");
+    return await dump.arrayBuffer();
   } finally {
     await db.destroy();
   }

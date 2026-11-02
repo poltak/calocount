@@ -1,13 +1,16 @@
 import { randomBytes } from "node:crypto";
 import { serve, type ServerType } from "@hono/node-server";
 import { createHttpApp } from "../server/http-app.js";
-import { createApp, type AccountMode, type TestApp } from "./index.js";
-import { createBrowserTransport } from "./browser-transport.js";
-import { cleanupLogic, initializeLogic } from "../logic/lifecycle.js";
 import {
+  createApp,
   createDatabase,
   createDatabaseSnapshot,
-} from "../database/pglite-database.js";
+  type AccountMode,
+  type DatabaseSnapshot,
+  type TestApp,
+} from "./index.js";
+import { createBrowserTransport } from "./browser-transport.js";
+import { cleanupLogic, initializeLogic } from "../logic/lifecycle.js";
 import type { AuthUser } from "../../auth/services/types.js";
 
 // For the tests of the schema and the migrations. See each function.
@@ -24,7 +27,7 @@ interface OwnerCredentials {
  * the test runner can hand to each test file.
  */
 export interface DatabaseTemplate {
-  snapshot: ArrayBuffer;
+  snapshot: DatabaseSnapshot;
   owner: AuthUser;
   /**
    * The auth secret of every backend that starts from the template. The
@@ -35,7 +38,7 @@ export interface DatabaseTemplate {
    * The same database after the owner signed in, and the `Set-Cookie` values
    * of that session.
    */
-  signedIn: { snapshot: ArrayBuffer; setCookies: string[] };
+  signedIn: { snapshot: DatabaseSnapshot; setCookies: string[] };
 }
 
 /**
@@ -88,10 +91,10 @@ export async function createDatabaseTemplate(
     },
   });
   return {
-    snapshot: await snapshot.arrayBuffer(),
+    snapshot,
     owner,
     secret,
-    signedIn: { snapshot: await signedInSnapshot.arrayBuffer(), setCookies },
+    signedIn: { snapshot: signedInSnapshot, setCookies },
   };
 }
 
@@ -132,11 +135,10 @@ export async function createTestBackend({
    */
   backendOptions?: TestAppOptions;
 }) {
-  const snapshot = signedIn ? template.signedIn.snapshot : template.snapshot;
   const app = createApp({
     ...backendOptions,
-    db: createDatabase({
-      snapshot: new Blob([snapshot], { type: "application/x-tar" }),
+    db: await createDatabase({
+      snapshot: signedIn ? template.signedIn.snapshot : template.snapshot,
     }),
     authBaseUrl: baseUrl,
     trustedOrigins,
