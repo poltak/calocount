@@ -26,9 +26,10 @@ instructions.
   writing or running an eval.
 - [Route classes](recipes/route-classes.md): the rules for a route that needs
   no session. Read before adding a public route or a route that a token opens.
-- `docs/agents/template.md`: how a project starts from the template, how it
-  takes later changes, and how dependency updates work. Read before work on
-  the template itself. Only the template has this file.
+- `docs/agents/template.md`: how a project starts from the template, how an
+  existing repository adopts it, how a project takes later changes, and how
+  dependency updates work. Read before work on the template itself. Only the
+  template has this file.
 - `template-version.json`: the template that a project started from, and the
   last template commit that it has. The `sync-template` skill reads and
   updates it. Only a project has this file.
