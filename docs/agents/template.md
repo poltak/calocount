@@ -115,6 +115,23 @@ workflow file, run `swamp workflow validate`.
   project needs different ones, and each adds dependencies that must stay
   current.
 
+### Take a change from a project
+
+When a project made a change that the template needs, the template can take
+that commit. Do this in a worktree of the project's repository, so that Git has
+both histories:
+
+```sh
+git fetch template
+git worktree add ../template-change -b feature/<name> template/main
+git -C ../template-change cherry-pick -x <commit of the project>
+```
+
+Remove what only the project needs, and push that branch to the template. The
+`-x` line names the project's commit. The next sync of that project reads the
+line, and lists the template commit as `have`, so the project does not take the
+change a second time.
+
 ## Dependency updates
 
 Renovate opens pull requests for dependency updates, and CI runs

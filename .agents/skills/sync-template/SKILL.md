@@ -119,5 +119,6 @@ the project, its data, or a secret in the issue.
   `verify live-start` step starts the server on a real database.
 - To undo a sync before you push it, use the `git reset` command that `apply`
   prints.
-- Do not push to the template's remote from a project. A change for the
-  template goes to the template repository as its own commit.
+- Do not push a branch of the project to the template's remote. A change for
+  the template is a commit of its own, on a branch that starts from the
+  template's `main`.

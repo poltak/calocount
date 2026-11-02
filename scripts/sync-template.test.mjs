@@ -836,6 +836,37 @@ test("finds a change that the template took from the project", async (context) =
   );
 });
 
+test("finds a change that the template took with the commands of template.md", async (context) => {
+  const { template, project } = await createProject(context);
+  await write(project, { "src/from-project.txt": "from the project\n" });
+  const original = commit(project, "Add a file in the project");
+  const worktree = path.join(path.dirname(project), "template-change");
+
+  git(project, "fetch", "--quiet", "template");
+  git(
+    project,
+    "worktree",
+    "add",
+    "--quiet",
+    "-b",
+    "feature/from-project",
+    worktree,
+    "template/main",
+  );
+  git(worktree, "cherry-pick", "-x", original);
+  git(template, "fetch", "--quiet", project, "feature/from-project");
+  git(template, "merge", "--quiet", "--ff-only", "FETCH_HEAD");
+
+  const result = sync(project, "plan");
+
+  assert.match(
+    result.output,
+    new RegExp(
+      `have\\s+\\w{7}  Add a file in the project\\n\\s+\\(it came from commit ${short(original)} of this project\\)`,
+    ),
+  );
+});
+
 test("commits the lockfile and the new template version, one time", async (context) => {
   const { template, project } = await createProject(context);
   await templateCommit({
