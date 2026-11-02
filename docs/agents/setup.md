@@ -115,9 +115,13 @@ sure that a database answers at `DATABASE_URL` before they do their work:
 - When the URL names this machine and nothing answers on its port, they start
   the embedded PostgreSQL there and stop it when the command ends. Its data is
   in `.data/postgres/`, which Git ignores, so each checkout and each Git
-  worktree has its own database. Its log is in `.data/postgres.log`.
+  worktree has its own data. Its log is in `.data/postgres.log`.
 - When a PostgreSQL already answers there, such as one from Homebrew or
   Postgres.app, they use it. To use your own, put its URL in `.env`.
+- This also applies to a second checkout while the first one runs
+  `pnpm run dev`. The second one finds the first one's PostgreSQL on the port,
+  and uses that database with no message. To run two checkouts at the same
+  time, give each one its own port in `DATABASE_URL`.
 - A URL for another machine is used as it is.
 
 `pnpm run dev` also applies the schema migrations first, but only to a database
