@@ -750,12 +750,10 @@ async function finish() {
       count: plan.commits.filter(({ action }) => action === wanted).length,
     }))
     .filter(({ count }) => count > 0);
-  const { template, skipped } = plan.version;
-  // The new version is past each commit in `unchanged`, so that list ends.
-  await writeVersionFile({
-    root,
-    version: { template, commit: plan.tip, skipped },
-  });
+  // The new version is past each commit in `unchanged`, so that list ends. A
+  // project's other fields stay, also a field that this script does not know.
+  const { unchanged, ...version } = plan.version;
+  await writeVersionFile({ root, version: { ...version, commit: plan.tip } });
   read("add", "--", VERSION_FILE);
   git({
     root,

@@ -877,6 +877,41 @@ test("commits the lockfile and the new template version, one time", async (conte
   assert.equal(git(project, "rev-parse", "HEAD"), head);
 });
 
+test("keeps each field of the version file, and ends the list of unchanged commits", async (context) => {
+  const { template, project, start } = await createProject(context);
+  await write(project, {
+    "template-version.json": json({
+      template,
+      commit: start,
+      skipped: [],
+      note: "a field of the project",
+    }),
+    "src/app.txt": "one\ntwo of the project\nthree\n",
+  });
+  commit(project, "Add a field, and change the second line");
+  const tip = await templateCommit({
+    template,
+    message: "Change the second line",
+    files: { "src/app.txt": "one\ntwo of the template\nthree\n" },
+  });
+  sync(project, "plan");
+  assert.equal(sync(project, "apply").status, 1);
+  await write(project, { "src/app.txt": "one\ntwo of the project\nthree\n" });
+  git(project, "add", "src/app.txt");
+  assert.equal(sync(project, "apply").status, 0);
+  assert.deepEqual((await readVersion(project)).unchanged, [tip]);
+
+  const result = sync(project, "finish");
+
+  assert.equal(result.status, 0, result.output);
+  assert.deepEqual(await readVersion(project), {
+    template,
+    commit: tip,
+    skipped: [],
+    note: "a field of the project",
+  });
+});
+
 test("refuses to finish while other changes have no commit", async (context) => {
   const { template, project, start } = await createProject(context);
   await templateCommit({
