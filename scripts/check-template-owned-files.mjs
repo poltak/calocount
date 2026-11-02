@@ -1,16 +1,16 @@
 // Checks a pull request that changes a file that a project gets from the
-// template. The "Template-owned files" workflow of CI runs it for each change
-// to a pull request:
+// template, or a file that only a person changes. The "Template-owned files"
+// workflow of CI runs it for each change to a pull request:
 //
 //   node scripts/check-template-owned-files.mjs
 //
-// It passes when the pull request changes no file in `templateOwned` of
-// `scripts/template-paths.json`, when a maintainer opened it, or when a
-// maintainer added the `template-change-approved` label. A later push that
-// changes the pull request's own change to such a file removes the label, so
-// an approval is for the version that the maintainer saw. A change that the
-// push brings in from the base branch, such as a sync, does not count. In the
-// template, every pull request passes.
+// It passes when the pull request changes no file in `templateOwned` or
+// `personOnly` of `scripts/template-paths.json`, when a maintainer opened it,
+// or when a maintainer added the `template-change-approved` label. A later
+// push that changes the pull request's own change to such a file removes the
+// label, so an approval is for the version that the maintainer saw. A change
+// that the push brings in from the base branch, such as a sync, does not
+// count. In the template, every pull request passes.
 //
 // It reads the event from GITHUB_EVENT_PATH, and the GitHub logins of the
 // maintainers from TEMPLATE_MAINTAINERS, with commas or spaces between them.
@@ -96,10 +96,13 @@ function check() {
     .filter(Boolean);
   const isMaintainer = (login) =>
     maintainers.some((name) => name.toLowerCase() === login?.toLowerCase());
-  const owned = JSON.parse(
+  const { templateOwned, personOnly = [] } = JSON.parse(
     readFileSync(path.join(root, PATHS_FILE), "utf8"),
-  ).templateOwned;
-  const isOwned = (file) => owned.some((entry) => matchesPath({ entry, file }));
+  );
+  const isListed = (entries, file) =>
+    entries.some((entry) => matchesPath({ entry, file }));
+  const isOwned = (file) =>
+    isListed(templateOwned, file) || isListed(personOnly, file);
 
   const repository = event.repository.full_name;
   const pull = event.pull_request;
@@ -114,12 +117,12 @@ function check() {
   );
   if (changed.size === 0) {
     console.log(
-      "The pull request changes no file that comes from the template.",
+      "The pull request changes no file that needs the approval of a maintainer.",
     );
     return true;
   }
   console.log(
-    `The pull request changes files that come from the template:\n${listOf([...changed])}`,
+    `The pull request changes files that need the approval of a maintainer:\n${listOf([...changed])}`,
   );
 
   let approved = pull.labels.some((label) => label.name === LABEL);
@@ -177,9 +180,17 @@ function check() {
   console.log(
     [
       "",
-      "A project takes changes to these files only with a sync. Make the change",
-      "in the template first. When the change must also be in this project now,",
-      `a maintainer adds the ${LABEL} label to the pull request.`,
+      ...([...changed].some((file) => isListed(templateOwned, file))
+        ? [
+            "A project takes changes to a file from the template only with a sync.",
+            "Make the change in the template first.",
+          ]
+        : []),
+      ...([...changed].some((file) => isListed(personOnly, file))
+        ? ["A file in `personOnly` can loosen a rule of this project."]
+        : []),
+      `When the change must be in this project now, a maintainer adds the ${LABEL}`,
+      "label to the pull request.",
       maintainers.length > 0
         ? `Maintainers: ${maintainers.join(", ")}.`
         : "No maintainer is set. Set the TEMPLATE_MAINTAINERS variable of the repository, as docs/agents/setup.md describes.",

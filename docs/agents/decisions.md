@@ -382,6 +382,15 @@ entry to the choice, the reason, and any rule that follows from it.
   Codex does not support "ask" yet. Codex reports such a hook as failed and
   makes the edit. The hook does not see a file that a shell command writes,
   so it stops a mistake and does not lock the files.
+- **A project adds to the lint rules in `lint.project.json`, at the root.** Each
+  project with a worker or a shared feature edited `.oxlintrc.json` before. The
+  file is outside `lint/`, because the hook and the CI check treat each file in
+  that directory as owned. It has no `vendors` key, because a stricter rule needs
+  no help from the template: a second oxlint run does it. So each key loosens a
+  rule, and `personOnly` makes each change a person's decision. A shared feature
+  of a project imports only the template's shared features. Other features import
+  it, so an import back can start a cycle, and a list of all features cannot turn
+  off the boundary rule.
 - **A CI check finds each change to those files in a pull request, and a
   maintainer approves it with a label.** The check sees what the hook does
   not, such as a file that a shell command wrote. Its trigger is

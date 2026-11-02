@@ -8,7 +8,7 @@ import path from "node:path";
 export const VERSION_FILE = "template-version.json";
 
 /**
- * The file with five lists of paths. A path that ends with `/` is a
+ * The file with six lists of paths. A path that ends with `/` is a
  * directory.
  *
  * - `templateOnly`: files that only the template needs. `start-project`
@@ -19,6 +19,9 @@ export const VERSION_FILE = "template-version.json";
  *   example. These are the migrations of the example, and the skill that
  *   removes the example.
  * - `projectOwned`: files that a project writes for itself.
+ * - `personOnly`: files that only a person changes, because they can loosen a
+ *   rule of the project. The template has none of them. The hook and the check
+ *   below read this list too. A sync does not read it.
  * - `templateOwned`: files that a project takes from the template and does
  *   not change. `.agents/hooks/guard-template-owned-files.mjs` and
  *   `check-template-owned-files.mjs` read this list from the project. A sync

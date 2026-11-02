@@ -293,6 +293,28 @@ Then add this script to the root `package.json`. `pnpm run check` runs each
 "check:project-lint": "oxlint -c .oxlintrc.project.json --deny-warnings backend frontend common"
 ```
 
+To allow more, add `lint.project.json` at the root. It adds to the lists in
+`.oxlintrc.json`, and it cannot remove a value. A project with no file has the
+template's rules. Each key is optional:
+
+- `roles`: role directories for each feature.
+- `rolesByFeature`: role directories for one feature, such as
+  `{ "rides": ["tiles"] }`.
+- `srcRootFiles`: files at the top of `src/`, such as a second entry point.
+- `compositionFiles`: files that may import and construct across features.
+  Three lint rules skip such a file.
+- `sharedFeatures`: features that each feature may import. Such a feature
+  imports only `core` and `api`.
+
+An unknown key stops lint. The file has no `vendors` key, because a vendor rule
+is stricter, and it goes in the second run.
+
+These keys loosen a rule, so a person decides each change to the file.
+`personOnly` in
+[`scripts/template-paths.json`](../../scripts/template-paths.json) lists it. The
+hook and the "Template-owned files" check treat it as they treat a file from the
+template, and the agent review reports each change.
+
 ## Agent review of pull requests
 
 The "Agent review" workflow of CI gives each pull request to two models,

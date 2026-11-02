@@ -26,6 +26,7 @@
     ".agents/review/project-rules.md",
     "backend/src/features/core/database/pglite-extensions.ts"
   ],
+  "personOnly": ["lint.project.json"],
   "templateOwned": [
     "AGENTS.md",
     "docs/agents/code-architecture.md",

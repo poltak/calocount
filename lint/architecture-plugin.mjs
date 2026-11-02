@@ -13,6 +13,7 @@ import {
   isListed,
   resolveImport,
 } from "./paths.mjs";
+import { projectOptions } from "./project-options.mjs";
 
 const DOC = "See docs/agents/code-architecture.md";
 const LAYER_ROLES = ["services", "storage", "logic", "ui", "handlers"];
@@ -30,7 +31,10 @@ function importedFile(context, source) {
 }
 
 function isCompositionFile(file, options) {
-  return isListed(file, options.compositionFiles ?? []);
+  return isListed(file, [
+    ...(options.compositionFiles ?? []),
+    ...projectOptions.compositionFiles,
+  ]);
 }
 
 function roleClassKind(file) {
@@ -73,6 +77,10 @@ const featureBoundaries = {
         "'{{target}}' is private to the '{{feature}}' feature. Import its types.ts, move shared code to a shared feature, or use an event. " +
         DOC +
         " (Dependency flow).",
+      sharedFeature:
+        "'{{feature}}' is a shared feature of this project, so it imports only {{allowed}}. " +
+        DOC +
+        " (Layout of src/).",
     },
   },
   create(context) {
@@ -82,17 +90,36 @@ const featureBoundaries = {
       return {};
     }
 
+    const shared = options.sharedFeatures ?? [];
     return importVisitors((node, source) => {
       const target = importedFile(context, source);
       if (
         !target?.feature ||
         target.workspace !== file.workspace ||
         target.feature === file.feature ||
-        (options.sharedFeatures ?? []).includes(target.feature) ||
         // Black box tests follow a workflow across features, so they may use
         // the page objects of every feature.
         (target.role === file.role &&
-          (options.sharedRoles ?? []).includes(file.role)) ||
+          (options.sharedRoles ?? []).includes(file.role))
+      ) {
+        return;
+      }
+      // Other features import a project's shared feature, so an import from it
+      // can start a cycle. This also keeps the boundaries when a project lists
+      // each feature.
+      if (projectOptions.sharedFeatures.includes(file.feature)) {
+        if (!shared.includes(target.feature)) {
+          context.report({
+            node,
+            messageId: "sharedFeature",
+            data: { feature: file.feature, allowed: shared.join(", ") },
+          });
+        }
+        return;
+      }
+      if (
+        shared.includes(target.feature) ||
+        projectOptions.sharedFeatures.includes(target.feature) ||
         target.base === "types"
       ) {
         return;
@@ -603,7 +630,10 @@ const fileLayout = {
     return {
       Program(node) {
         if (!file.feature) {
-          if (!(options.srcRootFiles ?? []).includes(file.inSrc)) {
+          const allowed = (options.srcRootFiles ?? []).concat(
+            projectOptions.srcRootFiles,
+          );
+          if (!allowed.includes(file.inSrc)) {
             context.report({ node, messageId: "outside" });
           }
           return;
@@ -625,6 +655,8 @@ const fileLayout = {
 
         const allowed = (options.roles ?? []).concat(
           options.rolesByFeature?.[file.feature] ?? [],
+          projectOptions.roles,
+          projectOptions.rolesByFeature[file.feature] ?? [],
         );
         if (!allowed.includes(file.role)) {
           context.report({

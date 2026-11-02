@@ -74,6 +74,9 @@ You cannot know if the team agreed to the change, so report each one, and the
 maintainer confirms it. Quote the new text that changes the decision, and name
 the old decision in the explanation.
 
+A change to `lint.project.json` is such a change, because it can loosen a lint
+rule. Quote the changed line, and name the rule in the explanation.
+
 ### comment-restates-code
 
 A code comment only says what the code does, and the name, the types, or the

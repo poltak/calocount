@@ -34,12 +34,13 @@ async function createProject(context, { version = true } = {}) {
   }
   await write(
     "scripts/template-paths.json",
-    JSON.stringify({ templateOwned: OWNED }),
+    JSON.stringify({ templateOwned: OWNED, personOnly: ["lint.project.json"] }),
   );
   await write("AGENTS.md", "# Agent instructions\n");
   await write("lint/rule.mjs", "export {};\n");
   await write(".agents/skills/unslop/SKILL.md", "# Unslop\n");
   await write("docs/agents/decisions.md", "# Decisions\n");
+  await write("lint.project.json", "{}\n");
   await mkdir(path.join(directory, ".claude/skills"), { recursive: true });
   await symlink(
     "../../.agents/skills/unslop",
@@ -107,6 +108,46 @@ test("asks before Claude Code edits a template-owned file of a project", async (
     /`AGENTS\.md` comes from the template/,
   );
   assert.match(answer.permissionDecisionReason, /must not write these files/);
+});
+
+test("asks before Claude Code edits a file that only a person changes", async (context) => {
+  const project = await createProject(context);
+
+  const answer = await runGuard(
+    claudeEdit({ project, file: "lint.project.json" }),
+  );
+
+  assert.equal(answer.permissionDecision, "ask");
+  assert.match(answer.permissionDecisionReason, /a person decides each change/);
+  assert.doesNotMatch(answer.permissionDecisionReason, /from the template/);
+});
+
+test("denies Codex an edit of a file that only a person changes, and gives both reasons", async (context) => {
+  const project = await createProject(context);
+
+  const answer = await runGuard(
+    codexPatch({
+      project,
+      lines: [
+        "*** Update File: lint.project.json",
+        "*** Update File: AGENTS.md",
+      ],
+    }),
+  );
+
+  assert.equal(answer.permissionDecision, "deny");
+  assert.match(answer.permissionDecisionReason, /a person decides each change/);
+  assert.match(answer.permissionDecisionReason, /comes from the template/);
+});
+
+test("lets the template edit a file that only a person changes in a project", async (context) => {
+  const project = await createProject(context, { version: false });
+
+  const answer = await runGuard(
+    claudeEdit({ project, file: "lint.project.json" }),
+  );
+
+  assert.equal(answer, undefined);
 });
 
 test("denies the edit in a Claude Code mode that shows no prompt", async (context) => {
