@@ -132,11 +132,12 @@ Small weekly updates replace one large update each year. The rules are in
   it equal to the value in `renovate.json`. pnpm does not put a version that
   is less than 3 days old into the lockfile, and an install fails when the
   lockfile has one.
-- The weekly lock file update waits for a person. Renovate cannot apply its
-  3 day rule to the indirect dependencies that pnpm changes there, so the
-  config turns the rule off for that pull request. With the rule on, the pull
-  request has a `renovate/stability-days` status that stays pending without
-  end. The pnpm rule applies to that pull request.
+- The weekly lock file update merges by itself when CI passes. It has no
+  release notes for a person to read, and the pnpm rule keeps a new release
+  out of it. Renovate cannot apply its 3 day rule to the indirect dependencies
+  that pnpm changes there, so the config turns the rule off for that pull
+  request. With the rule on, the pull request has a `renovate/stability-days`
+  status that stays pending without end.
 - Renovate starts new updates on Monday, from 00:00 to 12:00 UTC. The free
   hosted plan runs a repository every 4 hours. The usual weekly window is 4
   hours, so one late run could miss it and delay the updates for a week.
