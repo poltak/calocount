@@ -244,8 +244,11 @@ gh label create template-change-approved --color 0e8a16 \
 `TEMPLATE_MAINTAINERS` has the GitHub logins of the persons who can approve
 such a change. A pull request cannot change the variable. Without it, the
 check fails each change to one of those files. On the GitHub Free plan, a
-failed check does not stop a merge. With a paid plan, make the check
-required in the branch protection of `main`.
+failed check does not stop a merge. With a paid plan, make "CI passed",
+"Template-owned files", and "Agent review" required in the branch protection
+of `main`. Do not require another job of `ci.yml`, because GitHub counts a
+skipped job as passed. Do not require a workflow with a path filter, because
+most pull requests get no result from it and stay blocked.
 
 ## Agent review of pull requests
 
