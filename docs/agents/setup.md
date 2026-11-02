@@ -36,7 +36,7 @@ private and untracked.
 | `PORT`                      | No                   | Port the server listens on. Default `3000`.                                           |
 | `LOG_FORMAT`                | No                   | `json` (default) or `pretty`. `.env.example` sets `pretty` for development.           |
 | `LOG_LEVEL`                 | No                   | Lowest level to log: `debug`, `info` (default), `warn`, or `error`.                   |
-| `VITE_API_BASE_URL`         | No                   | Frontend only. API location when it is not served from the page's origin.             |
+| `VITE_API_BASE_URL`         | No                   | Frontend only. The API's absolute URL, when it is not on the page's origin.           |
 
 Generate a secret with:
 
