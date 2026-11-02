@@ -363,7 +363,6 @@ const earlierOf = (master, fields) =>
   pack({
     head: "abc1234def",
     comment: 99,
-    master: true,
     issues: stateIn(master.body).issues,
     ...fields,
   });
@@ -441,31 +440,6 @@ test("plan gives the issues of the master comment and the commit that each model
     }),
     issue("N1", { file: "docs/agents/setup.md", quote: "# Setup" }),
   ];
-  const old = [
-    {
-      number: 1,
-      rule: "override",
-      file: "docs/agents/plan.md",
-      line: 3,
-      quote: OVERRIDE,
-      explanation: "A reason.",
-      models: ["Claude"],
-    },
-    {
-      number: 2,
-      rule: "stale-document",
-      file: "docs/agents/setup.md",
-      line: 3,
-      quote: "Run `pnpm run db:reset`",
-      explanation: "Another reason.",
-      models: ["Codex"],
-      accepted: "Owner",
-    },
-  ];
-  const oldComment = bot(
-    `<!-- agent-review head=def5678 blockers=1 reviewed=def5678 base=0ba5e00 -->\n<!-- agent-review-findings ${pack(old)} -->\n### Agent review of def5678: 1 finding`,
-    97,
-  );
   const earlierOf = async (comments) =>
     (
       await run({
@@ -477,7 +451,6 @@ test("plan gives the issues of the master comment and the commit that each model
     ).outputs.earlier;
 
   const fromMaster = await earlierOf([
-    oldComment,
     bot(
       `<!-- agent-review-master head=abc1234 blockers=1 reviewed=fed4321 base=0ba5e00 -->\n<!-- agent-review-state ${pack({ issues, reviews: [] })} -->\n### Agent review`,
       98,
@@ -486,50 +459,13 @@ test("plan gives the issues of the master comment and the commit that each model
       "<!-- agent-review-summary head=fed4321 review=2 -->\n### Agent review 2",
     ),
   ]);
-  const fromOld = await earlierOf([oldComment]);
   const none = await earlierOf([]);
 
   assert.deepEqual(unpack(fromMaster), {
     head: "abc1234",
     comment: 98,
-    master: true,
     issues,
     reviewed: "fed4321",
-    base: "0ba5e00",
-  });
-  assert.deepEqual(unpack(fromOld), {
-    head: "def5678",
-    comment: 97,
-    master: false,
-    issues: [
-      {
-        id: "F1",
-        rule: "override",
-        file: "docs/agents/plan.md",
-        line: 3,
-        quote: OVERRIDE,
-        explanation: "A reason.",
-        models: ["Claude"],
-        found: 1,
-        head: "def5678",
-        status: "open",
-      },
-      {
-        id: "F2",
-        rule: "stale-document",
-        file: "docs/agents/setup.md",
-        line: 3,
-        quote: "Run `pnpm run db:reset`",
-        explanation: "Another reason.",
-        models: ["Codex"],
-        found: 1,
-        head: "def5678",
-        status: "accepted",
-        acceptedBy: "Owner",
-        acceptedIn: 1,
-      },
-    ],
-    reviewed: "def5678",
     base: "0ba5e00",
   });
   assert.equal(none, "");
@@ -562,7 +498,6 @@ test("claude gives the reviewer the open findings and notes in a file, and not t
   const withEarlier = await review({
     head: "abc1234",
     comment: 99,
-    master: true,
     issues: [
       issue("F1", {
         rule: "override",
@@ -656,7 +591,6 @@ test("claude looks for new problems only after the commit that each model read, 
         EARLIER_REVIEW: pack({
           head: repo.head,
           comment: 99,
-          master: true,
           issues: [],
           ...earlier,
         }),
@@ -1410,62 +1344,6 @@ test("verdict stores the commit that each model read, keeps the earlier one when
   assert.match(
     firstFailed.posted,
     new RegExp(`^<!-- agent-review-master head=${newer} blockers=2 -->`),
-  );
-});
-
-test("verdict posts a master comment after a comment from before the master comment, and keeps its findings", async (context) => {
-  const repo = await repository(context);
-  const result = await run({
-    repo,
-    command: "verdict",
-    action: "synchronize",
-    answers: { [`GET ${PULL}`]: { head: { sha: repo.head } } },
-    env: {
-      MODE: "review",
-      EARLIER_REVIEW: pack({
-        head: "abc1234def",
-        comment: 97,
-        master: false,
-        issues: [
-          issue("F1", {
-            rule: "override",
-            file: "docs/agents/plan.md",
-            quote: OVERRIDE,
-          }),
-          issue("F2", {
-            rule: "stale-document",
-            file: "docs/agents/setup.md",
-            quote: "Run `pnpm run db:reset`",
-            status: "accepted",
-            acceptedBy: "Owner",
-            acceptedIn: 1,
-          }),
-        ],
-      }),
-      CLAUDE_JOB: job(
-        [],
-        [],
-        [{ id: "F1", status: "open", explanation: "It is still there." }],
-      ),
-      CODEX_JOB: NOT_SET_UP,
-    },
-  });
-
-  assert.equal(result.status, 1, result.output);
-  assert.ok(result.calls.every(({ call }) => !call.startsWith("PATCH ")));
-  const { body } = inputOf(result, SUMMARY_POST);
-  assert.match(body, /^<!-- agent-review-master head=/);
-  assert.deepEqual(
-    stateIn(body).issues.map(({ id, status }) => [id, status]),
-    [
-      ["F1", "open"],
-      ["F2", "accepted"],
-      ["F3", "open"],
-    ],
-  );
-  assert.match(
-    body,
-    /- \[x\] <a id="agent-review-f2"><\/a>\*\*F2 · stale-document\*\* in [^\n]* · accepted by Owner in review 1\. To open it again, a maintainer clears its box\./,
   );
 });
 
@@ -2487,9 +2365,6 @@ test("a label accepts the open rule violations only when a maintainer added it f
   const olderHead = await accepted({
     comments: [bot("<!-- agent-review-master head=0ld blockers=2 -->")],
   });
-  const beforeMaster = await accepted({
-    comments: [bot(`<!-- agent-review head=${repo.head} blockers=1 -->`)],
-  });
   const clean = await accepted({
     comments: [
       bot(`<!-- agent-review-master head=${repo.head} blockers=0 -->`),
@@ -2506,7 +2381,6 @@ test("a label accepts the open rule violations only when a maintainer added it f
   assert.equal(removed.status, 1);
   assert.equal(olderHead.status, 1);
   assert.match(olderHead.output, /has not finished/);
-  assert.equal(beforeMaster.status, 0, beforeMaster.output);
   assert.equal(clean.status, 0, clean.output);
 });
 
