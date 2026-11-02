@@ -69,6 +69,8 @@
     "scripts/check-staged-secrets.test.mjs",
     "scripts/check-template-owned-files.mjs",
     "scripts/check-template-owned-files.test.mjs",
+    "scripts/issues-init.mjs",
+    "scripts/issues-init.test.mjs",
     "scripts/migration-files.mjs",
     "scripts/sync-template-fixtures.mjs",
     "scripts/sync-template-finish.test.mjs",

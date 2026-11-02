@@ -24,6 +24,7 @@
     "auth:reset-password": "node scripts/dev-database.mjs -- pnpm --filter backend run auth:reset-password",
     "db:migration:create": "node scripts/create-migration.mjs",
     "template:sync": "node scripts/sync-template.mjs",
+    "issues:init": "node scripts/issues-init.mjs",
     "lint": "oxlint --deny-warnings backend frontend common",
     "unused:check": "knip",
     "typecheck": "pnpm --filter @app/common build && pnpm -r --filter '!legacy' --if-present run typecheck",

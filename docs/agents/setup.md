@@ -488,6 +488,7 @@ of earlier events.
 | `pnpm run db:migration:create <name>` | Create a schema migration file.                       |
 | `pnpm run db:reset`                   | Delete the embedded development database.             |
 | `pnpm run template:sync plan`         | List the new commits of the template.                 |
+| `pnpm run issues:init`                | Turn on the beads issue tracker in a new project.     |
 | `pnpm run auth:setup-owner`           | Create the owner account.                             |
 | `pnpm run auth:reset-password`        | Set a new password for an account.                    |
 | `pnpm --filter frontend dev`          | Start only the frontend dev server.                   |

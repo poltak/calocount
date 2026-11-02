@@ -74,17 +74,26 @@ pnpm exec bd list
 One person does this one time, after the first push of the project, in its
 main checkout:
 
-1. Run `pnpm exec bd init --skip-hooks --skip-agents --prefix <project name>`.
-   - `--skip-hooks` keeps the [pre-commit hook](setup.md#the-pre-commit-hook). The
-     hooks of beads set `core.hooksPath`, and Git then does not run the secret
-     check.
-   - `--skip-agents` keeps the instructions of beads out of `AGENTS.md`,
-     `.claude/settings.json`, and `.codex/`. Those instructions tell agents to
-     file an issue before each change, and to stop the use of memory files.
-2. `bd init` makes a Git commit by itself, with its own message. Undo it with
-   `git reset --soft HEAD~1`, delete `.beads/README.md`, and commit again. The
-   README describes beads in general and has its own instructions for agents.
-3. Run `pnpm exec bd dolt push` to make `refs/dolt/data`, and push the commit.
+```sh
+pnpm run issues:init
+pnpm exec bd dolt push
+git push
+```
+
+[`scripts/issues-init.mjs`](../../scripts/issues-init.mjs) runs `bd init` with
+two flags, and the project name from `package.json` as the prefix. Give another
+prefix with `--prefix <name>`.
+
+- `--skip-hooks` keeps the [pre-commit hook](setup.md#the-pre-commit-hook). The
+  hooks of beads set `core.hooksPath`, and Git then does not run the secret
+  check.
+- `--skip-agents` keeps the instructions of beads out of `AGENTS.md`,
+  `.claude/settings.json`, and `.codex/`. Those instructions tell agents to
+  file an issue before each change, and to stop the use of memory files.
+- `bd init` makes a Git commit by itself, with its own message. The script
+  replaces that commit with one of its own, and leaves out `.beads/README.md`,
+  which describes beads in general and has its own instructions for agents.
+- `bd dolt push` makes `refs/dolt/data`.
 
 ## Stop the use of beads
 

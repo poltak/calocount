@@ -128,8 +128,9 @@ issue tracker. [Beads](docs/agents/beads.md) describes it.
   and agents use the same one. When `bd` says "no beads database found", do
   the steps of
   [Join a project that uses beads](docs/agents/beads.md#join-a-project-that-uses-beads).
-  Do not run `bd init` for this. Run it only to turn on beads in a new
-  project.
+- Do not run a bare `bd init`. It sets `core.hooksPath`, and Git then does not
+  run the secret check. To turn on beads in a new project, run
+  `pnpm run issues:init`.
 - This section replaces the agent instructions of beads. Do not run
   `bd prime`, `bd setup`, `bd hooks`, or `bd remember`.
 - Run `pnpm exec bd dolt pull` before your first `bd` command in a session.

@@ -536,6 +536,12 @@ template. Some reasons come from what happened in it.
   database. The value is in a file that the check reads. When nobody sets it
   at the first deploy, the hash still stops the migration of a deployed
   database that ran an older version of a file.
+- **One command turns on beads.** A bare `bd init` sets `core.hooksPath`, and
+  Git then does not run the secret check. It also tells agents to file an issue
+  before each change. An agent can run it from its own global rules, and the
+  flags that stop both are hard to remember. `pnpm run issues:init` holds the
+  flags and the clean-up of the commit, so nobody needs the bare command. It
+  fails when `core.hooksPath` is set after all.
 - **Two models review each pull request for rules that no script can check,
   and the check fails on a finding.** In the first project, a pull
   request wrote that its plan doc was correct where the data model doc disagreed, and

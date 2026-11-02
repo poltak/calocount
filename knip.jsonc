@@ -3,8 +3,8 @@
   // no package of the repository has it. `script` comes with the system, and
   // the sync tests use it to get a real terminal.
   "ignoreBinaries": ["codex", "script"],
-  // People and agents run bd with `pnpm exec bd`, and no code or script of the
-  // repository calls it.
+  // People, agents, and `scripts/issues-init.mjs` run bd with `pnpm exec bd`,
+  // and knip reads no code that imports it.
   "ignoreDependencies": ["@beads/bd"],
   // The old app, until the rebuild replaces it.
   "ignoreWorkspaces": ["legacy"],
