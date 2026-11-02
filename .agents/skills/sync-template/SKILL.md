@@ -73,6 +73,8 @@ what the template changed, and its message gives the reason.
 - It merges a `package.json` by its keys. A template update of one dependency
   and a dependency that the project added then do not conflict. A conflict
   remains only when both sides changed one key to different values.
+- It keeps a dependency out of a project that removed it, also when the
+  template updates that dependency, and it prints the name.
 - It keeps the project's `pnpm-lock.yaml` when the template's change does not
   apply to it, and `verify install` brings it up to date. The project then does not
   get the template's updates of indirect dependencies.

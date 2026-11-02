@@ -35,6 +35,12 @@ import {
 const root = fileURLToPath(new URL("..", import.meta.url));
 const TEMPLATE_BRANCH = "main";
 const LOCKFILE = "pnpm-lock.yaml";
+const DEPENDENCY_LISTS = [
+  "dependencies",
+  "devDependencies",
+  "peerDependencies",
+  "optionalDependencies",
+];
 const MIGRATIONS_DIRECTORY = "backend/src/features/core/database/migrations/";
 const MIGRATION_LIST = "backend/src/features/core/database/migrations.ts";
 const MIGRATION_SCRIPT = "scripts/create-migration.mjs";
@@ -342,7 +348,10 @@ function restoreFromHead(file) {
  * a project that added a dependency on the next line, then conflict. By keys,
  * the two changes are to different keys, and they do not conflict.
  *
- * Returns the paths of the keys that both sides changed to different values.
+ * Returns the paths of the keys that both sides changed to different values,
+ * and the dependencies that the project removed and the template updated.
+ * Such a dependency stays out of the project, because the project has no use
+ * for its new version.
  */
 function mergeJson({ base, ours, theirs, at = [] }) {
   const isObject = (value) =>
@@ -361,6 +370,7 @@ function mergeJson({ base, ours, theirs, at = [] }) {
 
   const merged = {};
   const conflicts = [];
+  const keptRemoved = [];
   for (const key of keys) {
     const sides = { base, ours, theirs };
     const same = (left, right) =>
@@ -382,9 +392,14 @@ function mergeJson({ base, ours, theirs, at = [] }) {
           });
           merged[key] = inner.merged;
           conflicts.push(...inner.conflicts);
+          keptRemoved.push(...inner.keptRemoved);
           continue;
         }
-        conflicts.push([...at, key].join("."));
+        const projectRemoved =
+          at.length === 1 &&
+          DEPENDENCY_LISTS.includes(at[0]) &&
+          !Object.hasOwn(ours, key);
+        (projectRemoved ? keptRemoved : conflicts).push([...at, key].join("."));
       }
     }
     if (Object.hasOwn(sides[from], key)) {
@@ -404,9 +419,10 @@ function mergeJson({ base, ours, theirs, at = [] }) {
         ),
       ),
       conflicts,
+      keptRemoved,
     };
   }
-  return { merged, conflicts };
+  return { merged, conflicts, keptRemoved };
 }
 
 /**
@@ -431,9 +447,14 @@ async function mergePackageJson(file) {
     return undefined;
   }
   const [base, ours, theirs] = versions;
-  const { merged, conflicts } = mergeJson({ base, ours, theirs });
+  const { merged, conflicts, keptRemoved } = mergeJson({ base, ours, theirs });
   if (conflicts.length > 0) {
     return conflicts;
+  }
+  for (const key of keptRemoved) {
+    console.log(
+      `      ${file}: the template updates ${key}. The project removed it, so it stays removed.`,
+    );
   }
 
   const target = path.join(root, file);
