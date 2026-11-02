@@ -391,6 +391,16 @@ entry to the choice, the reason, and any rule that follows from it.
   With no file, an absent file is the normal case, and both agents ignore it.
   `AGENTS.override.md` is not an option, because Codex reads it in place of
   `AGENTS.md`.
+- **A project reverses a template decision only in a list that a person
+  approves.** Before this list, a project that had a good reason to differ had
+  no allowed text. An edit of an owned file conflicts at the next sync, and a
+  project file that says that it wins breaks the `override` review rule.
+  `docs/agents/project/reversals.md` is the one exception to that rule, so the
+  reversal stays visible, with its reason and its approver. The list is for one
+  rule at a time. A project on another stack replaces a whole document. The file
+  is in `personOnly`, so the hook and the CI check guard it as they guard an
+  owned file. The agent review also reports each entry, but the review does not
+  run in a project with no secrets, so it cannot be the only guard.
 - **A CI check finds each change to those files in a pull request, and a
   maintainer approves it with a label.** The check sees what the hook does
   not, such as a file that a shell command wrote. Its trigger is

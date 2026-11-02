@@ -28,6 +28,7 @@
     "backend/src/features/core/database/pglite-extensions.ts",
     "docs/agents/project/"
   ],
+  "personOnly": ["docs/agents/project/reversals.md"],
   "templateOwned": [
     "AGENTS.md",
     "docs/agents/code-architecture.md",

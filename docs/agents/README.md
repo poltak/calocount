@@ -31,6 +31,9 @@ a file when it needs one:
 - `rules.md`: rules that apply to each task in this project. `AGENTS.md` makes
   Codex and Claude Code read this file when it exists. A note for a skill goes
   under a heading with the name of the skill.
+- `reversals.md`: each decision of the template that this project reverses.
+  `AGENTS.md` loads this file too. See [Reverse a decision](#reverse-a-decision)
+  below.
 
 ## Where to start reading the code
 
@@ -89,7 +92,22 @@ change, because an agent finds a document through that list.
 When a change makes a fact in another document wrong, change that document in
 the same change. Do not write that one document is correct where two
 documents disagree. A reader then has to compare the two, and the other
-document stays wrong.
+document stays wrong. The one exception is the file in the next section.
+
+### Reverse a decision
+
+A rule or a decision of the template fits most projects. When it is wrong for
+one project, first ask the person if the template must change, because that
+helps each project. When only this project needs the change, add an entry to
+`docs/agents/project/reversals.md`:
+
+- The rule or decision, with its file and heading.
+- What replaces it.
+- The reason.
+- The person who approved it.
+
+Use a list and not a table, so that a new entry changes one line. A person
+approves each change to this file, as for a file from the template.
 
 Keep always-needed instructions in the root `AGENTS.md`, or in
 `docs/agents/project/rules.md` in a project. Do not create another `AGENTS.md`.

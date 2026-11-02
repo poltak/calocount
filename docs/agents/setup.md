@@ -246,6 +246,11 @@ remove it, unless `main` changed lines next to that change. When the check
 removes the label, its log names the files and links to the changes of the
 push. The check does nothing in the template.
 
+The hook and the check treat the files in `personOnly` the same way. Those
+files are the project's own, but they can loosen a rule. `reversals.md` in
+`docs/agents/project/` is such a file. See
+[Reverse a decision](README.md#reverse-a-decision).
+
 A project needs two settings on GitHub for the check. Make them one time,
 after the first push:
 

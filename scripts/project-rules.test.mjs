@@ -10,16 +10,18 @@ const repoRoot = path.resolve(
   "..",
 );
 const PROJECT_RULES = "docs/agents/project/rules.md";
+const REVERSALS = "docs/agents/project/reversals.md";
 
 const readRepositoryFile = (file) =>
   readFile(path.join(repoRoot, file), "utf8");
 
-test("AGENTS.md imports the project rules in a line that Claude Code expands", async () => {
+test("AGENTS.md imports the project's files in a line that Claude Code expands", async () => {
   const lines = (await readRepositoryFile("AGENTS.md")).split("\n");
 
   const line = lines.find((text) => text.includes(`@${PROJECT_RULES}`));
 
   assert.ok(line, "AGENTS.md must name the project rules with an @ import.");
+  assert.ok(line.includes(`@${REVERSALS}`));
   // Claude Code does not expand an import in a code span or a code block.
   assert.doesNotMatch(line, /`/);
   const fence = lines.findIndex((text) => text.startsWith("```"));
@@ -37,4 +39,10 @@ test("a sync and the guard leave the project's documents to the project", async 
   assert.ok(
     !templateOwned.some((entry) => matchesPath({ entry, file: PROJECT_RULES })),
   );
+});
+
+test("a person approves each reversal of a template decision", async () => {
+  const { personOnly } = JSON.parse(await readRepositoryFile(PATHS_FILE));
+
+  assert.ok(personOnly.includes(REVERSALS));
 });

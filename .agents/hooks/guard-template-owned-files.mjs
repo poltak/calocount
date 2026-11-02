@@ -1,13 +1,15 @@
-// Stops an agent's edit of a file that a project gets from the template.
-// Claude Code and Codex run it before each edit, with the agent's name:
+// Stops an agent's edit of a file that a project gets from the template, or of
+// a file that only a person changes. Claude Code and Codex run it before each
+// edit, with the agent's name:
 //
 //   node .agents/hooks/guard-template-owned-files.mjs claude|codex
 //
-// `templateOwned` in `scripts/template-paths.json` lists the files. A project
-// takes their changes only with a sync, because an edit in the project makes
-// the next sync conflict. The hook does nothing in the template, which has no
-// `template-version.json`, and nothing while a sync waits for a person to
-// resolve a conflict.
+// `templateOwned` in `scripts/template-paths.json` lists the first kind. A
+// project takes their changes only with a sync, because an edit in the project
+// makes the next sync conflict. `personOnly` lists the second kind, because
+// each can loosen a rule of the project. The hook does nothing in the template,
+// which has no `template-version.json`, and nothing while a sync waits for a
+// person to resolve a conflict.
 //
 // The hook does not see a file that a shell command writes, so it stops only
 // a mistake. The "Template-owned files" check of CI sees each change in a
@@ -84,24 +86,30 @@ function locate(file) {
   };
 }
 
-function ownedFiles({ root, files }) {
+function guardedFiles({ root, files }) {
+  const none = { owned: [], personOnly: [] };
   if (!existsSync(path.join(root, VERSION_FILE))) {
-    return [];
+    return none;
   }
   const stopped = readGit({
     directory: root,
     args: ["rev-parse", "--git-path", SYNC_STOPPED],
   });
   if (stopped && existsSync(path.resolve(root, stopped))) {
-    return [];
+    return none;
   }
   const pathsFile = path.join(root, PATHS_FILE);
-  const owned = existsSync(pathsFile)
-    ? (JSON.parse(readFileSync(pathsFile, "utf8")).templateOwned ?? [])
-    : [];
-  return files.filter((file) =>
-    owned.some((entry) => matchesPath({ entry, file })),
-  );
+  const lists = existsSync(pathsFile)
+    ? JSON.parse(readFileSync(pathsFile, "utf8"))
+    : {};
+  const listed = (entries = []) =>
+    files.filter((file) =>
+      entries.some((entry) => matchesPath({ entry, file })),
+    );
+  return {
+    owned: listed(lists.templateOwned),
+    personOnly: listed(lists.personOnly),
+  };
 }
 
 async function readHookInput() {
@@ -134,12 +142,12 @@ async function main() {
       ]);
     }
   }
-  const owned = [
-    ...new Set(
-      [...byRoot].flatMap(([root, files]) => ownedFiles({ root, files })),
-    ),
-  ];
-  if (owned.length === 0) {
+  const guarded = [...byRoot].map(([root, files]) =>
+    guardedFiles({ root, files }),
+  );
+  const owned = [...new Set(guarded.flatMap((files) => files.owned))];
+  const personOnly = [...new Set(guarded.flatMap((files) => files.personOnly))];
+  if (owned.length + personOnly.length === 0) {
     return;
   }
 
@@ -151,14 +159,25 @@ async function main() {
       : "deny";
   // A person reads the reason in the prompt. An agent reads it when the edit
   // is denied, also when Claude Code denies an "ask" that nobody can answer.
-  const names = owned.map((file) => `\`${file}\``).join(", ");
+  const nameOf = (file) => `\`${file}\``;
   const reason = [
-    `${names} ${owned.length === 1 ? "comes" : "come"} from the template`,
-    `(\`templateOwned\` in \`${PATHS_FILE}\`). This project takes changes to`,
-    "those files only with a sync, and an edit here makes the next sync",
-    "conflict. Make the change in the template first. An agent must not",
-    "write these files in another way, such as with a shell command. It",
-    "describes the change to the person.",
+    ...(personOnly.length > 0
+      ? [
+          `${personOnly.map(nameOf).join(", ")} can loosen a rule of this`,
+          `project (\`personOnly\` in \`${PATHS_FILE}\`), so a person decides`,
+          "each change.",
+        ]
+      : []),
+    ...(owned.length > 0
+      ? [
+          `${owned.map(nameOf).join(", ")} ${owned.length === 1 ? "comes" : "come"} from the template`,
+          `(\`templateOwned\` in \`${PATHS_FILE}\`). This project takes changes to`,
+          "those files only with a sync, and an edit here makes the next sync",
+          "conflict. Make the change in the template first.",
+        ]
+      : []),
+    "An agent must not write these files in another way, such as with a shell",
+    "command. It describes the change to the person.",
   ].join(" ");
   process.stdout.write(
     JSON.stringify({

@@ -46,6 +46,10 @@ Example: "Where this document and the plan disagree, the plan is correct."
 Other words for the same thing are also findings, for example "takes
 precedence" or "supersedes". Quote the sentence.
 
+`docs/agents/project/reversals.md` is the one exception. Each of its entries
+names a decision of the template that the project reverses. The rule
+`decision-change` covers that file, so do not report it under this rule.
+
 ### stale-document
 
 After the pull request, a document or a code comment says something that the
@@ -73,6 +77,8 @@ list of the decisions of one day.
 You cannot know if the team agreed to the change, so report each one, and the
 maintainer confirms it. Quote the new text that changes the decision, and name
 the old decision in the explanation.
+
+A new or changed entry in `docs/agents/project/reversals.md` is such a change.
 
 ### comment-restates-code
 
