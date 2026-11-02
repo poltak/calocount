@@ -19,8 +19,6 @@ instructions.
 - [The template](template.md): how a project starts from this repository, how
   it takes later changes, and how dependency updates work. Read before work on
   the template itself.
-- [Open work](todos/initial-setup.md): unfinished work and temporary behavior.
-  Read and update it as work completes.
 
 ## Where to start reading the code
 

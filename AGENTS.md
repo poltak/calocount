@@ -163,8 +163,6 @@ issue tracker. [Setup](docs/agents/setup.md#beads-issue-tracker) describes it.
   `pnpm exec bd close <ID> --reason="..."`.
 - A task that one session finishes needs no issue. The task list of your agent
   tool is enough, and it writes no file.
-- Do not add to `docs/agents/todos/`. It has open work from before beads,
-  and a person moves its items into beads.
 
 ## Project documentation
 

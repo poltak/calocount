@@ -555,6 +555,19 @@ The repository has no deployment files yet. These facts hold on any host:
 - When a user lost the password, run
   `pnpm --filter backend run auth:reset-password` on the host, in an
   interactive terminal and with the server's environment.
+- The backend does not serve the frontend build, and the page has no content
+  security policy. Decide both with the hosting.
+
+### Add error tracking
+
+The template has no error tracking. To add it, write a logger implementation
+that forwards each `error` entry to a service such as Sentry, one in each
+workspace. The places that must report already log through the logger: the
+backend error handler, the frontend root's error callbacks in `main.tsx`, and
+`useLogic`. Each live composition root then gives the app a logger that writes
+to the current logger and to the new one. Make a separate Core Service only if
+tracking needs more than error entries, such as the user's identity or a trail
+of earlier events.
 
 ## Commands
 
