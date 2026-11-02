@@ -250,6 +250,49 @@ of `main`. Do not require another job of `ci.yml`, because GitHub counts a
 skipped job as passed. Do not require a workflow with a path filter, because
 most pull requests get no result from it and stay blocked.
 
+### Lint rules of a project
+
+`.oxlintrc.json` and `lint/` come from the template. A project adds to them
+without an edit.
+
+For a new rule or a stricter option, run oxlint a second time with a config of
+the project. A second run cannot weaken the first. Write
+`.oxlintrc.project.json` at the root:
+
+```json
+{
+  "plugins": [],
+  "categories": { "correctness": "off" },
+  "jsPlugins": ["./lint/stack-plugin.mjs"],
+  "rules": {
+    "stack/vendor-imports": [
+      "error",
+      {
+        "vendors": [
+          {
+            "packages": ["stripe"],
+            "allowedIn": ["^features/[^/]+/services/"],
+            "where": "a Service implementation"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Keep `plugins` and `categories` as they are here. Without them, the second run
+repeats oxlint's default rules without the overrides of the first run. A rule
+of the project's own goes in a plugin file outside `lint/`, and its path goes in
+`jsPlugins`.
+
+Then add this script to the root `package.json`. `pnpm run check` runs each
+`check:*` script:
+
+```json
+"check:project-lint": "oxlint -c .oxlintrc.project.json --deny-warnings backend frontend common"
+```
+
 ## Agent review of pull requests
 
 The "Agent review" workflow of CI gives each pull request to two models,

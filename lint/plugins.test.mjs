@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -453,4 +453,49 @@ test("keeps black box tests on page objects and the black box fixture", async (c
     "frontend/src/features/plain/black-box-tests/plain.spec.ts: testing(black-box-tests)",
     "frontend/src/features/plain/black-box-tests/plain.spec.ts: testing(black-box-tests)",
   ]);
+});
+
+test("runs a project's stricter rule in a second run, with no default rule", async (context) => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "lint-rules-"));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const file = path.join(directory, feature("notes"), "utils/pay.ts");
+  await mkdir(path.dirname(file), { recursive: true });
+  await writeFile(
+    file,
+    'import stripe from "stripe";\ndebugger;\nexport const pay = stripe;\n',
+  );
+  // The shape that docs/agents/setup.md gives for `.oxlintrc.project.json`.
+  const configPath = path.join(directory, ".oxlintrc.project.json");
+  await writeFile(
+    configPath,
+    JSON.stringify({
+      plugins: [],
+      categories: { correctness: "off" },
+      jsPlugins: [path.join(lintDirectory, "stack-plugin.mjs")],
+      rules: {
+        "stack/vendor-imports": [
+          "error",
+          {
+            vendors: [
+              {
+                packages: ["stripe"],
+                allowedIn: ["^features/[^/]+/services/"],
+                where: "a Service implementation",
+              },
+            ],
+          },
+        ],
+      },
+    }),
+  );
+
+  const result = spawnSync(oxlint, ["-c", configPath, "-f", "json", "."], {
+    cwd: directory,
+    encoding: "utf8",
+  });
+
+  assert.deepEqual(
+    JSON.parse(result.stdout).diagnostics.map((problem) => problem.code),
+    ["stack(vendor-imports)"],
+  );
 });
