@@ -26,6 +26,8 @@ import {
   fail,
   formatted,
   git,
+  isGate,
+  isProjectPath,
   matchesPath,
   readVersionFile,
   sameRepository,
@@ -101,6 +103,14 @@ function loadPlan({ fetch }) {
   if (!version) {
     fail(
       `This repository has no ${VERSION_FILE}, so it is not a project that started from the template.`,
+    );
+  }
+  const gates = (version.ownPaths ?? [])
+    .map((entry) => entry.path)
+    .filter(isGate);
+  if (gates.length > 0) {
+    fail(
+      `"ownPaths" in ${VERSION_FILE} names ${gates.join(", ")}. Each project must get the template's fixes to these paths, so remove the entries.`,
     );
   }
 
@@ -189,6 +199,9 @@ function loadPlan({ fetch }) {
   const hasExample = paths.example.some(projectHas);
 
   const leftOut = (file) => {
+    if (isProjectPath({ ownPaths: version.ownPaths, file })) {
+      return true;
+    }
     if (entryFor({ entries: paths.projectOwned, file })) {
       return true;
     }
@@ -498,6 +511,7 @@ async function settle({ commit, leftOut, stopped }) {
   }
   if (
     existsSync(path.join(root, MIGRATION_SCRIPT)) &&
+    !leftOut(MIGRATION_LIST) &&
     commit.files.some(
       (file) =>
         file.startsWith(MIGRATIONS_DIRECTORY) || file === MIGRATION_LIST,

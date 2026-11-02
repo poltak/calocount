@@ -27,7 +27,8 @@ export const VERSION_FILE = "template-version.json";
  * A sync leaves out each template change to a `templateOnly` path that the
  * project is without, and each change to a `projectOwned` path. When the
  * project is without the example, a sync also leaves out each change to an
- * `example` or `withExample` path.
+ * `example` or `withExample` path. It also leaves out each change to a path
+ * in `ownPaths` of the project's version file.
  *
  * A sync reads the lists from the newest template commit, not from the
  * project. A template commit that adds a file and its entry here therefore
@@ -35,6 +36,18 @@ export const VERSION_FILE = "template-version.json";
  * the file, and do not remove an entry of the four lists that a sync reads.
  */
 export const PATHS_FILE = "scripts/template-paths.json";
+
+// The checks that keep a project on the template. A fix to one of them must
+// reach each project, so `ownPaths` cannot name them.
+const GATE_PATHS = [
+  "scripts/sync-template.mjs",
+  "scripts/template-files.mjs",
+  PATHS_FILE,
+  "scripts/check-staged-secrets.mjs",
+  "scripts/check-template-owned-files.mjs",
+  ".github/workflows/template-owned-files.yml",
+  ".agents/hooks/",
+];
 
 export function fail(message) {
   console.error(message);
@@ -44,6 +57,19 @@ export function fail(message) {
 export function matchesPath({ entry, file }) {
   return entry.endsWith("/") ? file.startsWith(entry) : file === entry;
 }
+
+/** True for a gate, and for a directory that has a gate in it. */
+export const isGate = (entry) =>
+  GATE_PATHS.some(
+    (gate) =>
+      matchesPath({ entry: gate, file: entry }) ||
+      matchesPath({ entry, file: gate }),
+  );
+
+/** True for a file that the project took over from the template. */
+export const isProjectPath = ({ ownPaths = [], file }) =>
+  !isGate(file) &&
+  ownPaths.some(({ path: entry }) => matchesPath({ entry, file }));
 
 /**
  * Run Git in the repository. A command that fails stops the script, unless
@@ -94,6 +120,8 @@ export function sameRepository({ left, right }) {
  *   entry stays after `commit` moves past it, as a record of the decision.
  * - `unchanged`: later commits that changed nothing in the project. Only a
  *   sync that is not finished has this list.
+ * - `ownPaths`: the paths that the project took over from the template, each
+ *   with a `path` and a `reason`. A path that ends with `/` is a directory.
  */
 export function readVersionFile({ root }) {
   const file = path.join(root, VERSION_FILE);
@@ -105,10 +133,17 @@ export function readVersionFile({ root }) {
     typeof version.template !== "string" ||
     !/^[0-9a-f]{40}$/.test(version.commit ?? "") ||
     !Array.isArray(version.skipped) ||
-    !Array.isArray(version.unchanged ?? [])
+    !Array.isArray(version.unchanged ?? []) ||
+    !Array.isArray(version.ownPaths ?? []) ||
+    !(version.ownPaths ?? []).every(
+      (entry) =>
+        typeof entry?.path === "string" &&
+        typeof entry.reason === "string" &&
+        entry.reason.trim() !== "",
+    )
   ) {
     fail(
-      `${VERSION_FILE} must have "template" (a URL), "commit" (a full commit ID), and "skipped" (a list).`,
+      `${VERSION_FILE} must have "template" (a URL), "commit" (a full commit ID), and "skipped" (a list). "ownPaths" is optional, and each of its entries must have a "path" and a "reason".`,
     );
   }
   return version;
