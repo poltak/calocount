@@ -70,6 +70,10 @@ what the template changed, and its message gives the reason.
   after the project removed the example. `scripts/template-paths.json` has
   the lists.
 - It never takes the template's `README.md`.
+- It gives the project a new `projectOwned` file one time, when the project
+  does not have a file at that path. The project then owns the file, and the
+  script leaves out later template changes to it. A `projectOwned` file that
+  the project deleted stays deleted.
 - It merges a `package.json` by its keys. A template update of one dependency
   and a dependency that the project added then do not conflict. A conflict
   remains only when both sides changed one key to different values.
