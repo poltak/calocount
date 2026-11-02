@@ -233,10 +233,19 @@ function loadPlan({ fetch }) {
         .map(([, name]) => name)
         .find((name) => holds("merge-base", "--is-ancestor", name, "HEAD"));
       if (pickedAs.has(commit)) {
+        const taken = list(
+          "diff-tree",
+          "--no-commit-id",
+          "--name-only",
+          "--no-renames",
+          "-r",
+          pickedAs.get(commit),
+        );
         return {
           ...base,
           action: "have",
           detail: `commit ${short(pickedAs.get(commit))} of this project`,
+          leftOutFiles: files.filter((file) => !taken.includes(file)),
         };
       }
       if (source) {
@@ -273,7 +282,18 @@ function loadPlan({ fetch }) {
               : "it changes no file",
         };
       }
-      return { ...base, action: "take" };
+      // A commit that also changes other files gets no `leave out` line, so a
+      // person needs this list to see what the project does not get.
+      const leftOutFiles = files.filter(leftOut);
+      return {
+        ...base,
+        action: "take",
+        leftOutFiles,
+        detail:
+          leftOutFiles.length > 0
+            ? `the project does not get ${leftOutFiles.join(", ")}`
+            : undefined,
+      };
     });
 
   return { version, remote, tip, commits, leftOut };
@@ -750,6 +770,15 @@ async function finish() {
       count: plan.commits.filter(({ action }) => action === wanted).length,
     }))
     .filter(({ count }) => count > 0);
+  const leftOutFiles = new Set(
+    plan.commits.flatMap((commit) => commit.leftOutFiles ?? []),
+  );
+  if (leftOutFiles.size > 0) {
+    counts.push({
+      label: "Files left out of the commits that the project took",
+      count: leftOutFiles.size,
+    });
+  }
   // The new version is past each commit in `unchanged`, so that list ends. A
   // project's other fields stay, also a field that this script does not know.
   const { unchanged, ...version } = plan.version;

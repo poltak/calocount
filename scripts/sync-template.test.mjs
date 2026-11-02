@@ -304,6 +304,33 @@ test("leaves out the files that the project is without, in a commit that changes
   assert.equal(git(project, "status", "--porcelain"), "");
 });
 
+test("names the files that a commit loses in the plan, and counts them in finish", async (context) => {
+  const { template, project } = await createProject(context);
+  const mixed = await templateCommit({
+    template,
+    message: "Change the update schedule and the application",
+    files: {
+      "renovate.json": json({ schedule: ["friday"] }),
+      "src/app.txt": "one\ntwo\nthree\nfour\n",
+    },
+  });
+
+  const plan = sync(project, "plan");
+
+  assert.match(
+    plan.output,
+    new RegExp(
+      `take\\s+${short(mixed)}  Change the update schedule and the application\\n\\s+\\(the project does not get renovate\\.json\\)`,
+    ),
+  );
+  assert.equal(sync(project, "apply").status, 0);
+  assert.equal(sync(project, "finish").status, 0);
+  assert.match(
+    git(project, "log", "-1", "--format=%b"),
+    /^- Files left out of the commits that the project took: 1$/m,
+  );
+});
+
 /** One template commit that adds a migration of the example, with its entry. */
 async function addExampleMigration({ template, files }) {
   const pathsFile = "scripts/template-paths.json";

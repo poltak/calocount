@@ -32,7 +32,8 @@ is a conflict that no rule of the script resolves.
    ```
 3. Read the plan that the first step prints. It lists each new template
    commit, and what happens to it:
-   - `take`: the script cherry-picks it.
+   - `take`: the script cherry-picks it. A line under the commit names each
+     file that the project does not get from it.
    - `have`: the project has the change already.
    - `leave out`: it changes only files that the project is without.
    - `skipped`: a person left it out, and the version file has the reason.
