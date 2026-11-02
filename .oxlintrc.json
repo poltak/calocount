@@ -216,6 +216,12 @@
         ]
       }
     ],
+    "stack/no-component-state": [
+      "error",
+      {
+        "hooks": ["useState", "useReducer", "useActionState", "useOptimistic"]
+      }
+    ],
     "testing/ui-logic-tested": "error",
     "testing/logic-tests": [
       "error",
@@ -282,11 +288,6 @@
                 "name": "backend/api",
                 "allowTypeImports": true,
                 "message": "Import only the public API type; backend runtime code must not reach the browser."
-              },
-              {
-                "name": "react",
-                "importNames": ["useState"],
-                "message": "Keep state in a UI Logic. No component uses useState."
               }
             ],
             "patterns": [

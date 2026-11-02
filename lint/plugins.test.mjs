@@ -273,9 +273,9 @@ test("confines vendor packages to the layer that wraps them", async (context) =>
       'import type { Kysely } from "kysely";\nexport class NotesStorage {\n  constructor(private readonly deps: { db: Kysely<unknown> }) {}\n}\n',
     "frontend/src/features/notes/ui/notes-logic.ts":
       importLogic +
-      'import { useState } from "react";\nimport type { InferResponseType } from "hono/client";\nexport class NotesLogic extends Logic {\n  uses?: [typeof useState, InferResponseType<never>];\n}\n',
+      'import { useMemo } from "react";\nimport type { InferResponseType } from "hono/client";\nexport class NotesLogic extends Logic {\n  uses?: [typeof useMemo, InferResponseType<never>];\n}\n',
     "frontend/src/features/notes/ui/notes-page.tsx":
-      'import { useState } from "react";\nexport const NotesPage = () => useState(0);\n',
+      'import { useMemo } from "react";\nexport const NotesPage = () => useMemo(() => 0, []);\n',
     "frontend/src/features/notes/ui/notes-logic.test.ts": logicTest,
   });
 
@@ -285,6 +285,61 @@ test("confines vendor packages to the layer that wraps them", async (context) =>
     "frontend/src/features/notes/ui/notes-logic.ts: stack(vendor-imports)",
     "frontend/src/features/notes/ui/notes-logic.ts: stack(vendor-imports)",
   ]);
+});
+
+test("keeps state out of frontend components", async (context) => {
+  const page = (name) => `frontend/src/features/notes/ui/${name}.tsx`;
+  const problems = await lint(context, {
+    [page("named")]:
+      'import { useState } from "react";\nexport const Page = () => useState(0);\n',
+    [page("aliased")]:
+      'import { useState as hold } from "react";\nexport const Page = () => hold(0);\n',
+    [page("reducer")]:
+      'import { useReducer } from "react";\nexport const Page = () => useReducer((n: number) => n, 0);\n',
+    [page("action-state")]:
+      'import { useActionState } from "react";\nexport const Page = () => useActionState((n: number) => n, 0);\n',
+    [page("optimistic")]:
+      'import { useOptimistic } from "react";\nexport const Page = () => useOptimistic(0);\n',
+    [page("default-import")]:
+      'import React from "react";\nexport const Page = () => React.useState(0);\n',
+    [page("default-as-name")]:
+      'import { default as React } from "react";\nexport const Page = () => React.useState(0);\n',
+    [page("namespace")]:
+      'import * as React from "react";\nexport const Page = () => React.useState(0);\n',
+    [page("dynamic")]:
+      'export const load = async () => (await import("react")).useState;\n',
+    [page("required")]:
+      'export const Page = () => require("react").useState(0);\n',
+    [page("re-export")]: 'export { useState } from "react";\n',
+    [page("re-export-default")]: 'export { default } from "react";\n',
+    [page("re-export-all")]: 'export * from "react";\n',
+
+    [page("allowed-named")]:
+      'import { useMemo, type ReactNode } from "react";\nexport const Page = (children: ReactNode) => useMemo(() => children, [children]);\n',
+    [page("allowed-types")]:
+      'import type React from "react";\nimport type * as ReactTypes from "react";\nimport { type useState } from "react";\nexport type { useReducer } from "react";\nexport type Types = [React.ReactNode, ReactTypes.ReactNode, typeof useState];\n',
+    "frontend/src/features/notes/ui/page.test.tsx":
+      'import * as React from "react";\nexport const Page = () => React.useState(0);\n',
+  });
+
+  assert.deepEqual(
+    problems.filter((problem) => problem.includes("no-component-state")),
+    [
+      "action-state",
+      "aliased",
+      "default-as-name",
+      "default-import",
+      "dynamic",
+      "named",
+      "namespace",
+      "optimistic",
+      "re-export-all",
+      "re-export-default",
+      "re-export",
+      "reducer",
+      "required",
+    ].map((name) => `${page(name)}: stack(no-component-state)`),
+  );
 });
 
 test("requires a test beside every UI Logic and LogicPlugin file", async (context) => {

@@ -53,9 +53,87 @@ const vendorImports = {
   },
 };
 
+const noComponentState = {
+  meta: {
+    type: "problem",
+    docs: {
+      description: "React components keep no state. State goes in a UI Logic.",
+    },
+    schema: [{ type: "object" }],
+    messages: {
+      hook: "No component uses {{name}}. Keep state in a UI Logic. See docs/agents/code-architecture.md (Where code belongs).",
+      // A check of hook names cannot see `React.useState`. This rule stops each
+      // way to get the `React` object, so that it needs no tracking of
+      // variables, and `const R = React` does not go around it.
+      wholePackage:
+        "Import from 'react' by name, so that lint can see each hook. See docs/agents/code-architecture.md (Where code belongs).",
+    },
+  },
+  create(context) {
+    const hooks = context.options[0]?.hooks ?? [];
+    const file = describeFile(context.filename ?? context.getFilename());
+    if (!file || file.isTest || !file.workspace.endsWith("/frontend")) {
+      return {};
+    }
+
+    const checkName = (node, name) => {
+      if (name === "default") {
+        context.report({ node, messageId: "wholePackage" });
+      } else if (hooks.includes(name)) {
+        context.report({ node, messageId: "hook", data: { name } });
+      }
+    };
+    const nameOf = (identifier) => identifier.name ?? identifier.value;
+
+    return {
+      ImportDeclaration(node) {
+        if (node.source.value !== "react" || node.importKind === "type") {
+          return;
+        }
+        for (const specifier of node.specifiers) {
+          if (specifier.type !== "ImportSpecifier") {
+            context.report({ node: specifier, messageId: "wholePackage" });
+          } else if (specifier.importKind !== "type") {
+            checkName(specifier, nameOf(specifier.imported));
+          }
+        }
+      },
+      ExportNamedDeclaration(node) {
+        if (node.source?.value !== "react" || node.exportKind === "type") {
+          return;
+        }
+        for (const specifier of node.specifiers) {
+          if (specifier.exportKind !== "type") {
+            checkName(specifier, nameOf(specifier.local));
+          }
+        }
+      },
+      ExportAllDeclaration(node) {
+        if (node.source.value === "react" && node.exportKind !== "type") {
+          context.report({ node, messageId: "wholePackage" });
+        }
+      },
+      ImportExpression(node) {
+        if (node.source.value === "react") {
+          context.report({ node, messageId: "wholePackage" });
+        }
+      },
+      CallExpression(node) {
+        if (
+          node.callee.name === "require" &&
+          node.arguments[0]?.value === "react"
+        ) {
+          context.report({ node, messageId: "wholePackage" });
+        }
+      },
+    };
+  },
+};
+
 export default {
   meta: { name: "stack" },
   rules: {
     "vendor-imports": vendorImports,
+    "no-component-state": noComponentState,
   },
 };
