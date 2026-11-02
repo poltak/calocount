@@ -412,6 +412,15 @@ a code from one central `AppErrorCode` list. The HTTP layer alone maps each code
 to a status and returns one JSON error body, so Logic never deals with HTTP and
 clients handle one known set of codes.
 
+A project extends the list in its own code. Add the code to `AppErrorCode` and
+its status to `appErrorStatuses`. `ApiErrorResponses` then gives the client the
+new code, with no other change.
+
+`CONFLICT` is for a change that the current state of a record refuses, such as
+an update of an old copy. When the user can correct one form field, use
+`INVALID_REQUEST` with `issues`, as sign-up does for an email address that is
+in use.
+
 An error that is not an `AppError` is a defect. The HTTP layer logs it with the
 request ID and answers with `INTERNAL` and no detail. Every response carries
 its request ID in the `X-Request-Id` header, so a report from a user leads to

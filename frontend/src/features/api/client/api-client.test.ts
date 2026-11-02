@@ -31,6 +31,13 @@ describe("typed API client", () => {
         issues?: { path: string; message: string }[];
       };
     }>();
+    expectTypeOf<InferResponseType<DeleteNote, 409>>().toEqualTypeOf<{
+      error: {
+        code: "CONFLICT";
+        message: string;
+        issues?: { path: string; message: string }[];
+      };
+    }>();
   });
 });
 

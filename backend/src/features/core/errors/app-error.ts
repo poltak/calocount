@@ -4,6 +4,7 @@ export type AppErrorCode =
   | "UNAUTHENTICATED"
   | "FORBIDDEN"
   | "NOT_FOUND"
+  | "CONFLICT"
   | "PAYLOAD_TOO_LARGE"
   | "RATE_LIMITED"
   | "INTERNAL"
