@@ -1,6 +1,6 @@
 ---
 name: sync-template
-description: Bring later changes from the template repository into a project that started from it. Use when asked to update a project from the template or boilerplate, to take the template's dependency updates, or to pull one template fix into the project.
+description: Bring later changes from the template repository into a project that started from it, and report a gap of the template. Use when asked to update a project from the template or boilerplate, to take the template's dependency updates, to pull one template fix into the project, or to report a change that the template needs.
 ---
 
 # Take changes from the template
@@ -59,6 +59,29 @@ what the template changed, and its message gives the reason.
   ```sh
   pnpm run template:sync skip <commit> "<reason>"
   ```
+
+## Report a gap of the template
+
+A gap is a change that the template needs and that a project cannot make, such
+as an edit of a file in `templateOwned`, or a sync that stops at the same place
+each time. A local workaround hides a gap from each other project, so report
+it. First describe it to the person. When the person agrees, open an issue in
+the template repository. `template-version.json` has its URL and the template
+commit of the project:
+
+```sh
+gh issue create --repo <template URL> --title "<the gap>" --body-file <file>
+```
+
+In the body, give:
+
+- The template commit, and the path of each file.
+- What the project needed, and what stopped it.
+- What the project did in place of the change.
+- The change that you propose.
+
+The template can have other readers than the project. Do not put the name of
+the project, its data, or a secret in the issue.
 
 ## The rules of the script
 

@@ -17,7 +17,8 @@ project information. Read the documents that apply to the task.
 - In a project made from the template, do not change a file that
   `templateOwned` in `scripts/template-paths.json` lists. Describe the change
   to the person instead. It goes to the template first, and the project gets
-  it with a sync.
+  it with a sync. When the person agrees, report the gap as the `sync-template`
+  skill says, so that the template learns of it.
 
 ## Start of a task
 

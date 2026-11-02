@@ -83,8 +83,20 @@ workflow file, run `swamp workflow validate`.
 ## Change the template
 
 - Put each change in its own commit, so that a project can cherry-pick it.
-- Make a change here, in the template, when every project needs it. Make it in
-  the project when only that project needs it.
+- A project reports a gap as an issue of this repository, as the
+  `sync-template` skill says. A gap has one of four results:
+  - A seam goes in the template when it adds no file, no dependency, and no
+    text that each task loads to a project that does not use it, and a test
+    covers it.
+  - A rule or a feature goes in the template when it helps most projects, and
+    its value is more than its cost.
+  - A capability for some projects goes in the template as an optional part,
+    with a clear way to turn it on.
+  - A need of one project stays in that project. Close the issue, with the
+    reason.
+- A new mechanism in `scripts/` needs two stops in real projects, or one stop
+  that is a safety failure. Each script is more to read and to keep correct in
+  each project.
 - Keep the application runnable and its checks passing. The checks are what
   make automatic dependency updates safe.
 - When you add a file that only the template needs, add it to `templateOnly`
