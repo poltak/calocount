@@ -26,7 +26,7 @@ describe("typed API client", () => {
     }>();
     expectTypeOf<InferResponseType<DeleteNote, 404>>().toEqualTypeOf<{
       error: {
-        code: "NOT_FOUND";
+        code: "NOT_FOUND" | "ROUTE_NOT_FOUND";
         message: string;
         issues?: { path: string; message: string }[];
       };

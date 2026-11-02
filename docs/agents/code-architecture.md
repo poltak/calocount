@@ -421,6 +421,10 @@ an update of an old copy. When the user can correct one form field, use
 `INVALID_REQUEST` with `issues`, as sign-up does for an email address that is
 in use.
 
+`NOT_FOUND` says that a route found no record, and a client can act on it.
+`ROUTE_NOT_FOUND` says that no route has the path, which comes from a defect or
+from a client that is older than the backend.
+
 When a refusal has a known end, set `retryAfterSeconds` on the `AppError`. The
 response then has a `Retry-After` header.
 

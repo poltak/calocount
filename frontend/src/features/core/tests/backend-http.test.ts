@@ -124,6 +124,17 @@ describe("backend HTTP app", () => {
     );
   });
 
+  it("should answer a path with no route with a code of its own", async () => {
+    const { transport } = await createFullApplication();
+
+    const response = await transport.fetch(`${ORIGIN}/api/no-such-route`);
+
+    expect(response.status).toEqual(404);
+    expect(await response.json()).toEqual({
+      error: { code: "ROUTE_NOT_FOUND", message: "Route not found" },
+    });
+  });
+
   it("should refuse a request body that is larger than the limit", async () => {
     const { backend, transport } = await createFullApplication({
       authenticated: false,

@@ -14,6 +14,7 @@ const appErrorStatuses = {
   UNAUTHENTICATED: 401,
   FORBIDDEN: 403,
   NOT_FOUND: 404,
+  ROUTE_NOT_FOUND: 404,
   CONFLICT: 409,
   PAYLOAD_TOO_LARGE: 413,
   RATE_LIMITED: 429,
@@ -87,5 +88,5 @@ export function createErrorHandler({
 export const handleNotFound: NotFoundHandler = (context) =>
   errorResponse(
     context,
-    new AppError({ code: "NOT_FOUND", message: "Route not found" }),
+    new AppError({ code: "ROUTE_NOT_FOUND", message: "Route not found" }),
   );
