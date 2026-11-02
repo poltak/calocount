@@ -53,7 +53,7 @@ export async function createDatabaseTemplate(
   const snapshot = await createDatabaseSnapshot({
     prepare: async (db) => {
       const app = createApp({ db, secret });
-      await app.logic.migration.migrate();
+      await app.logic.migration.migrate({ migrations: app.migrations });
       owner = await app.logic.ownerSetup.createOwner(credentials);
     },
   });

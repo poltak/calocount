@@ -40,6 +40,12 @@ entry to the choice, the reason, and any rule that follows from it.
   from the file name, so a name still equals its file. A merged migration keeps
   its `file: import.meta.url` line, because the migration check refuses a change
   to a migration that a deployed database ran. `defineMigration` ignores it.
+- **A server does not load the migrations.** The operator commands and the test
+  root import the list and give it to `MigrationLogic`, and nothing that
+  `server/start.ts` imports reads it. So a server cannot run a migration, and a
+  bundle of the server has no migration SQL. The Logic and Storage classes stay
+  in the App, because they are small and they hold no SQL of a migration. Only
+  the list has to stay out.
 - **Migrations only go forward.** There is no `down`. To undo a change, write a
   new migration.
 - **The database uses snake_case, and TypeScript uses camelCase.** PostgreSQL

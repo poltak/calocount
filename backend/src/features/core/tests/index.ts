@@ -2,6 +2,8 @@ import { randomBytes } from "node:crypto";
 import { MemoryLoggerService } from "@app/common/features/core/services/memory-logger-service";
 import { composeApp } from "../compose-app.js";
 import type { Database } from "../database/database.js";
+import type { DatabaseMigration } from "../database/migration.js";
+import { migrations } from "../database/migrations.js";
 import { createDatabase } from "../database/pglite-database.js";
 import { BetterAuthService } from "../../auth/services/better-auth-service.js";
 import type { AccountPolicy } from "../../auth/types.js";
@@ -10,6 +12,8 @@ import type { App, BackendServices } from "../types.js";
 export interface TestApp extends App {
   db: Database;
   services: BackendServices & { logger: MemoryLoggerService };
+  /** What a test gives `logic.migration.migrate`. */
+  migrations: DatabaseMigration[];
 }
 
 export type AccountMode = AccountPolicy["mode"];
@@ -46,5 +50,5 @@ export function createApp({
     }),
   };
   const app = composeApp({ db, accountPolicy, services });
-  return { ...app, db, services };
+  return { ...app, db, services, migrations };
 }
