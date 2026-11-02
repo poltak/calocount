@@ -642,6 +642,34 @@ describe("AuthLogic tests", () => {
     expect(await readSessionUserIds(backend.db)).toEqual([]);
   });
 
+  it("should reset the sign-out state after another sign-in", async () => {
+    const { backend, logic, owner, transport } = await setupTest();
+    await logic.signOut();
+    logic.setEmail(owner.email);
+    logic.setPassword(TEST_OWNER_CREDENTIALS.password);
+
+    expect(logic.state.signInState).toEqual("pristine");
+    expect(logic.state.signOutState).toEqual("success");
+    expect(logic.state.isSignedIn).toEqual(false);
+    expect(await readSessionUserIds(backend.db)).toEqual([]);
+
+    const held = transport.holdNextRequest();
+    const signInP = logic.signIn();
+    await held.reached;
+    expect(logic.state.signInState).toEqual("running");
+    expect(logic.state.signOutState).toEqual("success");
+    expect(logic.state.isSignedIn).toEqual(false);
+    expect(await readSessionUserIds(backend.db)).toEqual([]);
+    held.release();
+    await signInP;
+
+    expect(logic.state.signInState).toEqual("success");
+    expect(logic.state.signInError).toEqual(null);
+    expect(logic.state.signOutState).toEqual("pristine");
+    expect(logic.state.isSignedIn).toEqual(true);
+    expect(await readSessionUserIds(backend.db)).toEqual([owner.id]);
+  });
+
   it("should set the error state and stay signed in when sign-out cannot reach the backend", async () => {
     const { backend, logic, owner, transport } = await setupTest();
     const heard = hearEvents(logic);

@@ -25,9 +25,11 @@ export function SessionGate() {
     <Navigate
       to="/login"
       replace
-      state={{
-        returnTo: location.pathname + location.search + location.hash,
-      }}
+      state={
+        state.signOutState !== "success"
+          ? { returnTo: location.pathname + location.search + location.hash }
+          : undefined
+      }
     />
   );
 }

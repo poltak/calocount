@@ -230,6 +230,8 @@ export class AuthLogic extends Logic<AuthProps, AuthState, AuthEvent> {
       }
       this.setState({
         isSignedIn: true,
+        // A later session expiry must keep returnTo after an earlier sign-out.
+        signOutState: "pristine",
         userId: user.id,
         userEmail: user.email,
         userName: user.name,
