@@ -5,22 +5,17 @@ import {
   createApp,
   createDatabase,
   createDatabaseSnapshot,
+  createTestOwner,
+  migrateTestDatabase,
+  signInTestOwner,
   type AccountMode,
   type DatabaseSnapshot,
   type TestApp,
+  type TestOwner,
+  type TestOwnerCredentials,
 } from "./index.js";
 import { createBrowserTransport } from "./browser-transport.js";
 import { cleanupLogic, initializeLogic } from "../logic/lifecycle.js";
-import type { AuthUser } from "../../auth/services/types.js";
-
-// For the tests of the schema and the migrations. See each function.
-export { findStandardColumnProblems } from "../database/standard-columns.js";
-export { recordMigrationHash } from "../database/migration-hashes.js";
-
-interface OwnerCredentials {
-  name: string;
-  password: string;
-}
 
 /**
  * A migrated database that already holds the owner account, as plain data that
@@ -28,7 +23,7 @@ interface OwnerCredentials {
  */
 export interface DatabaseTemplate {
   snapshot: DatabaseSnapshot;
-  owner: AuthUser;
+  owner: TestOwner;
   /**
    * The auth secret of every backend that starts from the template. The
    * session cookies in `signedIn` are valid only with it.
@@ -42,22 +37,22 @@ export interface DatabaseTemplate {
 }
 
 /**
- * Build the database that every test database starts from. Starting PGlite
+ * Build the database that every test database starts from. Starting a database
  * empty, migrating it, and creating the owner takes several seconds, so a test
  * run does this once, before its test files start. The owner also signs in
- * here once, because a sign-in hashes the password, which took about a fifth
- * of each test that starts signed in.
+ * here once, because a sign-in took about a fifth of each test that starts
+ * signed in.
  */
 export async function createDatabaseTemplate(
-  credentials: OwnerCredentials,
+  credentials: TestOwnerCredentials,
 ): Promise<DatabaseTemplate> {
   const secret = randomBytes(32).toString("base64");
-  let owner!: AuthUser;
+  let owner!: TestOwner;
   const snapshot = await createDatabaseSnapshot({
     prepare: async (db) => {
       const app = createApp({ db, secret });
-      await app.logic.migration.migrate();
-      owner = await app.logic.ownerSetup.createOwner(credentials);
+      await migrateTestDatabase({ app });
+      owner = await createTestOwner({ app, credentials });
     },
   });
   let setCookies: string[] = [];
@@ -67,24 +62,7 @@ export async function createDatabaseTemplate(
       const app = createApp({ db, secret });
       await initializeLogic({ logic: app.logic });
       try {
-        const response = await createHttpApp({ app }).request(
-          "http://app.test/api/session",
-          {
-            method: "POST",
-            headers: {
-              "content-type": "application/json",
-              origin: "http://app.test",
-            },
-            body: JSON.stringify({
-              email: owner.email,
-              password: credentials.password,
-            }),
-          },
-        );
-        if (!response.ok) {
-          throw new Error(`Template owner sign-in failed: ${response.status}`);
-        }
-        setCookies = response.headers.getSetCookie();
+        setCookies = await signInTestOwner({ app, owner, credentials });
       } finally {
         await cleanupLogic({ logic: app.logic });
       }
@@ -103,7 +81,7 @@ export async function createDatabaseTemplate(
  * the other inputs itself.
  */
 export type TestAppOptions = Omit<
-  NonNullable<Parameters<typeof createApp>[0]>,
+  Parameters<typeof createApp>[0],
   "db" | "authBaseUrl" | "trustedOrigins" | "accountMode" | "secret"
 >;
 

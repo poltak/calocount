@@ -114,6 +114,39 @@ ones that the fixture sets. A project adds an input there, such as a setting
 that only some tests turn on, and does not change the fixture. The fixture
 files come from the template, and `templateOwned` lists them.
 
+### The project's side of the fixture
+
+`api.ts` comes from the template, and it names no database engine and no
+sign-in method. It takes both from
+[`core/tests/index.ts`](../../backend/src/features/core/tests/index.ts), which a
+project can change. A project with another engine or another sign-in method
+changes these exports:
+
+| Export                                         | What it does                                                                                                               |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `createDatabase({ snapshot })`                 | Gives one test its own database. It is async, because an engine on a server must copy a database first.                    |
+| `createDatabaseSnapshot({ from, prepare })`    | Runs `prepare` on a database, and returns a snapshot of the result.                                                        |
+| `DatabaseSnapshot`                             | Plain data that the test runner can hand to each test file, such as bytes, or the name of a template database on a server. |
+| `migrateTestDatabase({ app })`                 | Gives a new database the schema.                                                                                           |
+| `createTestOwner({ app, credentials })`        | Makes the owner account.                                                                                                   |
+| `signInTestOwner({ app, owner, credentials })` | Starts the owner's session, and returns its `Set-Cookie` values.                                                           |
+
+`TestOwnerCredentials` is the type of the value in
+[`test-owner.ts`](../../frontend/src/features/core/tests/test-owner.ts). A
+project with no password removes that field in both files.
+[`black-box-test.ts`](../../frontend/src/features/core/black-box-tests/black-box-test.ts)
+signs in through the API, and a project can change that file too.
+
+`createApp` must still take the inputs that `api.ts` gives it: `db`,
+`authBaseUrl`, `trustedOrigins`, `accountMode`, and `secret`. It can ignore an
+input that has no use in the project.
+
+A test reaches a project's own test helpers through `backend`. Add them to
+`TestApp` in `core/tests/index.ts`, as `schemaTools` shows.
+
+This covers the database and the sign-in. It does not move the fixture to
+another runtime, because `api.ts` runs on Node.
+
 ### Transport controls
 
 The transport is the function the frontend uses to send a request to the
