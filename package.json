@@ -29,6 +29,7 @@
     "typecheck": "pnpm --filter @app/common build && pnpm -r --if-present run typecheck",
     "test": "pnpm run test:hooks && pnpm run test:lint-rules && pnpm run test:scripts && pnpm -r --if-present run test",
     "test:app": "pnpm --filter frontend exec vitest run --coverage",
+    "test:feature": "pnpm --filter backend... run build && pnpm --filter frontend exec vitest run",
     "test:browser": "pnpm --filter frontend run test:browser",
     "test:browser:install": "pnpm --filter frontend exec playwright install --only-shell chromium",
     "test:live-start": "pnpm --filter backend... run build && node scripts/check-live-start.mjs",
