@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createFullApplication } from "./full-application.js";
+import { TEST_OWNER_CREDENTIALS } from "./test-owner.js";
 
 const ORIGIN = "http://app.test";
 
@@ -90,6 +91,37 @@ describe("backend HTTP app", () => {
         fields: { requestId: "from-the-caller", status: 401 },
       },
     ]);
+  });
+
+  it("should tell the caller how long to wait after a refusal for too many attempts", async () => {
+    const { transport } = await createFullApplication({ authenticated: false });
+    const signIn = () =>
+      transport.fetch(`${ORIGIN}/api/session`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          email: TEST_OWNER_CREDENTIALS.email,
+          password: "wrong-password",
+        }),
+      });
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const refused = await signIn();
+      expect(refused.status).toEqual(401);
+      expect(refused.headers.get("retry-after")).toEqual(null);
+    }
+    const response = await signIn();
+
+    expect(response.status).toEqual(429);
+    const wait = response.headers.get("retry-after");
+    expect(wait).toMatch(/^[1-9]\d*$/);
+    expect(await response.json()).toMatchObject({
+      error: { code: "RATE_LIMITED" },
+    });
+    // A page on another origin can read the header.
+    expect(response.headers.get("access-control-expose-headers")).toContain(
+      "Retry-After",
+    );
   });
 
   it("should refuse a request body that is larger than the limit", async () => {

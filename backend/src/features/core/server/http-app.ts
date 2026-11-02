@@ -64,7 +64,8 @@ export function createHttpApp({ app, clientAddressHeader }: HttpAppProps) {
         cors({
           origin: [...app.services.auth.trustedOrigins],
           credentials: true,
-          exposeHeaders: ["X-Request-Id"],
+          // A page on another origin can read only the headers in this list.
+          exposeHeaders: ["X-Request-Id", "Retry-After"],
         }),
       )
       // A host sends a probe every few seconds. The health routes come before

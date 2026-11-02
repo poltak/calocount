@@ -47,6 +47,9 @@ function errorResponse(context: Context, error: AppError) {
   if (error.issues) {
     body.error.issues = error.issues;
   }
+  if (error.retryAfterSeconds !== undefined) {
+    context.header("Retry-After", String(error.retryAfterSeconds));
+  }
   return context.json(body, appErrorStatuses[error.code]);
 }
 

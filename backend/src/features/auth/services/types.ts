@@ -27,19 +27,21 @@ export interface SessionChange {
   responseHeaders: Headers;
 }
 
+interface RateLimited {
+  ok: false;
+  reason: "rateLimited";
+  retryAfterSeconds: number;
+}
+
 export type PasswordSignInResult =
   | ({ ok: true; user: AuthUser } & SessionChange)
-  | {
-      ok: false;
-      reason: "invalidCredentials" | "rateLimited" | "untrustedOrigin";
-    };
+  | { ok: false; reason: "invalidCredentials" | "untrustedOrigin" }
+  | RateLimited;
 
 export type PasswordSignUpResult =
   | ({ ok: true; user: AuthUser } & SessionChange)
-  | {
-      ok: false;
-      reason: "closed" | "emailTaken" | "rateLimited" | "untrustedOrigin";
-    };
+  | { ok: false; reason: "closed" | "emailTaken" | "untrustedOrigin" }
+  | RateLimited;
 
 export type PasswordResetResult =
   | { ok: true; user: AuthUser }

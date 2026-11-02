@@ -421,6 +421,9 @@ an update of an old copy. When the user can correct one form field, use
 `INVALID_REQUEST` with `issues`, as sign-up does for an email address that is
 in use.
 
+When a refusal has a known end, set `retryAfterSeconds` on the `AppError`. The
+response then has a `Retry-After` header.
+
 An error that is not an `AppError` is a defect. The HTTP layer logs it with the
 request ID and answers with `INTERNAL` and no detail. Every response carries
 its request ID in the `X-Request-Id` header, so a report from a user leads to

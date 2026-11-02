@@ -173,7 +173,7 @@ test.describe("sign-in", () => {
     await signInPage.signIn(owner);
 
     await expect(signInPage.message).toHaveText(
-      "Too many sign-in attempts. Try again later.",
+      /^Too many sign-in attempts\. Try again in [1-9]\d* seconds?\.$/,
     );
     await expect(signInPage.emailField).toHaveValue(owner.email);
     await appShell.goto();

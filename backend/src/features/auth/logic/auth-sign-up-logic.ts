@@ -1,6 +1,6 @@
 import { Logic } from "@app/common/features/core/logic/logic";
 import type { BackendLogicProps } from "../../core/logic/types.js";
-import { AppError } from "../../core/errors/app-error.js";
+import { AppError, tooManyAttempts } from "../../core/errors/app-error.js";
 import type {
   AuthUser,
   SessionChange,
@@ -57,9 +57,9 @@ export class AuthSignUpLogic extends Logic<
           ],
         });
       case "rateLimited":
-        throw new AppError({
-          code: "RATE_LIMITED",
-          message: "Too many sign-up attempts. Try again later.",
+        throw tooManyAttempts({
+          action: "sign-up",
+          retryAfterSeconds: result.retryAfterSeconds,
         });
       case "untrustedOrigin":
         throw new AppError({

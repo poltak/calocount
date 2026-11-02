@@ -172,8 +172,8 @@ describe("AuthLogic tests", () => {
     await signInP;
 
     expect(logic.state.signInState).toEqual("error");
-    expect(logic.state.signInError).toEqual(
-      "Too many sign-in attempts. Try again later.",
+    expect(logic.state.signInError).toMatch(
+      /^Too many sign-in attempts\. Try again in [1-9]\d* seconds?\.$/,
     );
     expect(logic.state.isSignedIn).toEqual(false);
     expect(logic.state.password).toEqual("");
@@ -555,8 +555,8 @@ describe("AuthLogic tests", () => {
     await signUpP;
 
     expect(logic.state.signUpState).toEqual("error");
-    expect(logic.state.signUpError).toEqual(
-      "Too many sign-up attempts. Try again later.",
+    expect(logic.state.signUpError).toMatch(
+      /^Too many sign-up attempts\. Try again in [1-9]\d* seconds?\.$/,
     );
     expect(logic.state.signUpFieldErrors).toEqual(null);
     expect(logic.state.isSignedIn).toEqual(false);
