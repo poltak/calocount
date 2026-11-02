@@ -738,6 +738,62 @@ describe("AuthLogic tests", () => {
     expect(logic.state.userName).toEqual(owner.name);
   });
 
+  it("should stay signed in when a session check has no connection, then check again", async () => {
+    const { logic, owner, transport } = await setupTest();
+    transport.goOffline();
+
+    expect(logic.state.isSignedIn).toEqual(true);
+    expect(logic.state.loadSessionState).toEqual("success");
+
+    const refreshP = logic.refresh();
+    expect(logic.state.loadSessionState).toEqual("running");
+    await refreshP;
+
+    expect(logic.state.loadSessionState).toEqual("error");
+    expect(logic.state.loadSessionError).toEqual(
+      "No connection. Check your internet connection and try again.",
+    );
+    expect(logic.state.isSignedIn).toEqual(true);
+    expect(logic.state.userId).toEqual(owner.id);
+    expect(logic.state.userName).toEqual(owner.name);
+
+    transport.goOnline();
+    await logic.refresh();
+
+    expect(logic.state.loadSessionState).toEqual("success");
+    expect(logic.state.loadSessionError).toEqual(null);
+    expect(logic.state.isSignedIn).toEqual(true);
+  });
+
+  it("should stay signed in when a gateway fails a session check", async () => {
+    const { logic, owner, transport } = await setupTest();
+    transport.failNextRequestAtGateway(503);
+
+    expect(logic.state.isSignedIn).toEqual(true);
+
+    await logic.refresh();
+
+    expect(logic.state.loadSessionState).toEqual("error");
+    expect(logic.state.loadSessionError).toEqual(
+      "Request failed with status 503",
+    );
+    expect(logic.state.isSignedIn).toEqual(true);
+    expect(logic.state.userId).toEqual(owner.id);
+  });
+
+  it("should stay signed in when the database fails a session check", async () => {
+    const { backend, logic, owner } = await setupTest();
+    await backend.db.destroy();
+
+    expect(logic.state.isSignedIn).toEqual(true);
+
+    await logic.refresh();
+
+    expect(logic.state.loadSessionState).toEqual("error");
+    expect(logic.state.isSignedIn).toEqual(true);
+    expect(logic.state.userId).toEqual(owner.id);
+  });
+
   it("should check the session again when the window regains focus", async () => {
     const { backend, frontend, logic } = await setupTest();
     await backend.db.deleteFrom("session").execute();

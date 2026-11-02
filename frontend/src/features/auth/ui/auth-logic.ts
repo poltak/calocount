@@ -240,11 +240,13 @@ export class AuthLogic extends Logic<AuthProps, AuthState, AuthEvent> {
       if (signal.aborted) {
         return;
       }
-      this.setState(SIGNED_OUT);
       // Having no session is an answer, not a failure.
       if (error instanceof ApiRequestError && error.status === 401) {
+        this.setState(SIGNED_OUT);
         return;
       }
+      // A failed check says nothing about the session, so a signed-in user
+      // stays signed in, and the open page keeps its state.
       throw error;
     }
   }
