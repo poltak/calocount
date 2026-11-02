@@ -14,6 +14,8 @@ instructions.
   Read before changing a framework, authentication, the API transport, or test
   setup.
 - [Setup and commands](setup.md): read to run, configure, or check the project.
+- [Hosting](hosting.md): what the root of a host must do, and what is tied to
+  Node. Read before adding a host, or before running more than one instance.
 - [Evals](evals.md): how to measure a prompt with real models. Read before
   writing or running an eval.
 - [The template](template.md): how a project starts from this repository, how
