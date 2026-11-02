@@ -89,7 +89,9 @@ describe("NotesLogic tests", () => {
     await logic.initialize();
 
     expect(logic.state.loadState).toEqual("error");
-    expect(logic.state.loadError).toEqual("Failed to fetch");
+    expect(logic.state.loadError).toEqual(
+      "No connection. Check your internet connection and try again.",
+    );
     expect(logic.state.notes).toEqual([]);
 
     transport.goOnline();
@@ -282,7 +284,9 @@ describe("NotesLogic tests", () => {
     await failedP;
 
     expect(logic.state.createState).toEqual("error");
-    expect(logic.state.createError).toEqual("Failed to fetch");
+    expect(logic.state.createError).toEqual(
+      "No connection. Check your internet connection and try again.",
+    );
     expect(logic.state.createFieldErrors).toEqual(null);
     expect(logic.state.notes).toEqual([]);
     expect(draft.state).toMatchObject(FIRST);
@@ -377,7 +381,9 @@ describe("NotesLogic tests", () => {
     await removeP;
 
     expect(logic.state.removeState).toEqual("error");
-    expect(logic.state.removeError).toEqual("Failed to fetch");
+    expect(logic.state.removeError).toEqual(
+      "No connection. Check your internet connection and try again.",
+    );
     expect(logic.state.notes).toEqual([first]);
     expect(await readNotes(backend.db)).toEqual([
       { id: first.id, userId: owner.id, ...FIRST },

@@ -200,7 +200,9 @@ test.describe("in open sign-up mode", () => {
     await context.setOffline(true);
     await signUpPage.signUp(VISITOR);
 
-    await expect(signUpPage.messages).toHaveText(["Failed to fetch"]);
+    await expect(signUpPage.messages).toHaveText([
+      "No connection. Check your internet connection and try again.",
+    ]);
     await expectFieldsToHold(signUpPage, VISITOR);
 
     await context.setOffline(false);
