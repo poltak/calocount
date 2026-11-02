@@ -7,6 +7,9 @@
 //       no rule resolves. Resolve the conflict, then run it again.
 //   pnpm run template:sync skip <commit> <reason>
 //       Leave one new commit out of the project, and record the reason.
+//   pnpm run template:sync own <path> <reason>
+//       Take a path over from the template. Each later sync leaves out each
+//       template change to it. Only a person at a terminal can run this.
 //   pnpm run template:sync verify <install|check|browser|live-start>
 //       Run one check. It does nothing when the project took no commit.
 //   pnpm run template:sync finish
@@ -18,6 +21,7 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
 import { isDeepStrictEqual } from "node:util";
 import {
@@ -57,6 +61,7 @@ const USAGE = `Usage: pnpm run template:sync <command>
   plan                      List the new template commits.
   apply                     Cherry-pick them. Run it again after a conflict.
   skip <commit> <reason>    Leave one new commit out of the project.
+  own <path> <reason>       Take a path over from the template, in a terminal.
   verify <${Object.keys(CHECKS).join("|")}>
   finish                    Commit the lockfile and the template version.`;
 
@@ -718,6 +723,77 @@ async function skip({ commitArgument, reason }) {
   console.log(`Left out ${short(commit.commit)}  ${commit.subject}`);
 }
 
+async function own({ entry, reason }) {
+  if (!entry || !reason) {
+    fail(USAGE);
+  }
+  // The edit guard does not see a shell command, so an agent that the guard
+  // stopped could run this command to widen the list.
+  if (!process.stdin.isTTY || !process.stdout.isTTY) {
+    fail(
+      "`own` ends each later template change to a path, so only a person at a terminal can run it. An agent gives the person the command and the reason.",
+    );
+  }
+  const plan = loadPlan({ fetch: false });
+  const ownPaths = plan.version.ownPaths ?? [];
+  if (isGate(entry)) {
+    fail(
+      `A project cannot take over ${entry}, because each project must get the template's fixes to its checks.`,
+    );
+  }
+  if (ownPaths.some(({ path: kept }) => kept === entry)) {
+    fail(`The project already keeps ${entry}.`);
+  }
+  const matching = new Set(
+    [plan.tip, "HEAD"]
+      .flatMap((commit) => list("ls-tree", "-r", "--name-only", commit))
+      .filter((file) => matchesPath({ entry, file })),
+  );
+  if (matching.size === 0) {
+    fail(
+      `No file of the project or the template matches ${entry}. A directory ends with "/".`,
+    );
+  }
+
+  console.log(
+    `${entry} matches ${matching.size} ${matching.size === 1 ? "file" : "files"}. The project then gets no later template change to ${matching.size === 1 ? "it" : "them"}.`,
+  );
+  const prompt = createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+  const answer = await new Promise((resolve) => {
+    prompt.once("close", () => resolve(""));
+    prompt.question('Type "own" to continue: ', resolve);
+  });
+  prompt.close();
+  if (answer.trim() !== "own") {
+    fail("Nothing changed.");
+  }
+
+  await writeVersionFile({
+    root,
+    version: {
+      ...plan.version,
+      ownPaths: [...ownPaths, { path: entry, reason }],
+    },
+  });
+  // A commit during a stop loses the state of each file that has a conflict.
+  if (readStopped()) {
+    console.log(
+      "The version file has the new entry, and `finish` commits it. Run `apply` again.",
+    );
+    return;
+  }
+  read("add", "--", VERSION_FILE);
+  git({
+    root,
+    args: ["commit", "--quiet", "--file=-", "--", VERSION_FILE],
+    input: `Take ${entry} over from the template\n\n- The reason: ${reason}\n- A sync now leaves out each template change to it.\n`,
+  });
+  console.log(`The project now keeps ${entry}.`);
+}
+
 function verify(name) {
   if (!Object.hasOwn(CHECKS, name ?? "")) {
     fail(USAGE);
@@ -821,6 +897,8 @@ if (command === "plan") {
     commitArgument: rest[0],
     reason: rest.slice(1).join(" ").trim(),
   });
+} else if (command === "own") {
+  await own({ entry: rest[0], reason: rest.slice(1).join(" ").trim() });
 } else if (command === "verify") {
   verify(rest[0]);
 } else if (command === "finish") {

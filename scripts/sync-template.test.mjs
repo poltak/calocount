@@ -106,6 +106,38 @@ function sync(project, ...args) {
   };
 }
 
+/**
+ * Run the script in a real terminal, and type one line. `own` refuses a process
+ * that has no terminal, and Node cannot make one without `script`.
+ */
+function syncInTerminal({ project, typed, args }) {
+  const command = [
+    process.execPath,
+    path.join(project, "scripts/sync-template.mjs"),
+    ...args,
+  ];
+  const quoted = command
+    .map((part) => `'${part.replaceAll("'", "'\\''")}'`)
+    .join(" ");
+  const result = spawnSync(
+    "script",
+    process.platform === "darwin"
+      ? ["-q", "/dev/null", ...command]
+      : ["-q", "-e", "-c", quoted, "/dev/null"],
+    {
+      cwd: project,
+      env: GIT_ENVIRONMENT,
+      encoding: "utf8",
+      // `script` waits a long time for a command that reads no typed line.
+      input: typed ? `${typed}\n` : "",
+    },
+  );
+  return {
+    status: result.status,
+    output: `${result.stdout}${result.stderr}`,
+  };
+}
+
 const readVersion = async (project) =>
   JSON.parse(await readFile(path.join(project, "template-version.json")));
 const readProjectFile = (project, file) =>
@@ -877,6 +909,122 @@ test("refuses a kept path that has no reason", async (context) => {
     result.output,
     /each of its entries must have a "path" and a "reason"/,
   );
+});
+
+test("refuses to take a path over in a process that has no terminal", async (context) => {
+  const { project } = await createProject(context);
+  const head = git(project, "rev-parse", "HEAD");
+
+  const result = sync(project, "own", "src/app.txt", "The project owns it.");
+
+  assert.equal(result.status, 1);
+  assert.match(result.output, /only a person at a terminal can run it/);
+  assert.equal(git(project, "rev-parse", "HEAD"), head);
+  assert.equal((await readVersion(project)).ownPaths, undefined);
+});
+
+test("takes a path over when the person at a terminal confirms it", async (context) => {
+  const { template, project } = await createProject(context);
+  sync(project, "plan");
+
+  const result = syncInTerminal({
+    project,
+    typed: "own",
+    args: ["own", "src/", "The", "project", "has", "its", "own", "code."],
+  });
+
+  assert.equal(result.status, 0, result.output);
+  assert.match(result.output, /src\/ matches 1 file\./);
+  assert.deepEqual((await readVersion(project)).ownPaths, [
+    { path: "src/", reason: "The project has its own code." },
+  ]);
+  assert.equal(
+    git(project, "log", "-1", "--format=%B"),
+    "Take src/ over from the template\n\n- The reason: The project has its own code.\n- A sync now leaves out each template change to it.",
+  );
+  assert.equal(git(project, "status", "--porcelain"), "");
+
+  await templateCommit({
+    template,
+    message: "Change the application",
+    files: { "src/app.txt": "one\ntwo\nthree\nfour\n" },
+  });
+  assert.match(sync(project, "plan").output, /leave out\s+\w{7}  Change the/);
+});
+
+test("changes nothing when the person at a terminal does not confirm", async (context) => {
+  const { project } = await createProject(context);
+  sync(project, "plan");
+  const head = git(project, "rev-parse", "HEAD");
+
+  const result = syncInTerminal({
+    project,
+    typed: "no",
+    args: ["own", "src/app.txt", "A reason"],
+  });
+
+  assert.equal(result.status, 1, result.output);
+  assert.match(result.output, /Nothing changed/);
+  assert.equal(git(project, "rev-parse", "HEAD"), head);
+  assert.equal(git(project, "status", "--porcelain"), "");
+});
+
+test("refuses to take over a gate, a path with no file, or a path that the project keeps", async (context) => {
+  const { project } = await createProject(context);
+  await keepPaths({ project, paths: ["src/app.txt"] });
+  sync(project, "plan");
+  const own = (entry) =>
+    syncInTerminal({ project, args: ["own", entry, "A reason"] });
+
+  for (const entry of [
+    "scripts/sync-template.mjs",
+    "scripts/",
+    ".agents/hooks/",
+  ]) {
+    const result = own(entry);
+    assert.equal(result.status, 1, result.output);
+    assert.match(result.output, /each project must get the template's fixes/);
+  }
+  assert.match(own("src").output, /No file of the project or the template/);
+  assert.match(own("../src/").output, /No file of the project or the template/);
+  assert.match(own("src/app.txt").output, /already keeps src\/app\.txt/);
+  assert.equal(git(project, "status", "--porcelain"), "");
+});
+
+test("lets a person take over the file that stopped apply", async (context) => {
+  const { template, project } = await createProject(context);
+  await write(project, { "src/app.txt": "one\ntwo of the project\nthree\n" });
+  commit(project, "Change the second line");
+  const tip = await templateCommit({
+    template,
+    message: "Change the second line",
+    files: { "src/app.txt": "one\ntwo of the template\nthree\n" },
+  });
+  sync(project, "plan");
+  assert.equal(sync(project, "apply").status, 1);
+
+  const taken = syncInTerminal({
+    project,
+    typed: "own",
+    args: ["own", "src/app.txt", "The project has its own file."],
+  });
+  const continued = sync(project, "apply");
+  const finished = sync(project, "finish");
+
+  assert.equal(taken.status, 0, taken.output);
+  assert.match(taken.output, /`finish` commits it/);
+  assert.equal(continued.status, 0, continued.output);
+  assert.equal(finished.status, 0, finished.output);
+  assert.equal(
+    await readProjectFile(project, "src/app.txt"),
+    "one\ntwo of the project\nthree\n",
+  );
+  const version = await readVersion(project);
+  assert.equal(version.commit, tip);
+  assert.deepEqual(version.ownPaths, [
+    { path: "src/app.txt", reason: "The project has its own file." },
+  ]);
+  assert.equal(git(project, "status", "--porcelain"), "");
 });
 
 test("stops at a conflict that no rule resolves, and continues after a person resolves it", async (context) => {

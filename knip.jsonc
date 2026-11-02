@@ -1,7 +1,8 @@
 {
   // The "Agent review" workflow installs the Codex CLI on the CI machine, and
-  // no package of the repository has it.
-  "ignoreBinaries": ["codex"],
+  // no package of the repository has it. `script` comes with the system, and
+  // the sync tests use it to get a real terminal.
+  "ignoreBinaries": ["codex", "script"],
   // People and agents run bd with `pnpm exec bd`, and no code or script of the
   // repository calls it.
   "ignoreDependencies": ["@beads/bd"],
