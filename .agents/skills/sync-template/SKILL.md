@@ -60,6 +60,12 @@ what the template changed, and its message gives the reason.
   ```sh
   pnpm run template:sync skip <commit> "<reason>"
   ```
+- When the project replaced or deleted the file, and must not get any later
+  change to it, ask the person to take the path over. Only a person at a
+  terminal can run this command. Then run `apply` again:
+  ```sh
+  pnpm run template:sync own <path> "<reason>"
+  ```
 
 ## The rules of the script
 
@@ -70,6 +76,8 @@ what the template changed, and its message gives the reason.
   file is one that only the template needs, or a file of the notes example
   after the project removed the example. `scripts/template-paths.json` has
   the lists.
+- It leaves out each change to a path in `ownPaths` of
+  `template-version.json`. The project took that path over from the template.
 - It never takes the template's `README.md`.
 - It merges a `package.json` by its keys. A template update of one dependency
   and a dependency that the project added then do not conflict. A conflict

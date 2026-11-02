@@ -6,6 +6,10 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 export const VERSION_FILE = "template-version.json";
+// `ownPaths` turns off the two checks for a file, so the checks also cover this
+// list of files. In a project, an agent or a pull request changes them only
+// with a person's approval.
+export const GUARDED_FILES = [VERSION_FILE];
 
 /**
  * The file with five lists of paths. A path that ends with `/` is a
@@ -20,7 +24,8 @@ export const VERSION_FILE = "template-version.json";
  *   removes the example.
  * - `projectOwned`: files that a project writes for itself.
  * - `templateOwned`: files that a project takes from the template and does
- *   not change. `.agents/hooks/guard-template-owned-files.mjs` and
+ *   not change, unless the project's `ownPaths` names them.
+ *   `.agents/hooks/guard-template-owned-files.mjs` and
  *   `check-template-owned-files.mjs` read this list from the project. A sync
  *   does not read it.
  *
