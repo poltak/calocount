@@ -22,21 +22,33 @@ export function NoteFormFields({
       <label htmlFor="note-title">Title</label>
       <input
         id="note-title"
+        aria-invalid={fieldErrors?.title ? true : undefined}
+        aria-describedby={fieldErrors?.title ? "note-title-error" : undefined}
         required
         value={state.title}
         onChange={(event) => draft.setTitle(event.target.value)}
         disabled={disabled}
       />
-      {fieldErrors?.title && <p role="alert">{fieldErrors.title}</p>}
+      {fieldErrors?.title && (
+        <p id="note-title-error" role="alert">
+          {fieldErrors.title}
+        </p>
+      )}
       <label htmlFor="note-body">Note</label>
       <textarea
         id="note-body"
+        aria-invalid={fieldErrors?.body ? true : undefined}
+        aria-describedby={fieldErrors?.body ? "note-body-error" : undefined}
         rows={3}
         value={state.body}
         onChange={(event) => draft.setBody(event.target.value)}
         disabled={disabled}
       />
-      {fieldErrors?.body && <p role="alert">{fieldErrors.body}</p>}
+      {fieldErrors?.body && (
+        <p id="note-body-error" role="alert">
+          {fieldErrors.body}
+        </p>
+      )}
     </>
   );
 }
