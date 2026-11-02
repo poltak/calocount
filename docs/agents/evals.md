@@ -78,7 +78,7 @@ export function createTitleEval({ ai }: { ai: AIServiceInterface<"title"> }) {
 }
 ```
 
-In `backend/src/features/notes/scripts/title-eval.ts`, give the definition:
+In `backend/src/features/<feature>/scripts/title-eval.ts`, give the definition:
 
 ```ts
 import { createTitleEval } from "../../core/evals/index.js";

@@ -3,6 +3,7 @@
     "docs/agents/template.md",
     "scripts/project-rules.test.mjs",
     "renovate.json",
+    "scripts/owned-documents.test.mjs",
     ".agents/skills/start-project/",
     "scripts/document-links.test.mjs",
     ".claude/skills/start-project",

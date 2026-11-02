@@ -12,19 +12,12 @@ passes through the real API client, backend routes, validation, backend Logic,
 Services, and an isolated in-memory database of the project's engine, all in
 one process.
 
-The canonical example is
-[`notes-logic.test.ts`](../../frontend/src/features/notes/ui/notes-logic.test.ts).
-Copy its shape. Its test "should afford creating a note from the draft, and
-empty the draft" is the model for a success case. The tests of `create` after
-it are the model for failure cases. The file also shows how to seed rows
-through the API.
-[`note-edit-logic.test.ts`](../../frontend/src/features/notes/ui/note-edit-logic.test.ts)
-shows a Logic whose `deps` name a record: its `setupTest` seeds the record in
-an async `createLogic`.
+Copy the shape of the test files of the
+[model feature](README.md#the-model-feature). They have the model for a success
+case and for a failure case, and they show how to seed rows through the API.
 [`auth-logic.test.ts`](../../frontend/src/features/auth/ui/auth-logic.test.ts)
 shows tests of the session, and of a Logic that reacts to an event. A
-LogicPlugin has a test file of its own, such as
-[`note-draft-plugin.test.ts`](../../frontend/src/features/notes/ui/note-draft-plugin.test.ts).
+LogicPlugin has a test file of its own.
 
 Backend code has no test runner of its own. Handlers, backend Logic, and Storage
 are covered through these tests. A project with code that runs only on another
@@ -127,7 +120,7 @@ already has that session and the rate-limit row of that sign-in.
 
 `auth` is the Logic that the auth provider owns in a browser. To test what a
 Logic does when the user signs out, call `auth.initialize()` and then
-`auth.signOut()`. `note-draft-plugin.test.ts` shows this.
+`auth.signOut()`.
 
 The backend runs in single-owner mode unless the test passes
 `accountMode: "openSignUp"`. In that mode a visitor can sign up, and the owner
@@ -367,7 +360,7 @@ How to write a page object:
 - **Open a page with the `goto()` of its page object.** Use `page.goto()` only
   when the address itself is part of the case, such as a link that a user
   opens.
-- **Use no page of the notes example in a test of another feature.** A project
+- **Use no page of the example in a test of another feature.** A project
   removes the example with the `remove-example` skill.
 - **Make the data through the UI.** Each test starts with a database that holds
   only the owner account. The test makes the records that it needs with the

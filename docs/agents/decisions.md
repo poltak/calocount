@@ -95,8 +95,6 @@ template. Some reasons come from what happened in it.
   to several tables of one feature and a write across features, and one
   operation never has two transactions. A Storage method cannot start one: a
   Storage instance inside a transaction cannot open a second.
-- **The `activity` feature shows a write across two features.** Each change to
-  a note and its activity record are one transaction in `NotesLogic`.
 - **One function writes the validation messages that users see.** Zod's own
   messages are for developers. A message on each rule in each schema would be
   easy to forget. `userMessage` gives every kind of rule a sentence instead,
@@ -210,9 +208,9 @@ template. Some reasons come from what happened in it.
   method. Accounts and sessions are ordinary Better Auth records in both
   modes.
 - **Each feature decides which records a user can read.** The account mode
-  decides who can sign in, and nothing more. `NotesStorage` limits each query
-  to the signed-in user, which is the model for records that are private to
-  one user.
+  decides who can sign in, and nothing more. The Storage class of the model
+  feature limits each query to the signed-in user, which is the model for
+  records that are private to one user.
 - **The server is the access boundary.** Frontend route guards only improve the
   experience; they are not a security control.
 - **Requests that change state must come from a trusted origin.** CORS allows
@@ -229,19 +227,6 @@ template. Some reasons come from what happened in it.
 - **React Router in declarative mode.** Chosen for familiar component routes in
   a small single-page app. Live rendering uses `BrowserRouter` and tests use
   `MemoryRouter`. Framework mode and server rendering are not needed.
-- **The notes example keeps unsaved text in `localStorage`.** `NoteDraftPlugin`
-  holds the fields of a note form, and the create form and the edit form each
-  own an instance. Each user and each form has a separate entry, so one user
-  does not get another user's draft on a shared browser.
-- **Sign-out removes that text, and a session that expires does not.**
-  `AuthLogic` sends a `signedOut` event, and the `NoteDraftPlugin` of the open
-  page removes each draft of that user. A user who signs out on a shared
-  browser then leaves no text there. A session that the backend ends sends no
-  event, so the text is there after the next sign-in. This is also the example
-  of one Logic that reacts to another through an event. Only a Logic on the
-  open page hears the event. That is sufficient here, because each page behind
-  the session gate has a note form. A project with other pages must listen in
-  a Logic that lives as long as the session.
 - **The error boundary is our own class component.** It is about 50 lines, so
   a package is not necessary. Its fallback offers "Try again", which mounts the
   failed part again from a new start. It does not reload the page, because

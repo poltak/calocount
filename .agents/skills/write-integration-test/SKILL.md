@@ -6,9 +6,9 @@ description: Write integration tests for a UI Logic operation against the full a
 # Write an integration test
 
 Tests here call a UI Logic method and let the request run through the real
-backend into an isolated database. Read `docs/agents/testing.md` for the rules
-and `frontend/src/features/notes/ui/notes-logic.test.ts` for the model before
-you start. This skill is the order of work.
+backend into an isolated database. Read `docs/agents/testing.md` for the rules,
+and the test files of the model feature, which `docs/agents/README.md` names,
+before you start. This skill is the order of work.
 
 ## Workflow
 

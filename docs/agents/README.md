@@ -65,21 +65,23 @@ a file when it needs one:
 | Logging and Core Services                      | `common/src/features/core/services/`                                                     |
 | Request log and request IDs                    | `backend/src/features/core/handlers/`, `…/core/server/`                                  |
 | A complete backend feature                     | `backend/src/features/health/`                                                           |
-| A feature with its own table and pages         | `backend/src/features/notes/`, `frontend/src/features/notes/`                            |
-| A LogicPlugin that two Logic classes share     | `frontend/src/features/notes/ui/note-draft-plugin.ts`                                    |
-| A Logic that reacts to another Logic's event   | `…/auth/ui/auth-logic.ts`, `…/notes/ui/note-draft-plugin.ts`                             |
-| A frontend Storage class                       | `frontend/src/features/notes/storage/notes-draft-storage.ts`                             |
-| A write across two features in one transaction | `backend/src/features/notes/logic/notes-logic.ts`                                        |
 | The architecture lint rules and their options  | `lint/`, `.oxlintrc.json`, `lint.project.json`                                           |
 | How a project takes template changes           | `scripts/sync-template.mjs`, `workflows/`                                                |
 | What stops an edit of a file from the template | `.agents/hooks/guard-template-owned-files.mjs`, `scripts/check-template-owned-files.mjs` |
 | What tells an agent that a command was slow    | `.agents/hooks/warn-slow-commands.mjs`                                                   |
 | The test fixture                               | `frontend/src/features/core/tests/full-application.ts`                                   |
-| A model integration test                       | `frontend/src/features/notes/ui/notes-logic.test.ts`                                     |
 | The build checks in a real browser             | `frontend/src/features/core/tests/browser/built-app.spec.ts`                             |
 | The black box test fixture                     | `frontend/src/features/core/black-box-tests/black-box-test.ts`                           |
 | Model black box tests and page objects         | `frontend/src/features/auth/black-box-tests/`                                            |
 | The eval harness and the model service         | `backend/src/features/core/evals/`, `…/core/scripts/eval-command.ts`, `…/ai/services/`   |
+
+### The model feature
+
+A project has one feature that is the model for a new feature: its table, its
+routes, its pages, and its tests. In a new project this is `notes`, and the
+`README.md` in its frontend directory says what each of its files is a model
+of. After the `remove-example` skill, `docs/agents/project/rules.md` names the
+model feature.
 
 ## Where to add information
 

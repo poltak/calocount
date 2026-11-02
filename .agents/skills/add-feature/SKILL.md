@@ -7,9 +7,9 @@ description: Add a new feature to the application, with its table, backend Stora
 
 A feature has its own directory in each workspace that it needs:
 `backend/src/features/<feature>/` and `frontend/src/features/<feature>/`. The
-`notes` feature is the model for every step. Read
-`docs/agents/code-architecture.md` and `docs/agents/testing.md` before you
-start. This skill is the order of work and the list of files that every
+model feature is the model for every step, and `docs/agents/README.md` says
+where to find it. Read `docs/agents/code-architecture.md` and
+`docs/agents/testing.md` before you start. This skill is the order of work and the list of files that every
 feature must be added to.
 
 ## Workflow
