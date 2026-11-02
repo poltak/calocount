@@ -22,6 +22,7 @@
     "backend/src/features/core/database/migrations/1791009406-create-note.ts",
     "backend/src/features/core/database/migrations/1791009729-create-activity.ts",
     "backend/src/features/core/database/migrations/1791175626-set-note-updated-at-with-a-trigger.ts",
+    "frontend/src/features/core/tests/browser/example-pages.spec.ts",
     ".agents/skills/remove-example/",
     ".claude/skills/remove-example"
   ],

@@ -220,6 +220,8 @@ Playwright. It runs two kinds of tests, the `*.spec.ts` files:
 
 - The build checks, in
   [`built-app.spec.ts`](../../frontend/src/features/core/tests/browser/built-app.spec.ts).
+  That file uses no page of a feature. The model feature has a file of its own
+  beside it, which leaves with the feature.
 - The [black box tests](#black-box-tests), in the `black-box-tests/` directory
   of each feature.
 

@@ -2,8 +2,9 @@ import type { InferRequestType, InferResponseType } from "hono/client";
 import { describe, expect, expectTypeOf, it } from "vitest";
 import { createApiClient, type BackendApi } from "./api-client.js";
 
-type GetNote = BackendApi["notes"][":noteId"]["$get"];
-type DeleteNote = BackendApi["notes"][":noteId"]["$delete"];
+type SignIn = BackendApi["session"]["$post"];
+type SignOut = BackendApi["session"]["$delete"];
+type GetProfile = BackendApi["me"]["$get"];
 
 // The UI Logic tests cover the client's runtime behavior, because they send
 // every request through it. Its types need a test of their own. If they became
@@ -11,20 +12,14 @@ type DeleteNote = BackendApi["notes"][":noteId"]["$delete"];
 describe("typed API client", () => {
   it("derives request, response, and error types from the backend routes", () => {
     expectTypeOf<BackendApi>().not.toBeAny();
-    expectTypeOf<InferRequestType<GetNote>["param"]>().toEqualTypeOf<{
-      noteId: string;
+    expectTypeOf<InferRequestType<SignIn>["json"]>().toEqualTypeOf<{
+      email: string;
+      password: string;
     }>();
-    expectTypeOf<InferResponseType<GetNote, 200>>().toEqualTypeOf<{
-      note: {
-        id: string;
-        title: string;
-        body: string;
-        // A date arrives as text.
-        createdAt: string;
-        updatedAt: string;
-      };
+    expectTypeOf<InferResponseType<GetProfile, 200>>().toEqualTypeOf<{
+      user: { id: string; email: string; name: string };
     }>();
-    expectTypeOf<InferResponseType<DeleteNote, 404>>().toEqualTypeOf<{
+    expectTypeOf<InferResponseType<SignOut, 404>>().toEqualTypeOf<{
       error: {
         code: "NOT_FOUND" | "ROUTE_NOT_FOUND";
         message: string;

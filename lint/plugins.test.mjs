@@ -469,6 +469,8 @@ test("keeps black box tests on page objects and the black box fixture", async (c
     // The build checks may answer a request themselves, so they are exempt.
     "frontend/src/features/core/tests/browser/built-app.spec.ts":
       'import { test } from "@playwright/test";\nexport const answer = (page: never) => [test, page.route("**", () => undefined)];\n',
+    "frontend/src/features/core/tests/browser/example-pages.spec.ts":
+      'import { test } from "@playwright/test";\nexport const answer = (page: never) => [test, page.route("**", () => undefined)];\n',
   });
 
   assert.deepEqual(problems, [

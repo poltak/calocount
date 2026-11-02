@@ -851,7 +851,7 @@ describe("AuthLogic tests", () => {
 
     // A page's Logic sends a request like this one. This Logic sends nothing,
     // and only hears from the API client that the backend refused the session.
-    const response = await frontend.api.notes.$get();
+    const response = await frontend.api.me.$get();
 
     expect(response.status).toEqual(401);
     expect(logic.state.isSignedIn).toEqual(false);

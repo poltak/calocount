@@ -309,8 +309,11 @@ template. Some reasons come from what happened in it.
 - **A few build checks cover what the other tests cannot.** No other test
   loads the build output, the route table, or `main.tsx`, so an update to
   React Router or Vite could pass the check and still break the app.
-  Playwright opens the built frontend and makes one visit: sign in, add a
-  note, reload, change page, see both error boundaries, sign out.
+  Playwright opens the built frontend and makes one visit: sign in, reload,
+  change page, see an error boundary, sign out. That file uses no page of a
+  feature, because a project removes the example, and each project would then
+  rewrite it. The pages of the example have a visit of their own in a second
+  file, which leaves with the example.
 - **Black box tests check stable workflows through the built app.** Agents
   write and refactor much of the code, and the UI Logic tests know the Logic
   state and the tables, so a refactor changes those tests too. A black box test

@@ -43,10 +43,13 @@ export function resolveImport(filename, source) {
 }
 
 /** The listed paths are relative to `src/`. */
+/** An entry that ends with `/` lists each file in that directory. */
 export function isListed(description, list) {
   const withoutExtension = description.inSrc.replace(SOURCE_EXTENSION, "");
-  return list.some(
-    (entry) => entry.replace(SOURCE_EXTENSION, "") === withoutExtension,
+  return list.some((entry) =>
+    entry.endsWith("/")
+      ? description.inSrc.startsWith(entry)
+      : entry.replace(SOURCE_EXTENSION, "") === withoutExtension,
   );
 }
 

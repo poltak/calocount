@@ -20,8 +20,8 @@ export const GUARDED_FILES = [VERSION_FILE];
  * - `example`: the directories of the notes example. A project has the
  *   example while it has a file in one of them.
  * - `withExample`: other files that a project needs only while it has the
- *   example. These are the migrations of the example, and the skill that
- *   removes the example.
+ *   example. These are the migrations of the example, its browser test, and
+ *   the skill that removes the example.
  * - `projectOwned`: files that a project writes for itself. A new file here
  *   reaches an existing project one time, and the project then owns it.
  * - `personOnly`: files that only a person changes, because they can loosen a
