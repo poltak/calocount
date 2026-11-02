@@ -433,6 +433,21 @@ request ID and answers with `INTERNAL` and no detail. Every response carries
 its request ID in the `X-Request-Id` header, so a report from a user leads to
 the log entry.
 
+## Access decisions
+
+A failed dependency is never an access decision. A gate or an access check
+refuses (`UNAUTHENTICATED`, `FORBIDDEN`, or `NOT_FOUND`) only when the data that
+decides access gives that answer. When it cannot read that data, because a
+query failed, a provider did not answer, or a usage limit stopped the read, it
+throws `UNAVAILABLE`. It does not catch the failure and return `null`, `false`,
+or an empty list. `requireSession` is the model.
+
+A client follows the same rule. It ends access only on a code from the backend
+that says so, and never on a status alone, because a proxy can answer with any
+status. After any other failure the user stays signed in, an open page and an
+open socket stay open, and data on the device stays. `AuthLogic` and
+`isSessionRejected` are the models.
+
 ## Logging
 
 Write diagnostic output through the logger Core Service. Do not call `console`.
