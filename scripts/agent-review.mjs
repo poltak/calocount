@@ -1441,9 +1441,6 @@ function ruleLinkOf({ server, repository, head }) {
     `${server}/${repository}/blob/${head}/${encodeURI(file)}`;
   return (rule) => {
     if (generalNames.has(rule)) return `[${rule}](${general.url}#${rule})`;
-    if (rule === "new-document") {
-      return `[${rule}](${fileUrl("docs/agents/README.md")}#where-to-add-information)`;
-    }
     return `[${rule}](${fileUrl(PROJECT_RULES_FILE)}#${rule})`;
   };
 }
