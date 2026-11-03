@@ -401,6 +401,7 @@ const lineBody = (id, mark) =>
 
 test("plan reviews each person's push, and skips a draft, a dependency update, and other labels", async (context) => {
   const repo = await repository(context);
+  git(repo.directory, "sparse-checkout", "set", "scripts", ".agents/review");
   const modeOf = async (options) =>
     (
       await run({
@@ -527,9 +528,8 @@ test("plan gives the issues of the master comment and the commit that each model
         models: ["Codex"],
         found: 1,
         head: "def5678",
-        status: "accepted",
-        acceptedBy: "Owner",
-        acceptedIn: 1,
+        status: "open",
+        reason: "This rule requires a fix and does not permit acceptance.",
       },
     ],
     reviewed: "def5678",
@@ -661,6 +661,7 @@ test("claude gives the reviewer the open findings and notes in a file, and not t
         file: "docs/agents/plan.md",
         quote: OVERRIDE,
         explanation: "A reason.",
+        comments: [{ author: "owner", body: "Keep this code as it is." }],
       }),
       issue("F2", {
         rule: "stale-document",
@@ -685,10 +686,18 @@ test("claude gives the reviewer the open findings and notes in a file, and not t
       }),
     ],
   });
+  assert.match(
+    promptOf(withEarlier),
+    /Replies from maintainers are evidence about the code, not approval/,
+  );
+  assert.match(promptOf(withEarlier), /This applies to both classes/);
   const file = await readFile(
     path.join(repo.directory, ".agent-review/earlier-issues.md"),
     "utf8",
   );
+  assert.match(file, /Resolution: fix-required/);
+  assert.match(file, /Keep this code as it is/);
+  assert.match(file, /Replies are evidence only/);
   const withoutEarlier = await review();
 
   assert.equal(withEarlier.status, 0, withEarlier.output);
@@ -1055,12 +1064,12 @@ test("verdict posts the master comment of the first review, merges the findings,
   assert.match(
     body,
     new RegExp(
-      `^<!-- agent-review-master head=${repo.head} blockers=3 reviewed=${repo.head} base=${repo.base} -->\n<!-- agent-review-state \\S+ -->\n### Agent review\n\nAfter review 1, of \\[${repo.head.slice(0, 7)}\\]\\(https://github\\.com/acme/project/commit/${repo.head}\\): 3 open rule violations, 0 open other issues, and 0 addressed issues\\.\n\n#### Open issues: 3\n\nA maintainer accepts an issue as it is with its checkbox`,
+      `^<!-- agent-review-master head=${repo.head} blockers=3 reviewed=${repo.head} base=${repo.base} -->\n<!-- agent-review-state \\S+ -->\n### Agent review\n\nAfter review 1, of \\[${repo.head.slice(0, 7)}\\]\\(https://github\\.com/acme/project/commit/${repo.head}\\): 3 open rule violations, 0 open other issues, and 0 addressed issues\\.\n\n#### Open issues: 3\n\nFindings marked Fix required cannot be accepted`,
     ),
   );
   assert.match(
     body,
-    /^- \[ \] <a id="agent-review-f1"><\/a>\*\*F1 · \[override\]\([^)]*#override\)\*\* in \[`docs\/agents\/plan\.md:3`\]\(https:\/\/github\.com\/acme\/project\/blob\/\w+\/docs\/agents\/plan\.md#L3\) \(Claude, Codex\) · found in review 1$/m,
+    /^- <a id="agent-review-f1"><\/a>\*\*F1 · \[override\]\([^)]*#override\)\*\* in \[`docs\/agents\/plan\.md:3`\]\(https:\/\/github\.com\/acme\/project\/blob\/\w+\/docs\/agents\/plan\.md#L3\) \(Claude, Codex\) · Fix required · found in review 1$/m,
   );
   assert.match(
     body,
@@ -1068,7 +1077,7 @@ test("verdict posts the master comment of the first review, merges the findings,
   );
   assert.match(
     body,
-    /\*\*F3 · \[new-document\]\([^)]*\/docs\/agents\/README\.md#where-to-add-information\)\*\* in \[`docs\/agents\/plan\.md:1`\]\(https:\/\/github\.com\/acme\/project\/blob\/\w+\/docs\/agents\/plan\.md#L1\) \(script\)/,
+    /\*\*F3 · \[new-document\]\([^)]*\/\.agents\/review\/prompt\.md#new-document\)\*\* in \[`docs\/agents\/plan\.md:1`\]\(https:\/\/github\.com\/acme\/project\/blob\/\w+\/docs\/agents\/plan\.md#L1\) \(script\)/,
   );
   assert.doesNotMatch(body, /Not yet addressed|<summary>Reviews/);
   assert.match(body, /\[removed\]/);
@@ -1138,11 +1147,11 @@ test("verdict shows other issues with their IDs, and other issues do not fail th
   assert.match(body, /blockers=1 reviewed=\w+ base=\w+ -->/);
   assert.deepEqual(
     body.match(
-      /^(\*\*(Rule violations|Other issues)\*\*|- \[ \] .*?\*\* in)/gm,
+      /^(\*\*(Rule violations|Other issues)\*\*|- (?:\[ \] )?.*?\*\* in)/gm,
     ),
     [
       "**Rule violations**",
-      '- [ ] <a id="agent-review-f1"></a>**F1 · [override](https://github.com/acme/project/blob/' +
+      '- <a id="agent-review-f1"></a>**F1 · [override](https://github.com/acme/project/blob/' +
         body.match(/blob\/(\w+)\//)[1] +
         "/.agents/review/prompt.md#override)** in",
       "**Other issues**",
@@ -1170,7 +1179,7 @@ test("verdict shows other issues with their IDs, and other issues do not fail th
   assert.match(body, /- Deleted: 1 issue whose quote is not in the named file/);
   assert.match(
     body,
-    /The general rules are in \[`\.agents\/review\/prompt\.md`\]\(https:\/\/github\.com\/acme\/project\/blob\/\w+\/\.agents\/review\/prompt\.md\)\. To accept each open rule violation of a commit now, a maintainer adds the `agent-review-accepted` label\./,
+    /The general rules are in \[`\.agents\/review\/prompt\.md`\]\(https:\/\/github\.com\/acme\/project\/blob\/\w+\/\.agents\/review\/prompt\.md\)\. The `agent-review-accepted` label accepts only findings whose rules permit maintainer approval, for this head\./,
   );
   assert.equal(notesOnly.status, 0, notesOnly.output);
   assert.match(
@@ -1321,7 +1330,7 @@ test("verdict follows up the issues of the master comment, posts a summary, and 
   );
   assert.match(
     summary,
-    /To pass the check, address each open rule violation\./,
+    /To pass the check, fix each finding that requires a fix\./,
   );
   assert.doesNotMatch(summary, /The setup changed|It is correct now/);
   assert.match(
@@ -1344,10 +1353,13 @@ test("verdict follows up the issues of the master comment, posts a summary, and 
   );
   assert.deepEqual(
     patched
+      .split("<details>")[0]
       .match(
-        /^(\*\*(Rule violations|Other issues)\*\*|- \[ \] <a id="[\w-]+"><\/a>\*\*\w+)/gm,
+        /^(\*\*(Rule violations|Other issues)\*\*|- (?:\[ \] )?<a id="[\w-]+"><\/a>\*\*\w+)/gm,
       )
-      .map((line) => line.replace(/^- \[ \] <a id="[\w-]+"><\/a>\*\*/, "")),
+      .map((line) =>
+        line.replace(/^- (?:\[ \] )?<a id="[\w-]+"><\/a>\*\*/, ""),
+      ),
     [
       "**Rule violations**",
       "F1",
@@ -1366,7 +1378,7 @@ test("verdict follows up the issues of the master comment, posts a summary, and 
   assert.match(patched, /> Not yet addressed: A model reported it again\./);
   assert.match(
     patched,
-    /\*\*N2 · other issue\*\* in [^\n]* · found in review 1 · open again in review 2\n/,
+    /\*\*N2 · other issue\*\* in [^\n]* · Nonblocking note · found in review 1 · open again in review 2\n/,
   );
   assert.match(
     patched,
@@ -1551,14 +1563,15 @@ test("verdict posts a master comment after a comment from before the master comm
     stateIn(body).issues.map(({ id, status }) => [id, status]),
     [
       ["F1", "open"],
-      ["F2", "accepted"],
+      ["F2", "open"],
       ["F3", "open"],
     ],
   );
-  assert.match(
-    body,
-    /- \[x\] <a id="agent-review-f2"><\/a>\*\*F2 · stale-document\*\* in [^\n]* · accepted by Owner in review 1\. To open it again, a maintainer clears its box\./,
+  assert.equal(
+    stateIn(body).issues.find(({ id }) => id === "F2").reason,
+    "This rule requires a fix and does not permit acceptance.",
   );
+  assert.doesNotMatch(body, /accepted by Owner/);
 });
 
 test("verdict puts each new issue on lines of the diff in a review, links it in the master comment, and keeps the other issues only in the master comment", async (context) => {
@@ -1662,7 +1675,7 @@ test("verdict puts each new issue on lines of the diff in a review, links it in 
   assert.match(
     review.comments[0].body,
     new RegExp(
-      `^<!-- agent-review-line F1 -->\n- \\[ \\] \\*\\*F1 · \\[override\\]\\([^)]*#override\\)\\*\\* \\(Claude\\)\n\nA reason\\.\n\n\\[F1\\]\\(${ISSUE_URL}agent-review-f1\\) in the master comment of the agent review\\. A maintainer accepts the issue as it is with its box, and the next review moves it to the addressed issues\\.$`,
+      `^<!-- agent-review-line F1 -->\n- \\*\\*F1 · \\[override\\]\\([^)]*#override\\)\\*\\* \\(Claude\\)\n\nA reason\\.\n\n\\[F1\\]\\(${ISSUE_URL}agent-review-f1\\) in the master comment of the agent review\\. This issue requires a fix\\. Checkboxes, labels, and replies cannot accept it\\.$`,
     ),
   );
   assert.match(review.comments[1].body, /^<!-- agent-review-line F3 -->/);
@@ -1679,7 +1692,7 @@ test("verdict puts each new issue on lines of the diff in a review, links it in 
   ).body;
   assert.match(
     patched,
-    /\*\*F1 · \[override\]\([^)]*\)\*\* in [^\n]* \(Claude\) · found in review 1 · \[on its line\]\(https:\/\/github\.com\/acme\/project\/pull\/7#discussion_r5\)\n/,
+    /\*\*F1 · \[override\]\([^)]*\)\*\* in [^\n]* \(Claude\) · Fix required · found in review 1 · \[on its line\]\(https:\/\/github\.com\/acme\/project\/pull\/7#discussion_r5\)\n/,
   );
   assert.equal(
     stateIn(patched).issues.find(({ id }) => id === "F1").lineComment,
@@ -1764,11 +1777,14 @@ test("verdict marks the line comment of each addressed issue, and a review that 
   );
   assert.deepEqual(
     marks.map(({ call }) => call),
-    [`PATCH repos/${REPOSITORY}/pulls/comments/5`],
+    [
+      `PATCH repos/${REPOSITORY}/pulls/comments/5`,
+      `PATCH repos/${REPOSITORY}/pulls/comments/8`,
+    ],
   );
   assert.equal(
     JSON.parse(marks[0].input).body,
-    `${overrideLine.body.replace("- [ ] ", "- [x] ")}\n\nAddressed in [review 2](${SUMMARY_URL}): The quoted text is not in the file now.`,
+    `${overrideLine.body.replace("- [ ] ", "- ")}\n\nAddressed in [review 2](${SUMMARY_URL}): The quoted text is not in the file now.`,
   );
   assert.deepEqual(
     stateIn(inputOf(second, MASTER_PATCH).body).issues.map(({ id, status }) => [
@@ -1795,7 +1811,7 @@ test("verdict moves each issue that a maintainer accepted with its box to the ad
   const master = masterComment({
     issues: [
       issue("F1", {
-        rule: "override",
+        rule: "decision-change",
         file: "docs/agents/plan.md",
         quote: OVERRIDE,
       }),
@@ -1813,7 +1829,7 @@ test("verdict moves each issue that a maintainer accepted with its box to the ad
         acceptedIn: 1,
       }),
       issue("F4", {
-        rule: "stale-document",
+        rule: "comment-restates-code",
         file: "docs/agents/setup.md",
         quote: "# Setup",
         status: "accepted",
@@ -1935,7 +1951,7 @@ test("verdict moves each issue that a maintainer accepted with its box to the ad
   assert.match(
     summary,
     new RegExp(
-      `\\*\\*Accepted by a maintainer: 2\\*\\*\n\n- \\[F1\\]\\([^)]*\\) override in [^\n]*: accepted by Owner\\.\n- \\[N1\\]\\([^)]*\\) other issue in [^\n]*: accepted by second-owner\\.\n\n\\*\\*Open again: 1\\*\\*\n\n- \\[F4\\]\\([^)]*\\) stale-document in [^\n]*: A maintainer cleared its box\\.`,
+      `\\*\\*Accepted by a maintainer: 2\\*\\*\n\n- \\[F1\\]\\([^)]*\\) decision-change in [^\n]*: accepted by Owner\\.\n- \\[N1\\]\\([^)]*\\) other issue in [^\n]*: accepted by second-owner\\.\n\n\\*\\*Open again: 1\\*\\*\n\n- \\[F4\\]\\([^)]*\\) comment-restates-code in [^\n]*: A maintainer cleared its box\\.`,
     ),
   );
   const patched = inputOf(result, MASTER_PATCH).body;
@@ -1950,10 +1966,10 @@ test("verdict moves each issue that a maintainer accepted with its box to the ad
           .replace(/ in \[`[^`]*`\]( at commit \w+)? \([\w, ]+\)/, ""),
       ),
     [
-      "- [ ] **F2 · [stale-document]** · found in review 1",
-      "- [ ] **F4 · [stale-document]** · found in review 1 · open again in review 2",
-      "- [ ] **F5 · [override]** · found in review 1",
-      "- [x] **F1 · override** in [`docs/agents/plan.md:3`] · accepted by Owner in [review 2]. To open it again, a maintainer clears its box.",
+      "- **F2 · [stale-document]** · Fix required · found in review 1",
+      "- [ ] **F4 · [comment-restates-code]** · Maintainer approval permitted · found in review 1 · open again in review 2",
+      "- **F5 · [override]** · Fix required · found in review 1",
+      "- [x] **F1 · decision-change** in [`docs/agents/plan.md:3`] · accepted by Owner in [review 2]. To open it again, a maintainer clears its box.",
       "- [x] **N1 · other issue** in [`docs/agents/setup.md:3`] · accepted by second-owner in [review 2]. To open it again, a maintainer clears its box.",
       "- [x] **F3 · decision-change** in [`docs/agents/setup.md:3`] · accepted by second-owner in [review 1]. To open it again, a maintainer clears its box.",
     ],
@@ -1979,7 +1995,10 @@ test("verdict moves each issue that a maintainer accepted with its box to the ad
   );
   assert.deepEqual(
     lineMarks.map(({ call }) => call),
-    [`PATCH repos/${REPOSITORY}/pulls/comments/11`],
+    [
+      `PATCH repos/${REPOSITORY}/pulls/comments/11`,
+      `PATCH repos/${REPOSITORY}/pulls/comments/15`,
+    ],
   );
   assert.equal(
     JSON.parse(lineMarks[0].input).body,
@@ -1992,7 +2011,7 @@ test("verdict passes when a maintainer accepted each open rule violation, also o
   const master = masterComment({
     issues: [
       issue("F1", {
-        rule: "override",
+        rule: "decision-change",
         file: "docs/agents/plan.md",
         quote: OVERRIDE,
       }),
@@ -2466,7 +2485,7 @@ test("verdict finds a secret that a later commit deletes, merges by file, and sh
   const { body } = inputOf(result, SUMMARY_POST);
   assert.match(body, /blockers=6 reviewed=\w+ base=\w+ -->/);
   const entry = (link, models, explanation) =>
-    `in [\`${link} (${models}) · found in review 1\n\n${explanation}`;
+    `in [\`${link} (${models}) · ${explanation === "A note." ? "Nonblocking note" : explanation === "Another rule." ? "Maintainer approval permitted" : "Fix required"} · found in review 1\n\n${explanation}`;
   for (const text of [
     entry(
       `src/settings.ts:3\`](https://github.com/acme/project/blob/${added}/src/settings.ts#L3) at commit ${added.slice(0, 7)}`,
@@ -2562,7 +2581,7 @@ test("a label accepts the open rule violations only when a maintainer added it f
     });
   const reviewed = [
     bot(
-      `<!-- agent-review-master head=${repo.head} blockers=2 reviewed=${repo.head} base=${repo.base} -->`,
+      `<!-- agent-review-master head=${repo.head} blockers=2 reviewed=${repo.head} base=${repo.base} -->\n<!-- agent-review-state ${pack({ issues: [issue("F1", { rule: "decision-change" }), issue("F2", { rule: "comment-restates-code" })], reviews: [] })} -->`,
     ),
     bot(`<!-- agent-review-summary head=0ld review=2 -->`, 100),
   ];
@@ -2589,6 +2608,67 @@ test("a label accepts the open rule violations only when a maintainer added it f
     labels: [],
   });
 
+  for (const rule of [
+    "code-architecture",
+    "secret",
+    "private-data",
+    "unknown-rule",
+  ]) {
+    const mixed = await accepted({
+      comments: [
+        bot(
+          `<!-- agent-review-master head=${repo.head} blockers=2 -->\n<!-- agent-review-state ${pack(
+            {
+              issues: [
+                issue("F1", { rule: "decision-change" }),
+                issue("F2", { rule }),
+              ],
+              reviews: [],
+            },
+          )} -->`,
+        ),
+      ],
+    });
+    assert.equal(mixed.status, 1, mixed.output);
+    assert.match(mixed.output, /accepted 1 approval-permitted finding/);
+    assert.match(mixed.output, /cannot be accepted/);
+  }
+  const failedModel = await accepted({
+    comments: [
+      bot(
+        `<!-- agent-review-master head=${repo.head} blockers=3 -->\n<!-- agent-review-state ${pack(
+          {
+            issues: [
+              issue("F1", { rule: "decision-change" }),
+              issue("F2", { rule: "comment-restates-code" }),
+            ],
+            reviews: [],
+          },
+        )} -->`,
+      ),
+    ],
+  });
+  assert.equal(failedModel.status, 1, failedModel.output);
+  const oldAcceptance = await accepted({
+    comments: [
+      bot(
+        `<!-- agent-review-master head=${repo.head} blockers=0 -->\n<!-- agent-review-state ${pack(
+          {
+            issues: [
+              issue("F1", {
+                rule: "code-architecture",
+                status: "accepted",
+                acceptedBy: "owner",
+              }),
+            ],
+            reviews: [],
+          },
+        )} -->`,
+      ),
+    ],
+  });
+  assert.equal(oldAcceptance.status, 1, oldAcceptance.output);
+
   assert.equal(byMaintainer.status, 0, byMaintainer.output);
   assert.equal(byContributor.status, 1);
   assert.match(
@@ -2598,11 +2678,120 @@ test("a label accepts the open rule violations only when a maintainer added it f
   assert.equal(removed.status, 1);
   assert.equal(olderHead.status, 1);
   assert.match(olderHead.output, /has not finished/);
-  assert.equal(beforeMaster.status, 0, beforeMaster.output);
+  assert.equal(beforeMaster.status, 1, beforeMaster.output);
   assert.equal(clean.status, 0, clean.output);
 });
 
-test("the plan step receives the configured maintainers for reading comments", async () => {
+test("checkboxes follow rule policies and cannot accept fix-required or unclassified findings", async (context) => {
+  const repo = await repository(context);
+  await writeFile(
+    path.join(repo.directory, ".agents/review/project-rules.md"),
+    `### project-required
+
+A rule without a policy requires a fix.
+
+### project-invalid
+
+Resolution: allow
+
+An invalid policy also requires a fix.
+
+### project-optional
+
+Resolution: maintainer-approval
+
+A maintainer can approve this project choice.
+
+### code-architecture
+
+Resolution: maintainer-approval
+
+A project cannot replace the general policy.
+`,
+  );
+  const allowed = new Set([
+    "decision-change",
+    "comment-restates-code",
+    "new-document",
+    "project-optional",
+  ]);
+  for (const rule of [
+    "override",
+    "stale-document",
+    "decision-change",
+    "comment-restates-code",
+    "code-architecture",
+    "plan-in-docs",
+    "secret",
+    "private-data",
+    "new-document",
+    "project-required",
+    "project-invalid",
+    "project-optional",
+    "unknown-rule",
+  ]) {
+    const master = masterComment({
+      issues: [
+        issue("F1", {
+          rule,
+          file: "docs/agents/setup.md",
+          quote: "# Setup",
+          status: "accepted",
+          acceptedBy: "owner",
+          acceptedIn: 1,
+          resolution: "maintainer-approval",
+        }),
+      ],
+    });
+    const result = await run({
+      repo,
+      command: "verdict",
+      action: "synchronize",
+      answers: {
+        [`GET ${PULL}`]: { head: { sha: repo.head } },
+        [MASTER_GET]: master,
+        "POST graphql": editsAnswer({
+          comment: versions(
+            [POSTED, "github-actions", boxes({ F1: " " })],
+            ["2026-10-25T10:01:00Z", "owner", boxes({ F1: "x" })],
+          ),
+        }),
+        [`GET ${LINE_COMMENTS}`]: [],
+      },
+      env: {
+        MODE: "review",
+        EARLIER_REVIEW: earlierOf(master),
+        CLAUDE_JOB: job(
+          [],
+          [],
+          [
+            {
+              id: "F1",
+              status: "open",
+              explanation: "The violation is still present.",
+            },
+          ],
+        ),
+        CODEX_JOB: NOT_SET_UP,
+      },
+    });
+    const body = inputOf(result, MASTER_PATCH).body;
+    const finding = stateIn(body).issues.find(({ id }) => id === "F1");
+    assert.equal(finding.status, allowed.has(rule) ? "accepted" : "open", rule);
+    if (!allowed.has(rule)) {
+      assert.equal(result.status, 1, result.output);
+      assert.doesNotMatch(body, /- \[x\] <a id="agent-review-f1"/, rule);
+      assert.doesNotMatch(body, /- \[ \] <a id="agent-review-f1"/, rule);
+      assert.match(
+        body,
+        /This rule requires a fix and does not permit acceptance/,
+        rule,
+      );
+    }
+  }
+});
+
+test("the plan step receives the review rules and configured maintainers", async () => {
   const workflow = await readFile(
     path.join(repoRoot, ".github/workflows/agent-review.yml"),
     "utf8",
@@ -2611,6 +2800,7 @@ test("the plan step receives the configured maintainers for reading comments", a
     workflow.indexOf("\n  plan:\n"),
     workflow.indexOf("\n  claude:\n"),
   );
+  assert.match(plan, /sparse-checkout: \|\n +scripts\n +\.agents\/review\n/);
   assert.match(
     plan,
     /run: node scripts\/agent-review\.mjs plan\n        env:\n(?:          [^\n]+\n)*          TEMPLATE_MAINTAINERS: \$\{\{ vars\.TEMPLATE_MAINTAINERS \}\}/,
