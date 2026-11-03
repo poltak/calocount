@@ -112,9 +112,6 @@ const MINIMIZE_QUERY = `mutation ($id: ID!) {
 // Each line comment has the ID of its issue, so that a later review can find
 // the line comment of an issue that it addressed.
 const LINE_PATTERN = /<!-- agent-review-line ([FN]\d+) -->/;
-// Only a person with access to the repository can settle an issue, because the
-// models trust what these comments say.
-const MAINTAINER_ROLES = new Set(["OWNER", "MEMBER", "COLLABORATOR"]);
 const ISSUE_ID = /\b[FN]\d+\b/g;
 const PROMPT_FILE = ".agents/review/prompt.md";
 const PROJECT_RULES_FILE = ".agents/review/project-rules.md";
@@ -439,8 +436,8 @@ function maintainerComments({ repository, number }) {
   const written = new Map();
   const add = (id, { user, body }) =>
     written.set(id, [...(written.get(id) ?? []), { author: user.login, body }]);
-  const isMaintainer = ({ author_association: role, user }) =>
-    MAINTAINER_ROLES.has(role) && !BOT_LOGINS.has(user?.login);
+  const isMaintainerComment = ({ user }) =>
+    isMaintainer(user?.login) && !BOT_LOGINS.has(user?.login);
   const lineComments = readPages(
     `repos/${repository}/pulls/${number}/comments?per_page=100`,
   ).flat();
@@ -452,14 +449,14 @@ function maintainerComments({ repository, number }) {
         : [];
     }),
   );
-  for (const comment of lineComments.filter(isMaintainer)) {
+  for (const comment of lineComments.filter(isMaintainerComment)) {
     const id = issueOfLine.get(comment.in_reply_to_id);
     if (id) add(id, comment);
   }
   const pullComments = readPages(
     `repos/${repository}/issues/${number}/comments?per_page=100`,
   ).flat();
-  for (const comment of pullComments.filter(isMaintainer)) {
+  for (const comment of pullComments.filter(isMaintainerComment)) {
     for (const id of new Set(comment.body?.match(ISSUE_ID) ?? [])) {
       add(id, comment);
     }

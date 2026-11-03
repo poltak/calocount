@@ -294,7 +294,10 @@ The check works as follows:
 - Each later review gives the open issues of the master comment to the
   models, which say for each one if it is addressed. The models also get what
   a maintainer wrote about the issue: a reply to its line comment, or a comment
-  on the pull request that names its ID. They also read the code comments near
+  on the pull request that names its ID. Only comments from persons in
+  `TEMPLATE_MAINTAINERS` count, as with checkboxes and the acceptance label.
+  GitHub's author association does not grant this authority.
+  They also read the code comments near
   the text. An answer that settles the issue addresses it. An issue is
   addressed when its quote is not in its file now, or when each model that
   answered says so. An issue that a model reports again stays open. An addressed issue

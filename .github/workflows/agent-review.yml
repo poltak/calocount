@@ -62,6 +62,7 @@ jobs:
         run: node scripts/agent-review.mjs plan
         env:
           GH_TOKEN: ${{ github.token }}
+          TEMPLATE_MAINTAINERS: ${{ vars.TEMPLATE_MAINTAINERS }}
 
   claude:
     name: Claude

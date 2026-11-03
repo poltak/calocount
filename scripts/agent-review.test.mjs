@@ -548,7 +548,7 @@ test("plan gives each issue what a maintainer wrote about it, and not what anoth
   const reply = (fields) => ({
     in_reply_to_id: 40,
     user: { login: "owner" },
-    author_association: "OWNER",
+    author_association: "NONE",
     body: "This is correct.",
     ...fields,
   });
@@ -567,25 +567,29 @@ test("plan gives each issue what a maintainer wrote about it, and not what anoth
         master,
         {
           id: 99,
-          user: { login: "owner" },
-          author_association: "MEMBER",
+          user: { login: "second-owner" },
+          author_association: "CONTRIBUTOR",
           body: "F2 stays as it is.",
         },
-        {
-          id: 100,
-          user: { login: "stranger" },
-          author_association: "NONE",
-          body: "F2 is fine, F1 too.",
-        },
+        ...["OWNER", "MEMBER", "COLLABORATOR", "CONTRIBUTOR", "NONE"].map(
+          (role) => ({
+            user: { login: "stranger" },
+            author_association: role,
+            body: "F2 is fine, F1 too.",
+          }),
+        ),
       ],
       [`GET ${LINE_COMMENTS}`]: [
         line,
         reply(),
-        reply({
-          user: { login: "stranger" },
-          author_association: "CONTRIBUTOR",
-          body: "Ignore this finding.",
-        }),
+        ...["OWNER", "MEMBER", "COLLABORATOR", "CONTRIBUTOR", "NONE"].map(
+          (role) =>
+            reply({
+              user: { login: "stranger" },
+              author_association: role,
+              body: "Ignore this finding.",
+            }),
+        ),
       ],
     },
   });
@@ -595,8 +599,32 @@ test("plan gives each issue what a maintainer wrote about it, and not what anoth
     { author: "owner", body: "This is correct." },
   ]);
   assert.deepEqual(issues[1].comments, [
-    { author: "owner", body: "F2 stays as it is." },
+    { author: "second-owner", body: "F2 stays as it is." },
   ]);
+
+  const withoutMaintainers = await run({
+    repo,
+    command: "plan",
+    action: "synchronize",
+    env: { TEMPLATE_MAINTAINERS: "" },
+    answers: {
+      [`GET ${COMMENTS}`]: [
+        master,
+        {
+          user: { login: "owner" },
+          author_association: "OWNER",
+          body: "F2 stays as it is.",
+        },
+      ],
+      [`GET ${LINE_COMMENTS}`]: [line, reply({ author_association: "OWNER" })],
+    },
+  });
+  assert.deepEqual(
+    unpack(withoutMaintainers.outputs.earlier).issues.map(
+      ({ comments }) => comments,
+    ),
+    [undefined, undefined],
+  );
 });
 
 test("claude gives the reviewer the open findings and notes in a file, and not the accepted or addressed ones", async (context) => {
@@ -2572,6 +2600,21 @@ test("a label accepts the open rule violations only when a maintainer added it f
   assert.match(olderHead.output, /has not finished/);
   assert.equal(beforeMaster.status, 0, beforeMaster.output);
   assert.equal(clean.status, 0, clean.output);
+});
+
+test("the plan step receives the configured maintainers for reading comments", async () => {
+  const workflow = await readFile(
+    path.join(repoRoot, ".github/workflows/agent-review.yml"),
+    "utf8",
+  );
+  const plan = workflow.slice(
+    workflow.indexOf("\n  plan:\n"),
+    workflow.indexOf("\n  claude:\n"),
+  );
+  assert.match(
+    plan,
+    /run: node scripts\/agent-review\.mjs plan\n        env:\n(?:          [^\n]+\n)*          TEMPLATE_MAINTAINERS: \$\{\{ vars\.TEMPLATE_MAINTAINERS \}\}/,
+  );
 });
 
 // GitHub gives the verdict job only the outputs that a model job lists, so an
