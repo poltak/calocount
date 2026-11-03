@@ -1,23 +1,32 @@
+import { Button } from "./components/button.js";
+import { Page } from "./components/layout.js";
+import { PageHeader } from "./components/page-header.js";
+import { Notice } from "./components/text.js";
 import type { ErrorFallbackProps } from "./error-boundary.js";
 
 export function PageErrorFallback({ reset }: ErrorFallbackProps) {
   return (
-    <section>
-      <h1>This page failed to load</h1>
-      <p role="alert">An unexpected error occurred on this page.</p>
-      <button onClick={reset}>Try again</button>
-    </section>
+    <Page>
+      <PageHeader title="This page failed to load" />
+      <Notice tone="error" actions={<Button onClick={reset}>Try again</Button>}>
+        An unexpected error occurred on this page.
+      </Notice>
+    </Page>
   );
 }
 
 export function AppErrorFallback({ reset }: ErrorFallbackProps) {
   return (
     <div className="app-shell">
-      <section>
-        <h1>Something went wrong</h1>
-        <p role="alert">An unexpected error occurred.</p>
-        <button onClick={reset}>Try again</button>
-      </section>
+      <Page>
+        <PageHeader title="Something went wrong" />
+        <Notice
+          tone="error"
+          actions={<Button onClick={reset}>Try again</Button>}
+        >
+          An unexpected error occurred.
+        </Notice>
+      </Page>
     </div>
   );
 }

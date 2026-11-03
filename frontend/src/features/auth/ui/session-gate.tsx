@@ -1,4 +1,9 @@
 import { Navigate, Outlet, useLocation } from "react-router";
+import { Button } from "../../core/ui/components/button.js";
+import { Page } from "../../core/ui/components/layout.js";
+import { Loading } from "../../core/ui/components/loading.js";
+import { PageHeader } from "../../core/ui/components/page-header.js";
+import { Notice } from "../../core/ui/components/text.js";
 import { useAuth } from "./auth-context.js";
 export function SessionGate() {
   const { logic, state } = useAuth();
@@ -10,15 +15,21 @@ export function SessionGate() {
     state.loadSessionState === "pristine" ||
     state.loadSessionState === "running"
   ) {
-    return <output>Checking your session…</output>;
+    return <Loading label="Checking your session…" />;
   }
   if (state.loadSessionState === "error") {
     return (
-      <section>
-        <h1>Unable to check your session</h1>
-        <p role="alert">{state.loadSessionError}</p>
-        <button onClick={() => void logic.refresh()}>Try again</button>
-      </section>
+      <Page>
+        <PageHeader title="Unable to check your session" />
+        <Notice
+          tone="error"
+          actions={
+            <Button onClick={() => void logic.refresh()}>Try again</Button>
+          }
+        >
+          {state.loadSessionError}
+        </Notice>
+      </Page>
     );
   }
   return (
