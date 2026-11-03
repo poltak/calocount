@@ -224,6 +224,13 @@ template. Some reasons come from what happened in it.
 
 - **React with Vite.** Chosen for a browser app beside a separate Hono API, and
   for tests that run UI, API, and database code together in a single process.
+- **Base UI, Tailwind CSS 4, and Lucide give the shared components.** Base UI
+  gives the behavior and the accessibility of a control, Tailwind CSS 4 gives
+  the utilities of a `cva` variant, and Lucide gives the icons. Chosen so that
+  a project starts with a complete, accessible set of components and a theme
+  with a light and a dark mode, and does not build its own. The components keep
+  their own props, so a page does not import these packages.
+  [UI components](ui-components.md) has the rules.
 - **React Router in declarative mode.** Chosen for familiar component routes in
   a small single-page app. Live rendering uses `BrowserRouter` and tests use
   `MemoryRouter`. Framework mode and server rendering are not needed.

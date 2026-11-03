@@ -1,0 +1,4 @@
+interface:
+    display_name: 'UI Design'
+    short_description: 'Build UI from the shared components and the theme'
+    default_prompt: 'Use $ui-design to make this UI change.'
