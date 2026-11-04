@@ -271,17 +271,27 @@ step.
   review uses only the general rules.
 
 In `.agents/review/project-rules.md`, give each rule a heading such as
-`### release-note`. Below the heading, say what to report, and give one
-example, as the rules in `prompt.md` do. The model gets the file from its
+`### release-note`. Start its body with `Resolution: fix-required` or
+`Resolution: maintainer-approval`. A missing or invalid policy requires a fix.
+A project rule cannot replace a general rule with the same name.
+Below the policy, say what to report, and give one example, as the rules in `prompt.md` do. The model gets the file from its
 first `###` heading to its end. The review deletes a finding whose rule
 is in neither file. For example:
 
 ```md
 ### release-note
 
+Resolution: fix-required
+
 The pull request changes text that a user sees, and its description has no
 line that starts with "Release note:". Quote the changed text.
 ```
+
+The rules `decision-change`, `new-document`, and `comment-restates-code` permit
+maintainer approval. All other general rules require a fix. The script reads
+the policy from the rules, not from model output. Findings that require a fix
+have no acceptance checkbox. A later review reopens an earlier acceptance
+when the rule no longer permits it. Nonblocking notes can still be accepted.
 
 The check works as follows:
 
@@ -299,11 +309,19 @@ The check works as follows:
   For Claude, it also gives the turns and the cost at API prices. Codex
   gives no cost.
 - Each later review gives the open issues of the master comment to the
-  models, which say for each one if it is addressed. An issue is addressed
-  when its quote is not in its file now, or when each model that answered
-  says so. An issue that a model reports again stays open. An addressed issue
-  that a model reports again is open again. The review edits the master
-  comment. Under each issue that the models checked, the master comment
+  models, which say for each one if it is addressed. The models also get what
+  a maintainer wrote about the issue: a reply to its line comment, or a comment
+  on the pull request that names its ID. Only comments from persons in
+  `TEMPLATE_MAINTAINERS` count, as with checkboxes and the acceptance label.
+  GitHub's author association does not grant this authority.
+  Replies help the models locate and verify fixes or incorrect findings.
+  They cannot approve a violation, even for a rule that permits approval.
+  Code comments can explain why a finding is incorrect, but cannot grant an
+  exception. An issue is addressed when its quote is not in its file now, or
+  when each model that answered says so. An issue that a model reports again stays open. An
+  addressed issue that a model reports again is open again. The review edits
+  the master comment. Under each issue that the models checked, the master
+  comment
   shows the status that each model gave, with the reason of the model, so a
   person sees where the models disagree. The summary does not repeat them.
 - Each later review also posts a summary comment, so GitHub sends a
@@ -313,9 +331,9 @@ The check works as follows:
   entry in the master comment. The review hides the summary of the review
   before it as outdated. If GitHub refuses that to the token of the workflow,
   the job logs a warning.
-- A maintainer accepts one issue as it is with its checkbox, in the master
-  comment or in its line comment. The next review moves the issue to the
-  addressed issues, and each later review keeps it accepted. To take the
+- A maintainer accepts a finding only when its rule permits approval, with
+  its checkbox in the master comment or in its line comment. The next review
+  moves the issue to the addressed issues, and each later review keeps it accepted. To take the
   acceptance back, a maintainer clears the box, and the next review opens the
   issue again. GitHub keeps each version of a comment with the person who
   made it. So the review counts only a box that a person in
@@ -336,8 +354,9 @@ The check works as follows:
   the issue in the master comment, and the master comment links to the line
   comment. The review does not request changes, because the check already
   fails. An issue on other lines is only in the master comment. When a later
-  review finds that an issue is addressed, it checks the box of the line
-  comment, and adds the reason. A person resolves the conversation, because
+  review verifies a fix, it removes the acceptance box from the line comment
+  and adds the reason. Only accepted issues have checked boxes. A person
+  resolves the conversation, because
   GitHub can refuse that to the token of a workflow. GitHub sends the lines
   around a line comment by email, so an issue in a file with a `secret` or
   `private-data` rule violation gets no line comment.
@@ -351,12 +370,13 @@ The check works as follows:
   of the title or the description starts a new review. When that review
   stops the Claude job of a review of the same head, the stopped review posts
   nothing and fails, and the new review gives the result.
-- The job fails while a rule violation is open, and when a model that has
-  its secret fails. When each open rule violation is wrong or accepted, a
-  maintainer adds the `agent-review-accepted` label, and the check passes.
-  The label is for that head only: a later review with open rule violations
-  removes it, and they come back. An issue with a checked box stays accepted.
-  The label does not change other issues.
+- The job fails while a rule violation is open, and when a configured model
+  fails. A configured maintainer can add `agent-review-accepted` to accept
+  approval-permitted findings for the reviewed head. Findings that require a
+  fix and failed review jobs still fail the check. The label does not change
+  stored issue statuses. A later review with open findings removes it.
+  Checkboxes keep eligible issues accepted across reviews. A review without
+  stored issue details must run again before the label can accept findings.
 - A pull request with a comment of a review from before the master comment
   gets a master comment at its next review. That review takes the open
   findings of the newest old comment, and gives them the IDs `F1` and up. A
