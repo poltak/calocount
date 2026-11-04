@@ -357,6 +357,11 @@ The check works as follows:
   The label is for that head only: a later review with open rule violations
   removes it, and they come back. An issue with a checked box stays accepted.
   The label does not change other issues.
+- A pull request with a comment of a review from before the master comment
+  gets a master comment at its next review. That review takes the open
+  findings of the newest old comment, and gives them the IDs `F1` and up. A
+  box that a maintainer checked in the old comment after its review does not
+  count.
 - Each pull request gets the review, also one that a maintainer opened. A
   draft gets its review when its author marks it as ready. A dependency update
   from Renovate or Dependabot gets no review.

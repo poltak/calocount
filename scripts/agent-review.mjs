@@ -60,12 +60,15 @@ const LABEL = "agent-review-accepted";
 // comment by the start of its text.
 const MASTER_MARKER = "<!-- agent-review-master ";
 const SUMMARY_MARKER = "<!-- agent-review-summary ";
+// Before the master comment, each review posted one comment with this marker.
+const OLD_MARKER = "<!-- agent-review head=";
 // `reviewed` is the newest commit that each model read, and `base` is the
 // merge base of that review. A comment from before they were stored has
 // neither.
 const MARKER_FIELDS =
-  /^<!-- agent-review-master head=(\w+) blockers=(\d+)(?: reviewed=(\w+) base=(\w+))? -->/;
+  /^<!-- agent-review(?:-master)? head=(\w+) blockers=(\d+)(?: reviewed=(\w+) base=(\w+))? -->/;
 const STATE_PATTERN = /^<!-- agent-review-state (\S+) -->$/m;
+const OLD_FINDINGS_PATTERN = /^<!-- agent-review-findings (\S+) -->$/m;
 // The models read the open issues of the earlier review from this file. The
 // checkout does not track it, so it is not a part of the pull request.
 const EARLIER_FILE = ".agent-review/earlier-issues.md";
@@ -396,10 +399,34 @@ function earlierReview(event) {
   });
   const [, head, , reviewed, base] = comment?.body.match(MARKER_FIELDS) ?? [];
   if (!head) return "";
-  const issues = stateOf(comment.body)?.issues ?? [];
+  const master = comment.body.startsWith(MASTER_MARKER);
+  const issues = master
+    ? (stateOf(comment.body)?.issues ?? [])
+    : oldIssues({ body: comment.body, head });
   const open = issues.filter((issue) => issue.status === "open").length;
-  console.log(`The master comment has ${count(open, "open issue")}.`);
-  return pack({ head, comment: comment.id, issues, reviewed, base });
+  console.log(
+    `${master ? "The master comment" : `The comment of the review of ${head}`} has ${count(open, "open issue")}.`,
+  );
+  return pack({ head, comment: comment.id, master, issues, reviewed, base });
+}
+
+/**
+ * Before the master comment, each review posted a comment that stored its
+ * open findings. The next review gives them IDs, and posts the master
+ * comment. A box that a maintainer checked after that comment does not count.
+ */
+function oldIssues({ body, head }) {
+  return (unpack(body.match(OLD_FINDINGS_PATTERN)?.[1]) ?? []).map(
+    ({ number, accepted, ...finding }) => ({
+      ...finding,
+      id: `F${number}`,
+      found: 1,
+      head,
+      ...(accepted
+        ? { status: "accepted", acceptedBy: accepted, acceptedIn: 1 }
+        : { status: "open" }),
+    }),
+  );
 }
 
 function claude() {
@@ -1659,14 +1686,21 @@ function summaryBody({
   return lines.join("\n").trimEnd();
 }
 
+/**
+ * A pull request that had its reviews before the master comment existed has
+ * one comment for each review. The newest of them has the issues that the
+ * next review must keep.
+ */
 function reviewComment({ repository, number }) {
-  return readPages(`repos/${repository}/issues/${number}/comments?per_page=100`)
+  const comments = readPages(
+    `repos/${repository}/issues/${number}/comments?per_page=100`,
+  )
     .flat()
-    .find(
-      (comment) =>
-        comment.user?.login === "github-actions[bot]" &&
-        comment.body.startsWith(MASTER_MARKER),
-    );
+    .filter((comment) => comment.user?.login === "github-actions[bot]");
+  return (
+    comments.find((comment) => comment.body.startsWith(MASTER_MARKER)) ??
+    comments.filter((comment) => comment.body.startsWith(OLD_MARKER)).at(-1)
+  );
 }
 
 /**
@@ -1766,7 +1800,7 @@ function reviewVerdict(event) {
     : { reviewed: earlier?.reviewed, base: earlier?.base };
   // The plan job read the master comment before the models ran, and a
   // maintainer can have checked a box since then.
-  const master = earlier
+  const master = earlier?.master
     ? readPages(`repos/${repository}/issues/comments/${earlier.comment}`)[0]
     : undefined;
   const state = (master && stateOf(master.body)) ?? {
