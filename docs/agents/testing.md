@@ -176,9 +176,10 @@ How they run:
   test runs at a time.
 
 `pnpm run check` does not run them. CI runs them in a job of their own, on
-each pull request and on each push to `main`. Run them yourself after a change
-to `routes.tsx`, `main.tsx`, `vite.config.ts`, the API client's request
-options, an error boundary, or a page that has a page object.
+each pull request and on each push to `main`. A pull request skips them when
+the same files, without the Markdown files, passed before. Run them yourself
+after a change to `routes.tsx`, `main.tsx`, `vite.config.ts`, the API
+client's request options, an error boundary, or a page that has a page object.
 
 ### Build checks
 
