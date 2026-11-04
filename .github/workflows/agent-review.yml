@@ -5,8 +5,9 @@ name: Agent review
 # `.agents/review/prompt.md`, and a project adds its own in
 # `.agents/review/project-rules.md`. The first review posts a master comment
 # with each issue, and each later review edits it and posts a summary. The
-# "Agent review" job fails while a rule violation is open, until a maintainer
-# accepts it with its checkbox or with the `agent-review-accepted` label.
+# "Agent review" job fails while a rule violation is open. A maintainer can
+# accept only findings whose rules permit approval. Fix-required findings and
+# failed review jobs cannot be accepted.
 # `scripts/agent-review.mjs` has the logic, and `docs/agents/setup.md` the
 # secrets of a project.
 #
@@ -51,17 +52,20 @@ jobs:
       mode: ${{ steps.plan.outputs.mode }}
       earlier: ${{ steps.plan.outputs.earlier }}
     steps:
-      - name: Check out the scripts
+      - name: Check out the scripts and review rules
         uses: actions/checkout@v7
         with:
           persist-credentials: false
-          sparse-checkout: scripts
+          sparse-checkout: |
+            scripts
+            .agents/review
 
       - name: Choose a review, a check of the label, or nothing
         id: plan
         run: node scripts/agent-review.mjs plan
         env:
           GH_TOKEN: ${{ github.token }}
+          TEMPLATE_MAINTAINERS: ${{ vars.TEMPLATE_MAINTAINERS }}
 
   claude:
     name: Claude
