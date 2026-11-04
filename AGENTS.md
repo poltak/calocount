@@ -101,6 +101,12 @@ project information. Read the documents that apply to the task.
 - When the "Agent review" check of a pull request fails, tell the person about
   each finding. Change the text only where a finding is correct. Do not run
   the review again to get a different result.
+- After a fix for an agent review finding is pushed, reply with the commit
+  and the checks that passed. The review verifies the fix and records its
+  status. Acceptance checkboxes are only for configured maintainers to
+  approve findings whose rules permit approval. Agents must not check them
+  to report a fix. Resolve the line conversation after the review verifies
+  the fix or records maintainer approval.
 
 ## Issue tracking
 
