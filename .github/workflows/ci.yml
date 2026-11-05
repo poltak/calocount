@@ -23,7 +23,51 @@ concurrency:
 # job together, or as long as a slower other job. Each job must do the setup
 # steps itself.
 # A push to `main` has no pull request, so the draft condition is true there.
+#
+# A pull request skips the tests, the coverage job, and the browser job when
+# the same files passed them before. The plan job ignores the Markdown files
+# outside `frontend`, `backend`, and `common`, because no test, build, or live
+# start reads them. A Markdown file in those folders can be a part of the app,
+# so a change to it gets the full run. When a test reads a Markdown file in
+# another folder, move the file into the app, or each change to it goes
+# untested. The checks job always runs, because it checks the format of
+# Markdown files. A push to `main` runs every job. To run every job on a pull
+# request, re-run all jobs of the run.
 jobs:
+  plan:
+    name: Find a passed run of the same files
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      key: ${{ steps.key.outputs.key }}
+      passed: ${{ steps.lookup.outputs.cache-hit == 'true' }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # On a pull request, the checkout is the merge with the base branch, so
+      # a change on the base branch also changes the key. The key has the path,
+      # the mode, and the content hash of each file.
+      - name: Make a key from the files
+        id: key
+        run: |
+          files=$(git ls-files --stage | awk -F '\t' '$2 !~ /\.md$/ || $2 ~ /^(frontend|backend|common)\//' | sha256sum | cut -d ' ' -f 1)
+          echo "key=ci-passed-$files" >> "$GITHUB_OUTPUT"
+
+      # A pull request finds the markers of its own earlier runs and of `main`.
+      # A re-run of all jobs has a second attempt, and runs every job.
+      - name: Look for the marker of a passed run
+        id: lookup
+        if: ${{ github.event_name == 'pull_request' && github.run_attempt == 1 }}
+        uses: actions/cache/restore@v6
+        with:
+          path: .ci-passed
+          key: ${{ steps.key.outputs.key }}
+          lookup-only: true
+
   checks:
     name: Checks
     if: ${{ !github.event.pull_request.draft }}
@@ -57,7 +101,8 @@ jobs:
   # merges the results of the four jobs and checks the coverage thresholds.
   tests:
     name: Tests ${{ matrix.shard }} of 4
-    if: ${{ !github.event.pull_request.draft }}
+    needs: plan
+    if: ${{ !github.event.pull_request.draft && needs.plan.outputs.passed != 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
@@ -88,10 +133,12 @@ jobs:
           include-hidden-files: true
           retention-days: 1
 
+  # Without `always()`, the job skips when a test job did not pass, so it never
+  # merges an incomplete set of results.
   coverage:
     name: Test coverage
-    needs: tests
-    if: ${{ !github.event.pull_request.draft }}
+    needs: [plan, tests]
+    if: ${{ !github.event.pull_request.draft && needs.plan.outputs.passed != 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -118,7 +165,8 @@ jobs:
 
   browser:
     name: Browser tests and live start
-    if: ${{ !github.event.pull_request.draft }}
+    needs: plan
+    if: ${{ !github.event.pull_request.draft && needs.plan.outputs.passed != 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -147,13 +195,36 @@ jobs:
 
   # GitHub counts a skipped job as passed for a required check, and the coverage
   # job skips when a test job fails. So only this job can be a required check.
+  # The plan skips the tests, the coverage job, and the browser job on purpose,
+  # and each other skip is a failure.
   passed:
     name: CI passed
-    needs: [checks, tests, coverage, browser]
+    needs: [plan, checks, tests, coverage, browser]
     if: ${{ always() && !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: Fail unless each job passed
-        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped') }}
+        if: >-
+          ${{
+            contains(needs.*.result, 'failure') ||
+            contains(needs.*.result, 'cancelled') ||
+            needs.plan.result != 'success' ||
+            needs.checks.result != 'success' ||
+            (needs.plan.outputs.passed != 'true' && contains(needs.*.result, 'skipped'))
+          }}
         run: exit 1
+
+      # The marker is empty, and its key names the files that passed. A failed
+      # save costs only a full run the next time, so it does not fail the job.
+      - name: Make the marker of a passed run
+        if: ${{ needs.plan.outputs.passed != 'true' }}
+        run: mkdir .ci-passed && touch .ci-passed/marker
+
+      - name: Save the marker
+        if: ${{ needs.plan.outputs.passed != 'true' }}
+        continue-on-error: true
+        uses: actions/cache/save@v6
+        with:
+          path: .ci-passed
+          key: ${{ needs.plan.outputs.key }}
