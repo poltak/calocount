@@ -107,6 +107,23 @@ repository compares with the template's `main`. The hook says nothing when the
 fetch fails, as it does with no network. Codex runs it only after you trust
 the hooks of the repository.
 
+### Slow commands of an agent
+
+After each shell command of a Claude Code or Codex agent,
+`.agents/hooks/warn-slow-commands.mjs` tells the agent how long the command
+took, if it took more than 1 minute. After 5 minutes, the message is stronger.
+The message tells the agent to run only the checks of the code that it
+changed, and to run the full checks one time at the end. Without it, an agent
+can run minutes of tests after each small change, because it does not see the
+time that a command takes. The message goes only to the agent. It does not
+stop the command.
+
+Claude Code gives the hook the time of the command. Codex does not, so the
+hook writes the start time of each command to a file in the temporary
+directory of the system, and deletes the file when the command ends. A
+background command of Claude Code ends at once, so the hook does not see its
+time.
+
 ### The development database
 
 `pnpm run dev`, `pnpm run db:migrate`, and `pnpm run auth:setup-owner` make

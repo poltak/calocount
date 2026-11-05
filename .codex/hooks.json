@@ -21,6 +21,16 @@
             "timeout": 10
           }
         ]
+      },
+      {
+        "matcher": "^Bash$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "REPO_ROOT=\"$(git rev-parse --show-toplevel)\" && node \"$REPO_ROOT/.agents/hooks/warn-slow-commands.mjs\" codex-start",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -31,6 +41,16 @@
             "type": "command",
             "command": "REPO_ROOT=\"$(git rev-parse --show-toplevel)\" && node \"$REPO_ROOT/.agents/hooks/format-edited-files.mjs\" \"$REPO_ROOT\"",
             "timeout": 60
+          }
+        ]
+      },
+      {
+        "matcher": "^Bash$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "REPO_ROOT=\"$(git rev-parse --show-toplevel)\" && node \"$REPO_ROOT/.agents/hooks/warn-slow-commands.mjs\" codex-end",
+            "timeout": 10
           }
         ]
       }

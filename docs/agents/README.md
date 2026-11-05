@@ -45,6 +45,7 @@ instructions.
 | The architecture lint rules and their options  | `lint/`, `.oxlintrc.json`                                                                |
 | How a project takes template changes           | `scripts/sync-template.mjs`, `workflows/`                                                |
 | What stops an edit of a file from the template | `.agents/hooks/guard-template-owned-files.mjs`, `scripts/check-template-owned-files.mjs` |
+| What tells an agent that a command was slow    | `.agents/hooks/warn-slow-commands.mjs`                                                   |
 | The test fixture                               | `frontend/src/features/core/tests/full-application.ts`                                   |
 | A model integration test                       | `frontend/src/features/notes/ui/notes-logic.test.ts`                                     |
 | The build checks in a real browser             | `frontend/src/features/core/tests/browser/built-app.spec.ts`                             |
