@@ -360,7 +360,8 @@ entry to the choice, the reason, and any rule that follows from it.
   It takes seconds, and when a push to a draft changes an approved file from
   the template, the check must remove the approval at that push.
 - **A pull request skips the tests when the same files passed before.** The
-  key is a hash of each file of the checkout without the Markdown files. A
+  key is a hash of each file of the checkout, without the Markdown files
+  outside `frontend`, `backend`, and `common`. A
   run that passes saves an empty marker with that key in the GitHub cache,
   and the next run of the pull request looks for it. When the marker is
   there, the four test jobs, the coverage job, and the browser job skip. The
@@ -371,7 +372,11 @@ entry to the choice, the reason, and any rule that follows from it.
   A list of paths that the tests read would skip a run after a change to a
   file that someone forgot to put in the list. The full key has no such list,
   only the one exclusion, and no test, build, or live start reads a Markdown
-  file. A pull request also finds the markers of `main`, so a pull request
+  file outside the app folders. A Markdown file in an app folder still counts,
+  because a page can import one. In Shadow, no Markdown file is in an app
+  folder, so this costs no skip there. A key with no exclusion would skip 5
+  of the 130 runs in place of 20, and the plan job would then cost more
+  minutes than it saves. A pull request also finds the markers of `main`, so a pull request
   that changes only Markdown files skips the tests from its first run. A push
   to `main` runs every job. A second attempt of a run does not look for a
   marker, so that "Re-run all jobs" runs every job. From 16 October to 4

@@ -25,12 +25,14 @@ concurrency:
 # A push to `main` has no pull request, so the draft condition is true there.
 #
 # A pull request skips the tests, the coverage job, and the browser job when
-# the same files, without the Markdown files, passed them before. No test,
-# build, or live start reads a Markdown file. When one does, remove the
-# exclusion from the plan job, or each change to that file goes untested. The
-# checks job always runs, because it checks the format of Markdown files. A
-# push to `main` runs every job. To run every job on a pull request, re-run
-# all jobs of the run.
+# the same files passed them before. The plan job ignores the Markdown files
+# outside `frontend`, `backend`, and `common`, because no test, build, or live
+# start reads them. A Markdown file in those folders can be a part of the app,
+# so a change to it gets the full run. When a test reads a Markdown file in
+# another folder, move the file into the app, or each change to it goes
+# untested. The checks job always runs, because it checks the format of
+# Markdown files. A push to `main` runs every job. To run every job on a pull
+# request, re-run all jobs of the run.
 jobs:
   plan:
     name: Find a passed run of the same files
@@ -52,7 +54,7 @@ jobs:
       - name: Make a key from the files
         id: key
         run: |
-          files=$(git ls-files --stage -- . ':(exclude,glob)**/*.md' | sha256sum | cut -d ' ' -f 1)
+          files=$(git ls-files --stage | awk -F '\t' '$2 !~ /\.md$/ || $2 ~ /^(frontend|backend|common)\//' | sha256sum | cut -d ' ' -f 1)
           echo "key=ci-passed-$files" >> "$GITHUB_OUTPUT"
 
       # A pull request finds the markers of its own earlier runs and of `main`.
