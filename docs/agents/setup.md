@@ -147,7 +147,7 @@ database user and password in `.env.example` are for this local database only.
 ### The pre-commit hook
 
 `pnpm install` installs a Git pre-commit hook that runs `lint-staged`. Its
-configuration in `package.json` runs two commands on the staged files:
+configuration in `package.json` runs three commands on the staged files:
 
 1. [`scripts/check-staged-secrets.mjs`](../../scripts/check-staged-secrets.mjs)
    stops the commit when the staged changes have an obvious secret: a file of
@@ -155,13 +155,20 @@ configuration in `package.json` runs two commands on the staged files:
    token in a well-known format. It reads only the lines that the commit adds,
    and it shows the file and the line, not the value. The script lists the
    formats.
-2. Prettier formats the staged files.
+2. [`scripts/check-staged-file-size.mjs`](../../scripts/check-staged-file-size.mjs)
+   stops the commit when it adds a file over 5,000 tokens, or makes such a
+   file larger. It counts a token for each 4 bytes. A file that is over the
+   limit can get smaller or keep its size. The message says how to split a
+   file. The check skips binary files, and the files that `.gitattributes`
+   marks as `linguist-generated`, such as `pnpm-lock.yaml`. Mark generated
+   code there also.
+3. Prettier formats the staged files.
 
 When a value that the check finds is not a secret, such as a key that only a
 test uses, commit again with `SKIP_SECRET_CHECK=1` in the environment. An
 agent asks its person first. The agent review of each pull request looks for
 the secrets and private data that the check cannot find. See
-[Agent review of pull requests](#agent-review-of-pull-requests).
+[Agent review of pull requests](agent-review.md).
 
 ## Database migrations
 
