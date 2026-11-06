@@ -8,8 +8,8 @@ name: Agent review
 # "Agent review" job fails while a rule violation is open. A maintainer can
 # accept only findings whose rules permit approval. Fix-required findings and
 # failed review jobs cannot be accepted.
-# `scripts/agent-review.mjs` has the logic, and `docs/agents/setup.md` the
-# secrets of a project.
+# `scripts/agent-review.mjs` has the logic, and `docs/agents/agent-review.md`
+# the secrets of a project.
 #
 # The trigger is `pull_request`, so GitHub runs this file as it is in the pull
 # request. The reviewers must read the files of the pull request, and a
