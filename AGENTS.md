@@ -111,12 +111,12 @@ project information. Read the documents that apply to the task.
 ## Issue tracking
 
 Each project keeps its issues and its open work in beads, a command-line
-issue tracker. [Setup](docs/agents/setup.md#beads-issue-tracker) describes it.
+issue tracker. [Beads](docs/agents/beads.md) describes it.
 
 - Run it as `pnpm exec bd`. `package.json` pins its version, so all persons
   and agents use the same one. When `bd` says "no beads database found", do
   the steps of
-  [Join a project that uses beads](docs/agents/setup.md#join-a-project-that-uses-beads).
+  [Join a project that uses beads](docs/agents/beads.md#join-a-project-that-uses-beads).
   Do not run `bd init` for this. Run it only to turn on beads in a new
   project.
 - This section replaces the agent instructions of beads. Do not run
