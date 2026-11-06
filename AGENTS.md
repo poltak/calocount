@@ -37,6 +37,9 @@ project information. Read the documents that apply to the task.
   feature needs to expose a public API.
 - Avoid depth in function call stacks as much as possible. Unnecessary depth makes for
   very hard-to-grok code.
+- Keep each file under 5,000 tokens (20,000 bytes). The pre-commit hook stops
+  a commit that adds a larger file or makes one grow, and its message says how
+  to split the file. Plan the split before a change makes a file too large.
 - Do not write unit tests for modules. Full app integration tests should be written which fit our standards.
   Read [docs/agents/testing.md](docs/agents/testing.md) for more context.
 - When you finish a change to a page or a workflow that has no black box
@@ -111,12 +114,12 @@ project information. Read the documents that apply to the task.
 ## Issue tracking
 
 Each project keeps its issues and its open work in beads, a command-line
-issue tracker. [Setup](docs/agents/setup.md#beads-issue-tracker) describes it.
+issue tracker. [Beads](docs/agents/beads.md) describes it.
 
 - Run it as `pnpm exec bd`. `package.json` pins its version, so all persons
   and agents use the same one. When `bd` says "no beads database found", do
   the steps of
-  [Join a project that uses beads](docs/agents/setup.md#join-a-project-that-uses-beads).
+  [Join a project that uses beads](docs/agents/beads.md#join-a-project-that-uses-beads).
   Do not run `bd init` for this. Run it only to turn on beads in a new
   project.
 - This section replaces the agent instructions of beads. Do not run
