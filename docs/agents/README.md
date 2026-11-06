@@ -14,6 +14,8 @@ instructions.
   Read before changing a framework, authentication, the API transport, or test
   setup.
 - [Setup and commands](setup.md): read to run, configure, or check the project.
+- [Agent review](agent-review.md): the review of each pull request by models
+  in CI. Read before a change to its rules, its workflow, or its secrets.
 - [Evals](evals.md): how to measure a prompt with real models. Read before
   writing or running an eval.
 - [The template](template.md): how a project starts from this repository, how
