@@ -41,10 +41,21 @@ import {
 const root = fileURLToPath(new URL("..", import.meta.url));
 const TEMPLATE_BRANCH = "main";
 const LOCKFILE = "pnpm-lock.yaml";
+const DEPENDENCY_LISTS = [
+  "dependencies",
+  "devDependencies",
+  "peerDependencies",
+  "optionalDependencies",
+];
 const MIGRATIONS_DIRECTORY = "backend/src/features/core/database/migrations/";
 const MIGRATION_LIST = "backend/src/features/core/database/migrations.ts";
 const MIGRATION_SCRIPT = "scripts/create-migration.mjs";
 const CONFLICT_MARKER = /^(?:<{7}|>{7}) /m;
+// The rules of a sync are in these files, and a running script does not read
+// its own new version.
+const RULE_FILES = ["scripts/sync-template.mjs", "scripts/template-files.mjs"];
+// The commit to go back to, for an `apply` that an `apply` started.
+const SYNC_START = "TEMPLATE_SYNC_START";
 
 const CHECKS = {
   // A template commit can change dependencies, so the lockfile can change.
@@ -103,7 +114,7 @@ const unmergedFiles = () => list("diff", "--name-only", "--diff-filter=U");
  * - `leave out`: it changes only files that the project is without.
  * - `skipped`: a person left it out, with a reason in the version file.
  */
-function loadPlan({ fetch }) {
+function loadPlan({ fetch, before = readStopped()?.before ?? "HEAD" }) {
   const version = readVersionFile({ root });
   if (!version) {
     fail(
@@ -192,7 +203,15 @@ function loadPlan({ fetch }) {
     fail(`The template has no ${PATHS_FILE} at commit ${short(tip)}.`);
   }
   const paths = JSON.parse(pathsFile.stdout);
-  const projectFiles = list("ls-tree", "-r", "--name-only", "HEAD");
+  // The files at the start of the sync. After a stop, HEAD also has the files
+  // that this sync gave the project, and a later commit must still reach them.
+  const projectFiles = list("ls-tree", "-r", "--name-only", before);
+  const lastTemplateFiles = list(
+    "ls-tree",
+    "-r",
+    "--name-only",
+    version.commit,
+  );
   const projectHas = (entry) =>
     projectFiles.some((file) => matchesPath({ entry, file }));
   const entryFor = ({ entries, file }) =>
@@ -208,7 +227,11 @@ function loadPlan({ fetch }) {
       return true;
     }
     if (entryFor({ entries: paths.projectOwned, file })) {
-      return true;
+      // A file that is new in the template reaches a project that is without
+      // it, because an owned file can depend on it. A file that the template
+      // had at the last sync, and the project is without, is one that the
+      // project deleted.
+      return projectFiles.includes(file) || lastTemplateFiles.includes(file);
     }
     const templateOnly = entryFor({ entries: paths.templateOnly, file });
     if (templateOnly) {
@@ -389,7 +412,10 @@ function restoreFromHead(file) {
  * a project that added a dependency on the next line, then conflict. By keys,
  * the two changes are to different keys, and they do not conflict.
  *
- * Returns the paths of the keys that both sides changed to different values.
+ * Returns the paths of the keys that both sides changed to different values,
+ * and the dependencies that the project removed and the template updated.
+ * Such a dependency stays out of the project, because the project has no use
+ * for its new version.
  */
 function mergeJson({ base, ours, theirs, at = [] }) {
   const isObject = (value) =>
@@ -408,6 +434,7 @@ function mergeJson({ base, ours, theirs, at = [] }) {
 
   const merged = {};
   const conflicts = [];
+  const keptRemoved = [];
   for (const key of keys) {
     const sides = { base, ours, theirs };
     const same = (left, right) =>
@@ -429,9 +456,14 @@ function mergeJson({ base, ours, theirs, at = [] }) {
           });
           merged[key] = inner.merged;
           conflicts.push(...inner.conflicts);
+          keptRemoved.push(...inner.keptRemoved);
           continue;
         }
-        conflicts.push([...at, key].join("."));
+        const projectRemoved =
+          at.length === 1 &&
+          DEPENDENCY_LISTS.includes(at[0]) &&
+          !Object.hasOwn(ours, key);
+        (projectRemoved ? keptRemoved : conflicts).push([...at, key].join("."));
       }
     }
     if (Object.hasOwn(sides[from], key)) {
@@ -451,9 +483,10 @@ function mergeJson({ base, ours, theirs, at = [] }) {
         ),
       ),
       conflicts,
+      keptRemoved,
     };
   }
-  return { merged, conflicts };
+  return { merged, conflicts, keptRemoved };
 }
 
 /**
@@ -478,9 +511,14 @@ async function mergePackageJson(file) {
     return undefined;
   }
   const [base, ours, theirs] = versions;
-  const { merged, conflicts } = mergeJson({ base, ours, theirs });
+  const { merged, conflicts, keptRemoved } = mergeJson({ base, ours, theirs });
   if (conflicts.length > 0) {
     return conflicts;
+  }
+  for (const key of keptRemoved) {
+    console.log(
+      `      ${file}: the template updates ${key}. The project removed it, so it stays removed.`,
+    );
   }
 
   const target = path.join(root, file);
@@ -630,15 +668,16 @@ async function settle({ commit, leftOut, stopped }) {
 }
 
 async function apply() {
-  let plan = loadPlan({ fetch: false });
   const stopped = readStopped();
+  // A run that stops and continues is one sync, with one commit to go back to.
+  const before =
+    stopped?.before ?? process.env[SYNC_START] ?? read("rev-parse", "HEAD");
+  let plan = loadPlan({ fetch: false, before });
   if (!stopped && changedFiles().length > 0) {
     fail(
       `The working tree has changes. Commit them, or discard them, before \`apply\`:\n  ${changedFiles().join("\n  ")}`,
     );
   }
-  // A run that stops and continues is one sync, with one commit to go back to.
-  const before = stopped?.before ?? read("rev-parse", "HEAD");
   const report = ({ commit, made }) =>
     console.log(
       made
@@ -659,7 +698,7 @@ async function apply() {
       commit,
       made: await settle({ commit, leftOut: plan.leftOut, stopped }),
     });
-    plan = loadPlan({ fetch: false });
+    plan = loadPlan({ fetch: false, before });
   }
 
   for (const commit of plan.commits.filter(({ action }) => action === "take")) {
@@ -677,10 +716,25 @@ async function apply() {
       rmSync(stoppedFile(), { force: true });
       fail(`Could not cherry-pick ${short(commit.commit)}:\n${picked.stderr}`);
     }
-    report({
+    const made = await settle({
       commit,
-      made: await settle({ commit, leftOut: plan.leftOut, stopped: progress }),
+      leftOut: plan.leftOut,
+      stopped: progress,
     });
+    report({ commit, made });
+    if (made && commit.files.some((file) => RULE_FILES.includes(file))) {
+      // The plan of each later commit must come from the new rules.
+      const { status } = spawnSync(
+        process.execPath,
+        [fileURLToPath(import.meta.url), "apply"],
+        {
+          cwd: root,
+          stdio: "inherit",
+          env: { ...process.env, [SYNC_START]: before },
+        },
+      );
+      process.exit(status ?? 1);
+    }
   }
 
   console.log(

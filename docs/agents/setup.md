@@ -204,6 +204,26 @@ into the project. The `sync-template` skill has the order of its commands, and
 one. `pnpm run template:sync plan` changes no file. It fetches the template
 and lists the new commits.
 
+### Exact versions
+
+The template pins exact versions of Node, pnpm, TypeScript, and each package.
+A pin gives each machine and each CI run the same build. It does not tell a
+project which version its host must run.
+
+The template follows the newest patch of the newest Node LTS line, and the
+newest TypeScript major version that passes `pnpm run check`. A project gets
+these versions with a sync.
+
+A project can stay on an older version when its host or a tool needs that.
+Keep the older value, and write the reason in the project's documents. `apply`
+stops at each template update of that value, because both sides changed it.
+Resolve the stop in favor of the project. For Node, keep `.nvmrc`, `engines`,
+and `devEngines.runtime` equal. `scripts/check-node-version.mjs` compares those
+values with each other, and not with the template.
+
+A project can also remove a package that it does not use. A sync keeps the
+package out of the project, and prints its name when the template updates it.
+
 ### Swamp
 
 The workflows in `workflows/` run those commands in order, with

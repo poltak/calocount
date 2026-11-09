@@ -22,7 +22,8 @@ export const GUARDED_FILES = [VERSION_FILE];
  * - `withExample`: other files that a project needs only while it has the
  *   example. These are the migrations of the example, and the skill that
  *   removes the example.
- * - `projectOwned`: files that a project writes for itself.
+ * - `projectOwned`: files that a project writes for itself. A new file here
+ *   reaches an existing project one time, and the project then owns it.
  * - `templateOwned`: files that a project takes from the template and does
  *   not change, unless the project's `ownPaths` names them.
  *   `.agents/hooks/guard-template-owned-files.mjs` and
@@ -30,10 +31,11 @@ export const GUARDED_FILES = [VERSION_FILE];
  *   does not read it.
  *
  * A sync leaves out each template change to a `templateOnly` path that the
- * project is without, and each change to a `projectOwned` path. When the
- * project is without the example, a sync also leaves out each change to an
- * `example` or `withExample` path. It also leaves out each change to a path
- * in `ownPaths` of the project's version file.
+ * project is without, and each change to a `projectOwned` path, except a file
+ * that is new since the project's last sync and that the project is without.
+ * When the project is without the example, a sync also leaves out each change
+ * to an `example` or `withExample` path. It also leaves out each change to a
+ * path in `ownPaths` of the project's version file.
  *
  * A sync reads the lists from the newest template commit, not from the
  * project. A template commit that adds a file and its entry here therefore

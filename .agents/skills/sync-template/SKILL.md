@@ -95,6 +95,8 @@ the project, its data, or a secret in the issue.
 - It takes the commits oldest first, with the author and the date of each
   one. The message of the new commit names its source, as `git cherry-pick -x`
   does.
+- After a commit that changes the script, it starts again, so the commits
+  after that one follow the new rules.
 - It leaves out each change to a file that the project is without. Such a
   file is one that only the template needs, or a file of the notes example
   after the project removed the example. `scripts/template-paths.json` has
@@ -102,9 +104,15 @@ the project, its data, or a secret in the issue.
 - It leaves out each change to a path in `ownPaths` of
   `template-version.json`. The project took that path over from the template.
 - It never takes the template's `README.md`.
+- It gives the project a new `projectOwned` file one time, when the project
+  does not have a file at that path. The project then owns the file, and the
+  script leaves out later template changes to it. A `projectOwned` file that
+  the project deleted stays deleted.
 - It merges a `package.json` by its keys. A template update of one dependency
   and a dependency that the project added then do not conflict. A conflict
   remains only when both sides changed one key to different values.
+- It keeps a dependency out of a project that removed it, also when the
+  template updates that dependency, and it prints the name.
 - It keeps the project's `pnpm-lock.yaml` when the template's change does not
   apply to it, and `verify install` brings it up to date. The project then does not
   get the template's updates of indirect dependencies.
