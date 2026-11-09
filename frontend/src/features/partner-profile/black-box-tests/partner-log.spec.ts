@@ -1,6 +1,7 @@
 import { expect } from "@playwright/test";
 import { test } from "../../core/black-box-tests/black-box-test.js";
 import { TodayPageObject } from "../../entries/black-box-tests/today-page-object.js";
+import { ProfileSwitchPageObject } from "./profile-switch-page-object.js";
 import { SettingsPageObject } from "../../settings/black-box-tests/settings-page-object.js";
 
 test.describe("partner log", () => {
@@ -14,7 +15,7 @@ test.describe("partner log", () => {
     await settings.open();
     await settings.field("Keep a second log for a partner").check();
     await settings.save();
-    await today.openPartner();
+    await new ProfileSwitchPageObject(page).openPartner();
     await expect(today.entry("Owner breakfast")).toBeHidden();
     await today.addEntry({ name: "Partner lunch", calories: 450 });
     await settings.open();
