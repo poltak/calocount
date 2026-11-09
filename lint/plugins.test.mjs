@@ -252,6 +252,7 @@ test("requires every source file to sit in a known role directory", async (conte
     [`${feature("notes")}/misc/thing.ts`]: "export const thing = 1;\n",
     [`${feature("notes")}/types.ts`]: "export type Note = string;\n",
     [`${feature("notes")}/scripts/import-notes.ts`]: "export const run = 1;\n",
+    [`${feature("notes")}/workers/import-worker.ts`]: "export const run = 1;\n",
     "frontend/src/main.tsx": "export const main = 1;\n",
   });
 
@@ -260,6 +261,38 @@ test("requires every source file to sit in a known role directory", async (conte
     "backend/src/features/notes/notes.ts: architecture(file-layout)",
     "backend/src/helpers.ts: architecture(file-layout)",
   ]);
+});
+
+test("lets only workers call postMessage with no target origin", async (context) => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "lint-rules-"));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  for (const role of ["workers", "services", "ui"]) {
+    const file = path.join(directory, feature("notes"), role, "send.ts");
+    await mkdir(path.dirname(file), { recursive: true });
+    await writeFile(
+      file,
+      "export const send = (worker: Worker) => worker.postMessage(1);\n",
+    );
+  }
+
+  let output;
+  try {
+    output = execFileSync(
+      oxlint,
+      ["-c", path.join(repoRoot, ".oxlintrc.json"), "-f", "json", "."],
+      { cwd: directory, encoding: "utf8" },
+    );
+  } catch (error) {
+    output = error.stdout;
+  }
+
+  assert.deepEqual(
+    JSON.parse(output)
+      .diagnostics.filter((problem) => problem.code.includes("post-message"))
+      .map((problem) => problem.filename.split("/").at(-2))
+      .sort(),
+    ["services", "ui"],
+  );
 });
 
 test("confines vendor packages to the layer that wraps them", async (context) => {
