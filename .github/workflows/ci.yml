@@ -18,6 +18,12 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Each job runs on GitHub's runners, or on the runners that the variable
+# CI_RUNNER names. The WorldBrain organization sets it to `railway`, the
+# self-hosted runners of WorldBrain/ci-runner. Jobs on those runners share a
+# disk, so no job of this file may get a secret or a token that can write.
+# docs/agents/ci.md (Runners) has the details.
+#
 # The jobs run at the same time, except the coverage job, which waits for the
 # test jobs. So a run takes as long as the slowest test job and the coverage
 # job together, or as long as a slower other job. Each job must do the setup
@@ -39,7 +45,7 @@ jobs:
   plan:
     name: Find a passed run of the same files
     if: ${{ !github.event.pull_request.draft }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 5
     # A push to `main` reads the list of caches.
     permissions:
@@ -95,7 +101,7 @@ jobs:
   checks:
     name: Checks
     if: ${{ !github.event.pull_request.draft }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 15
     steps:
       - name: Check out repository
@@ -119,15 +125,16 @@ jobs:
       - name: Run checks
         run: pnpm run ci:checks
 
-  # The tests run in four jobs, each with a quarter of the test files. The
+  # The tests run in four jobs, each with a quarter of the test files. GitHub's
   # runner has one core with two threads, and one Vitest worker already uses
-  # most of both, so a second worker in one job adds little. The coverage job
-  # merges the results of the four jobs and checks the coverage thresholds.
+  # most of both, so a second worker in one job adds little. A Railway runner
+  # has 4 vCPU, and it sets VITEST_MAX_WORKERS to 3. The coverage job merges
+  # the results of the four jobs and checks the coverage thresholds.
   tests:
     name: Tests ${{ matrix.shard }} of 4
     needs: plan
     if: ${{ !github.event.pull_request.draft && needs.plan.outputs.passed != 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 15
     strategy:
       # Report the failures of each shard, not only of the first one.
@@ -163,7 +170,7 @@ jobs:
     name: Test coverage
     needs: [plan, tests]
     if: ${{ !github.event.pull_request.draft && needs.plan.outputs.passed != 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 10
     steps:
       - name: Check out repository
@@ -191,7 +198,7 @@ jobs:
     name: Browser tests and live start
     needs: plan
     if: ${{ !github.event.pull_request.draft && needs.plan.outputs.passed != 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 15
     steps:
       - name: Check out repository
@@ -205,9 +212,10 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # This command has no `--with-deps`. The runner image has each system
-      # library that the browser needs, and the flag adds only fonts there and
-      # takes 20 seconds. If a new image cannot start the browser, add the flag.
+      # This command has no `--with-deps`. GitHub's runner image and the image
+      # of WorldBrain/ci-runner have each system library that the browser
+      # needs. On GitHub's image, the flag adds only fonts and takes 20
+      # seconds. If a new image cannot start the browser, add the flag.
       - name: Install the browser for the browser tests
         run: pnpm run test:browser:install
 
@@ -225,7 +233,7 @@ jobs:
     name: CI passed
     needs: [plan, checks, tests, coverage, browser]
     if: ${{ always() && !github.event.pull_request.draft }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 5
     steps:
       - name: Fail unless each job passed

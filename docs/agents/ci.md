@@ -3,8 +3,39 @@
 How the GitHub Actions workflows of the template check a pull request, and
 why. `ci.yml` has the jobs, and its comments say what each step does.
 
+## Runners
+
+The jobs of `ci.yml` and `start-project.yml` run on the runners that the
+GitHub variable `CI_RUNNER` names, and on GitHub's runners when it is not
+set. The label `railway` names the self-hosted runners of
+[WorldBrain/ci-runner](https://github.com/WorldBrain/ci-runner), which run
+on Railway. Its README tells how they work and how to change them. A
+WorldBrain repository turns them on with a variable, and goes back to
+GitHub's runners when it deletes the variable:
+
+```sh
+gh variable set CI_RUNNER --body railway
+gh variable delete CI_RUNNER
+```
+
+The jobs on one Railway runner share its disk, so a job that gets a secret,
+or a token that can write, must stay on GitHub's runners. The agent review
+and the "Template-owned files" check stay there for that reason. Do not give
+`vars.CI_RUNNER` to a job that gets one.
+
 ## Decisions
 
+- **CI runs on self-hosted runners on Railway, and the agent review stays
+  on GitHub.** The organization used its 2,000 free minutes of November 2026
+  in seven days, and the minutes after that cost about $50 to $80 a month.
+  Railway bills the CPU and memory that the jobs use, an estimated $15 a
+  month, and the team already has a Railway workspace. Managed runners from
+  Ubicloud or Blacksmith cost less or about the same, but those companies get
+  admin access to the repositories and see each secret. A VPS costs about the
+  same as Railway and needs upkeep. The jobs of one Railway runner share its
+  disk, so only jobs that get no secret run there. The variable `CI_RUNNER`
+  chooses the runners, so a change of one variable gives a project GitHub's
+  runners again.
 - **CI installs the test browser without its system packages, and without a
   cache.** On the GitHub runner, `--with-deps` took 21 of the step's 26
   seconds and added only fonts, which no test needs. The download takes 4
