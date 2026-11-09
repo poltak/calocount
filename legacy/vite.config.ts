@@ -75,7 +75,11 @@ export default defineConfig(async () => {
     plugins: [
       clientAssets(),
       sites(),
-      cloudflare({ viteEnvironment: { name: "server" } }),
+      cloudflare({
+        viteEnvironment: { name: "server" },
+        // The black-box tests run two Workers, each with its own database. See scripts/black-box-serve.mjs.
+        ...(process.env.CALOCOUNT_BLACK_BOX_PERSIST_TO ? { persistState: { path: process.env.CALOCOUNT_BLACK_BOX_PERSIST_TO } } : {}),
+      }),
     ],
   };
 });

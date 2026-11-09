@@ -36,8 +36,8 @@ const { values } = parseArgs({
   },
 });
 
-/** Wrangler itself, not through pnpm, so that a stop signal reaches it. */
-const WRANGLER = path.join(root, "node_modules", ".bin", "wrangler");
+/** Vite itself, not through pnpm, so that a stop signal reaches it. */
+const VITE = path.join(root, "node_modules", ".bin", "vite");
 const toolEnv = { ...process.env, CI: "1", WRANGLER_SEND_METRICS: "false", WRANGLER_LOG_PATH: path.join(root, ".wrangler", "logs") };
 
 function run(command, args) {
@@ -79,28 +79,31 @@ function prepareState(name) {
   return persistTo;
 }
 
-const children = [];
+const children = new Map();
 
-function startWorker({ name, port, inspectorPort, vars }) {
-  const persistTo = prepareState(name);
-  const args = [
-    "dev",
-    "--config", "dist/server/wrangler.json",
-    "--port", String(port),
-    "--inspector-port", String(inspectorPort),
-    "--persist-to", persistTo,
-    "--show-interactive-dev-session=false",
-    ...Object.entries({ CALOCOUNT_BLACK_BOX: "true", CALOCOUNT_OWNER_KEY: "default", ...vars })
-      .flatMap(([key, value]) => ["--var", `${key}:${value}`]),
-  ];
-  const child = spawn(WRANGLER, args, { cwd: root, stdio: ["ignore", "inherit", "inherit"], env: toolEnv });
+/**
+ * Start a Worker with `vite preview`, and start it again when it stops. The
+ * data stays in the persist folder, and the fixture retries its reset while a
+ * Worker restarts. `wrangler dev` is not used, because its dev proxy stops on
+ * the passkey sign-in request ("Network connection lost").
+ */
+function startWorker({ name, port, vars, persistTo = prepareState(name) }) {
+  const env = {
+    ...toolEnv,
+    // The Cloudflare plugin then reads the Worker variables from this environment.
+    CLOUDFLARE_INCLUDE_PROCESS_ENV: "true",
+    CALOCOUNT_BLACK_BOX_PERSIST_TO: persistTo,
+    CALOCOUNT_BLACK_BOX: "true",
+    CALOCOUNT_OWNER_KEY: "default",
+    ...vars,
+  };
+  const child = spawn(VITE, ["preview", "--port", String(port), "--strictPort"], { cwd: root, stdio: ["ignore", "inherit", "inherit"], env });
   child.on("exit", (code, signal) => {
-    if (!stopping) {
-      console.error(`black-box-serve: the ${name} Worker stopped (${signal ?? code})`);
-      stop(1);
-    }
+    if (stopping) return;
+    console.error(`black-box-serve: the ${name} Worker stopped (${signal ?? code}), so it starts again`);
+    startWorker({ name, port, vars, persistTo });
   });
-  children.push(child);
+  children.set(name, child);
 }
 
 async function waitForWorker(port) {
@@ -120,7 +123,7 @@ async function waitForWorker(port) {
 let stopping = false;
 function stop(code) {
   stopping = true;
-  for (const child of children) child.kill("SIGTERM");
+  for (const child of children.values()) child.kill("SIGTERM");
   process.exit(code);
 }
 process.on("SIGTERM", () => stop(0));
@@ -130,12 +133,11 @@ buildWhenInputsChanged();
 const ownerPort = Number(values["owner-port"]);
 const passkeyPort = Number(values["passkey-port"]);
 // Playwright waits for the passkey Worker, so the owner Worker must answer first.
-startWorker({ name: "owner", port: ownerPort, inspectorPort: ownerPort + 5000, vars: { CALOCOUNT_ALLOW_LOCAL: "true" } });
+startWorker({ name: "owner", port: ownerPort, vars: { CALOCOUNT_ALLOW_LOCAL: "true" } });
 await waitForWorker(ownerPort);
 startWorker({
   name: "passkey",
   port: passkeyPort,
-  inspectorPort: passkeyPort + 5000,
   vars: { CALOCOUNT_ALLOW_LOCAL: "false", CALOCOUNT_AUTH_MODE: "passkey", CALOCOUNT_SETUP_CODE: BLACK_BOX_SETUP_CODE },
 });
 await waitForWorker(passkeyPort);

@@ -21,6 +21,7 @@ import {
 /** The setup code of the passkey Worker in `legacy/scripts/black-box-serve.mjs`. */
 const LEGACY_SETUP_CODE = "black-box-setup-code";
 const RESET_PATH = "/api/__black-box/reset";
+const LEGACY_RESET_ATTEMPTS = 60;
 
 interface BlackBoxOptions {
   /**
@@ -84,12 +85,35 @@ async function resetLegacyApp(input: {
   origin: string;
 }): Promise<() => Promise<void>> {
   const context = await input.browser.newContext();
-  const reset = await context.request.post(`${input.origin}${RESET_PATH}`);
-  await context.close();
-  if (!reset.ok()) {
-    throw new Error(`The reset of the old app failed: ${reset.status()}`);
+  try {
+    // A Worker that stopped starts again in a few seconds, so a refused
+    // connection is tried again.
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        const reset = await context.request.post(
+          `${input.origin}${RESET_PATH}`,
+        );
+        if (!reset.ok()) {
+          throw new Error(`The reset of the old app failed: ${reset.status()}`);
+        }
+        break;
+      } catch (error) {
+        if (attempt >= LEGACY_RESET_ATTEMPTS || !isRefused(error)) {
+          throw error;
+        }
+        await new Promise((resolve) => {
+          setTimeout(resolve, 1000);
+        });
+      }
+    }
+  } finally {
+    await context.close();
   }
   return async () => {};
+}
+
+function isRefused(error: unknown): boolean {
+  return error instanceof Error && error.message.includes("ECONNREFUSED");
 }
 
 /** A Chromium virtual authenticator that answers as a phone does. */
@@ -203,6 +227,11 @@ export const test = base.extend<
 
     await provide(page);
 
+    // The old app's dev server can stop when the browser drops an open
+    // request, so the test ends after the page's requests end.
+    if (!databaseTemplate) {
+      await page.waitForLoadState("networkidle").catch(() => {});
+    }
     // Closing the backend ends the page's open requests, and an error from
     // that is not part of the test.
     const errorsDuringTest = [...uncaughtErrors];
