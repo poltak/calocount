@@ -228,6 +228,11 @@ entry to the choice, the reason, and any rule that follows from it.
   test that replaces parts of the path can pass while the real path is broken,
   so almost every test runs the whole path and replaces nothing on it. The rules
   are in [testing](testing.md).
+- **A test on a second host is the same test type.** A Durable Object cannot
+  run in the Node fixture, so a project with one needs another runtime for
+  those tests. The test has the same form there, so the two test types stay
+  two, and the backend still has no test runner of its own. The template has
+  no second host, because a default project has no use for one.
 - **Full-application tests run in one process.** One fixture creates an isolated
   backend, its HTTP app, and a frontend app. Frontend requests call the HTTP app
   directly with standard `Request` objects: no network and no listening socket,
@@ -372,6 +377,32 @@ entry to the choice, the reason, and any rule that follows from it.
   push after that. The "Template-owned files" check still runs for a draft.
   It takes seconds, and when a push to a draft changes an approved file from
   the template, the check must remove the approval at that push.
+- **A pull request skips the tests when the same files passed before.** The
+  key is a hash of each file of the checkout, without the Markdown files
+  outside `frontend`, `backend`, and `common`. A
+  run that passes saves an empty marker with that key in the GitHub cache,
+  and the next run of the pull request looks for it. When the marker is
+  there, the four test jobs, the coverage job, and the browser job skip. The
+  checks job still runs, because it checks the format of Markdown files. A
+  change of one character in a code file, also in a comment, makes a new
+  key, so that change gets the full run. A comment can change what a check
+  does, for example `@ts-expect-error` or a `v8 ignore` comment for coverage.
+  A list of paths that the tests read would skip a run after a change to a
+  file that someone forgot to put in the list. The full key has no such list,
+  only the one exclusion, and no test, build, or live start reads a Markdown
+  file outside the app folders. A Markdown file in an app folder still counts,
+  because a page can import one. In Shadow, no Markdown file is in an app
+  folder, so this costs no skip there. A key with no exclusion would skip 5
+  of the 130 runs in place of 20, and the plan job would then cost more
+  minutes than it saves. A pull request also finds the markers of `main`, so a pull request
+  that changes only Markdown files skips the tests from its first run. A push
+  to `main` runs every job. A second attempt of a run does not look for a
+  marker, so that "Re-run all jobs" runs every job. From 16 October to 4
+  November 2026, up to 20 of 130 CI runs of Shadow's pull requests had files
+  that had passed before. In Shadow, the skipped jobs are 19 of the 22 billed
+  minutes of a run, and in the template 6 of 10. The cost is the new plan
+  job: one billed minute for each run, and about 12 seconds more before the
+  tests start.
 - **A script takes template changes, and a Swamp workflow runs the script.**
   An agent that followed a skill did this work before, and no two runs were
   the same. `scripts/sync-template.mjs` now has each step and each rule, and
