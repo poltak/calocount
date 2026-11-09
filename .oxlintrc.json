@@ -356,10 +356,7 @@
       }
     },
     {
-      "files": [
-        "**/src/features/*/workers/**",
-        "**/src/features/*/services/**"
-      ],
+      "files": ["**/src/features/*/workers/**"],
       "rules": {
         "unicorn/require-post-message-target-origin": "off"
       }

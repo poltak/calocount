@@ -263,7 +263,7 @@ test("requires every source file to sit in a known role directory", async (conte
   ]);
 });
 
-test("lets a worker module and a Service call postMessage with no target origin", async (context) => {
+test("lets only workers call postMessage with no target origin", async (context) => {
   const directory = await mkdtemp(path.join(os.tmpdir(), "lint-rules-"));
   context.after(() => rm(directory, { recursive: true, force: true }));
   for (const role of ["workers", "services", "ui"]) {
@@ -289,8 +289,9 @@ test("lets a worker module and a Service call postMessage with no target origin"
   assert.deepEqual(
     JSON.parse(output)
       .diagnostics.filter((problem) => problem.code.includes("post-message"))
-      .map((problem) => problem.filename),
-    [`${feature("notes")}/ui/send.ts`],
+      .map((problem) => problem.filename.split("/").at(-2))
+      .sort(),
+    ["services", "ui"],
   );
 });
 
