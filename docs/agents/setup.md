@@ -294,6 +294,45 @@ of `main`. Do not require another job of `ci.yml`, because GitHub counts a
 skipped job as passed. Do not require a workflow with a path filter, because
 most pull requests get no result from it and stay blocked.
 
+### Paths that a project takes over
+
+A project can replace or delete a path that the template has, such as the
+database files on another engine. Each template change to that path then stops
+a sync. `ownPaths` in `template-version.json` ends those stops:
+
+```sh
+pnpm run template:sync own backend/src/features/core/database/ "D1 on Workers"
+```
+
+The command adds an entry with the path and the reason, and commits it. A path
+that ends with `/` is a directory. Only a person at a terminal can run it. An
+agent gives the person the command and the reason.
+
+After that:
+
+- A sync leaves out each template change to the path. `plan` names the files
+  that a commit loses, and `finish` counts them.
+- The hook and the "Template-owned files" check treat the path as the
+  project's own.
+- The project gets no template fix to the path. So use an entry for a path
+  that the project replaced or deleted. A small local edit needs no entry,
+  because a cherry-pick merges a template change next to it.
+- A file entry does not follow a template rename, because a sync sees a new
+  file at the new path. Use a directory entry where the template can move
+  files. `plan` shows the new path.
+
+A project cannot take over the checks that keep it on the template. These are
+the sync scripts, the lists of paths, the secret check, the check of owned
+files with its workflow, and `.agents/hooks/`. Each project must get the fixes
+to them, so each sync command refuses an entry that names one.
+
+A person also changes `template-version.json` by hand when necessary. The hook
+stops an agent's edit of that file, and the "Template-owned files" check needs
+a maintainer or the label for a pull request that changes it. To give a path
+back, delete its entry. Later template changes then reach the path, and the
+changes that the project left out do not, so copy the file from the template
+first.
+
 ## Agent review of pull requests
 
 [Agent review](agent-review.md) describes the review of each pull request by

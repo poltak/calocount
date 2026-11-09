@@ -32,7 +32,8 @@ is a conflict that no rule of the script resolves.
    ```
 3. Read the plan that the first step prints. It lists each new template
    commit, and what happens to it:
-   - `take`: the script cherry-picks it.
+   - `take`: the script cherry-picks it. A line under the commit names each
+     file that the project does not get from it.
    - `have`: the project has the change already.
    - `leave out`: it changes only files that the project is without.
    - `skipped`: a person left it out, and the version file has the reason.
@@ -58,6 +59,12 @@ what the template changed, and its message gives the reason.
   commit out, with the reason:
   ```sh
   pnpm run template:sync skip <commit> "<reason>"
+  ```
+- When the project replaced or deleted the file, and must not get any later
+  change to it, ask the person to take the path over. Only a person at a
+  terminal can run this command. Then run `apply` again:
+  ```sh
+  pnpm run template:sync own <path> "<reason>"
   ```
 
 ## Report a gap of the template
@@ -94,6 +101,8 @@ the project, its data, or a secret in the issue.
   file is one that only the template needs, or a file of the notes example
   after the project removed the example. `scripts/template-paths.json` has
   the lists.
+- It leaves out each change to a path in `ownPaths` of
+  `template-version.json`. The project took that path over from the template.
 - It never takes the template's `README.md`.
 - It gives the project a new `projectOwned` file one time, when the project
   does not have a file at that path. The project then owns the file, and the
