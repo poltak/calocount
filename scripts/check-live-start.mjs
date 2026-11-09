@@ -186,7 +186,9 @@ async function checkDatabaseUrlIsOutOfTheSharedSettings() {
   const result = spawnSync(
     process.execPath,
     ["backend/dist/features/core/server/start.js"],
-    { cwd: root, env: environment, encoding: "utf8" },
+    // The time limit of `runCheck` is a timer, which cannot fire while
+    // `spawnSync` waits, so a server that does not stop needs its own limit.
+    { cwd: root, env: environment, encoding: "utf8", timeout: TIME_LIMIT_MS },
   );
   if (result.status === 0 || !result.stderr.includes("DATABASE_URL")) {
     throw new Error(
