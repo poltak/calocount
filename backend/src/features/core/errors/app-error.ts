@@ -9,7 +9,17 @@ export type AppErrorCode =
   | "PAYLOAD_TOO_LARGE"
   | "RATE_LIMITED"
   | "INTERNAL"
-  | "UNAVAILABLE";
+  | "UNAVAILABLE"
+  // The sign-in codes. The page shows its own text for each one.
+  | "SETUP_REQUIRED"
+  | "INVALID_SETUP_CODE"
+  | "SETUP_CODE_MISSING"
+  | "SETUP_CODE_TOO_SHORT"
+  | "CHALLENGE_EXPIRED"
+  | "PASSKEY_UNKNOWN"
+  | "PASSKEY_INVALID"
+  | "PASSKEY_EXISTS"
+  | "LAST_PASSKEY";
 
 export interface AppErrorIssue {
   path: string;
@@ -44,25 +54,4 @@ export class AppError extends Error {
     this.issues = issues;
     this.retryAfterSeconds = retryAfterSeconds;
   }
-}
-
-/** A refusal that tells the user the wait, as the `Retry-After` header tells a client. */
-export function tooManyAttempts({
-  action,
-  retryAfterSeconds,
-}: {
-  action: string;
-  retryAfterSeconds: number | undefined;
-}): AppError {
-  const code = "RATE_LIMITED";
-  const refusal = `Too many ${action} attempts.`;
-  if (retryAfterSeconds === undefined) {
-    return new AppError({ code, message: `${refusal} Try again later.` });
-  }
-  const unit = retryAfterSeconds === 1 ? "second" : "seconds";
-  return new AppError({
-    code,
-    message: `${refusal} Try again in ${retryAfterSeconds} ${unit}.`,
-    retryAfterSeconds,
-  });
 }

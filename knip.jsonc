@@ -21,13 +21,27 @@
       "entry": [
         "src/features/core/live/index.ts",
         "src/features/core/tests/index.ts",
-        "src/features/core/server/start.ts",
-        "src/features/core/scripts/migrate.ts",
-        "src/features/auth/scripts/setup-owner.ts",
-        "src/features/auth/scripts/reset-password.ts",
+        "src/features/core/server/worker.ts",
         // The eval script of a project calls the eval harness. The template
         // has no eval of its own.
         "src/features/core/scripts/eval-command.ts",
+      ],
+      // The PostgreSQL migration system and its engine files stay on disk
+      // unchanged, because the migration check reads them. The app does not
+      // use them since the move to D1, and the project takes them over in
+      // beads issue calocount-bcx.7.1. Delete these entries with that issue.
+      "ignoreDependencies": ["pg", "@types/pg", "@electric-sql/pglite"],
+      "ignore": [
+        "src/features/core/database/migration.ts",
+        "src/features/core/database/migration-hashes.ts",
+        "src/features/core/database/migrations.ts",
+        "src/features/core/database/migrations/**",
+        "src/features/core/database/pglite-database.ts",
+        "src/features/core/database/pglite-extensions.ts",
+        "src/features/core/database/postgres-database.ts",
+        "src/features/core/logic/migration-logic.ts",
+        "src/features/core/scripts/migrate.ts",
+        "src/features/core/storage/migration-storage.ts",
       ],
     },
     "frontend": {

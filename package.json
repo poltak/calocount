@@ -21,8 +21,6 @@
     "dev": "pnpm --filter backend... run build && node scripts/dev-database.mjs --migrate -- pnpm --parallel --filter backend --filter frontend run watch",
     "db:migrate": "node scripts/dev-database.mjs -- pnpm --filter backend run db:migrate",
     "db:reset": "node scripts/dev-database.mjs --reset",
-    "auth:setup-owner": "node scripts/dev-database.mjs -- pnpm --filter backend run auth:setup-owner",
-    "auth:reset-password": "node scripts/dev-database.mjs -- pnpm --filter backend run auth:reset-password",
     "db:migration:create": "node scripts/create-migration.mjs",
     "template:sync": "node scripts/sync-template.mjs",
     "issues:init": "node scripts/issues-init.mjs",

@@ -19,5 +19,12 @@
     "skipLibCheck": true
   },
   "include": ["src/**/*.ts"],
+  // The PostgreSQL migration system stays on disk for the check of migrations,
+  // and the project takes it over later (beads issue calocount-bcx.7.1). These
+  // two files need the old Storage and Services, so they no longer compile.
+  "exclude": [
+    "src/features/core/logic/migration-logic.ts",
+    "src/features/core/scripts/migrate.ts"
+  ],
   "references": [{ "path": "../common" }]
 }

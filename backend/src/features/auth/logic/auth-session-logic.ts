@@ -1,36 +1,18 @@
 import { Logic } from "@app/common/features/core/logic/logic";
 import type { BackendLogicProps } from "../../core/logic/types.js";
+import type { AppConfig } from "../../core/types.js";
+import { sha256Hex } from "../../core/utils/crypto.js";
+import type { AuthSession } from "../types.js";
 import {
-  AppError,
-  tooManyAttempts,
-  type AppErrorCode,
-} from "../../core/errors/app-error.js";
-import type {
-  AuthUser,
-  PasswordSignInResult,
-  SessionChange,
-  SessionRequest,
-} from "../services/types.js";
+  SESSION_IDLE_TTL_MS,
+  SESSION_RENEW_AFTER_MS,
+} from "../utils/session-times.js";
 
-type AuthSessionProps = BackendLogicProps<never, "auth">;
-
-type SignInFailure = Extract<PasswordSignInResult, { ok: false }>["reason"];
-
-const signInErrors: Record<
-  Exclude<SignInFailure, "rateLimited">,
-  { code: AppErrorCode; message: string }
-> = {
-  invalidCredentials: {
-    code: "UNAUTHENTICATED",
-    message: "Invalid email or password",
-  },
-  untrustedOrigin: {
-    code: "FORBIDDEN",
-    message: "Request origin is not allowed",
-  },
+type AuthSessionProps = BackendLogicProps<"auth", "clock"> & {
+  config: Pick<AppConfig, "ownerKey">;
 };
 
-/** Starts and ends sessions. Admission is still checked on each request. */
+/** Reads and ends the session of a cookie token. Passkey sign-in starts one. */
 export class AuthSessionLogic extends Logic<
   AuthSessionProps,
   Record<string, never>
@@ -39,21 +21,39 @@ export class AuthSessionLogic extends Logic<
     super({ deps, initialState: {} });
   }
 
-  async signIn(
-    props: SessionRequest & { email: string; password: string },
-  ): Promise<{ user: AuthUser } & SessionChange> {
-    const result = await this.deps.services.auth.signInWithPassword(props);
-    if (!result.ok) {
-      if (result.reason === "rateLimited") {
-        const { retryAfterSeconds } = result;
-        throw tooManyAttempts({ action: "sign-in", retryAfterSeconds });
-      }
-      throw new AppError(signInErrors[result.reason]);
+  /**
+   * The live session of a token, or `null`. A session that was last seen more
+   * than a day ago gets a new end, so an owner who uses the app stays signed in.
+   */
+  async authenticate({
+    token,
+  }: {
+    token: string;
+  }): Promise<AuthSession | null> {
+    const { storage, services, config } = this.deps;
+    const id = await sha256Hex({ value: token });
+    const now = services.clock.now();
+    const session = await storage.auth.findSession({
+      id,
+      ownerKey: config.ownerKey,
+      now,
+    });
+    if (!session) {
+      return null;
     }
-    return { user: result.user, responseHeaders: result.responseHeaders };
+    if (now - session.lastSeenAt > SESSION_RENEW_AFTER_MS) {
+      await storage.auth.renewSession({
+        id,
+        now,
+        expiresAt: now + SESSION_IDLE_TTL_MS,
+      });
+    }
+    return { ownerKey: session.ownerKey, passkeyId: session.passkeyId };
   }
 
-  signOut(props: SessionRequest): Promise<SessionChange> {
-    return this.deps.services.auth.signOut(props);
+  async endSession({ token }: { token: string }): Promise<void> {
+    await this.deps.storage.auth.deleteSession({
+      id: await sha256Hex({ value: token }),
+    });
   }
 }

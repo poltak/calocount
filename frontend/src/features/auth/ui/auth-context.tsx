@@ -12,12 +12,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const deps = useMemo(
     () => ({
       storage: {},
-      services: { windowFocus: app.services.windowFocus },
-      api: {
-        me: app.api.me,
-        session: app.api.session,
-        "sign-up": app.api["sign-up"],
+      services: {
+        passkeys: app.services.passkeys,
+        windowFocus: app.services.windowFocus,
       },
+      api: { auth: app.api.auth },
       apiAccessEvents: app.apiAccessEvents,
     }),
     [app],

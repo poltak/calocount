@@ -1,58 +1,62 @@
+import type { Selectable } from "kysely";
+
 /**
- * Tables the auth SDK creates and migrates. The SDK owns their shape and all
- * writes; our code only reads them. Check these against the SDK's schema when
- * upgrading it.
+ * These four tables come from the old app (`backend/migrations/0015`), and
+ * they keep its columns, so the owner's passkeys and sessions keep working.
+ * Every row carries `ownerKey`, the key of the owner's data.
  */
-export interface AuthTables {
-  user: {
-    id: string;
-    name: string;
-    email: string;
-    emailVerified: boolean;
-    image: string | null;
-    createdAt: Date;
-    updatedAt: Date;
-  };
-  session: {
-    id: string;
-    userId: string;
-    token: string;
-    expiresAt: Date;
-    ipAddress: string | null;
-    userAgent: string | null;
-    createdAt: Date;
-    updatedAt: Date;
-  };
-  account: {
-    id: string;
-    userId: string;
-    accountId: string;
-    providerId: string;
-    accessToken: string | null;
-    refreshToken: string | null;
-    idToken: string | null;
-    accessTokenExpiresAt: Date | null;
-    refreshTokenExpiresAt: Date | null;
-    scope: string | null;
-    password: string | null;
-    createdAt: Date;
-    updatedAt: Date;
-  };
-  verification: {
-    id: string;
-    identifier: string;
-    value: string;
-    expiresAt: Date;
-    createdAt: Date;
-    updatedAt: Date;
-  };
-  /** One row for each caller address and auth route that the rate limits count. */
-  rateLimit: {
-    id: string;
-    /** The caller's address and the auth route, as `<address>|<route>`. */
-    key: string;
-    count: number;
-    /** Milliseconds since the epoch. `pg` returns a string, PGlite a number. */
-    lastRequest: string | number;
-  };
+
+interface PasskeyTable {
+  /** WebAuthn credential ID, base64url. */
+  id: string;
+  ownerKey: string;
+  /** Base64url of the COSE public key bytes. */
+  publicKey: string;
+  counter: number;
+  /** A JSON list of transport names. */
+  transportsJson: string;
+  deviceType: "singleDevice" | "multiDevice";
+  /** 0 or 1. */
+  backedUp: number;
+  /** A short name from the device that made it, such as `Mac`. */
+  name: string;
+  createdAt: number;
+  lastUsedAt: number | null;
 }
+
+interface AuthSessionTable {
+  /** SHA-256 hex of the token in the cookie. The database never holds the token. */
+  id: string;
+  ownerKey: string;
+  passkeyId: string | null;
+  createdAt: number;
+  lastSeenAt: number;
+  expiresAt: number;
+}
+
+interface AuthChallengeTable {
+  id: string;
+  ownerKey: string;
+  purpose: "registration" | "authentication";
+  challenge: string;
+  createdAt: number;
+  expiresAt: number;
+}
+
+/** One row for each setup code attempt, so that the limits can count them. */
+interface AuthAttemptTable {
+  id: string;
+  kind: string;
+  createdAt: number;
+}
+
+export interface AuthTables {
+  passkeys: PasskeyTable;
+  authSessions: AuthSessionTable;
+  authChallenges: AuthChallengeTable;
+  authAttempts: AuthAttemptTable;
+}
+
+export type Passkey = Selectable<PasskeyTable>;
+export type AuthSessionRow = Selectable<AuthSessionTable>;
+export type ChallengePurpose = AuthChallengeTable["purpose"];

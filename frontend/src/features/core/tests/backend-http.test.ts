@@ -3,7 +3,6 @@ import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
 import { inspectRoutes } from "hono/dev";
 import { createFullApplication } from "./full-application.js";
-import { TEST_OWNER_CREDENTIALS } from "./test-owner.js";
 
 /**
  * Each route that a caller with no session can reach. A new route outside the
@@ -13,10 +12,12 @@ import { TEST_OWNER_CREDENTIALS } from "./test-owner.js";
 const PUBLIC_ROUTES = [
   "GET /health",
   "GET /health/ready",
-  "POST /api/session",
-  "DELETE /api/session",
-  "GET /api/sign-up",
-  "POST /api/sign-up",
+  "GET /api/auth/status",
+  "POST /api/auth/register/options",
+  "POST /api/auth/register/verify",
+  "POST /api/auth/login/options",
+  "POST /api/auth/login/verify",
+  "POST /api/auth/logout",
 ];
 
 const ORIGIN = "http://app.test";
@@ -114,7 +115,7 @@ describe("backend HTTP app", () => {
   it("should set the security headers on every response", async () => {
     const { transport } = await createFullApplication({ authenticated: false });
 
-    const response = await transport.fetch(`${ORIGIN}/api/me`);
+    const response = await transport.fetch(`${ORIGIN}/api/auth/passkeys`);
     expect(response.status).toEqual(401);
     expect(response.headers.get("x-content-type-options")).toEqual("nosniff");
     expect(response.headers.get("x-frame-options")).toEqual("SAMEORIGIN");
@@ -129,11 +130,13 @@ describe("backend HTTP app", () => {
       authenticated: false,
     });
 
-    const generated = await transport.fetch(`${ORIGIN}/api/me?secret=1`);
+    const generated = await transport.fetch(
+      `${ORIGIN}/api/auth/passkeys?secret=1`,
+    );
     const generatedId = generated.headers.get("x-request-id");
     expect(generatedId).toMatch(/^[\w-]{36}$/);
 
-    const supplied = await transport.fetch(`${ORIGIN}/api/me`, {
+    const supplied = await transport.fetch(`${ORIGIN}/api/auth/passkeys`, {
       headers: { "x-request-id": "from-the-caller" },
     });
     expect(supplied.headers.get("x-request-id")).toEqual("from-the-caller");
@@ -146,7 +149,7 @@ describe("backend HTTP app", () => {
         fields: {
           requestId: generatedId,
           method: "GET",
-          path: "/api/me",
+          path: "/api/auth/passkeys",
           status: 401,
         },
       },
@@ -156,37 +159,6 @@ describe("backend HTTP app", () => {
         fields: { requestId: "from-the-caller", status: 401 },
       },
     ]);
-  });
-
-  it("should tell the caller how long to wait after a refusal for too many attempts", async () => {
-    const { transport } = await createFullApplication({ authenticated: false });
-    const signIn = () =>
-      transport.fetch(`${ORIGIN}/api/session`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          email: TEST_OWNER_CREDENTIALS.email,
-          password: "wrong-password",
-        }),
-      });
-
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      const refused = await signIn();
-      expect(refused.status).toEqual(401);
-      expect(refused.headers.get("retry-after")).toEqual(null);
-    }
-    const response = await signIn();
-
-    expect(response.status).toEqual(429);
-    const wait = response.headers.get("retry-after");
-    expect(wait).toMatch(/^[1-9]\d*$/);
-    expect(await response.json()).toMatchObject({
-      error: { code: "RATE_LIMITED" },
-    });
-    // A page on another origin can read the header.
-    expect(response.headers.get("access-control-expose-headers")).toContain(
-      "Retry-After",
-    );
   });
 
   it("should answer a path with no route with a code of its own", async () => {
@@ -200,26 +172,53 @@ describe("backend HTTP app", () => {
     });
   });
 
+  it("should refuse a request that changes data from another origin", async () => {
+    const { backend, transport } = await createFullApplication();
+    const logOut = (origin: string) =>
+      transport.fetch(`${ORIGIN}/api/auth/logout`, {
+        method: "POST",
+        headers: { origin },
+      });
+
+    const refused = await logOut("http://other.test");
+
+    expect(refused.status).toEqual(403);
+    expect(await refused.json()).toEqual({
+      error: {
+        code: "FORBIDDEN",
+        message: "The request must come from this site.",
+      },
+    });
+    expect(
+      await backend.db.selectFrom("authSessions").selectAll().execute(),
+    ).toHaveLength(1);
+
+    expect((await logOut(ORIGIN)).status).toEqual(200);
+    expect(
+      await backend.db.selectFrom("authSessions").selectAll().execute(),
+    ).toEqual([]);
+  });
+
   it("should refuse a request body that is larger than the limit", async () => {
     const { backend, transport } = await createFullApplication({
       authenticated: false,
     });
 
-    const response = await transport.fetch(`${ORIGIN}/api/session`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        email: "owner@example.test",
-        password: "x".repeat(200 * 1024),
-      }),
-    });
+    const response = await transport.fetch(
+      `${ORIGIN}/api/auth/register/options`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ setupCode: "x".repeat(200 * 1024) }),
+      },
+    );
 
     expect(response.status).toEqual(413);
     expect(await response.json()).toEqual({
       error: { code: "PAYLOAD_TOO_LARGE", message: "The request is too large" },
     });
     expect(
-      await backend.db.selectFrom("session").selectAll().execute(),
+      await backend.db.selectFrom("authAttempts").selectAll().execute(),
     ).toEqual([]);
   });
 
@@ -253,7 +252,7 @@ describe("backend HTTP app", () => {
       });
 
       // The higher limit of one route does not reach any other route.
-      expect((await send("/api/notes")).status).toEqual(413);
+      expect((await send("/api/other")).status).toEqual(413);
     },
   );
 
@@ -309,16 +308,13 @@ describe("backend HTTP app", () => {
   });
 
   it("should hide an unexpected error from the caller and log it with the request ID", async () => {
-    const { backend, transport } = await createFullApplication();
+    const { backend, transport } = await createFullApplication({
+      authenticated: false,
+    });
     await backend.db.destroy();
 
-    const response = await transport.fetch(`${ORIGIN}/api/session`, {
+    const response = await transport.fetch(`${ORIGIN}/api/auth/login/options`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        email: TEST_OWNER_CREDENTIALS.email,
-        password: TEST_OWNER_CREDENTIALS.password,
-      }),
     });
     expect(response.status).toEqual(500);
     expect(await response.json()).toEqual({
@@ -333,7 +329,7 @@ describe("backend HTTP app", () => {
       fields: {
         requestId: response.headers.get("x-request-id"),
         method: "POST",
-        path: "/api/session",
+        path: "/api/auth/login/options",
       },
     });
     expect(failure?.fields?.error).toBeInstanceOf(Error);
@@ -343,7 +339,7 @@ describe("backend HTTP app", () => {
     const { backend, transport } = await createFullApplication();
     await backend.db.destroy();
 
-    const response = await transport.fetch(`${ORIGIN}/api/me`);
+    const response = await transport.fetch(`${ORIGIN}/api/auth/passkeys`);
 
     expect(response.status).toEqual(503);
     expect(await response.json()).toEqual({

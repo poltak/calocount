@@ -3,8 +3,7 @@ import { useMemo } from "react";
 import { Link, Outlet, Route, Routes, useLocation } from "react-router";
 import { AuthProvider, useAuth } from "../../auth/ui/auth-context.js";
 import { SessionGate } from "../../auth/ui/session-gate.js";
-import { LoginPage } from "../../auth/ui/login-page.js";
-import { SignUpPage } from "../../auth/ui/sign-up-page.js";
+import { SignInPage } from "../../auth/ui/sign-in-page.js";
 import { ErrorBoundary } from "./error-boundary.js";
 import { PageErrorFallback } from "./error-fallbacks.js";
 import type { ProtectedPageContext } from "./signed-in-user.js";
@@ -14,8 +13,8 @@ function ProtectedLayout() {
   const location = useLocation();
   // The session gate renders this layout only for a signed-in user.
   const pageContext = useMemo<ProtectedPageContext>(
-    () => ({ user: { id: state.userId ?? "" }, authEvents: logic.events }),
-    [state.userId, logic.events],
+    () => ({ authEvents: logic.events }),
+    [logic.events],
   );
   return (
     <>
@@ -24,7 +23,6 @@ function ProtectedLayout() {
           {APP_NAME}
         </Link>
         <div className="session-actions">
-          <span>{state.userName}</span>
           <button
             disabled={state.signOutState === "running"}
             onClick={() => void logic.signOut()}
@@ -50,8 +48,7 @@ export function AppRoutes() {
     <AuthProvider>
       <div className="app-shell">
         <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/sign-up" element={<SignUpPage />} />
+          <Route path="/login" element={<SignInPage />} />
           <Route element={<SessionGate />}>
             <Route element={<ProtectedLayout />}>
               {/* The app has no start page of its own yet. */}

@@ -1,6 +1,7 @@
 import type { LoggerServiceInterface } from "@app/common/features/core/services/types";
 import type { BackendApi } from "../api/client/api-client.js";
 import type { ApiAccessEvents } from "../api/client/access-events.js";
+import type { PasskeyServiceInterface } from "../auth/services/types.js";
 import type { WindowFocusServiceInterface } from "../window-focus/services/types.js";
 
 /** The frontend Storage classes. The project has none yet. */
@@ -15,6 +16,7 @@ interface FrontendCoreServices {
 }
 
 export interface FrontendServices extends FrontendCoreServices {
+  passkeys: PasskeyServiceInterface;
   windowFocus: WindowFocusServiceInterface;
 }
 

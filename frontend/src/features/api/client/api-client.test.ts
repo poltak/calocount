@@ -2,9 +2,8 @@ import type { InferRequestType, InferResponseType } from "hono/client";
 import { describe, expect, expectTypeOf, it } from "vitest";
 import { createApiClient, type BackendApi } from "./api-client.js";
 
-type SignIn = BackendApi["session"]["$post"];
-type SignOut = BackendApi["session"]["$delete"];
-type GetProfile = BackendApi["me"]["$get"];
+type SetUp = BackendApi["auth"]["register"]["options"]["$post"];
+type Status = BackendApi["auth"]["status"]["$get"];
 
 // The UI Logic tests cover the client's runtime behavior, because they send
 // every request through it. Its types need a test of their own. If they became
@@ -12,23 +11,25 @@ type GetProfile = BackendApi["me"]["$get"];
 describe("typed API client", () => {
   it("derives request, response, and error types from the backend routes", () => {
     expectTypeOf<BackendApi>().not.toBeAny();
-    expectTypeOf<InferRequestType<SignIn>["json"]>().toEqualTypeOf<{
-      email: string;
-      password: string;
+    expectTypeOf<InferRequestType<SetUp>["json"]>().toEqualTypeOf<{
+      setupCode?: unknown;
     }>();
-    expectTypeOf<InferResponseType<GetProfile, 200>>().toEqualTypeOf<{
-      user: { id: string; email: string; name: string };
+    expectTypeOf<InferResponseType<Status, 200>>().toEqualTypeOf<{
+      mode: "passkey";
+      signedIn: boolean;
+      hasPasskeys: boolean;
+      setupCode: "missing" | "too_short" | "ready";
     }>();
-    expectTypeOf<InferResponseType<SignOut, 404>>().toEqualTypeOf<{
+    expectTypeOf<InferResponseType<Status, 404>>().toEqualTypeOf<{
       error: {
         code: "NOT_FOUND" | "ROUTE_NOT_FOUND";
         message: string;
         issues?: { path: string; message: string }[];
       };
     }>();
-    expectTypeOf<InferResponseType<SignOut, 409>>().toEqualTypeOf<{
+    expectTypeOf<InferResponseType<Status, 409>>().toEqualTypeOf<{
       error: {
-        code: "CONFLICT";
+        code: "CONFLICT" | "SETUP_REQUIRED" | "PASSKEY_EXISTS" | "LAST_PASSKEY";
         message: string;
         issues?: { path: string; message: string }[];
       };
@@ -41,7 +42,9 @@ describe("API client base URL", () => {
   it("should build an absolute link to a route", () => {
     const api = createApiClient({ baseUrl: "http://app.test/" });
 
-    expect(api.me.$url().href).toEqual("http://app.test/api/me");
+    expect(api.auth.status.$url().href).toEqual(
+      "http://app.test/api/auth/status",
+    );
   });
 
   it("should refuse a base URL that is not absolute", () => {

@@ -52,3 +52,32 @@ The project's own choices, with their reasons. Read this file when you read
   starts from a UI Logic method. These tests call the running app over HTTP as
   an outside client does, and run against both targets, as the black-box
   tests do. See [rules](rules.md).
+
+## D1 and passkeys
+
+- **The backend runs on Cloudflare Workers with D1.** `core/database/` has a
+  Kysely dialect for a D1 binding (`d1-dialect.ts`), and `atomic` replaces
+  `transaction()`: a Logic class plans statements with the `plan*` methods of
+  Storage, and one D1 `batch()` runs them. The design comes from my-own-maps.
+  The Worker entry is `core/server/worker.ts`, and `core/live/index.ts` builds
+  the App from the Worker bindings.
+- **The tests run on `node:sqlite`.** `core/tests/node-sqlite-d1.ts` has the
+  shape of a D1 binding, with the limits of D1. It runs the files of
+  `backend/migrations` in the order of their names.
+- **`backend/migrations/0000` to `0016` are the SQL files of the old app, under
+  their old names.** The production D1 database recorded those names as
+  applied. Its tables keep their old columns (`ADOPTED_TABLES` in
+  `core/database/table-kinds.ts`). A new table or change is a new file from
+  `0017_<name>.sql` up, and a new table has the columns of `BaseTable`.
+- **Sign-in is passkeys only, with the old app's rules.** The sign-in routes
+  keep the paths and the JSON of the old app under `/api/auth`. The tables
+  `passkeys`, `auth_sessions`, `auth_challenges` and `auth_attempts` are the old
+  ones, so the passkeys and the sessions of the owner keep working. A session
+  lasts 180 days of non-use and renews after a day of use. The secret
+  `CALOCOUNT_SETUP_CODE` saves a passkey without a session, also when passkeys
+  exist, and 10 wrong codes of one network (50 of all networks) in 15 minutes
+  stop it. `CALOCOUNT_OWNER_KEY` (default `default`) keys the owner's rows.
+- **The PostgreSQL migration system stays on disk, unused.** The migration
+  check reads it, and the project takes it over in beads issue
+  `calocount-bcx.7.1`. `backend/tsconfig.json` leaves out the two files that no
+  longer compile, and `knip.jsonc` lists the unused ones.

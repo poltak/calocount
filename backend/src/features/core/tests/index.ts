@@ -1,133 +1,212 @@
-import { randomBytes } from "node:crypto";
 import { MemoryLoggerService } from "@app/common/features/core/services/memory-logger-service";
-import { BetterAuthService } from "../../auth/services/better-auth-service.js";
-import type { AuthUser } from "../../auth/services/types.js";
-import type { AccountPolicy } from "../../auth/types.js";
+import { sessionCookie } from "../../auth/handlers/session-cookies.js";
+import { SimpleWebAuthnService } from "../../auth/services/simple-webauthn-service.js";
 import { composeApp } from "../compose-app.js";
-import type { Database } from "../database/database.js";
-import type { DatabaseMigration } from "../database/migration.js";
-import { recordMigrationHash } from "../database/migration-hashes.js";
-import { migrations } from "../database/migrations.js";
 import {
-  createDatabase,
-  createDatabaseSnapshot,
-  type DatabaseSnapshot,
-} from "../database/pglite-database.js";
+  createDatabase as createD1Database,
+  type Database,
+} from "../database/database.js";
 import { findStandardColumnProblems } from "../database/standard-columns.js";
-import { createHttpApp } from "../server/http-app.js";
-import type { App, BackendServices } from "../types.js";
+import { readLiveConfig } from "../live/config.js";
+import { FakeClockService } from "../services/fake-clock-service.js";
+import type { App, AppConfig, BackendServices } from "../types.js";
+import { randomToken, sha256Base64Url, sha256Hex } from "../utils/crypto.js";
+import { SESSION_IDLE_TTL_MS } from "../../auth/utils/session-times.js";
+import { NodeSqliteD1, openDatabase } from "./node-sqlite-d1.js";
+import { createSoftPasskeyData, type SoftPasskeyData } from "./soft-passkey.js";
+
+/**
+ * A test database as plain data, because the test runner hands it to each test
+ * file. SQLite makes a byte copy of the whole database.
+ */
+export type DatabaseSnapshot = ArrayBuffer;
+
+/** The value of `CALOCOUNT_SETUP_CODE` in each test app. */
+const TEST_SETUP_CODE = "test-setup-code-for-passkeys";
+
+// The binding under each test database. `api.ts` comes from the template, and
+// passes only the query builder around, so the test root finds the binding of
+// a builder here. `atomic` needs the binding.
+const bindings = new WeakMap<Database, NodeSqliteD1>();
+
+function openAround(binding: NodeSqliteD1): Database {
+  const db = createD1Database({ binding });
+  bindings.set(db, binding);
+  return db;
+}
+
+function bindingOf(db: Database): NodeSqliteD1 {
+  const binding = bindings.get(db);
+  if (!binding) {
+    throw new Error("This database did not come from createDatabase");
+  }
+  return binding;
+}
 
 // `api.ts` comes from the template, and takes the test database and the test
 // sign-in from this file. So a project on another engine or sign-in method
 // changes this file and not `api.ts`.
-export { createDatabase, createDatabaseSnapshot, type DatabaseSnapshot };
+/**
+ * Give one test its own database: empty, or with the contents of a snapshot.
+ * It is async to match the seam, but SQLite in memory opens at once.
+ */
+export function createDatabase({
+  snapshot,
+}: { snapshot?: DatabaseSnapshot } = {}): Promise<Database> {
+  return Promise.resolve(
+    openAround(openDatabase(snapshot ? { snapshot } : {})),
+  );
+}
+
+export async function createDatabaseSnapshot({
+  from,
+  prepare,
+}: {
+  from?: DatabaseSnapshot;
+  prepare: (db: Database) => Promise<void>;
+}): Promise<DatabaseSnapshot> {
+  const binding = openDatabase(from ? { snapshot: from } : {});
+  const db = openAround(binding);
+  try {
+    await prepare(db);
+    return binding.snapshot();
+  } finally {
+    await db.destroy();
+  }
+}
 
 export interface TestApp extends App {
   db: Database;
-  services: BackendServices & { logger: MemoryLoggerService };
-  /** For the tests of the schema and the migrations. See each function. */
+  services: BackendServices & {
+    logger: MemoryLoggerService;
+    clock: FakeClockService;
+  };
+  /** For the test of the schema. */
   schemaTools: {
     findStandardColumnProblems: typeof findStandardColumnProblems;
-    recordMigrationHash: typeof recordMigrationHash;
   };
-  /** What a test gives `logic.migration.migrate`. */
-  migrations: DatabaseMigration[];
 }
 
-export type AccountMode = AccountPolicy["mode"];
+export type AccountMode = "singleOwner" | "openSignUp";
 
-/** What `createTestOwner` and `signInTestOwner` need for the owner account. */
+/**
+ * What `createTestOwner` and `signInTestOwner` take for the owner account.
+ * Passkeys have no password, and the owner has one name, so only `name` has an
+ * effect: it is the name of the owner's passkey.
+ */
 export interface TestOwnerCredentials {
   email: string;
   name: string;
   password: string;
 }
 
-export type TestOwner = AuthUser;
+/** The owner account that a test database holds, as plain data. */
+export interface TestOwner {
+  ownerKey: string;
+  /** The key pair of the owner's passkey, for the software authenticator. */
+  passkey: SoftPasskeyData;
+}
 
 export function createApp({
   db,
-  authBaseUrl = "http://app.test",
   trustedOrigins = [],
-  accountMode = "singleOwner",
-  secret = randomBytes(32).toString("base64"),
+  config = {},
 }: {
   db: Database;
+  /** The relying party comes from the request URL, so the test root has no use for it. */
   authBaseUrl?: string;
   trustedOrigins?: string[];
+  /** The app has one owner and passkeys, so this input has no effect. */
   accountMode?: AccountMode;
-  /** The auth secret. A session cookie is valid only with the secret that signed it. */
+  /** The app keeps no secret for its sessions, so this input has no effect. */
   secret?: string;
+  /** Settings for one test, such as another setup code. */
+  config?: Partial<AppConfig>;
 }): TestApp {
-  const accountPolicy: AccountPolicy =
-    accountMode === "openSignUp"
-      ? { mode: "openSignUp" }
-      : { mode: "singleOwner", ownerEmail: "owner@example.test" };
-  const logger = new MemoryLoggerService();
   const services = {
-    logger,
-    // The embedded auth framework runs for real against the isolated database.
-    auth: new BetterAuthService({
-      db,
-      logger,
-      secret,
-      baseUrl: authBaseUrl,
-      trustedOrigins,
-      allowSignUp: accountPolicy.mode === "openSignUp",
-    }),
+    logger: new MemoryLoggerService(),
+    clock: new FakeClockService(),
+    passkeys: new SimpleWebAuthnService(),
   };
-  const app = composeApp({ db, accountPolicy, services });
+  const app = composeApp({
+    binding: bindingOf(db),
+    db,
+    services,
+    config: {
+      ...readLiveConfig({ CALOCOUNT_SETUP_CODE: TEST_SETUP_CODE }),
+      trustedOrigins,
+      ...config,
+    },
+  });
   return {
     ...app,
     db,
     services,
-    schemaTools: { findStandardColumnProblems, recordMigrationHash },
-    migrations,
+    schemaTools: { findStandardColumnProblems },
   };
 }
 
 /** Give a new test database the schema of the application. */
-export async function migrateTestDatabase({ app }: { app: TestApp }) {
-  await app.logic.migration.migrate({ migrations: app.migrations });
+export function migrateTestDatabase({ app }: { app: TestApp }): Promise<void> {
+  bindingOf(app.db).migrate();
+  return Promise.resolve();
 }
 
-/** Make the owner account in a test database that has the schema. */
-export function createTestOwner({
+/**
+ * Make the owner's first passkey with a trusted write, as the registration
+ * leaves it. The UI Logic tests of the registration go through its routes.
+ */
+export async function createTestOwner({
   app,
   credentials,
 }: {
   app: TestApp;
   credentials: TestOwnerCredentials;
 }): Promise<TestOwner> {
-  return app.logic.ownerSetup.createOwner(credentials);
+  const { ownerKey } = app.config;
+  const passkey = await createSoftPasskeyData({
+    userHandle: await sha256Base64Url({ value: `calocount:${ownerKey}` }),
+  });
+  await app.db.executeQuery(
+    app.storage.auth.planInsertPasskey({
+      id: passkey.id,
+      ownerKey,
+      publicKey: passkey.cosePublicKey,
+      counter: 0,
+      transportsJson: JSON.stringify(["internal", "hybrid"]),
+      deviceType: "multiDevice",
+      backedUp: 1,
+      name: credentials.name,
+      createdAt: app.services.clock.now(),
+    }).compiled,
+  );
+  return { ownerKey, passkey };
 }
 
-/** Start a session for the owner. Returns the `Set-Cookie` values of that session. */
+/**
+ * Start a session for the owner, with a trusted write, and return the
+ * `Set-Cookie` values of that session. No ceremony runs, so each test that
+ * starts signed in has a small cost.
+ */
 export async function signInTestOwner({
   app,
   owner,
-  credentials,
 }: {
   app: TestApp;
   owner: TestOwner;
   credentials: TestOwnerCredentials;
 }): Promise<string[]> {
-  const response = await createHttpApp({ app }).request(
-    "http://app.test/api/session",
-    {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        origin: "http://app.test",
-      },
-      body: JSON.stringify({
-        email: owner.email,
-        password: credentials.password,
-      }),
-    },
+  const token = randomToken();
+  const now = app.services.clock.now();
+  await app.db.executeQuery(
+    app.storage.auth.planInsertSession({
+      id: await sha256Hex({ value: token }),
+      ownerKey: owner.ownerKey,
+      passkeyId: owner.passkey.id,
+      createdAt: now,
+      lastSeenAt: now,
+      expiresAt: now + SESSION_IDLE_TTL_MS,
+    }).compiled,
   );
-  if (!response.ok) {
-    throw new Error(`Template owner sign-in failed: ${response.status}`);
-  }
-  return response.headers.getSetCookie();
+  return [sessionCookie({ url: new URL("http://app.test"), token })];
 }

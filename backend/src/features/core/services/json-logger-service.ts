@@ -8,11 +8,13 @@ import { isLogLevelEnabled } from "@app/common/features/core/utils/log-level";
 
 interface JsonLoggerServiceDeps {
   minLevel: LogLevel;
+  /** Writes one line. The Worker entry gives it `console.log`. */
+  write: (line: string) => void;
 }
 
 /**
- * One JSON object on each line of standard output, for hosts that collect and
- * search logs.
+ * One JSON object for each entry, for hosts that collect and search logs. A
+ * Worker has no `process.stdout`, so the root gives the function that writes.
  */
 export class JsonLoggerService implements LoggerServiceInterface {
   constructor(private readonly deps: JsonLoggerServiceDeps) {}
@@ -47,7 +49,7 @@ export class JsonLoggerService implements LoggerServiceInterface {
       // A logger must not throw. Fields with a circular reference cannot be written.
       line = JSON.stringify({ ...fixed, fieldsError: String(error) });
     }
-    process.stdout.write(`${line}\n`);
+    this.deps.write(line);
   }
 }
 

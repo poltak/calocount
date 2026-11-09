@@ -21,15 +21,13 @@
     "watch:server": "node --watch --watch-preserve-output --env-file-if-exists=../.env dist/features/core/server/start.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "start": "node --env-file-if-exists=../.env dist/features/core/server/start.js",
-    "db:migrate": "pnpm --filter backend... run build && node --env-file-if-exists=../.env dist/features/core/scripts/migrate.js",
-    "auth:setup-owner": "pnpm --filter backend... run build && node --env-file-if-exists=../.env dist/features/auth/scripts/setup-owner.js",
-    "auth:reset-password": "pnpm --filter backend... run build && node --env-file-if-exists=../.env dist/features/auth/scripts/reset-password.js"
+    "db:migrate": "pnpm --filter backend... run build && node --env-file-if-exists=../.env dist/features/core/scripts/migrate.js"
   },
   "dependencies": {
     "@hono/node-server": "2.1.6",
     "@hono/zod-validator": "0.9.1",
     "@app/common": "workspace:*",
-    "better-auth": "1.7.18",
+    "@simplewebauthn/server": "14.0.3",
     "hono": "4.13.16",
     "kysely": "0.29.8",
     "pg": "8.23.1",

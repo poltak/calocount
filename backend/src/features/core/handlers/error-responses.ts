@@ -20,6 +20,15 @@ const appErrorStatuses = {
   RATE_LIMITED: 429,
   INTERNAL: 500,
   UNAVAILABLE: 503,
+  SETUP_REQUIRED: 409,
+  INVALID_SETUP_CODE: 403,
+  SETUP_CODE_MISSING: 503,
+  SETUP_CODE_TOO_SHORT: 503,
+  CHALLENGE_EXPIRED: 400,
+  PASSKEY_UNKNOWN: 400,
+  PASSKEY_INVALID: 400,
+  PASSKEY_EXISTS: 409,
+  LAST_PASSKEY: 409,
 } as const satisfies Record<AppErrorCode, ContentfulStatusCode>;
 
 type AppErrorStatus = (typeof appErrorStatuses)[AppErrorCode];

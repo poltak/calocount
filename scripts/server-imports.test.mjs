@@ -36,7 +36,7 @@ async function loadedFrom(start) {
 }
 
 test("the server does not load a migration", async () => {
-  const loaded = await loadedFrom(path.join(features, "core/server/start.ts"));
+  const loaded = await loadedFrom(path.join(features, "core/server/worker.ts"));
   assert.ok(
     loaded.includes("core/compose-app.ts"),
     "The test must follow the imports of the server",

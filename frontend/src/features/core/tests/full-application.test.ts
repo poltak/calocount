@@ -8,15 +8,15 @@ describe("full application fixture", () => {
     const first = await createFullApplication();
     const second = await createFullApplication();
     const readNames = async ({ backend }: typeof first) => {
-      const users = await backend.db
-        .selectFrom("user")
+      const passkeys = await backend.db
+        .selectFrom("passkeys")
         .select("name")
         .execute();
-      return users.map((user) => user.name);
+      return passkeys.map((passkey) => passkey.name);
     };
 
     await first.backend.db
-      .updateTable("user")
+      .updateTable("passkeys")
       .set({ name: "Changed" })
       .execute();
 
@@ -26,15 +26,14 @@ describe("full application fixture", () => {
 
   it("should start the backend again on the same database, where the session of the owner is still valid", async () => {
     const { owner, restartBackend } = await createFullApplication();
-    const cookie = inject("databaseTemplate")
-      .signedIn.setCookies.map((setCookie) => setCookie.split(";")[0])
-      .join("; ");
+    const [cookie = ""] = inject("databaseTemplate").signedIn.setCookies;
+    const token = cookie.split(";")[0]?.split("=")[1] ?? "";
 
     const restarted = await restartBackend();
 
-    const session = await restarted.services.auth.getSession({
-      headers: new Headers({ cookie }),
+    expect(await restarted.logic.authSession.authenticate({ token })).toEqual({
+      ownerKey: owner.ownerKey,
+      passkeyId: owner.passkey.id,
     });
-    expect(session?.user.id).toEqual(owner.id);
   });
 });

@@ -1,65 +1,57 @@
-import { InitializationCancelledError } from "@app/common/features/core/logic/logic";
 import { describe, expect, it, vi } from "vitest";
 import { AuthLogic } from "./auth-logic.js";
 import type { AuthEvent } from "../types.js";
 import {
   setupLogicTest,
+  type FullApplication,
   type LogicTestParams,
   type TestDatabase,
 } from "../../core/tests/full-application.js";
-import { TEST_OWNER_CREDENTIALS } from "../../core/tests/test-owner.js";
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const CANCELLED = "The passkey request was cancelled or timed out. Try again.";
+const NOT_CHECKED = "The passkey could not be checked. Try again.";
 
 function setupTest(params: LogicTestParams = {}) {
   return setupLogicTest(params, (app) => new AuthLogic(app.frontend));
 }
 
-function readUser(db: TestDatabase, email: string) {
-  return db
-    .selectFrom("user")
-    .select(["id", "email", "name"])
-    .where("email", "=", email)
-    .executeTakeFirst();
-}
-
-async function readUserEmails(db: TestDatabase) {
-  const users = await db
-    .selectFrom("user")
-    .select("email")
-    .orderBy("createdAt")
-    .execute();
-  return users.map((user) => user.email);
-}
-
-async function readSessionUserIds(db: TestDatabase) {
-  const sessions = await db.selectFrom("session").select("userId").execute();
-  return sessions.map((session) => session.userId);
-}
-
 /**
- * The auth SDK counts the attempts on one of its routes, such as
- * `/sign-in/email`, in one row for each caller address.
+ * A test that starts where a visitor of the page starts: signed out, with the
+ * passkey of the owner on this device.
  */
-async function readAttemptCounts(db: TestDatabase, route: string) {
-  const rows = await db
-    .selectFrom("rateLimit")
-    .select("count")
-    .where("key", "like", `%${route}`)
-    .execute();
-  return rows.map((row) => row.count);
+async function setupSignedOutTest(params: LogicTestParams = {}) {
+  const app = await setupTest({ authenticated: false, ...params });
+  app.frontend.services.passkeys.useOwnerPasskey(app.owner.passkey);
+  return app;
 }
 
-const VISITOR = {
-  name: "New User",
-  email: "new-user@example.test",
-  password: "a-test-password-for-sign-up",
-};
-
-function setupSignUpTest(params: LogicTestParams = {}) {
-  return setupTest({
+/** A new instance: the database holds no passkey, so the page sets it up. */
+async function setupNewInstanceTest(params: LogicTestParams = {}) {
+  const app = await setupTest({
     authenticated: false,
-    accountMode: "openSignUp",
+    skipInitialization: true,
     ...params,
   });
+  await app.backend.db.deleteFrom("passkeys").execute();
+  await app.logic.initialize();
+  return app;
+}
+
+function readSessions(db: TestDatabase) {
+  return db.selectFrom("authSessions").selectAll().execute();
+}
+
+async function readPasskeyIds(db: TestDatabase) {
+  const passkeys = await db.selectFrom("passkeys").select("id").execute();
+  return passkeys.map((passkey) => passkey.id);
+}
+
+async function countRows(
+  db: TestDatabase,
+  table: "authAttempts" | "authChallenges",
+) {
+  return (await db.selectFrom(table).select("id").execute()).length;
 }
 
 /** Every event that the Logic sends from now on, in order. */
@@ -71,23 +63,24 @@ function hearEvents(logic: AuthLogic): AuthEvent[] {
   return heard;
 }
 
-function fillSignUpForm(logic: AuthLogic, fields: typeof VISITOR = VISITOR) {
-  logic.setSignUpName(fields.name);
-  logic.setEmail(fields.email);
-  logic.setPassword(fields.password);
+async function setUpWithCode(
+  { logic, backend }: Pick<FullApplication, "backend"> & { logic: AuthLogic },
+  setupCode = backend.config.setupCode,
+) {
+  logic.setSetupCode(setupCode);
+  await logic.createPasskey();
 }
 
-describe("AuthLogic tests", () => {
-  it("should afford successful sign-in", async () => {
-    const { backend, logic, owner } = await setupTest({ authenticated: false });
-    logic.setEmail(TEST_OWNER_CREDENTIALS.email);
-    logic.setPassword(TEST_OWNER_CREDENTIALS.password);
+describe("AuthLogic sign-in tests", () => {
+  it("should sign in with the passkey of the owner", async () => {
+    const { backend, logic, owner } = await setupSignedOutTest();
 
     expect(logic.state.signInState).toEqual("pristine");
     expect(logic.state.loadSessionState).toEqual("success");
     expect(logic.state.isSignedIn).toEqual(false);
-    expect(logic.state.userId).toEqual(null);
-    expect(await readSessionUserIds(backend.db)).toEqual([]);
+    expect(logic.state.hasPasskeys).toEqual(true);
+    expect(logic.state.view).toEqual("sign-in");
+    expect(await readSessions(backend.db)).toEqual([]);
 
     const signInP = logic.signIn();
     expect(logic.state.signInState).toEqual("running");
@@ -96,791 +89,430 @@ describe("AuthLogic tests", () => {
     expect(logic.state.signInState).toEqual("success");
     expect(logic.state.signInError).toEqual(null);
     expect(logic.state.isSignedIn).toEqual(true);
-    expect(logic.state.userId).toEqual(owner.id);
-    expect(logic.state.userEmail).toEqual(owner.email);
-    expect(logic.state.userName).toEqual(owner.name);
-    expect(logic.state.password).toEqual("");
-    expect(await readSessionUserIds(backend.db)).toEqual([owner.id]);
+    const sessions = await readSessions(backend.db);
+    expect(sessions).toMatchObject([
+      { ownerKey: owner.ownerKey, passkeyId: owner.passkey.id },
+    ]);
+    // The challenge works once.
+    expect(await countRows(backend.db, "authChallenges")).toEqual(0);
+    const passkey = await backend.db
+      .selectFrom("passkeys")
+      .select(["lastUsedAt", "backedUp"])
+      .executeTakeFirstOrThrow();
+    expect(passkey.lastUsedAt).not.toEqual(null);
+    expect(passkey.backedUp).toEqual(1);
   });
 
-  it("should set a message for each field that the backend refuses", async () => {
-    const { backend, logic } = await setupTest({ authenticated: false });
-    logic.setEmail("not-an-email");
+  it("should set the error state and stay signed out when the person cancels the prompt", async () => {
+    const { backend, frontend, logic } = await setupSignedOutTest();
+    frontend.services.passkeys.refuseNext();
 
-    expect(logic.state.signInState).toEqual("pristine");
-    expect(logic.state.signInFieldErrors).toEqual(null);
-
-    const signInP = logic.signIn();
-    expect(logic.state.signInState).toEqual("running");
-    await signInP;
+    await logic.signIn();
 
     expect(logic.state.signInState).toEqual("error");
-    expect(logic.state.signInError).toEqual("The request is invalid");
-    expect(logic.state.signInFieldErrors).toEqual({
-      email: "Enter a valid email address",
-      password: "Enter your password",
-    });
+    expect(logic.state.signInError).toEqual(CANCELLED);
     expect(logic.state.isSignedIn).toEqual(false);
-    expect(await readSessionUserIds(backend.db)).toEqual([]);
+    expect(await readSessions(backend.db)).toEqual([]);
 
-    // The next attempt clears the messages.
-    logic.setEmail(TEST_OWNER_CREDENTIALS.email);
-    logic.setPassword(TEST_OWNER_CREDENTIALS.password);
+    // The next attempt clears the message.
     await logic.signIn();
 
     expect(logic.state.signInState).toEqual("success");
-    expect(logic.state.signInFieldErrors).toEqual(null);
+    expect(logic.state.signInError).toEqual(null);
     expect(logic.state.isSignedIn).toEqual(true);
   });
 
-  it("should set the error state and stay signed out when the password is wrong", async () => {
+  it("should refuse a device that has no passkey for this site", async () => {
     const { backend, logic } = await setupTest({ authenticated: false });
-    logic.setEmail(TEST_OWNER_CREDENTIALS.email);
-    logic.setPassword("wrong-password");
 
-    expect(logic.state.signInState).toEqual("pristine");
-    expect(logic.state.isSignedIn).toEqual(false);
-    expect(await readSessionUserIds(backend.db)).toEqual([]);
-
-    const signInP = logic.signIn();
-    expect(logic.state.signInState).toEqual("running");
-    await signInP;
+    await logic.signIn();
 
     expect(logic.state.signInState).toEqual("error");
-    expect(logic.state.signInError).toEqual("Invalid email or password");
-    expect(logic.state.isSignedIn).toEqual(false);
-    expect(logic.state.userId).toEqual(null);
-    expect(logic.state.password).toEqual("");
-    expect(await readSessionUserIds(backend.db)).toEqual([]);
+    expect(logic.state.signInError).toEqual(CANCELLED);
+    expect(await readSessions(backend.db)).toEqual([]);
   });
 
-  it("should refuse a fourth sign-in attempt in a short time, even with the correct password", async () => {
-    const { backend, logic } = await setupTest({ authenticated: false });
-    logic.setEmail(TEST_OWNER_CREDENTIALS.email);
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      logic.setPassword("wrong-password");
-      await logic.signIn();
-      expect(logic.state.signInError).toEqual("Invalid email or password");
-    }
-    logic.setPassword(TEST_OWNER_CREDENTIALS.password);
+  it("should refuse an answer that the passkey service cannot check", async () => {
+    const { backend, frontend, logic } = await setupSignedOutTest();
+    frontend.services.passkeys.tweakNext({ origin: "http://other.test" });
 
-    expect(logic.state.isSignedIn).toEqual(false);
-    expect(await readAttemptCounts(backend.db, "/sign-in/email")).toEqual([3]);
-
-    const signInP = logic.signIn();
-    expect(logic.state.signInState).toEqual("running");
-    await signInP;
+    await logic.signIn();
 
     expect(logic.state.signInState).toEqual("error");
-    expect(logic.state.signInError).toMatch(
-      /^Too many sign-in attempts\. Try again in [1-9]\d* seconds?\.$/,
-    );
+    expect(logic.state.signInError).toEqual(NOT_CHECKED);
     expect(logic.state.isSignedIn).toEqual(false);
-    expect(logic.state.password).toEqual("");
-    expect(await readSessionUserIds(backend.db)).toEqual([]);
-    expect(await readAttemptCounts(backend.db, "/sign-in/email")).toEqual([3]);
+    expect(await readSessions(backend.db)).toEqual([]);
   });
 
-  it("should not admit another account even when its password is correct", async () => {
-    const { backend, logic } = await setupTest({ authenticated: false });
-    const other = {
-      email: "other@example.test",
-      name: "Other",
-      password: "another-test-password",
-    };
-    // In single-owner mode no route can create an account, so the trusted
-    // setup operation seeds it.
-    const otherUser = await backend.services.auth.createAccount(other);
-    logic.setEmail(other.email);
-    logic.setPassword(other.password);
-
-    expect(logic.state.signInState).toEqual("pristine");
-    expect(logic.state.isSignedIn).toEqual(false);
+  it("should refuse a passkey that this instance does not know", async () => {
+    const { backend, logic, owner } = await setupSignedOutTest();
+    await backend.db
+      .insertInto("passkeys")
+      .values({
+        id: "another-passkey-id",
+        ownerKey: owner.ownerKey,
+        publicKey: "not-used",
+        counter: 0,
+        transportsJson: "[]",
+        deviceType: "multiDevice",
+        backedUp: 1,
+        name: "Another",
+        createdAt: 1,
+      })
+      .execute();
+    await backend.db
+      .deleteFrom("passkeys")
+      .where("id", "=", owner.passkey.id)
+      .execute();
 
     await logic.signIn();
 
     expect(logic.state.signInState).toEqual("error");
     expect(logic.state.signInError).toEqual(
-      "This account does not have access",
+      "This passkey does not belong to this Calocount. Use another passkey, or add one with the setup code.",
     );
-    expect(logic.state.isSignedIn).toEqual(false);
-    expect(logic.state.userId).toEqual(null);
-    // The SDK accepted the password; the backend refuses every request after it.
-    expect(await readSessionUserIds(backend.db)).toEqual([otherUser.id]);
+    expect(await readSessions(backend.db)).toEqual([]);
   });
 
-  it("should admit another account in open sign-up mode", async () => {
-    const { backend, logic } = await setupTest({
-      authenticated: false,
-      accountMode: "openSignUp",
-    });
-    const other = {
-      email: "other@example.test",
-      name: "Other",
-      password: "another-test-password",
-    };
-    const otherUser = await backend.services.auth.createAccount(other);
-    logic.setEmail(other.email);
-    logic.setPassword(other.password);
+  it("should show the setup form when the passkeys are gone since the page loaded", async () => {
+    const { backend, logic } = await setupSignedOutTest();
+    await backend.db.deleteFrom("passkeys").execute();
 
-    expect(logic.state.signInState).toEqual("pristine");
-    expect(logic.state.isSignedIn).toEqual(false);
-    expect(await readSessionUserIds(backend.db)).toEqual([]);
-
-    const signInP = logic.signIn();
-    expect(logic.state.signInState).toEqual("running");
-    await signInP;
-
-    expect(logic.state.signInState).toEqual("success");
-    expect(logic.state.signInError).toEqual(null);
-    expect(logic.state.isSignedIn).toEqual(true);
-    expect(logic.state.userId).toEqual(otherUser.id);
-    expect(logic.state.userName).toEqual(other.name);
-    expect(await readSessionUserIds(backend.db)).toEqual([otherUser.id]);
-  });
-
-  it("should end the session and accept only the new password after an operator resets it", async () => {
-    const { backend, logic, owner } = await setupTest();
-    const newPassword = "a-new-test-password";
-
-    expect(logic.state.isSignedIn).toEqual(true);
-    expect(await readSessionUserIds(backend.db)).toEqual([owner.id]);
-
-    // The operator command has no route, so the test calls its backend Logic.
-    await backend.logic.authPasswordReset.resetPassword({
-      password: newPassword,
-    });
-
-    expect(await readSessionUserIds(backend.db)).toEqual([]);
-    await logic.refresh();
-    expect(logic.state.isSignedIn).toEqual(false);
-
-    logic.setEmail(owner.email);
-    logic.setPassword(TEST_OWNER_CREDENTIALS.password);
     await logic.signIn();
 
     expect(logic.state.signInState).toEqual("error");
-    expect(logic.state.signInError).toEqual("Invalid email or password");
-    expect(logic.state.isSignedIn).toEqual(false);
-
-    logic.setPassword(newPassword);
-    await logic.signIn();
-
-    expect(logic.state.signInState).toEqual("success");
-    expect(logic.state.isSignedIn).toEqual(true);
-    // The account is the same one, so its records are still the user's.
-    expect(logic.state.userId).toEqual(owner.id);
-    expect(await readUser(backend.db, owner.email)).toEqual(owner);
+    expect(logic.state.view).toEqual("setup");
+    expect(logic.state.recovery).toEqual(false);
+    expect(logic.state.hasPasskeys).toEqual(false);
   });
 
-  it("should change nothing when an operator's password reset is refused", async () => {
-    const { backend, logic, owner } = await setupTest();
-    const { authPasswordReset } = backend.logic;
+  it("should refuse an answer to a challenge that expired", async () => {
+    const { backend, logic, transport } = await setupSignedOutTest();
+    const options = transport.holdNextRequest();
+    const verify = transport.holdNextRequest();
 
-    await expect(
-      authPasswordReset.resetPassword({ password: "short" }),
-    ).rejects.toThrow("Use a password of 8 to 128 characters");
-    await expect(
-      authPasswordReset.resetPassword({
-        email: "other@example.test",
-        password: "a-new-test-password",
-      }),
-    ).rejects.toThrow(
-      `In single-owner mode the only account is ${owner.email}. Give no email address`,
-    );
-
-    expect(await readSessionUserIds(backend.db)).toEqual([owner.id]);
-    await logic.refresh();
-    expect(logic.state.isSignedIn).toEqual(true);
-
-    // The password is the one from before.
-    await logic.signOut();
-    logic.setEmail(owner.email);
-    logic.setPassword(TEST_OWNER_CREDENTIALS.password);
-    await logic.signIn();
-
-    expect(logic.state.signInState).toEqual("success");
-    expect(logic.state.isSignedIn).toEqual(true);
-  });
-
-  it("should reset the password of the account with the given email in open sign-up mode", async () => {
-    const { backend, logic, owner } = await setupTest({
-      authenticated: false,
-      accountMode: "openSignUp",
-    });
-    const { authPasswordReset } = backend.logic;
-    const other = {
-      email: "other@example.test",
-      name: "Other",
-      password: "another-test-password",
-    };
-    const otherUser = await backend.services.auth.createAccount(other);
-    const newPassword = "a-new-test-password";
-
-    await expect(
-      authPasswordReset.resetPassword({ password: newPassword }),
-    ).rejects.toThrow("Give the email address of the account");
-    await expect(
-      authPasswordReset.resetPassword({
-        email: "nobody@example.test",
-        password: newPassword,
-      }),
-    ).rejects.toThrow("No account has the email address nobody@example.test");
-
-    await authPasswordReset.resetPassword({
-      email: other.email,
-      password: newPassword,
-    });
-
-    logic.setEmail(other.email);
-    logic.setPassword(other.password);
-    await logic.signIn();
-    expect(logic.state.signInError).toEqual("Invalid email or password");
-
-    logic.setPassword(newPassword);
-    await logic.signIn();
-    expect(logic.state.signInState).toEqual("success");
-    expect(logic.state.userId).toEqual(otherUser.id);
-
-    // The reset of one account does not change another account.
-    await logic.signOut();
-    logic.setEmail(owner.email);
-    logic.setPassword(TEST_OWNER_CREDENTIALS.password);
-    await logic.signIn();
-    expect(logic.state.signInState).toEqual("success");
-    expect(logic.state.userId).toEqual(owner.id);
-  });
-
-  it("should load that sign-up is open in open sign-up mode", async () => {
-    const { logic } = await setupSignUpTest({ skipInitialization: true });
-
-    expect(logic.state.loadSignUpStatusState).toEqual("pristine");
-    expect(logic.state.loadSignUpStatusError).toEqual(null);
-    expect(logic.state.isSignUpOpen).toEqual(false);
-
-    await logic.initialize();
-
-    expect(logic.state.loadSignUpStatusState).toEqual("success");
-    expect(logic.state.loadSignUpStatusError).toEqual(null);
-    expect(logic.state.isSignUpOpen).toEqual(true);
-
-    // A later load shows the running state at once.
-    const loadP = logic.loadSignUpStatus();
-    expect(logic.state.loadSignUpStatusState).toEqual("running");
-    await loadP;
-    expect(logic.state.loadSignUpStatusState).toEqual("success");
-    expect(logic.state.isSignUpOpen).toEqual(true);
-  });
-
-  it("should load that sign-up is closed in single-owner mode", async () => {
-    const { logic } = await setupTest({
-      authenticated: false,
-      skipInitialization: true,
-    });
-
-    expect(logic.state.loadSignUpStatusState).toEqual("pristine");
-    expect(logic.state.isSignUpOpen).toEqual(false);
-
-    await logic.initialize();
-
-    expect(logic.state.loadSignUpStatusState).toEqual("success");
-    expect(logic.state.loadSignUpStatusError).toEqual(null);
-    expect(logic.state.isSignUpOpen).toEqual(false);
-  });
-
-  it("should show sign-up as closed when the connection fails, then load it on the next attempt", async () => {
-    const { logic, transport } = await setupSignUpTest({
-      skipInitialization: true,
-    });
-    transport.goOffline();
-
-    await logic.initialize();
-
-    expect(logic.state.loadSignUpStatusState).toEqual("error");
-    expect(logic.state.loadSignUpStatusError).toEqual(
-      "No connection. Check your internet connection and try again.",
-    );
-    expect(logic.state.isSignUpOpen).toEqual(false);
-
-    transport.goOnline();
-    const loadP = logic.loadSignUpStatus();
-    expect(logic.state.loadSignUpStatusState).toEqual("running");
-    expect(logic.state.loadSignUpStatusError).toEqual(null);
-    await loadP;
-
-    expect(logic.state.loadSignUpStatusState).toEqual("success");
-    expect(logic.state.isSignUpOpen).toEqual(true);
-  });
-
-  it("should afford successful sign-up", async () => {
-    const { backend, logic, owner, transport } = await setupSignUpTest();
-    fillSignUpForm(logic);
-
-    expect(logic.state.signUpState).toEqual("pristine");
-    expect(logic.state.signUpError).toEqual(null);
-    expect(logic.state.signUpFieldErrors).toEqual(null);
-    expect(logic.state.isSignedIn).toEqual(false);
-    expect(await readUserEmails(backend.db)).toEqual([owner.email]);
-    expect(await readSessionUserIds(backend.db)).toEqual([]);
-
-    const held = transport.holdNextRequest();
-    const signUpP = logic.signUp();
-    await held.reached;
-    expect(logic.state.signUpState).toEqual("running");
-    expect(logic.state.isSignedIn).toEqual(false);
-    expect(await readUserEmails(backend.db)).toEqual([owner.email]);
-    held.release();
-    await signUpP;
-
-    expect(logic.state.signUpState).toEqual("success");
-    expect(logic.state.signUpError).toEqual(null);
-    expect(logic.state.signUpFieldErrors).toEqual(null);
-    // The backend also started the session, so the new user is signed in.
-    expect(logic.state.isSignedIn).toEqual(true);
-    expect(logic.state.userEmail).toEqual(VISITOR.email);
-    expect(logic.state.userName).toEqual(VISITOR.name);
-    expect(logic.state.signUpName).toEqual("");
-    expect(logic.state.password).toEqual("");
-    expect(await readUserEmails(backend.db)).toEqual([
-      owner.email,
-      VISITOR.email,
-    ]);
-    expect(await readUser(backend.db, VISITOR.email)).toEqual({
-      id: logic.state.userId,
-      email: VISITOR.email,
-      name: VISITOR.name,
-    });
-    expect(await readSessionUserIds(backend.db)).toEqual([logic.state.userId]);
-  });
-
-  it("should set a message for each sign-up field that the backend refuses", async () => {
-    const { backend, logic, owner } = await setupSignUpTest();
-    fillSignUpForm(logic, {
-      name: "   ",
-      email: "not-an-email",
-      password: "short",
-    });
-
-    expect(logic.state.signUpState).toEqual("pristine");
-    expect(logic.state.signUpFieldErrors).toEqual(null);
-
-    const signUpP = logic.signUp();
-    expect(logic.state.signUpState).toEqual("running");
-    await signUpP;
-
-    expect(logic.state.signUpState).toEqual("error");
-    expect(logic.state.signUpError).toEqual("The request is invalid");
-    expect(logic.state.signUpFieldErrors).toEqual({
-      name: "Enter your name",
-      email: "Enter a valid email address",
-      password: "Use at least 8 characters",
-    });
-    expect(logic.state.isSignedIn).toEqual(false);
-    // The fields stay after a refusal, so the user corrects them.
-    expect(logic.state.email).toEqual("not-an-email");
-    expect(logic.state.password).toEqual("short");
-    expect(await readUserEmails(backend.db)).toEqual([owner.email]);
-
-    // The next attempt clears the messages.
-    fillSignUpForm(logic);
-    await logic.signUp();
-
-    expect(logic.state.signUpState).toEqual("success");
-    expect(logic.state.signUpFieldErrors).toEqual(null);
-    expect(logic.state.isSignedIn).toEqual(true);
-  });
-
-  it("should set a message at the email when the email has an account already", async () => {
-    const { backend, logic, owner } = await setupSignUpTest();
-    fillSignUpForm(logic, { ...VISITOR, email: owner.email });
-
-    expect(logic.state.signUpState).toEqual("pristine");
-    expect(await readUserEmails(backend.db)).toEqual([owner.email]);
-
-    const signUpP = logic.signUp();
-    expect(logic.state.signUpState).toEqual("running");
-    await signUpP;
-
-    expect(logic.state.signUpState).toEqual("error");
-    expect(logic.state.signUpError).toEqual("The request is invalid");
-    expect(logic.state.signUpFieldErrors).toEqual({
-      email: "An account with this email address exists already",
-    });
-    expect(logic.state.isSignedIn).toEqual(false);
-    expect(await readUserEmails(backend.db)).toEqual([owner.email]);
-    // The owner's account is as it was: the name of the attempt is not in it.
-    expect(await readUser(backend.db, owner.email)).toEqual(owner);
-    expect(await readSessionUserIds(backend.db)).toEqual([]);
-  });
-
-  it("should refuse sign-up in single-owner mode", async () => {
-    const { backend, logic, owner } = await setupTest({
-      authenticated: false,
-    });
-    fillSignUpForm(logic);
-
-    expect(logic.state.signUpState).toEqual("pristine");
-    expect(logic.state.isSignUpOpen).toEqual(false);
-    expect(await readUserEmails(backend.db)).toEqual([owner.email]);
-
-    const signUpP = logic.signUp();
-    expect(logic.state.signUpState).toEqual("running");
-    await signUpP;
-
-    expect(logic.state.signUpState).toEqual("error");
-    expect(logic.state.signUpError).toEqual("Sign-up is closed");
-    expect(logic.state.signUpFieldErrors).toEqual(null);
-    expect(logic.state.isSignedIn).toEqual(false);
-    expect(await readUserEmails(backend.db)).toEqual([owner.email]);
-    expect(await readSessionUserIds(backend.db)).toEqual([]);
-  });
-
-  it("should refuse a fourth sign-up attempt in a short time", async () => {
-    const { backend, logic, owner } = await setupSignUpTest();
-    // Three attempts that the backend refuses for another reason.
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      fillSignUpForm(logic, { ...VISITOR, email: owner.email });
-      await logic.signUp();
-      expect(logic.state.signUpFieldErrors).toEqual({
-        email: "An account with this email address exists already",
-      });
-    }
-    fillSignUpForm(logic);
-
-    expect(await readAttemptCounts(backend.db, "/sign-up/email")).toEqual([3]);
-    expect(await readUserEmails(backend.db)).toEqual([owner.email]);
-
-    const signUpP = logic.signUp();
-    expect(logic.state.signUpState).toEqual("running");
-    await signUpP;
-
-    expect(logic.state.signUpState).toEqual("error");
-    expect(logic.state.signUpError).toMatch(
-      /^Too many sign-up attempts\. Try again in [1-9]\d* seconds?\.$/,
-    );
-    expect(logic.state.signUpFieldErrors).toEqual(null);
-    expect(logic.state.isSignedIn).toEqual(false);
-    expect(await readUserEmails(backend.db)).toEqual([owner.email]);
-    expect(await readAttemptCounts(backend.db, "/sign-up/email")).toEqual([3]);
-  });
-
-  it("should set the error state when the connection fails, then sign up on the next attempt", async () => {
-    const { backend, logic, owner, transport } = await setupSignUpTest();
-    fillSignUpForm(logic);
-    transport.goOffline();
-
-    const failedP = logic.signUp();
-    expect(logic.state.signUpState).toEqual("running");
-    await failedP;
-
-    expect(logic.state.signUpState).toEqual("error");
-    expect(logic.state.signUpError).toEqual(
-      "No connection. Check your internet connection and try again.",
-    );
-    expect(logic.state.isSignedIn).toEqual(false);
-    expect(logic.state.password).toEqual(VISITOR.password);
-    expect(await readUserEmails(backend.db)).toEqual([owner.email]);
-
-    transport.goOnline();
-    const retriedP = logic.signUp();
-    expect(logic.state.signUpState).toEqual("running");
-    expect(logic.state.signUpError).toEqual(null);
-    await retriedP;
-
-    expect(logic.state.signUpState).toEqual("success");
-    expect(logic.state.isSignedIn).toEqual(true);
-    expect(logic.state.userEmail).toEqual(VISITOR.email);
-    expect(await readUserEmails(backend.db)).toEqual([
-      owner.email,
-      VISITOR.email,
-    ]);
-  });
-
-  it("should make one account when sign-up is called again while it runs", async () => {
-    const { backend, logic, owner, transport } = await setupSignUpTest();
-    fillSignUpForm(logic);
-    const held = transport.holdNextRequest();
-
-    const firstP = logic.signUp();
-    const secondP = logic.signUp();
-    await held.reached;
-    expect(logic.state.signUpState).toEqual("running");
-    expect(await readUserEmails(backend.db)).toEqual([owner.email]);
-
-    held.release();
-    await Promise.all([firstP, secondP]);
-
-    expect(logic.state.signUpState).toEqual("success");
-    expect(logic.state.isSignedIn).toEqual(true);
-    expect(await readUserEmails(backend.db)).toEqual([
-      owner.email,
-      VISITOR.email,
-    ]);
-    expect(await readSessionUserIds(backend.db)).toEqual([logic.state.userId]);
-  });
-
-  it("should afford successful sign-out, and tell its listeners", async () => {
-    const { backend, logic, owner } = await setupTest();
-    const heard = hearEvents(logic);
-
-    expect(logic.state.signOutState).toEqual("pristine");
-    expect(logic.state.isSignedIn).toEqual(true);
-    expect(await readSessionUserIds(backend.db)).toEqual([owner.id]);
-
-    const signOutP = logic.signOut();
-    expect(logic.state.signOutState).toEqual("running");
-    expect(heard).toEqual([]);
-    await signOutP;
-
-    expect(heard).toEqual([{ type: "signedOut", userId: owner.id }]);
-    expect(logic.state.signOutState).toEqual("success");
-    expect(logic.state.signOutError).toEqual(null);
-    expect(logic.state.isSignedIn).toEqual(false);
-    expect(logic.state.userId).toEqual(null);
-    expect(logic.state.userEmail).toEqual(null);
-    expect(logic.state.userName).toEqual(null);
-    expect(await readSessionUserIds(backend.db)).toEqual([]);
-  });
-
-  it("should reset the sign-out state after another sign-in", async () => {
-    const { backend, logic, owner, transport } = await setupTest();
-    await logic.signOut();
-    logic.setEmail(owner.email);
-    logic.setPassword(TEST_OWNER_CREDENTIALS.password);
-
-    expect(logic.state.signInState).toEqual("pristine");
-    expect(logic.state.signOutState).toEqual("success");
-    expect(logic.state.isSignedIn).toEqual(false);
-    expect(await readSessionUserIds(backend.db)).toEqual([]);
-
-    const held = transport.holdNextRequest();
     const signInP = logic.signIn();
-    await held.reached;
-    expect(logic.state.signInState).toEqual("running");
-    expect(logic.state.signOutState).toEqual("success");
-    expect(logic.state.isSignedIn).toEqual(false);
-    expect(await readSessionUserIds(backend.db)).toEqual([]);
-    held.release();
+    await options.reached;
+    options.release();
+    await verify.reached;
+    backend.services.clock.advance(6 * 60 * 1000);
+    verify.release();
     await signInP;
 
-    expect(logic.state.signInState).toEqual("success");
-    expect(logic.state.signInError).toEqual(null);
-    expect(logic.state.signOutState).toEqual("pristine");
-    expect(logic.state.isSignedIn).toEqual(true);
-    expect(await readSessionUserIds(backend.db)).toEqual([owner.id]);
+    expect(logic.state.signInState).toEqual("error");
+    expect(logic.state.signInError).toEqual("The request expired. Try again.");
+    expect(await readSessions(backend.db)).toEqual([]);
   });
 
-  it("should set the error state and stay signed in when sign-out cannot reach the backend", async () => {
-    const { backend, logic, owner, transport } = await setupTest();
-    const heard = hearEvents(logic);
+  it("should ignore a second sign-in while the first one runs", async () => {
+    const { backend, logic } = await setupSignedOutTest();
+
+    const first = logic.signIn();
+    await logic.signIn();
+    await first;
+
+    expect(logic.state.signInState).toEqual("success");
+    expect(await readSessions(backend.db)).toHaveLength(1);
+  });
+
+  it("should report that the app cannot be reached when the page has no connection", async () => {
+    const { logic, transport } = await setupSignedOutTest();
     transport.goOffline();
+
+    await logic.signIn();
+
+    expect(logic.state.signInState).toEqual("error");
+    expect(logic.state.signInError).toEqual(
+      "Calocount could not be reached. Try again.",
+    );
+    expect(logic.state.isSignedIn).toEqual(false);
+  });
+});
+
+describe("AuthLogic setup tests", () => {
+  it("should save the first passkey with the setup code and start a session", async () => {
+    const app = await setupNewInstanceTest();
+    const { backend, logic } = app;
+
+    expect(logic.state.hasPasskeys).toEqual(false);
+    expect(logic.state.view).toEqual("setup");
+    expect(logic.state.setupCodeState).toEqual("ready");
+    expect(await readPasskeyIds(backend.db)).toEqual([]);
+
+    logic.setSetupCode(backend.config.setupCode);
+    const createP = logic.createPasskey();
+    expect(logic.state.createPasskeyState).toEqual("running");
+    await createP;
+
+    expect(logic.state.createPasskeyState).toEqual("success");
+    expect(logic.state.createPasskeyError).toEqual(null);
+    expect(logic.state.isSignedIn).toEqual(true);
+    expect(logic.state.setupCode).toEqual("");
+    const passkeys = await readPasskeyIds(backend.db);
+    expect(passkeys).toHaveLength(1);
+    expect(await readSessions(backend.db)).toMatchObject([
+      { passkeyId: passkeys[0] },
+    ]);
+    // A correct code does not count against the limit.
+    expect(await countRows(backend.db, "authAttempts")).toEqual(0);
+  });
+
+  it("should refuse a wrong setup code and save nothing", async () => {
+    const { backend, logic } = await setupNewInstanceTest();
+
+    await setUpWithCode({ logic, backend }, "wrong-setup-code");
+
+    expect(logic.state.createPasskeyState).toEqual("error");
+    expect(logic.state.createPasskeyError).toEqual(
+      "This setup code is not correct.",
+    );
+    expect(logic.state.isSignedIn).toEqual(false);
+    expect(await readPasskeyIds(backend.db)).toEqual([]);
+    expect(await readSessions(backend.db)).toEqual([]);
+    // One row for the network and one for all networks.
+    expect(await countRows(backend.db, "authAttempts")).toEqual(2);
+  });
+
+  it("should ask for a setup code before it sends a request", async () => {
+    const { backend, logic } = await setupNewInstanceTest();
+
+    await logic.createPasskey();
+
+    expect(logic.state.createPasskeyError).toEqual("Type the setup code.");
+    expect(await countRows(backend.db, "authAttempts")).toEqual(0);
+  });
+
+  it("should stop a network after ten wrong setup codes, until the window ends", async () => {
+    const { backend, logic } = await setupNewInstanceTest();
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      await setUpWithCode({ logic, backend }, "wrong-setup-code");
+      expect(logic.state.createPasskeyError).toEqual(
+        "This setup code is not correct.",
+      );
+    }
+
+    await setUpWithCode({ logic, backend }, "wrong-setup-code");
+
+    const waitMessage =
+      "Too many wrong setup codes. Wait 15 minutes, then try again.";
+    expect(logic.state.createPasskeyError).toEqual(waitMessage);
+    // The refused attempt leaves no rows, and the limit holds for the right code too.
+    expect(await countRows(backend.db, "authAttempts")).toEqual(20);
+    await setUpWithCode({ logic, backend });
+    expect(logic.state.createPasskeyError).toEqual(waitMessage);
+    expect(logic.state.isSignedIn).toEqual(false);
+
+    backend.services.clock.advance(16 * 60 * 1000);
+    await setUpWithCode({ logic, backend });
+
+    expect(logic.state.createPasskeyState).toEqual("success");
+    expect(logic.state.isSignedIn).toEqual(true);
+  });
+
+  it("should tell the owner when the instance has no setup code", async () => {
+    const { backend, logic } = await setupNewInstanceTest({
+      backendOptions: { config: { setupCode: "" } },
+    });
+
+    expect(logic.state.setupCodeState).toEqual("missing");
+
+    await setUpWithCode({ logic, backend }, "some-setup-code");
+
+    expect(logic.state.createPasskeyError).toEqual(
+      "This Calocount has no setup code yet. Add the secret CALOCOUNT_SETUP_CODE to the Worker, then try again.",
+    );
+    expect(await readPasskeyIds(backend.db)).toEqual([]);
+  });
+
+  it("should tell the owner when the setup code is too short", async () => {
+    const { backend, logic } = await setupNewInstanceTest({
+      backendOptions: { config: { setupCode: "short" } },
+    });
+
+    expect(logic.state.setupCodeState).toEqual("too_short");
+
+    await setUpWithCode({ logic, backend }, "short");
+
+    expect(logic.state.createPasskeyState).toEqual("error");
+    expect(logic.state.createPasskeyError).toEqual(
+      "The setup code of this Calocount is too short. Change the secret CALOCOUNT_SETUP_CODE to at least 12 characters, then try again.",
+    );
+    expect(await readPasskeyIds(backend.db)).toEqual([]);
+  });
+
+  it("should leave the instance as it was when the person cancels the prompt", async () => {
+    const { backend, frontend, logic } = await setupNewInstanceTest();
+    frontend.services.passkeys.refuseNext();
+
+    await setUpWithCode({ logic, backend });
+
+    expect(logic.state.createPasskeyError).toEqual(CANCELLED);
+    expect(logic.state.isSignedIn).toEqual(false);
+    expect(await readPasskeyIds(backend.db)).toEqual([]);
+  });
+
+  it("should add a passkey for a new device with the setup code of a lost one", async () => {
+    // This device has no passkey of the owner.
+    const { backend, logic, owner } = await setupTest({
+      authenticated: false,
+    });
+
+    logic.showRecovery();
+
+    expect(logic.state.view).toEqual("setup");
+    expect(logic.state.recovery).toEqual(true);
+
+    await setUpWithCode({ logic, backend });
+
+    expect(logic.state.createPasskeyState).toEqual("success");
+    expect(logic.state.isSignedIn).toEqual(true);
+    const passkeys = await readPasskeyIds(backend.db);
+    expect(passkeys).toHaveLength(2);
+    expect(passkeys).toContain(owner.passkey.id);
+  });
+
+  it("should refuse a second passkey on a device that already has one", async () => {
+    const { backend, logic } = await setupSignedOutTest();
+
+    logic.showRecovery();
+    await setUpWithCode({ logic, backend });
+
+    expect(logic.state.createPasskeyState).toEqual("error");
+    expect(logic.state.createPasskeyError).toEqual(
+      "This device already has a passkey for this Calocount. Sign in with it.",
+    );
+    expect(await readPasskeyIds(backend.db)).toHaveLength(1);
+  });
+
+  it("should go back to the sign-in form from the recovery form", async () => {
+    const { logic } = await setupSignedOutTest();
+    logic.showRecovery();
+    await logic.createPasskey();
+
+    expect(logic.state.createPasskeyError).toEqual("Type the setup code.");
+
+    logic.showSignIn();
+
+    expect(logic.state.view).toEqual("sign-in");
+    expect(logic.state.recovery).toEqual(false);
+    expect(logic.state.createPasskeyState).toEqual("pristine");
+    expect(logic.state.createPasskeyError).toEqual(null);
+  });
+});
+
+describe("AuthLogic session tests", () => {
+  it("should report a browser with no passkeys", async () => {
+    const { frontend, logic } = await setupTest({ authenticated: false });
+
+    expect(logic.canUsePasskeys).toEqual(true);
+
+    frontend.services.passkeys.removeSupport();
+
+    expect(logic.canUsePasskeys).toEqual(false);
+  });
+
+  it("should report a failed session check, and recover when the connection is back", async () => {
+    const { logic, transport } = await setupTest({
+      authenticated: false,
+      skipInitialization: true,
+    });
+    transport.goOffline();
+
+    await logic.initialize();
+
+    expect(logic.state.loadSessionState).toEqual("error");
+    expect(logic.state.loadSessionError).toEqual(
+      "Calocount could not check the sign-in. Try again.",
+    );
+    expect(logic.state.isSignedIn).toEqual(false);
+
+    transport.goOnline();
+    await logic.refresh();
+
+    expect(logic.state.loadSessionState).toEqual("success");
+    expect(logic.state.loadSessionError).toEqual(null);
+  });
+
+  it("should sign out, and send the event", async () => {
+    const { backend, logic, transport } = await setupTest();
+    const heard = hearEvents(logic);
+
+    expect(logic.state.isSignedIn).toEqual(true);
+    expect(await readSessions(backend.db)).toHaveLength(1);
 
     const signOutP = logic.signOut();
     expect(logic.state.signOutState).toEqual("running");
     await signOutP;
+
+    expect(logic.state.signOutState).toEqual("success");
+    expect(logic.state.isSignedIn).toEqual(false);
+    expect(logic.state.view).toEqual("sign-in");
+    expect(heard).toEqual([{ type: "signedOut" }]);
+    expect(await readSessions(backend.db)).toEqual([]);
+    // The cookie is gone from the browser, too.
+    expect(
+      (await transport.fetch("http://app.test/api/auth/passkeys")).status,
+    ).toEqual(401);
+  });
+
+  it("should stay signed in when the sign-out request does not arrive", async () => {
+    const { backend, logic, transport } = await setupTest();
+    const heard = hearEvents(logic);
+    transport.goOffline();
+
+    await logic.signOut();
 
     expect(logic.state.signOutState).toEqual("error");
     expect(logic.state.signOutError).toEqual(
       "No connection. Check your internet connection and try again.",
     );
     expect(logic.state.isSignedIn).toEqual(true);
-    expect(logic.state.userName).toEqual(owner.name);
     expect(heard).toEqual([]);
-    expect(await readSessionUserIds(backend.db)).toEqual([owner.id]);
+    expect(await readSessions(backend.db)).toHaveLength(1);
   });
 
-  it("should not restore access when an old session check answers after sign-out", async () => {
-    const { backend, logic, transport } = await setupTest();
-    const held = transport.holdNextResponse();
+  it("should end the session when the backend refuses a request for it", async () => {
+    const { backend, frontend, logic } = await setupTest();
+    await backend.db.deleteFrom("authSessions").execute();
 
-    const refreshP = logic.refresh();
-    await held.reached;
-    expect(logic.state.loadSessionState).toEqual("running");
-    expect(logic.state.isSignedIn).toEqual(true);
-
-    await logic.signOut();
-    held.release();
-    await refreshP;
-
-    expect(logic.state.loadSessionState).toEqual("success");
-    expect(logic.state.isSignedIn).toEqual(false);
-    expect(logic.state.userName).toEqual(null);
-    expect(await readSessionUserIds(backend.db)).toEqual([]);
-  });
-
-  it("should stay signed out after a connection failure, then load the session on retry", async () => {
-    const { logic, owner, transport } = await setupTest({
-      skipInitialization: true,
-    });
-    transport.goOffline();
-
-    expect(logic.state.loadSessionState).toEqual("pristine");
-    expect(logic.state.isSignedIn).toEqual(false);
-
-    const initializeP = logic.initialize();
-    await initializeP;
-
-    expect(logic.state.loadSessionState).toEqual("error");
-    expect(logic.state.loadSessionError).toEqual(
-      "No connection. Check your internet connection and try again.",
-    );
-    expect(logic.state.isSignedIn).toEqual(false);
-    expect(logic.state.userName).toEqual(null);
-
-    transport.goOnline();
-    const refreshP = logic.refresh();
-    expect(logic.state.loadSessionState).toEqual("running");
-    expect(logic.state.loadSessionError).toEqual(null);
-    await refreshP;
-
-    expect(logic.state.loadSessionState).toEqual("success");
-    expect(logic.state.isSignedIn).toEqual(true);
-    expect(logic.state.userName).toEqual(owner.name);
-  });
-
-  it("should stay signed in when a session check has no connection, then check again", async () => {
-    const { logic, owner, transport } = await setupTest();
-    transport.goOffline();
-
-    expect(logic.state.isSignedIn).toEqual(true);
-    expect(logic.state.loadSessionState).toEqual("success");
-
-    const refreshP = logic.refresh();
-    expect(logic.state.loadSessionState).toEqual("running");
-    await refreshP;
-
-    expect(logic.state.loadSessionState).toEqual("error");
-    expect(logic.state.loadSessionError).toEqual(
-      "No connection. Check your internet connection and try again.",
-    );
-    expect(logic.state.isSignedIn).toEqual(true);
-    expect(logic.state.userId).toEqual(owner.id);
-    expect(logic.state.userName).toEqual(owner.name);
-
-    transport.goOnline();
-    await logic.refresh();
-
-    expect(logic.state.loadSessionState).toEqual("success");
-    expect(logic.state.loadSessionError).toEqual(null);
-    expect(logic.state.isSignedIn).toEqual(true);
-  });
-
-  it("should stay signed in when a gateway fails a session check", async () => {
-    const { logic, owner, transport } = await setupTest();
-    transport.failNextRequestAtGateway(503);
-
-    expect(logic.state.isSignedIn).toEqual(true);
-
-    await logic.refresh();
-
-    expect(logic.state.loadSessionState).toEqual("error");
-    expect(logic.state.loadSessionError).toEqual(
-      "Request failed with status 503",
-    );
-    expect(logic.state.isSignedIn).toEqual(true);
-    expect(logic.state.userId).toEqual(owner.id);
-  });
-
-  it("should stay signed in when a gateway answers 401 to a page's request", async () => {
-    const { frontend, logic, transport } = await setupTest();
-    transport.failNextRequestAtGateway(401);
-
-    expect(logic.state.isSignedIn).toEqual(true);
-
-    // A page's Logic sends a request like this one.
-    const response = await frontend.api.me.$get();
+    // Any request of the app can find out. Here, the passkey list does.
+    const response = await frontend.api.auth.passkeys.$get();
 
     expect(response.status).toEqual(401);
-    expect(logic.state.isSignedIn).toEqual(true);
+    await vi.waitFor(() => expect(logic.state.isSignedIn).toEqual(false));
+    expect(logic.state.view).toEqual("sign-in");
   });
 
-  it("should stay signed in when a gateway answers 401 to a session check", async () => {
-    const { logic, transport } = await setupTest();
-    transport.failNextRequestAtGateway(401);
-
-    expect(logic.state.isSignedIn).toEqual(true);
-
-    await logic.refresh();
-
-    expect(logic.state.loadSessionState).toEqual("error");
-    expect(logic.state.isSignedIn).toEqual(true);
-  });
-
-  it("should stay signed in when the database fails a session check", async () => {
-    const { backend, logic, owner } = await setupTest();
-    await backend.db.destroy();
-
-    expect(logic.state.isSignedIn).toEqual(true);
-
-    await logic.refresh();
-
-    expect(logic.state.loadSessionState).toEqual("error");
-    expect(logic.state.loadSessionError).toEqual(
-      "The service is not available. Try again later.",
-    );
-    expect(logic.state.isSignedIn).toEqual(true);
-    expect(logic.state.userId).toEqual(owner.id);
-  });
-
-  it("should check the session again when the window regains focus", async () => {
+  it("should check the session again when the window gets focus", async () => {
     const { backend, frontend, logic } = await setupTest();
-    await backend.db.deleteFrom("session").execute();
-
-    expect(logic.state.isSignedIn).toEqual(true);
+    await backend.db.deleteFrom("authSessions").execute();
 
     frontend.services.windowFocus.focus();
-    expect(logic.state.loadSessionState).toEqual("running");
-    await vi.waitFor(() =>
-      expect(logic.state.loadSessionState).toEqual("success"),
-    );
 
-    expect(logic.state.isSignedIn).toEqual(false);
-    expect(logic.state.userName).toEqual(null);
+    await vi.waitFor(() => expect(logic.state.isSignedIn).toEqual(false));
   });
 
-  it("should sign out when another request finds that the session has ended", async () => {
-    const { backend, frontend, logic } = await setupTest();
-    const heard = hearEvents(logic);
-    await backend.db
-      .updateTable("session")
-      .set({ expiresAt: new Date(0) })
-      .execute();
+  it("should renew a session that was last seen a day ago, and end one that nobody used for 180 days", async () => {
+    const { backend, logic } = await setupTest();
+    const [before] = await readSessions(backend.db);
 
+    backend.services.clock.advance(60 * 60 * 1000);
+    await logic.refresh();
+    const [sameDay] = await readSessions(backend.db);
+    expect(sameDay?.expiresAt).toEqual(before?.expiresAt);
+
+    backend.services.clock.advance(2 * DAY_MS);
+    await logic.refresh();
+    const [renewed] = await readSessions(backend.db);
+    expect(renewed?.lastSeenAt).toBeGreaterThan(before?.lastSeenAt ?? 0);
+    expect(renewed?.expiresAt).toBeGreaterThan(
+      (before?.expiresAt ?? 0) + 2 * DAY_MS,
+    );
     expect(logic.state.isSignedIn).toEqual(true);
-    expect(logic.state.loadSessionState).toEqual("success");
 
-    // A page's Logic sends a request like this one. This Logic sends nothing,
-    // and only hears from the API client that the backend refused the session.
-    const response = await frontend.api.me.$get();
+    backend.services.clock.advance(181 * DAY_MS);
+    await logic.refresh();
 
-    expect(response.status).toEqual(401);
-    expect(logic.state.isSignedIn).toEqual(false);
-    expect(logic.state.userId).toEqual(null);
-    expect(logic.state.userEmail).toEqual(null);
-    expect(logic.state.userName).toEqual(null);
-    expect(logic.state.loadSessionState).toEqual("success");
-    // The user did not sign out, so no listener removes the user's data.
-    expect(heard).toEqual([]);
-  });
-
-  it("should cancel a session check that is in flight when cleanup starts", async () => {
-    const { logic, transport } = await setupTest({ skipInitialization: true });
-    const held = transport.holdNextRequest();
-
-    const initializeP = logic.initialize();
-    await held.reached;
-    expect(logic.state.loadSessionState).toEqual("running");
-
-    const cleanupP = logic.cleanup();
-    await expect(initializeP).rejects.toBeInstanceOf(
-      InitializationCancelledError,
-    );
-    await cleanupP;
-
-    // State stops changing once cleanup starts, so the cancelled check
-    // records neither an outcome nor an error.
-    expect(logic.state.loadSessionState).toEqual("running");
-    expect(logic.state.loadSessionError).toEqual(null);
     expect(logic.state.isSignedIn).toEqual(false);
   });
 });
