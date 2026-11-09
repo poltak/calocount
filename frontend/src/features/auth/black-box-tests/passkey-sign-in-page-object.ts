@@ -24,12 +24,24 @@ export class PasskeySignInPageObject {
     });
   }
 
+  get setupError() {
+    return this.page.getByText("This setup code is not correct.", {
+      exact: true,
+    });
+  }
+
   async goto(path = "/owner"): Promise<void> {
     await this.page.goto(path);
   }
 
-  /** Save the first passkey of a new instance. */
+  /** Save the first passkey of a new instance, and go on to the dashboard. */
   async setUp(setupCode: string): Promise<void> {
+    await this.submitSetupCode(setupCode);
+    await this.setUpHeading.waitFor({ state: "hidden" });
+  }
+
+  /** Type a setup code and ask for a passkey. The page stays on a refusal. */
+  async submitSetupCode(setupCode: string): Promise<void> {
     await this.setUpHeading.waitFor();
     await this.setupCodeField.fill(setupCode);
     await this.createPasskeyButton.click();
@@ -38,5 +50,6 @@ export class PasskeySignInPageObject {
   async signIn(): Promise<void> {
     await this.signInHeading.waitFor();
     await this.signInButton.click();
+    await this.signInHeading.waitFor({ state: "hidden" });
   }
 }

@@ -34,3 +34,14 @@ test.describe("passkey sign-in", () => {
     await expect(new TodayPageObject(page).addEntryButton).toBeVisible();
   });
 });
+
+test.describe("sign-in edge cases", () => {
+  test("should refuse a wrong setup code", async ({ page }) => {
+    const signIn = new PasskeySignInPageObject(page);
+    await signIn.goto();
+    await signIn.submitSetupCode("wrong-setup-code");
+    await expect(signIn.setupError).toBeVisible();
+    await expect(signIn.setUpHeading).toBeVisible();
+    await expect(new TodayPageObject(page).addEntryButton).toBeHidden();
+  });
+});

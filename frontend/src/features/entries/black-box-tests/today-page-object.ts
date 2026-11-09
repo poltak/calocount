@@ -25,6 +25,74 @@ export class TodayPageObject {
     this.addEntryForm = page.getByRole("form", { name: "Log an entry" });
   }
 
+  get missingProteinWeight() {
+    return this.page.getByText(
+      "Record a weight to calculate your daily protein goal.",
+      { exact: true },
+    );
+  }
+
+  proteinTarget(value: number) {
+    return this.page.getByText(`/ ${value}g`, { exact: true });
+  }
+
+  async recordWeight(weight: number) {
+    await this.page
+      .getByRole("button", { name: "Add weight", exact: true })
+      .click();
+    await this.page
+      .getByLabel("Weight (kg)", { exact: true })
+      .fill(String(weight));
+    await this.page
+      .getByRole("button", { name: "Save weight", exact: true })
+      .click();
+  }
+
+  async openDay(date: Date) {
+    await this.page
+      .getByRole("button", { name: "Open calendar", exact: true })
+      .click();
+    const calendar = this.page.getByRole("region", {
+      name: "Calendar of past days",
+    });
+    const day = date.toLocaleDateString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      timeZone: "UTC",
+    });
+    if (date.getUTCMonth() !== new Date().getUTCMonth()) {
+      await calendar.getByRole("button", { name: "Previous month" }).click();
+    }
+    await calendar
+      .getByRole("button", { name: new RegExp(`^${day}:`) })
+      .click();
+    await calendar.waitFor({ state: "hidden" });
+  }
+
+  insight(name: string) {
+    return this.page.getByRole("region", { name, exact: true });
+  }
+
+  async showNutrition() {
+    const button = this.page.getByRole("button", {
+      name: "Show details",
+      exact: true,
+    });
+    if (await button.isVisible()) {
+      await button.click();
+    }
+  }
+
+  async openPartner(): Promise<void> {
+    await this.page
+      .getByRole("navigation", { name: "Profile" })
+      .getByRole("link", { name: "Partner", exact: true })
+      .click();
+    await this.addEntryButton.waitFor();
+  }
+
   async goto(): Promise<void> {
     await this.page.goto("/owner");
     await this.addEntryButton.waitFor();
