@@ -83,8 +83,20 @@ workflow file, run `swamp workflow validate`.
 ## Change the template
 
 - Put each change in its own commit, so that a project can cherry-pick it.
-- Make a change here, in the template, when every project needs it. Make it in
-  the project when only that project needs it.
+- A project reports a gap as an issue of this repository, as the
+  `sync-template` skill says. A gap has one of four results:
+  - A seam goes in the template when it adds no file, no dependency, and no
+    text that each task loads to a project that does not use it, and a test
+    covers it.
+  - A rule or a feature goes in the template when it helps most projects, and
+    its value is more than its cost.
+  - A capability for some projects goes in the template as an optional part,
+    with a clear way to turn it on.
+  - A need of one project stays in that project. Close the issue, with the
+    reason.
+- A new mechanism in `scripts/` needs two stops in real projects, or one stop
+  that is a safety failure. Each script is more to read and to keep correct in
+  each project.
 - Keep the application runnable and its checks passing. The checks are what
   make automatic dependency updates safe.
 - When you add a file that only the template needs, add it to `templateOnly`
@@ -106,6 +118,23 @@ workflow file, run `swamp workflow validate`.
 - Do not add email, background jobs, file upload, or a component library. Each
   project needs different ones, and each adds dependencies that must stay
   current.
+
+### Take a change from a project
+
+When a project made a change that the template needs, the template can take
+that commit. Do this in a worktree of the project's repository, so that Git has
+both histories:
+
+```sh
+git fetch template
+git worktree add ../template-change -b feature/<name> template/main
+git -C ../template-change cherry-pick -x <commit of the project>
+```
+
+Remove what only the project needs, and push that branch to the template. The
+`-x` line names the project's commit. The next sync of that project reads the
+line, and lists the template commit as `have`, so the project does not take the
+change a second time.
 
 ## Dependency updates
 
