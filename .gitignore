@@ -2,6 +2,7 @@
 
 # dependencies
 /node_modules
+/legacy/node_modules
 /.pnp
 .pnp.*
 .yarn/*
@@ -14,6 +15,9 @@
 /coverage
 /test-results/
 /playwright-report/
+/legacy/coverage
+/legacy/test-results/
+/legacy/playwright-report/
 
 # next.js
 /.next/
@@ -40,6 +44,8 @@ yarn-error.log*
 
 /dist/
 /.wrangler/
+/legacy/dist/
+/legacy/.wrangler/
 *.tsbuildinfo
 /outputs/
 /work/

@@ -30,12 +30,13 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
+          cache-dependency-path: legacy/pnpm-lock.yaml
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm --dir legacy install --frozen-lockfile
 
       - name: Install browser
-        run: pnpm exec playwright install --with-deps chromium
+        run: pnpm --dir legacy exec playwright install --with-deps chromium
 
       - name: Run checks
-        run: pnpm run check
+        run: pnpm --dir legacy run check

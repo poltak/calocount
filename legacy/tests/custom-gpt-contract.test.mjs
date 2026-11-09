@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-const instructionsPath = new URL("../docs/custom-gpt/instructions.md", import.meta.url);
-const schemaPath = new URL("../docs/custom-gpt/action-schema.yaml", import.meta.url);
+const instructionsPath = new URL("../../docs/custom-gpt/instructions.md", import.meta.url);
+const schemaPath = new URL("../../docs/custom-gpt/action-schema.yaml", import.meta.url);
 
 // Keep the deprecated Action templates valid for existing clients.
 test("Custom GPT instructions fit the editor limit and preserve logging rules", async () => {

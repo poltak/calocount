@@ -1,5 +1,5 @@
 {
-  "name": "calocount",
+  "name": "legacy",
   "version": "0.1.0",
   "private": true,
   "packageManager": "pnpm@11.25.0",
@@ -24,13 +24,13 @@
     "deploy:dry": "pnpm run build && WRANGLER_LOG_PATH=.wrangler/wrangler.log wrangler deploy --dry-run"
   },
   "dependencies": {
-    "@modelcontextprotocol/server": "^2.0.0",
+    "@modelcontextprotocol/server": "2.0.0",
     "@simplewebauthn/browser": "14.0.0",
     "@simplewebauthn/server": "14.0.3",
     "drizzle-orm": "0.45.2"
   },
   "devDependencies": {
-    "@cloudflare/vite-plugin": "^1.53.1",
+    "@cloudflare/vite-plugin": "1.53.1",
     "@eslint/js": "9.39.4",
     "@openai/sites-vite-plugin": "0.1.0",
     "@playwright/test": "1.63.0",
@@ -38,11 +38,11 @@
     "drizzle-kit": "0.31.10",
     "eslint": "9.39.4",
     "globals": "16.4.0",
-    "tsx": "^4.22.1",
+    "tsx": "4.22.1",
     "typescript": "5.9.3",
     "typescript-eslint": "8.59.3",
     "vite": "8.0.13",
-    "wrangler": "^4.125.0"
+    "wrangler": "4.125.0"
   },
   "type": "module",
   "cloudflare": {
