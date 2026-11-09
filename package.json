@@ -45,7 +45,7 @@
   "devEngines": {
     "packageManager": {
       "name": "pnpm",
-      "version": "12.16.1",
+      "version": "12.18.0",
       "onFail": "download"
     },
     "runtime": {
@@ -54,7 +54,7 @@
       "onFail": "download"
     }
   },
-  "packageManager": "pnpm@12.16.1",
+  "packageManager": "pnpm@12.18.0",
   "type": "module",
   "engines": {
     "node": "26.13.0"
@@ -64,7 +64,7 @@
     "@stylistic/eslint-plugin": "5.10.0",
     "@types/node": "26.6.6",
     "embedded-postgres": "18.4.0-beta.17",
-    "knip": "6.44.0",
+    "knip": "6.44.1",
     "lint-staged": "17.6.0",
     "oxlint": "1.90.0",
     "prettier": "3.9.10",
