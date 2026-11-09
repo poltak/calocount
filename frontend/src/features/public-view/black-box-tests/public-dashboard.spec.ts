@@ -1,6 +1,9 @@
 import { expect } from "@playwright/test";
 import { test } from "../../core/black-box-tests/black-box-test.js";
-import { TodayPageObject } from "../../entries/black-box-tests/today-page-object.js";
+import {
+  TodayPageObject,
+  daysAgo,
+} from "../../entries/black-box-tests/today-page-object.js";
 import { SettingsPageObject } from "../../settings/black-box-tests/settings-page-object.js";
 import { PasskeySignInPageObject } from "../../auth/black-box-tests/passkey-sign-in-page-object.js";
 import { PublicPageObject } from "./public-page-object.js";
@@ -37,11 +40,31 @@ test.describe("public dashboard", () => {
     await expect(
       settings.field("Show my log to anyone who opens the site address"),
     ).toBeChecked();
+    await settings.save();
+    await today.goToPreviousDay();
+    await today.addEntry({
+      name: "Older photo",
+      calories: 150,
+      photo: {
+        name: "photo.png",
+        mimeType: "image/png",
+        buffer: Buffer.from(
+          "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+          "base64",
+        ),
+      },
+    });
     await visitor.goto();
     await expect(visitor.entry("Public breakfast")).toBeVisible();
+    await new TodayPageObject(visitorPage).openDayFromCalendar(daysAgo(1));
+    await expect(visitor.entry("Older photo")).toBeVisible();
+    await expect(
+      new TodayPageObject(visitorPage).photoThumbnail("Older photo"),
+    ).toBeVisible();
     await expect(visitor.addEntry).toBeHidden();
     await expect(visitor.settings).toBeHidden();
     await expect(visitor.ownerLink).toBeVisible();
+    await settings.open();
     await settings
       .field("Show my log to anyone who opens the site address")
       .uncheck();

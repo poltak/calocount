@@ -385,6 +385,13 @@ export class TodayPageObject {
     return this.entry(entryName).getByLabel(label, { exact: true });
   }
 
+  /** In an open editor, pick a new photo for an entry that has one. */
+  async replaceEntryPhoto(name: string, photo: PhotoFile): Promise<void> {
+    await this.entry(name)
+      .getByLabel(/^Replace photo \(optional\)/)
+      .setInputFiles(photo);
+  }
+
   async changeEntry(name: string, changes: EntryChanges): Promise<void> {
     await this.editEntry(name);
     await this.fillEntryEditor(name, changes);

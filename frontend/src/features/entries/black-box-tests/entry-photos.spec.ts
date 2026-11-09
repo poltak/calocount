@@ -103,3 +103,25 @@ test.describe("the owner adds a photo to an entry", () => {
     await expect(today.photoThumbnail("Photo snack")).toBeVisible();
   });
 });
+
+test.describe("the owner changes the photo of an entry", () => {
+  test("should replace the saved photo in the editor", async ({ page }) => {
+    const today = new TodayPageObject(page);
+    await today.goto();
+    await today.addEntry({
+      name: "Photo snack",
+      calories: 120,
+      photo: PNG_PHOTO,
+    });
+    await today.editEntry("Photo snack");
+
+    await today.replaceEntryPhoto("Photo snack", {
+      ...PNG_PHOTO,
+      name: "replacement.png",
+    });
+    await today.saveEntryEditor("Photo snack");
+
+    await page.reload();
+    await expect(today.photoThumbnail("Photo snack")).toBeVisible();
+  });
+});

@@ -22,9 +22,12 @@ test.describe("protein goal modes", () => {
     await settings.open();
     await settings.field("Fixed grams").check();
     await settings.field("Protein (g)").fill("120");
+    await settings.field("Calories").fill("2100");
     await settings.save();
     await expect(protein.target(120)).toBeVisible();
+    await expect(today.summary).toContainText("/ 2,100");
     await page.reload();
     await expect(protein.target(120)).toBeVisible();
+    await expect(today.summary).toContainText("/ 2,100");
   });
 });
