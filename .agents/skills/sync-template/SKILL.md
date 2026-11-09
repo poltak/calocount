@@ -1,6 +1,6 @@
 ---
 name: sync-template
-description: Bring later changes from the template repository into a project that started from it. Use when asked to update a project from the template or boilerplate, to take the template's dependency updates, or to pull one template fix into the project.
+description: Bring later changes from the template repository into a project that started from it, and report a gap of the template. Use when asked to update a project from the template or boilerplate, to take the template's dependency updates, to pull one template fix into the project, or to report a change that the template needs.
 ---
 
 # Take changes from the template
@@ -60,6 +60,29 @@ what the template changed, and its message gives the reason.
   pnpm run template:sync skip <commit> "<reason>"
   ```
 
+## Report a gap of the template
+
+A gap is a change that the template needs and that a project cannot make, such
+as an edit of a file in `templateOwned`, or a sync that stops at the same place
+each time. A local workaround hides a gap from each other project, so report
+it. First describe it to the person. When the person agrees, open an issue in
+the template repository. `template-version.json` has its URL and the template
+commit of the project:
+
+```sh
+gh issue create --repo <template URL> --title "<the gap>" --body-file <file>
+```
+
+In the body, give:
+
+- The template commit, and the path of each file.
+- What the project needed, and what stopped it.
+- What the project did in place of the change.
+- The change that you propose.
+
+The template can have other readers than the project. Do not put the name of
+the project, its data, or a secret in the issue.
+
 ## The rules of the script
 
 - It takes the commits oldest first, with the author and the date of each
@@ -81,6 +104,9 @@ what the template changed, and its message gives the reason.
   apply to it, and `verify install` brings it up to date. The project then does not
   get the template's updates of indirect dependencies.
 - It writes the list of migrations again when a commit adds a migration.
+- `finish` names each file that stopped `apply` in the message of its commit.
+  `git log --grep="^- Conflict at"` lists the stops of past syncs. A file that
+  appears often is a reason to report a gap to the template.
 
 ## Gotchas
 
@@ -100,5 +126,6 @@ what the template changed, and its message gives the reason.
   `verify live-start` step starts the server on a real database.
 - To undo a sync before you push it, use the `git reset` command that `apply`
   prints.
-- Do not push to the template's remote from a project. A change for the
-  template goes to the template repository as its own commit.
+- Do not push a branch of the project to the template's remote. A change for
+  the template is a commit of its own, on a branch that starts from the
+  template's `main`.
