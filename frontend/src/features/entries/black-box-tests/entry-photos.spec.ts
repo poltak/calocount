@@ -147,4 +147,25 @@ test.describe("the owner changes the photo of an entry", () => {
       redThumbnail,
     );
   });
+
+  test("should keep the photo of a copy after the original entry goes", async ({
+    page,
+  }) => {
+    const today = new TodayPageObject(page);
+    await today.goto();
+    await today.goToPreviousDay();
+    await today.addEntry({
+      name: "Photo soup",
+      calories: 300,
+      photo: RED_PHOTO,
+    });
+    await today.copyEntryToToday("Photo soup");
+
+    await today.deleteEntry("Photo soup", { confirm: true });
+    await today.goto();
+
+    await expect(today.photoThumbnail("Photo soup")).toBeVisible();
+    await page.reload();
+    await expect(today.photoThumbnail("Photo soup")).toBeVisible();
+  });
 });

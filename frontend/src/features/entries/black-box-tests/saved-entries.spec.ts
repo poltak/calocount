@@ -50,4 +50,24 @@ test.describe("the owner keeps saved entries", () => {
     );
     await expect(today.savedEntryButton("Granola bar")).toBeDisabled();
   });
+
+  test("should keep a saved entry as it was after its source entry changes and goes", async ({
+    page,
+  }) => {
+    const today = new TodayPageObject(page);
+    await today.goto();
+    await today.addEntry({ name: "Audit lunch", calories: 500, protein: 30 });
+    await today.saveEntryForLater("Audit lunch");
+
+    await today.changeEntry("Audit lunch", { calories: 700 });
+    await today.deleteEntry("Audit lunch", { confirm: true });
+
+    await expect(today.savedEntriesPanel).toContainText(
+      "500 kcal · 30g protein",
+    );
+    await today.trackSavedEntry();
+    await expect(today.entryMacros("Audit lunch")).toContainText(
+      "Energy500 kcal",
+    );
+  });
 });

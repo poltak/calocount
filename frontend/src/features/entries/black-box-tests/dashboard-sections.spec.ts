@@ -81,6 +81,8 @@ test.describe("the sections of the owner dashboard", () => {
     await expect(entry).toContainText("1 item");
     await expect(entry).toContainText("1 serving");
     await expect(entry).toContainText("Fiber 4 g");
+    // A value that the owner typed says where it came from.
+    await expect(entry).toContainText("Manual entry");
     await expect(entry).toContainText("Caffeine —");
 
     await today.closeNutritionDetails("Lentil soup");
