@@ -10,6 +10,7 @@
     "scripts/database-document.test.mjs",
     "scripts/start-project.mjs",
     "scripts/start-project.test.mjs",
+    "scripts/test-fixture-seam.test.mjs",
     "workflows/workflow-start-project.yaml"
   ],
   "example": [

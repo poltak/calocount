@@ -421,7 +421,9 @@ template. Some reasons come from what happened in it.
   copies of them for its own features, so each template change to them conflicted in a
   sync. A project now changes its test app in `core/tests/index.ts`, gives a
   test its inputs through `backendOptions`, and lists its PGlite extensions in
-  `core/database/pglite-extensions.ts`, which it owns. In
+  `core/database/pglite-extensions.ts`, which it owns. The same
+  `core/tests/index.ts` holds the test database and the test sign-in, so a
+  project on another engine or sign-in method keeps the owned fixture. In
   Claude Code the hook asks the person. In Codex it refuses the edit, because
   Codex does not support "ask" yet. Codex reports such a hook as failed and
   makes the edit. The hook does not see a file that a shell command writes,

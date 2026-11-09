@@ -1,7 +1,3 @@
-import {
-  findStandardColumnProblems,
-  recordMigrationHash,
-} from "backend/testing";
 import { describe, expect, it } from "vitest";
 import { createFullApplication } from "./full-application.js";
 
@@ -12,7 +8,9 @@ describe("database schema", () => {
     const { backend } = await createFullApplication({ authenticated: false });
 
     // Each entry names a table and what it must have. See `BaseTable`.
-    expect(await findStandardColumnProblems(backend.db)).toEqual([]);
+    expect(
+      await backend.schemaTools.findStandardColumnProblems(backend.db),
+    ).toEqual([]);
   });
 
   it("should migrate a database that already has each table", async () => {
@@ -28,7 +26,7 @@ describe("database schema", () => {
     const { backend } = await createFullApplication({ authenticated: false });
     // As a development database that ran an earlier version of the file.
     // Each project has this migration, also after it removes the example.
-    await recordMigrationHash(backend.db, {
+    await backend.schemaTools.recordMigrationHash(backend.db, {
       name: "1791175625-create-set-updated-at-function",
       hash: "the hash of an earlier version",
     });
@@ -40,7 +38,7 @@ describe("database schema", () => {
 
   it("should stop when the file of a migration that the database ran is gone", async () => {
     const { backend } = await createFullApplication({ authenticated: false });
-    await recordMigrationHash(backend.db, {
+    await backend.schemaTools.recordMigrationHash(backend.db, {
       name: "1700000000-create-removed-table",
       hash: "any hash",
     });

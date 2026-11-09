@@ -1,31 +1,29 @@
 import { randomBytes } from "node:crypto";
 import { serve, type ServerType } from "@hono/node-server";
 import { createHttpApp } from "../server/http-app.js";
-import { createApp, type AccountMode, type TestApp } from "./index.js";
-import { createBrowserTransport } from "./browser-transport.js";
-import { cleanupLogic, initializeLogic } from "../logic/lifecycle.js";
 import {
+  createApp,
   createDatabase,
   createDatabaseSnapshot,
-} from "../database/pglite-database.js";
-import type { AuthUser } from "../../auth/services/types.js";
-
-// For the tests of the schema and the migrations. See each function.
-export { findStandardColumnProblems } from "../database/standard-columns.js";
-export { recordMigrationHash } from "../database/migration-hashes.js";
-
-interface OwnerCredentials {
-  name: string;
-  password: string;
-}
+  createTestOwner,
+  migrateTestDatabase,
+  signInTestOwner,
+  type AccountMode,
+  type DatabaseSnapshot,
+  type TestApp,
+  type TestOwner,
+  type TestOwnerCredentials,
+} from "./index.js";
+import { createBrowserTransport } from "./browser-transport.js";
+import { cleanupLogic, initializeLogic } from "../logic/lifecycle.js";
 
 /**
  * A migrated database that already holds the owner account, as plain data that
  * the test runner can hand to each test file.
  */
 export interface DatabaseTemplate {
-  snapshot: ArrayBuffer;
-  owner: AuthUser;
+  snapshot: DatabaseSnapshot;
+  owner: TestOwner;
   /**
    * The auth secret of every backend that starts from the template. The
    * session cookies in `signedIn` are valid only with it.
@@ -35,26 +33,26 @@ export interface DatabaseTemplate {
    * The same database after the owner signed in, and the `Set-Cookie` values
    * of that session.
    */
-  signedIn: { snapshot: ArrayBuffer; setCookies: string[] };
+  signedIn: { snapshot: DatabaseSnapshot; setCookies: string[] };
 }
 
 /**
- * Build the database that every test database starts from. Starting PGlite
+ * Build the database that every test database starts from. Starting a database
  * empty, migrating it, and creating the owner takes several seconds, so a test
  * run does this once, before its test files start. The owner also signs in
- * here once, because a sign-in hashes the password, which took about a fifth
- * of each test that starts signed in.
+ * here once, because a sign-in took about a fifth of each test that starts
+ * signed in.
  */
 export async function createDatabaseTemplate(
-  credentials: OwnerCredentials,
+  credentials: TestOwnerCredentials,
 ): Promise<DatabaseTemplate> {
   const secret = randomBytes(32).toString("base64");
-  let owner!: AuthUser;
+  let owner!: TestOwner;
   const snapshot = await createDatabaseSnapshot({
     prepare: async (db) => {
       const app = createApp({ db, secret });
-      await app.logic.migration.migrate();
-      owner = await app.logic.ownerSetup.createOwner(credentials);
+      await migrateTestDatabase({ app });
+      owner = await createTestOwner({ app, credentials });
     },
   });
   let setCookies: string[] = [];
@@ -64,34 +62,17 @@ export async function createDatabaseTemplate(
       const app = createApp({ db, secret });
       await initializeLogic({ logic: app.logic });
       try {
-        const response = await createHttpApp({ app }).request(
-          "http://app.test/api/session",
-          {
-            method: "POST",
-            headers: {
-              "content-type": "application/json",
-              origin: "http://app.test",
-            },
-            body: JSON.stringify({
-              email: owner.email,
-              password: credentials.password,
-            }),
-          },
-        );
-        if (!response.ok) {
-          throw new Error(`Template owner sign-in failed: ${response.status}`);
-        }
-        setCookies = response.headers.getSetCookie();
+        setCookies = await signInTestOwner({ app, owner, credentials });
       } finally {
         await cleanupLogic({ logic: app.logic });
       }
     },
   });
   return {
-    snapshot: await snapshot.arrayBuffer(),
+    snapshot,
     owner,
     secret,
-    signedIn: { snapshot: await signedInSnapshot.arrayBuffer(), setCookies },
+    signedIn: { snapshot: signedInSnapshot, setCookies },
   };
 }
 
@@ -100,7 +81,7 @@ export async function createDatabaseTemplate(
  * the other inputs itself.
  */
 export type TestAppOptions = Omit<
-  NonNullable<Parameters<typeof createApp>[0]>,
+  Parameters<typeof createApp>[0],
   "db" | "authBaseUrl" | "trustedOrigins" | "accountMode" | "secret"
 >;
 
@@ -132,11 +113,10 @@ export async function createTestBackend({
    */
   backendOptions?: TestAppOptions;
 }) {
-  const snapshot = signedIn ? template.signedIn.snapshot : template.snapshot;
   const app = createApp({
     ...backendOptions,
-    db: createDatabase({
-      snapshot: new Blob([snapshot], { type: "application/x-tar" }),
+    db: await createDatabase({
+      snapshot: signedIn ? template.signedIn.snapshot : template.snapshot,
     }),
     authBaseUrl: baseUrl,
     trustedOrigins,
