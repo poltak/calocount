@@ -20,7 +20,9 @@ project information. Read the documents that apply to the task.
   `templateOwned` in `scripts/template-paths.json` lists. Describe the change
   to the person instead. It goes to the template first, and the project gets
   it with a sync. When the person agrees, report the gap as the `sync-template`
-  skill says, so that the template learns of it.
+  skill says, so that the template learns of it. A path in `ownPaths` of
+  `template-version.json` is the project's own. Only a person changes that
+  list.
 
 ## Start of a task
 

@@ -386,15 +386,15 @@ template. Some reasons come from what happened in it.
   file that someone forgot to put in the list. The full key has no such list,
   only the one exclusion, and no test, build, or live start reads a Markdown
   file outside the app folders. A Markdown file in an app folder still counts,
-  because a page can import one. In Shadow, no Markdown file is in an app
-  folder, so this costs no skip there. A key with no exclusion would skip 5
+  because a page can import one. In the first project, no Markdown file is in
+  an app folder, so this costs no skip there. A key with no exclusion would skip 5
   of the 130 runs in place of 20, and the plan job would then cost more
   minutes than it saves. A pull request also finds the markers of `main`, so a pull request
   that changes only Markdown files skips the tests from its first run. A push
   to `main` runs every job. A second attempt of a run does not look for a
   marker, so that "Re-run all jobs" runs every job. From 16 October to 4
-  November 2026, up to 20 of 130 CI runs of Shadow's pull requests had files
-  that had passed before. In Shadow, the skipped jobs are 19 of the 22 billed
+  November 2026, up to 20 of 130 CI runs of the first project's pull requests had
+  files that had passed before. In the first project, the skipped jobs are 19 of the 22 billed
   minutes of a run, and in the template 6 of 10. The cost is the new plan
   job: one billed minute for each run, and about 12 seconds more before the
   tests start.
@@ -439,6 +439,17 @@ template. Some reasons come from what happened in it.
   has each change that came in from `main`. A sync almost always changes
   those files, so the label would go each time a contributor brings `main`
   into the branch.
+- **A project takes over a template path with one list in its version file.**
+  `ownPaths` in `template-version.json` is the one list that the sync, the
+  hook, and the CI check read, so a path that a project replaced or deleted
+  stops no sync. A project cannot use `templateOwned` for this, because a sync
+  reads the lists from the template. Separate lists for a deleted and a
+  replaced path add nothing, because a sync treats both in the same way. An
+  entry ends each template update to its path, so it is for a replaced path,
+  and not for a small edit that a cherry-pick can merge. The `own` command needs
+  a terminal, because the hook does not see a shell command. The list cannot
+  name a check that keeps a project on the template, so a fix to such a check
+  reaches each project.
 - **A hook tells the agent when its branch is behind `main`.** In the first
   project, a contributor's branch started from the `main` of the day
   before. Its pull request then listed a bug as open that `main` had fixed an

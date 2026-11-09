@@ -1,164 +1,23 @@
 import assert from "node:assert/strict";
-import { execFileSync, spawnSync } from "node:child_process";
-import {
-  cp,
-  mkdir,
-  mkdtemp,
-  readFile,
-  rm,
-  symlink,
-  writeFile,
-} from "node:fs/promises";
-import os from "node:os";
+import { execFileSync } from "node:child_process";
+import { cp, rm, symlink } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
-import { fileURLToPath } from "node:url";
-
-const scriptsDirectory = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(scriptsDirectory, "..");
-
-// Each test makes a template repository and a project that started from it,
-// with real Git. The settings of the person who runs the tests have no effect.
-const GIT_ENVIRONMENT = {
-  ...process.env,
-  GIT_CONFIG_GLOBAL: os.devNull,
-  GIT_CONFIG_NOSYSTEM: "1",
-  // After a commit or a fetch, Git starts maintenance in the background. It
-  // can still write in `.git/objects` when a test deletes its directory, and
-  // the delete then fails with ENOTEMPTY.
-  GIT_CONFIG_COUNT: "1",
-  GIT_CONFIG_KEY_0: "maintenance.auto",
-  GIT_CONFIG_VALUE_0: "false",
-  GIT_AUTHOR_NAME: "Project Person",
-  GIT_AUTHOR_EMAIL: "person@project.test",
-  GIT_COMMITTER_NAME: "Project Person",
-  GIT_COMMITTER_EMAIL: "person@project.test",
-};
-const TEMPLATE_AUTHOR = {
-  GIT_AUTHOR_NAME: "Template Person",
-  GIT_AUTHOR_EMAIL: "person@template.test",
-  GIT_AUTHOR_DATE: "2026-03-04T05:06:07+02:00",
-};
-
-const PACKAGE_JSON = {
-  name: "template",
-  scripts: { check: "node check.mjs", dev: "node dev.mjs" },
-  dependencies: { hono: "4.0.0", react: "19.0.0", zod: "4.0.0" },
-};
-const json = (value) => `${JSON.stringify(value, null, 2)}\n`;
-// The lists of the template in these tests. The tests do not read the lists
-// of this repository, so a change to those lists does not change a result.
-const TEMPLATE_PATHS = {
-  templateOnly: [
-    "docs/agents/template.md",
-    "renovate.json",
-    ".agents/skills/start-project/",
-  ],
-  example: ["backend/src/features/notes/"],
-  withExample: [
-    "backend/src/features/core/database/migrations/1791009406-create-note.ts",
-    ".agents/skills/remove-example/",
-  ],
-  projectOwned: ["README.md"],
-};
-
-function git(directory, ...args) {
-  return execFileSync("git", args, {
-    cwd: directory,
-    env: GIT_ENVIRONMENT,
-    encoding: "utf8",
-  }).trimEnd();
-}
-
-async function write(directory, files) {
-  for (const [file, content] of Object.entries(files)) {
-    const target = path.join(directory, file);
-    await mkdir(path.dirname(target), { recursive: true });
-    await writeFile(target, content);
-  }
-}
-
-/** Commit every change in a repository, and return the commit's ID. */
-function commit(directory, message, environment = {}) {
-  git(directory, "add", "--all");
-  execFileSync("git", ["commit", "--quiet", "--message", message], {
-    cwd: directory,
-    env: { ...GIT_ENVIRONMENT, ...environment },
-  });
-  return git(directory, "rev-parse", "HEAD");
-}
-
-/** Make one template commit that writes these files. */
-async function templateCommit({ template, message, files }) {
-  await write(template, files);
-  return commit(template, message, TEMPLATE_AUTHOR);
-}
-
-function sync(project, ...args) {
-  const result = spawnSync(
-    process.execPath,
-    [path.join(project, "scripts/sync-template.mjs"), ...args],
-    { cwd: project, env: GIT_ENVIRONMENT, encoding: "utf8" },
-  );
-  return {
-    status: result.status,
-    output: `${result.stdout}${result.stderr}`,
-  };
-}
-
-const readVersion = async (project) =>
-  JSON.parse(await readFile(path.join(project, "template-version.json")));
-const readProjectFile = (project, file) =>
-  readFile(path.join(project, file), "utf8");
-const short = (commitId) => commitId.slice(0, 7);
-
-/**
- * A template, and a project in the state that `start-project` leaves. The
- * project is without the files that only the template needs, and it has a
- * version file.
- */
-async function createProject(context) {
-  const directory = await mkdtemp(path.join(os.tmpdir(), "sync-template-"));
-  context.after(() => rm(directory, { recursive: true, force: true }));
-  const template = path.join(directory, "template");
-  const project = path.join(directory, "project");
-
-  await mkdir(template);
-  git(template, "init", "--quiet", "--initial-branch=main");
-  await write(template, {
-    ".gitignore": "node_modules\n",
-    "README.md": "# The template\n",
-    "renovate.json": json({ schedule: ["monday"] }),
-    "docs/agents/template.md": "# The template\n",
-    "package.json": json(PACKAGE_JSON),
-    "pnpm-lock.yaml": "lockfileVersion: 1\n",
-    "src/app.txt": "one\ntwo\nthree\n",
-    "backend/src/features/notes/note.txt": "the example\n",
-    "scripts/template-paths.json": json(TEMPLATE_PATHS),
-  });
-  for (const script of ["sync-template.mjs", "template-files.mjs"]) {
-    await cp(
-      path.join(scriptsDirectory, script),
-      path.join(template, "scripts", script),
-    );
-  }
-  const start = commit(template, "Start the template", TEMPLATE_AUTHOR);
-
-  git(directory, "clone", "--quiet", template, project);
-  git(project, "remote", "rename", "origin", "template");
-  await rm(path.join(project, "renovate.json"));
-  await rm(path.join(project, "docs/agents/template.md"));
-  await write(project, {
-    "README.md": "# The project\n",
-    "template-version.json": json({
-      template,
-      commit: start,
-      skipped: [],
-    }),
-  });
-  commit(project, "Start the project");
-  return { template, project, start };
-}
+import {
+  scriptsDirectory,
+  repoRoot,
+  PACKAGE_JSON,
+  json,
+  git,
+  write,
+  commit,
+  templateCommit,
+  sync,
+  readVersion,
+  readProjectFile,
+  short,
+  createProject,
+} from "./sync-template-fixtures.mjs";
 
 test("refuses a repository that is not a project", async (context) => {
   const { template } = await createProject(context);
@@ -304,6 +163,33 @@ test("leaves out the files that the project is without, in a commit that changes
   assert.equal(git(project, "status", "--porcelain"), "");
 });
 
+test("names the files that a commit loses in the plan, and counts them in finish", async (context) => {
+  const { template, project } = await createProject(context);
+  const mixed = await templateCommit({
+    template,
+    message: "Change the update schedule and the application",
+    files: {
+      "renovate.json": json({ schedule: ["friday"] }),
+      "src/app.txt": "one\ntwo\nthree\nfour\n",
+    },
+  });
+
+  const plan = sync(project, "plan");
+
+  assert.match(
+    plan.output,
+    new RegExp(
+      `take\\s+${short(mixed)}  Change the update schedule and the application\\n\\s+\\(the project does not get renovate\\.json\\)`,
+    ),
+  );
+  assert.equal(sync(project, "apply").status, 0);
+  assert.equal(sync(project, "finish").status, 0);
+  assert.match(
+    git(project, "log", "-1", "--format=%b"),
+    /^- Files left out of the commits that the project took: 1$/m,
+  );
+});
+
 /** One template commit that adds a migration of the example, with its entry. */
 async function addExampleMigration({ template, files }) {
   const pathsFile = "scripts/template-paths.json";
@@ -407,6 +293,129 @@ test("leaves out a new file that the template adds with its entry in the list", 
     pathsFile,
   );
   await assert.rejects(readProjectFile(project, "tools/release.txt"));
+});
+
+/** One template commit that adds a project-owned file, with its entry. */
+async function addProjectOwnedFile({ template, file, text, files = {} }) {
+  const pathsFile = "scripts/template-paths.json";
+  const paths = JSON.parse(await readProjectFile(template, pathsFile));
+  return templateCommit({
+    template,
+    message: "Add a file that each project owns",
+    files: {
+      ...files,
+      [file]: text,
+      [pathsFile]: json({
+        ...paths,
+        projectOwned: [...paths.projectOwned, file],
+      }),
+    },
+  });
+}
+
+test("gives an existing project a new project-owned file, and leaves later changes to the file out", async (context) => {
+  const { template, project } = await createProject(context);
+  const file = "src/rules.txt";
+  await addProjectOwnedFile({
+    template,
+    file,
+    text: "the first rules\n",
+    files: { "src/app.txt": "one\ntwo\nthree\nfour\n" },
+  });
+  sync(project, "plan");
+
+  const taken = sync(project, "apply");
+
+  assert.equal(taken.status, 0, taken.output);
+  assert.equal(await readProjectFile(project, file), "the first rules\n");
+  assert.equal(sync(project, "finish").status, 0);
+
+  await write(project, { [file]: "the rules of the project\n" });
+  commit(project, "Write the rules of the project");
+  const later = await templateCommit({
+    template,
+    message: "Change the rules",
+    files: { [file]: "the second rules\n" },
+  });
+
+  assert.match(
+    sync(project, "plan").output,
+    new RegExp(
+      `leave out\\s+${short(later)}  Change the rules\\n\\s+\\(it changes only src/rules\\.txt\\)`,
+    ),
+  );
+  assert.equal(sync(project, "apply").status, 0);
+  assert.equal(
+    await readProjectFile(project, file),
+    "the rules of the project\n",
+  );
+});
+
+test("takes each change to a new project-owned file in one sync, also after a stop", async (context) => {
+  const { template, project } = await createProject(context);
+  const file = "src/rules.txt";
+  await write(project, { "src/app.txt": "one\ntwo of the project\nthree\n" });
+  commit(project, "Change the second line");
+  await addProjectOwnedFile({ template, file, text: "the first rules\n" });
+  await templateCommit({
+    template,
+    message: "Change the second line",
+    files: { "src/app.txt": "one\ntwo of the template\nthree\n" },
+  });
+  await templateCommit({
+    template,
+    message: "Correct the rules",
+    files: { [file]: "the corrected rules\n" },
+  });
+  sync(project, "plan");
+  assert.equal(sync(project, "apply").status, 1);
+  await write(project, { "src/app.txt": "one\ntwo of both\nthree\n" });
+  git(project, "add", "src/app.txt");
+
+  const continued = sync(project, "apply");
+
+  assert.equal(continued.status, 0, continued.output);
+  assert.match(continued.output, /took  \w{7}  Correct the rules/);
+  assert.equal(await readProjectFile(project, file), "the corrected rules\n");
+});
+
+test("keeps a project-owned file out of a project that deleted it", async (context) => {
+  const { template, project } = await createProject(context);
+  await rm(path.join(project, "README.md"));
+  commit(project, "Remove the README");
+  await templateCommit({
+    template,
+    message: "Change the README and the application",
+    files: {
+      "README.md": "# The template, with more text\n",
+      "src/app.txt": "one\ntwo\nthree\nfour\n",
+    },
+  });
+  sync(project, "plan");
+
+  const result = sync(project, "apply");
+
+  assert.equal(result.status, 0, result.output);
+  await assert.rejects(readProjectFile(project, "README.md"));
+  assert.equal(git(project, "status", "--porcelain"), "");
+});
+
+test("keeps the project's own file when the template adds a project-owned file at that path", async (context) => {
+  const { template, project } = await createProject(context);
+  const file = "src/rules.txt";
+  await write(project, { [file]: "the rules of the project\n" });
+  commit(project, "Write the rules of the project");
+  await addProjectOwnedFile({ template, file, text: "the first rules\n" });
+  sync(project, "plan");
+
+  const result = sync(project, "apply");
+
+  assert.equal(result.status, 0, result.output);
+  assert.equal(
+    await readProjectFile(project, file),
+    "the rules of the project\n",
+  );
+  assert.equal(git(project, "status", "--porcelain"), "");
 });
 
 test("takes a change to a file that only some projects keep", async (context) => {
@@ -551,6 +560,68 @@ test("stops when both sides changed one dependency to different versions, and co
     skipped: [],
   });
   assert.equal(git(project, "status", "--porcelain"), "");
+});
+
+test("keeps a dependency out of a project that removed it when the template updates it", async (context) => {
+  const { template, project } = await createProject(context);
+  const { zod: removed, ...kept } = PACKAGE_JSON.dependencies;
+  assert.equal(removed, "4.0.0");
+  await write(project, {
+    "package.json": json({ ...PACKAGE_JSON, dependencies: kept }),
+  });
+  commit(project, "Remove a dependency");
+  await templateCommit({
+    template,
+    message: "Update the dependencies",
+    files: {
+      "package.json": json({
+        ...PACKAGE_JSON,
+        dependencies: { ...PACKAGE_JSON.dependencies, zod: "4.1.0" },
+      }),
+      "src/app.txt": "one\ntwo\nthree\nfour\n",
+    },
+  });
+  sync(project, "plan");
+
+  const result = sync(project, "apply");
+
+  assert.equal(result.status, 0, result.output);
+  assert.match(
+    result.output,
+    /package\.json: the template updates dependencies\.zod\. The project removed it/,
+  );
+  assert.deepEqual(
+    JSON.parse(await readProjectFile(project, "package.json")).dependencies,
+    kept,
+  );
+  assert.equal(
+    await readProjectFile(project, "src/app.txt"),
+    "one\ntwo\nthree\nfour\n",
+  );
+});
+
+test("stops when the project removed a key that is not a dependency and the template changed it", async (context) => {
+  const { template, project } = await createProject(context);
+  await write(project, {
+    "package.json": json({ ...PACKAGE_JSON, scripts: { check: "node c.mjs" } }),
+  });
+  commit(project, "Remove a script");
+  await templateCommit({
+    template,
+    message: "Change a script",
+    files: {
+      "package.json": json({
+        ...PACKAGE_JSON,
+        scripts: { ...PACKAGE_JSON.scripts, dev: "node dev.mjs --watch" },
+      }),
+    },
+  });
+  sync(project, "plan");
+
+  const result = sync(project, "apply");
+
+  assert.equal(result.status, 1);
+  assert.match(result.output, /package\.json: scripts\.dev/);
 });
 
 test("keeps the project's lockfile when the template's change does not apply to it", async (context) => {
@@ -786,6 +857,66 @@ test("names each file that stopped apply in the commit of finish", async (contex
   assert.equal(git(project, "status", "--porcelain"), "");
 });
 
+/** One template commit that changes the word that `apply` prints for a commit. */
+async function changeTheSyncScript({ template }) {
+  const script = "scripts/sync-template.mjs";
+  const text = await readProjectFile(template, script);
+  const changed = text.replace("`took  ${short", "`taken  ${short");
+  assert.notEqual(changed, text);
+  await templateCommit({
+    template,
+    message: "Change the sync script",
+    files: { [script]: changed },
+  });
+}
+
+test("takes each commit after a change to the sync script with the new script", async (context) => {
+  const { template, project } = await createProject(context);
+  const before = git(project, "rev-parse", "HEAD");
+  await changeTheSyncScript({ template });
+  await templateCommit({
+    template,
+    message: "Change the application",
+    files: { "src/app.txt": "one\ntwo\nthree\nfour\n" },
+  });
+  sync(project, "plan");
+
+  const result = sync(project, "apply");
+
+  assert.equal(result.status, 0, result.output);
+  assert.match(result.output, /took  \w{7}  Change the sync script/);
+  assert.match(result.output, /taken  \w{7}  Change the application/);
+  assert.match(result.output, new RegExp(`git reset --hard ${short(before)}`));
+  assert.equal(git(project, "status", "--porcelain"), "");
+});
+
+test("keeps one commit to go back to when a stop comes after a change to the sync script", async (context) => {
+  const { template, project } = await createProject(context);
+  await write(project, { "src/app.txt": "one\ntwo of the project\nthree\n" });
+  commit(project, "Change the second line");
+  const before = git(project, "rev-parse", "HEAD");
+  await changeTheSyncScript({ template });
+  await templateCommit({
+    template,
+    message: "Change the second line",
+    files: { "src/app.txt": "one\ntwo of the template\nthree\n" },
+  });
+  sync(project, "plan");
+
+  const stopped = sync(project, "apply");
+
+  assert.equal(stopped.status, 1);
+  assert.match(stopped.output, /Stopped at template commit/);
+  await write(project, { "src/app.txt": "one\ntwo of both\nthree\n" });
+  git(project, "add", "src/app.txt");
+  const continued = sync(project, "apply");
+  assert.equal(continued.status, 0, continued.output);
+  assert.match(
+    continued.output,
+    new RegExp(`git reset --hard ${short(before)}`),
+  );
+});
+
 test("leaves out the commit that apply stopped at, with the reason in the version file", async (context) => {
   const { template, project } = await createProject(context);
   await write(project, { "src/app.txt": "one\ntwo of the project\nthree\n" });
@@ -959,6 +1090,41 @@ test("commits the lockfile and the new template version, one time", async (conte
   assert.equal(sync(project, "apply").status, 0);
   assert.equal(sync(project, "finish").status, 0);
   assert.equal(git(project, "rev-parse", "HEAD"), head);
+});
+
+test("keeps each field of the version file, and ends the list of unchanged commits", async (context) => {
+  const { template, project, start } = await createProject(context);
+  await write(project, {
+    "template-version.json": json({
+      template,
+      commit: start,
+      skipped: [],
+      note: "a field of the project",
+    }),
+    "src/app.txt": "one\ntwo of the project\nthree\n",
+  });
+  commit(project, "Add a field, and change the second line");
+  const tip = await templateCommit({
+    template,
+    message: "Change the second line",
+    files: { "src/app.txt": "one\ntwo of the template\nthree\n" },
+  });
+  sync(project, "plan");
+  assert.equal(sync(project, "apply").status, 1);
+  await write(project, { "src/app.txt": "one\ntwo of the project\nthree\n" });
+  git(project, "add", "src/app.txt");
+  assert.equal(sync(project, "apply").status, 0);
+  assert.deepEqual((await readVersion(project)).unchanged, [tip]);
+
+  const result = sync(project, "finish");
+
+  assert.equal(result.status, 0, result.output);
+  assert.deepEqual(await readVersion(project), {
+    template,
+    commit: tip,
+    skipped: [],
+    note: "a field of the project",
+  });
 });
 
 test("refuses to finish while other changes have no commit", async (context) => {

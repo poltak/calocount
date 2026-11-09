@@ -78,10 +78,13 @@ async function check({
   }
   await writeFile(
     path.join(directory, "scripts/template-paths.json"),
-    JSON.stringify({ templateOwned: ["AGENTS.md", "lint/"] }),
+    JSON.stringify({ templateOwned: ["AGENTS.md", "lint/", ".agents/hooks/"] }),
   );
   if (version) {
-    await writeFile(path.join(directory, "template-version.json"), "{}\n");
+    await writeFile(
+      path.join(directory, "template-version.json"),
+      JSON.stringify(version === true ? {} : version),
+    );
   }
   await writeFile(path.join(directory, "bin/gh"), FAKE_GH);
   await chmod(path.join(directory, "bin/gh"), 0o755);
@@ -167,6 +170,45 @@ test("fails a change from a person who is not a maintainer, and names the files"
   assert.doesNotMatch(result.output, /README\.md/);
   assert.match(result.output, /Maintainers: Owner, second-owner\./);
   assert.match(result.output, /::error title=Template-owned files::/);
+});
+
+test("passes a change to a file that the default branch's ownPaths names", async (context) => {
+  const result = await check({
+    context,
+    version: {
+      ownPaths: [{ path: "lint/", reason: "The project has its own rules." }],
+    },
+    answers: {
+      [`GET ${PULLS}/files?per_page=100`]: files("lint/rule.mjs"),
+    },
+  });
+
+  assert.equal(result.status, 0, result.output);
+});
+
+test("fails a pull request that widens its own list, and a list that names a gate", async (context) => {
+  const widened = await check({
+    context,
+    answers: {
+      [`GET ${PULLS}/files?per_page=100`]: files(
+        "template-version.json",
+        "lint/rule.mjs",
+      ),
+    },
+  });
+  const gate = await check({
+    context,
+    version: { ownPaths: [{ path: ".agents/", reason: "A reason." }] },
+    answers: {
+      [`GET ${PULLS}/files?per_page=100`]: files(".agents/hooks/guard.mjs"),
+    },
+  });
+
+  assert.equal(widened.status, 1);
+  assert.match(widened.output, /^ {2}template-version\.json$/m);
+  assert.match(widened.output, /^ {2}lint\/rule\.mjs$/m);
+  assert.equal(gate.status, 1);
+  assert.match(gate.output, /^ {2}\.agents\/hooks\/guard\.mjs$/m);
 });
 
 test("passes the change when a maintainer opened the pull request", async (context) => {
