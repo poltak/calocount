@@ -4,7 +4,7 @@ import {
   MIGRATION_HASH_TABLE,
   hashMigrations,
 } from "../database/migration-hashes.js";
-import { migrations } from "../database/migrations.js";
+import type { DatabaseMigration } from "../database/migration.js";
 import type { BackendStorageProps } from "./types.js";
 
 /**
@@ -19,7 +19,11 @@ export class MigrationStorage {
    * of their names. Returns the names of the migrations that ran. Applies none
    * when a migration that the database ran changed, or when its file is gone.
    */
-  async migrateToLatest(): Promise<string[]> {
+  async migrateToLatest({
+    migrations,
+  }: {
+    migrations: DatabaseMigration[];
+  }): Promise<string[]> {
     const { db } = this.deps;
     const hashes = await hashMigrations(migrations);
     await sql`

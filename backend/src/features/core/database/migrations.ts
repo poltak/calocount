@@ -7,8 +7,14 @@ import { migration as setNoteUpdatedAtWithATrigger1791175626 } from "./migration
 
 /** Every migration in `migrations/`. They run in the order of their names. */
 export const migrations: DatabaseMigration[] = [
-  createNote1791009406,
-  createActivity1791009729,
-  createSetUpdatedAtFunction1791175625,
-  setNoteUpdatedAtWithATrigger1791175626,
+  { name: "1791009406-create-note", ...createNote1791009406 },
+  { name: "1791009729-create-activity", ...createActivity1791009729 },
+  {
+    name: "1791175625-create-set-updated-at-function",
+    ...createSetUpdatedAtFunction1791175625,
+  },
+  {
+    name: "1791175626-set-note-updated-at-with-a-trigger",
+    ...setNoteUpdatedAtWithATrigger1791175626,
+  },
 ];

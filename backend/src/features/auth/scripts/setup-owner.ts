@@ -1,10 +1,11 @@
+import { migrations } from "../../core/database/migrations.js";
 import { createApp } from "../../core/live/index.js";
 import { withTerminalPrompt } from "./terminal-prompt.js";
 
 try {
   const app = createApp();
   try {
-    await app.logic.migration.migrate();
+    await app.logic.migration.migrate({ migrations });
     await app.logic.ownerSetup.initialize();
     const credentials = await withTerminalPrompt(
       async ({ ask, askNewPassword }) => ({

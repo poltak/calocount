@@ -5,7 +5,9 @@ import type { AuthUser } from "../../auth/services/types.js";
 import type { AccountPolicy } from "../../auth/types.js";
 import { composeApp } from "../compose-app.js";
 import type { Database } from "../database/database.js";
+import type { DatabaseMigration } from "../database/migration.js";
 import { recordMigrationHash } from "../database/migration-hashes.js";
+import { migrations } from "../database/migrations.js";
 import {
   createDatabase,
   createDatabaseSnapshot,
@@ -28,6 +30,8 @@ export interface TestApp extends App {
     findStandardColumnProblems: typeof findStandardColumnProblems;
     recordMigrationHash: typeof recordMigrationHash;
   };
+  /** What a test gives `logic.migration.migrate`. */
+  migrations: DatabaseMigration[];
 }
 
 export type AccountMode = AccountPolicy["mode"];
@@ -78,12 +82,13 @@ export function createApp({
     db,
     services,
     schemaTools: { findStandardColumnProblems, recordMigrationHash },
+    migrations,
   };
 }
 
 /** Give a new test database the schema of the application. */
 export async function migrateTestDatabase({ app }: { app: TestApp }) {
-  await app.logic.migration.migrate();
+  await app.logic.migration.migrate({ migrations: app.migrations });
 }
 
 /** Make the owner account in a test database that has the schema. */

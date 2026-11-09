@@ -1,3 +1,4 @@
+import { migrations } from "../database/migrations.js";
 import { readDatabaseUrl, readLiveConfig } from "../live/config.js";
 import { createApp } from "../live/index.js";
 
@@ -11,7 +12,7 @@ try {
 
   const app = createApp({ config, databaseUrl });
   try {
-    const applied = await app.logic.migration.migrate();
+    const applied = await app.logic.migration.migrate({ migrations });
     console.log(
       applied.length > 0
         ? `Applied ${applied.length} migration(s):\n${applied.map((name) => `  ${name}`).join("\n")}`

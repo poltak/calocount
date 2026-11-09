@@ -53,6 +53,19 @@ template. Some reasons come from what happened in it.
   run time would also find the compiled file of a migration that was renamed
   or deleted, because `tsc` leaves old output in place. The create script
   writes `migrations.ts` from the directory instead.
+- **The list gives each migration its name.** A name from `import.meta.url`
+  fails in a bundle. Wrangler leaves that value undefined, so `new URL()` throws
+  when the module loads and the Worker does not start. A bundler that merges
+  the files gives each migration the same URL. The create script takes each name
+  from the file name, so a name still equals its file. A merged migration keeps
+  its `file: import.meta.url` line, because the migration check refuses a change
+  to a migration that a deployed database ran. `defineMigration` ignores it.
+- **A server does not load the migrations.** The operator commands and the test
+  root import the list and give it to `MigrationLogic`, and nothing that
+  `server/start.ts` imports reads it. So a server cannot run a migration, and a
+  bundle of the server has no migration SQL. The Logic and Storage classes stay
+  in the App, because they are small and they hold no SQL of a migration. Only
+  the list has to stay out.
 - **Migrations only go forward.** There is no `down`. To undo a change, write a
   new migration.
 - **The database uses snake_case, and TypeScript uses camelCase.** PostgreSQL

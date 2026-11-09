@@ -19,7 +19,9 @@ describe("database schema", () => {
     // The test database comes migrated, as a development database is after
     // its first start. A second migration finds each table and column of the
     // auth SDK, and runs no application migration.
-    expect(await backend.logic.migration.migrate()).toEqual([]);
+    expect(
+      await backend.logic.migration.migrate({ migrations: backend.migrations }),
+    ).toEqual([]);
   });
 
   it("should stop when a migration changed after the database ran it", async () => {
@@ -31,7 +33,9 @@ describe("database schema", () => {
       hash: "the hash of an earlier version",
     });
 
-    await expect(backend.logic.migration.migrate()).rejects.toThrow(
+    await expect(
+      backend.logic.migration.migrate({ migrations: backend.migrations }),
+    ).rejects.toThrow(
       /changed after this database ran them:\n {2}1791175625-create-set-updated-at-function\n[\s\S]*run `pnpm run db:reset`/,
     );
   });
@@ -43,7 +47,9 @@ describe("database schema", () => {
       hash: "any hash",
     });
 
-    await expect(backend.logic.migration.migrate()).rejects.toThrow(
+    await expect(
+      backend.logic.migration.migrate({ migrations: backend.migrations }),
+    ).rejects.toThrow(
       /their files are gone:\n {2}1700000000-create-removed-table\n/,
     );
   });

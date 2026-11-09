@@ -25,7 +25,6 @@ const MIGRATION_TEMPLATE = `import { sql } from "kysely";
 import { defineMigration } from "../migration.js";
 
 export const migration = defineMigration({
-  file: import.meta.url,
   async up(db) {
     // Run each statement in its own call. The database has snake_case names:
     // "table_name" ("column_name"). A new table needs the standard columns
@@ -45,6 +44,7 @@ function listSource(files) {
     return {
       identifier: `${camelCaseName}${timestamp}`,
       module: `./migrations/${file.replace(/\.ts$/, ".js")}`,
+      migrationName: file.replace(/\.ts$/, ""),
     };
   });
   return [
@@ -57,7 +57,10 @@ function listSource(files) {
     "",
     "/** Every migration in `migrations/`. They run in the order of their names. */",
     `export const migrations: DatabaseMigration[] = [${entries
-      .map(({ identifier }) => identifier)
+      .map(
+        ({ identifier, migrationName }) =>
+          `{ name: "${migrationName}", ...${identifier} }`,
+      )
       .join(", ")}];`,
     "",
   ].join("\n");
