@@ -788,7 +788,7 @@ describe("AuthLogic tests", () => {
     expect(logic.state.isSignedIn).toEqual(true);
 
     // A page's Logic sends a request like this one.
-    const response = await frontend.api.notes.$get();
+    const response = await frontend.api.me.$get();
 
     expect(response.status).toEqual(401);
     expect(logic.state.isSignedIn).toEqual(true);

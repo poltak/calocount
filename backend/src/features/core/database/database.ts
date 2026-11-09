@@ -1,7 +1,5 @@
 import type { Kysely } from "kysely";
-import type { ActivityTables } from "../../activity/storage/types.js";
 import type { AuthTables } from "../../auth/storage/types.js";
-import type { NotesTables } from "../../notes/storage/types.js";
 import type {
   APPEND_ONLY_TABLES,
   AppendOnlyTable,
@@ -13,8 +11,7 @@ import type {
  * Every table in the database. Add each feature's tables here, declared in
  * that feature's `storage/types.ts`.
  */
-export interface DatabaseSchema
-  extends ActivityTables, AuthTables, NotesTables {}
+export interface DatabaseSchema extends AuthTables {}
 
 type ApplicationTableName = Exclude<
   keyof DatabaseSchema,

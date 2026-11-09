@@ -1,5 +1,4 @@
 import type { LoggerServiceInterface } from "@app/common/features/core/services/types";
-import type { ActivityStorage } from "../activity/storage/activity-storage.js";
 import type { AuthServiceInterface } from "../auth/services/types.js";
 import type { AuthStorage } from "../auth/storage/auth-storage.js";
 import type { AuthAccessLogic } from "../auth/logic/auth-access-logic.js";
@@ -9,17 +8,13 @@ import type { AuthSignUpLogic } from "../auth/logic/auth-sign-up-logic.js";
 import type { OwnerSetupLogic } from "../auth/logic/owner-setup-logic.js";
 import type { HealthLogic } from "../health/logic/health-logic.js";
 import type { HealthStorage } from "../health/storage/health-storage.js";
-import type { NotesLogic } from "../notes/logic/notes-logic.js";
-import type { NotesStorage } from "../notes/storage/notes-storage.js";
 import type { MigrationLogic } from "./logic/migration-logic.js";
 import type { MigrationStorage } from "./storage/migration-storage.js";
 
 export interface BackendStorage {
-  activity: ActivityStorage;
   auth: AuthStorage;
   health: HealthStorage;
   migration: MigrationStorage;
-  notes: NotesStorage;
 }
 
 /**
@@ -42,7 +37,6 @@ export interface BackendLogic {
   ownerSetup: OwnerSetupLogic;
   health: HealthLogic;
   migration: MigrationLogic;
-  notes: NotesLogic;
 }
 
 export interface App {

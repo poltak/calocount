@@ -48,11 +48,6 @@ export function createApiClient({
 
 export type BackendApi = ReturnType<typeof createApiClient>;
 
-/** Hono substitutes path parameters without encoding them. Encode once here. */
-export function encodeApiParam(value: string): string {
-  return encodeURIComponent(value);
-}
-
 interface ApiRequestIssue {
   path: string;
   message: string;

@@ -7,24 +7,17 @@ import { EventEmitter } from "@app/common/features/core/events/event-emitter";
 import { ConsoleLoggerService } from "@app/common/features/core/services/console-logger-service";
 import type { LogLevel } from "@app/common/features/core/services/types";
 import type { ApiAccessEvent } from "../../api/client/access-events.js";
-import { NotesDraftStorage } from "../../notes/storage/notes-draft-storage.js";
 import { BrowserWindowFocusService } from "../../window-focus/services/browser-window-focus-service.js";
-import type { BrowserKeyValueStore } from "../storage/types.js";
 
 interface LiveAppProps extends ApiClientProps {
-  /** The browser's `localStorage`. Only `main.tsx` may name that global. */
-  browserStorage: BrowserKeyValueStore;
   logLevel?: LogLevel;
 }
 
 export function createApp({
-  browserStorage,
   logLevel = "warn",
   ...apiProps
 }: LiveAppProps): App {
-  const storage: FrontendStorage = {
-    notesDrafts: new NotesDraftStorage({ store: browserStorage }),
-  };
+  const storage: FrontendStorage = {};
   const services: FrontendServices = {
     logger: new ConsoleLoggerService({ minLevel: logLevel }),
     windowFocus: new BrowserWindowFocusService(),

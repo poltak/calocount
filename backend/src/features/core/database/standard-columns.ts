@@ -38,7 +38,7 @@ export const SDK_TABLES = [
 ] as const satisfies readonly (keyof AuthTables)[];
 
 /** Application tables whose records never change. See `AppendOnlyTable`. */
-export const APPEND_ONLY_TABLES = ["activity"] as const;
+export const APPEND_ONLY_TABLES = [] as const;
 
 // The name in the database. A migration writes it in raw SQL.
 const SET_UPDATED_AT_FUNCTION = "set_updated_at";

@@ -110,10 +110,11 @@ async function waitForWorker(port) {
   const url = `http://localhost:${port}/api/auth/status`;
   for (let attempt = 0; attempt < 240; attempt += 1) {
     try {
-      const response = await fetch(url);
+      // A request that reaches the Worker while it starts can hang, so each try has a limit.
+      const response = await fetch(url, { signal: AbortSignal.timeout(5000) });
       if (response.status < 500) return;
     } catch {
-      // The Worker is not listening yet.
+      // The Worker is not listening yet, or did not answer in time.
     }
     await new Promise((resolve) => setTimeout(resolve, 500));
   }

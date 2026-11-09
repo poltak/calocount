@@ -3,7 +3,6 @@ import type { App } from "../types.js";
 import { EventEmitter } from "@app/common/features/core/events/event-emitter";
 import { MemoryLoggerService } from "@app/common/features/core/services/memory-logger-service";
 import type { ApiAccessEvent } from "../../api/client/access-events.js";
-import { NotesDraftStorage } from "../../notes/storage/notes-draft-storage.js";
 import { FakeWindowFocusService } from "../../window-focus/services/fake-window-focus-service.js";
 import { MemoryKeyValueStore } from "./memory-key-value-store.js";
 
@@ -30,9 +29,7 @@ export function createApp({
   const browserStorage = new MemoryKeyValueStore();
   return {
     browserStorage,
-    storage: {
-      notesDrafts: new NotesDraftStorage({ store: browserStorage }),
-    },
+    storage: {},
     services: {
       logger: new MemoryLoggerService(),
       windowFocus: new FakeWindowFocusService(),

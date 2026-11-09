@@ -1,4 +1,0 @@
-interface:
-    display_name: 'Remove Example'
-    short_description: 'Remove the notes example from a project'
-    default_prompt: 'Use $remove-example to remove the notes example from this project.'

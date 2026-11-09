@@ -17,7 +17,6 @@ import {
 import { logRequests } from "../handlers/request-log.js";
 import type { RequestEnvironment } from "../handlers/types.js";
 import { createHealthHandlers } from "../../health/handlers/health-handlers.js";
-import { createNotesHandlers } from "../../notes/handlers/notes-handlers.js";
 import type { App } from "../types.js";
 
 /** The server refuses a larger request body. A route that takes more uses `routeBodyLimit`. */
@@ -36,8 +35,7 @@ interface HttpAppProps extends ApiHttpAppProps {
 function createBusinessHttpApp({ app }: ApiHttpAppProps) {
   return new Hono<AuthEnvironment>()
     .use("*", requireSession({ services: app.services, logic: app.logic }))
-    .route("/me", createProfileHandlers())
-    .route("/notes", createNotesHandlers({ logic: app.logic }));
+    .route("/me", createProfileHandlers());
 }
 
 /**
