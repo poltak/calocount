@@ -31,17 +31,23 @@ concurrency:
 # so a change to it gets the full run. When a test reads a Markdown file in
 # another folder, move the file into the app, or each change to it goes
 # untested. The checks job always runs, because it checks the format of
-# Markdown files. A push to `main` runs every job. To run every job on a pull
-# request, re-run all jobs of the run.
+# Markdown files. A push to `main` skips the same jobs when a pull request
+# passed the same files, so the merge of a pull request that was up to date
+# with `main` does not run its tests again. To run every job, re-run all jobs
+# of the run.
 jobs:
   plan:
     name: Find a passed run of the same files
     if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    # A push to `main` reads the list of caches.
+    permissions:
+      contents: read
+      actions: read
     outputs:
       key: ${{ steps.key.outputs.key }}
-      passed: ${{ steps.lookup.outputs.cache-hit == 'true' }}
+      passed: ${{ steps.lookup.outputs.cache-hit == 'true' || steps.lookup-main.outputs.found == 'true' }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
@@ -67,6 +73,24 @@ jobs:
           path: .ci-passed
           key: ${{ steps.key.outputs.key }}
           lookup-only: true
+
+      # A run on `main` cannot restore a cache that a pull request saved, but
+      # the API lists the caches of each branch. The key has this file too, so
+      # only a run of the same workflow can make a marker for these files. A
+      # failed lookup gives a full run.
+      - name: Look for the marker of a passed pull request
+        id: lookup-main
+        if: ${{ github.event_name == 'push' && github.run_attempt == 1 }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          KEY: ${{ steps.key.outputs.key }}
+        run: |
+          if ! count=$(gh api "repos/$GITHUB_REPOSITORY/actions/caches?key=$KEY" --jq '[.actions_caches[] | select(.key == env.KEY)] | length'); then
+            echo "::warning::The lookup of the cache list failed, so each job runs."
+            count=0
+          fi
+          if [ "$count" -gt 0 ]; then found=true; else found=false; fi
+          echo "found=$found" >> "$GITHUB_OUTPUT"
 
   checks:
     name: Checks
@@ -217,12 +241,14 @@ jobs:
 
       # The marker is empty, and its key names the files that passed. A failed
       # save costs only a full run the next time, so it does not fail the job.
+      # A push to `main` saves it also after a skip, because a pull request
+      # finds only its own markers and those of `main`.
       - name: Make the marker of a passed run
-        if: ${{ needs.plan.outputs.passed != 'true' }}
+        if: ${{ needs.plan.outputs.passed != 'true' || github.event_name == 'push' }}
         run: mkdir .ci-passed && touch .ci-passed/marker
 
       - name: Save the marker
-        if: ${{ needs.plan.outputs.passed != 'true' }}
+        if: ${{ needs.plan.outputs.passed != 'true' || github.event_name == 'push' }}
         continue-on-error: true
         uses: actions/cache/save@v6
         with:
