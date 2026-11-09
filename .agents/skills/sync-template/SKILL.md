@@ -77,6 +77,9 @@ what the template changed, and its message gives the reason.
   apply to it, and `verify install` brings it up to date. The project then does not
   get the template's updates of indirect dependencies.
 - It writes the list of migrations again when a commit adds a migration.
+- `finish` names each file that stopped `apply` in the message of its commit.
+  `git log --grep="^- Conflict at"` lists the stops of past syncs. A file that
+  appears often is a reason to report a gap to the template.
 
 ## Gotchas
 
