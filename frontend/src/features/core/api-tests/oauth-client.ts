@@ -25,16 +25,16 @@ interface AuthorizationServer {
 
 /**
  * Connect an app as ChatGPT does: discover the server, register a client,
- * ask the owner for consent in `page`, and trade the code for a token. The
- * owner must be signed in on `page`, and `approve` must click Allow.
+ * ask the owner for consent in `page`, and return the callback. The
+ * owner must be signed in on `page`.
  */
-export async function connectWithOAuth(input: {
+export async function authorizeWithOAuth(input: {
   request: APIRequestContext;
   page: Page;
   origin: string;
   clientName: string;
   approve: () => Promise<void>;
-}): Promise<string> {
+}) {
   const { request, page, origin, clientName } = input;
   const metadata = (await (
     await request.get(`${origin}/.well-known/oauth-authorization-server`)
@@ -74,19 +74,33 @@ export async function connectWithOAuth(input: {
   if (callback.searchParams.get("state") !== state) {
     throw new Error("The authorization answer has another state");
   }
-  const code = callback.searchParams.get("code");
-  if (!code) {
-    throw new Error(`No code in the authorization answer: ${callback}`);
-  }
+  return { callback, metadata, clientId, redirectUri, verifier };
+}
 
-  const token = await request.post(metadata.token_endpoint, {
+export async function exchangeOAuthCode(input: {
+  request: APIRequestContext;
+  authorization: Awaited<ReturnType<typeof authorizeWithOAuth>>;
+  verifier?: string;
+}) {
+  const { request, authorization } = input;
+  return request.post(authorization.metadata.token_endpoint, {
     form: {
       grant_type: "authorization_code",
-      code,
-      redirect_uri: redirectUri,
-      client_id: clientId,
-      code_verifier: verifier,
+      code: authorization.callback.searchParams.get("code") ?? "",
+      redirect_uri: authorization.redirectUri,
+      client_id: authorization.clientId,
+      code_verifier: input.verifier ?? authorization.verifier,
     },
+  });
+}
+
+export async function connectWithOAuth(
+  input: Parameters<typeof authorizeWithOAuth>[0],
+): Promise<string> {
+  const authorization = await authorizeWithOAuth(input);
+  const token = await exchangeOAuthCode({
+    request: input.request,
+    authorization,
   });
   if (!token.ok()) {
     throw new Error(`The token request failed: ${token.status()}`);

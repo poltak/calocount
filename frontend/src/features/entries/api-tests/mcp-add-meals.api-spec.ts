@@ -85,3 +85,39 @@ test.describe("an MCP client with no token", () => {
     );
   });
 });
+
+test.describe("meal batches", () => {
+  test("should save several meals and return their daily totals", async ({
+    agent,
+  }) => {
+    const first = oatMeal(new Date());
+    const second = { ...oatMeal(new Date()), name: "Second oats" };
+    const result = await agent.callTool("add_meals", {
+      meals: [first, second],
+    });
+    expect(result.isError ?? false).toBe(false);
+    expect(result.structuredContent).toMatchObject({
+      created_count: 2,
+      already_exists_count: 0,
+      meals: [
+        { request_id: first.request_id },
+        { request_id: second.request_id },
+      ],
+      daily_totals: { kcal: 820, protein: 36, meal_count: 2 },
+    });
+  });
+  test("should refuse an invalid field without saving any meal", async ({
+    agent,
+  }) => {
+    const result = await agent.callTool("add_meals", {
+      meals: [oatMeal(new Date()), { ...oatMeal(new Date()), kcal: -1 }],
+    });
+    expect(result.isError).toBe(true);
+    const date = new Date().toISOString().slice(0, 10);
+    const history = await agent.callTool("get_nutrition_history", {
+      start_date: date,
+      end_date: date,
+    });
+    expect(history.structuredContent).toMatchObject({ meals: [] });
+  });
+});
