@@ -36,7 +36,7 @@ private and untracked.
 | `PORT`                      | No                   | Port the server listens on. Default `3000`.                                           |
 | `LOG_FORMAT`                | No                   | `json` (default) or `pretty`. `.env.example` sets `pretty` for development.           |
 | `LOG_LEVEL`                 | No                   | Lowest level to log: `debug`, `info` (default), `warn`, or `error`.                   |
-| `VITE_API_BASE_URL`         | No                   | Frontend only. API location when it is not served from the page's origin.             |
+| `VITE_API_BASE_URL`         | No                   | Frontend only. The API's absolute URL, when it is not on the page's origin.           |
 
 Generate a secret with:
 
@@ -350,6 +350,7 @@ The repository has no deployment files yet. These facts hold on any host:
 | `pnpm run auth:reset-password`        | Set a new password for an account.                    |
 | `pnpm --filter frontend dev`          | Start only the frontend dev server.                   |
 | `pnpm --filter frontend test`         | Run the frontend tests and print the coverage report. |
+| `pnpm run test:feature <path>`        | Build, then run the app tests in one path.            |
 | `pnpm run test:browser`               | Run the build checks and the black box tests.         |
 | `pnpm run test:browser:install`       | Download the browser for the browser tests, once.     |
 | `pnpm run test:live-start`            | Start the built backend on a real PostgreSQL.         |

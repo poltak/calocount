@@ -20,6 +20,8 @@ import type {
 
 interface BetterAuthServiceDeps extends AuthConfiguration {
   db: Database;
+  /** The engine of `db`, because the SDK writes SQL for it. See docs/agents/decisions.md. */
+  databaseType?: "postgres" | "sqlite";
   logger: LoggerServiceInterface;
 }
 
@@ -52,10 +54,14 @@ export class BetterAuthService implements AuthServiceInterface {
     );
   }
 
+  private database(db: Database) {
+    return { db, type: this.deps.databaseType ?? "postgres" };
+  }
+
   private options() {
     return {
       appName: APP_NAME,
-      database: { db: this.deps.db, type: "postgres" as const },
+      database: this.database(this.deps.db),
       secret: this.deps.secret,
       baseURL: this.deps.baseUrl,
       trustedOrigins: [...this.trustedOrigins],
@@ -218,10 +224,7 @@ export class BetterAuthService implements AuthServiceInterface {
     // names that its queries send.
     const migration = await getMigrations({
       ...this.options(),
-      database: {
-        db: withTypeScriptNamesInIntrospection(this.deps.db),
-        type: "postgres" as const,
-      },
+      database: this.database(withTypeScriptNamesInIntrospection(this.deps.db)),
     });
     await migration.runMigrations();
   }
