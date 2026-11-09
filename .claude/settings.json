@@ -42,6 +42,28 @@
             "timeout": 60
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.agents/hooks/warn-slow-commands.mjs\" claude",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.agents/hooks/warn-slow-commands.mjs\" claude",
+            "timeout": 10
+          }
+        ]
       }
     ]
   }
