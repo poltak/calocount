@@ -260,4 +260,3 @@ takes the template's dependency updates with the `sync-template` workflow.
 - **One origin in production.** The backend cannot serve the frontend build
   yet, and the page has no content security policy. Both wait for a decision
   on the hosting.
-- See also [the open work list](todos/initial-setup.md).

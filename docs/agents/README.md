@@ -26,8 +26,6 @@ instructions.
 - `template-version.json`: the template that a project started from, and the
   last template commit that it has. The `sync-template` skill reads and
   updates it. Only a project has this file.
-- [Open work](todos/initial-setup.md): unfinished work and temporary behavior.
-  Read and update it as work completes.
 
 ## A project's own documents
 

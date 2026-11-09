@@ -7,6 +7,9 @@ in `docs/agents/project/decisions.md`.
 Add an entry when a choice has a reason that the code cannot show. Keep each
 entry to the choice, the reason, and any rule that follows from it.
 
+"The first project" below is the first application that started from the
+template. Some reasons come from what happened in it.
+
 ## Backend
 
 - **Hono for HTTP routing.** Chosen for its small API and its support for Node,
@@ -344,7 +347,7 @@ entry to the choice, the reason, and any rule that follows from it.
 - **Development uses an embedded PostgreSQL from the `embedded-postgres`
   package.** It needs no setup on a new machine, its version is pinned in
   `package.json`, and its data is in the checkout, so each Git worktree has
-  its own database. Docker is not used, because it is slow on the team's Macs.
+  its own data. Docker is not used, because it is slow on the team's Macs.
   PGlite is not used, because the tests already run on it, and development is
   the only place where the `pg` driver runs before production. The costs: all
   releases of the package are marked beta, its binaries come from a
@@ -357,22 +360,15 @@ entry to the choice, the reason, and any rule that follows from it.
   steps that failed.
 - **CI runs its jobs at the same time: the checks, four jobs of tests, and
   the browser tests with the live start.** With one job, a run took the sum of
-  the three. In four pairs of runs on one commit, three jobs in place of one
-  made the wait go from about 93 seconds to about 69. The tests then run in
-  four jobs, because the runner of a private repository has one core with two
-  threads. Vitest runs one worker there, and a second worker made Shadow's
-  538 tests only 4% faster, because one worker already uses most of both
-  threads. Shadow's tests took 5 minutes 48 seconds in one job, and 3 minutes
-  19 seconds in three. Vitest splits the files into shards by a hash of each
-  path, which put Shadow's two largest files in one shard. Each test takes
-  about the same time, so `vite.config.ts` splits the files by size instead.
-  A shard has only part of the coverage, so it does not check the thresholds.
-  The "Test coverage" job waits for the four test jobs, merges their results,
-  and checks them. The cost is more billed minutes, because each job repeats
-  the setup and GitHub rounds each job up to a full minute: a run of the
-  template takes 7 in place of 4, and a run of Shadow 15 in place of 10. In
-  October 2026 the organization used more minutes than its free plan has,
-  and paid $2.53 for the rest.
+  the three. The tests have four jobs, because the runner of a private
+  repository has one core with two threads, and a second Vitest worker made 538
+  tests only 4% faster there. Vitest splits the files into shards by a hash of
+  each path, which can put the two largest files in one shard. Each test takes
+  about the same time, so `vite.config.ts` splits the files by size instead. A
+  shard has only part of the coverage, so it does not check the thresholds. The
+  "Test coverage" job waits for the four test jobs, merges their results, and
+  checks them. The cost is more billed minutes, because each job repeats the
+  setup and GitHub rounds each job up to a full minute.
 - **CI skips a draft pull request.** Its author still changes a draft, and a
   run for each push used billed minutes for results that nobody needed yet.
   The jobs run when the author marks the pull request as ready, and for each
@@ -393,15 +389,15 @@ entry to the choice, the reason, and any rule that follows from it.
   file that someone forgot to put in the list. The full key has no such list,
   only the one exclusion, and no test, build, or live start reads a Markdown
   file outside the app folders. A Markdown file in an app folder still counts,
-  because a page can import one. In Shadow, no Markdown file is in an app
-  folder, so this costs no skip there. A key with no exclusion would skip 5
+  because a page can import one. In the first project, no Markdown file is in
+  an app folder, so this costs no skip there. A key with no exclusion would skip 5
   of the 130 runs in place of 20, and the plan job would then cost more
   minutes than it saves. A pull request also finds the markers of `main`, so a pull request
   that changes only Markdown files skips the tests from its first run. A push
   to `main` runs every job. A second attempt of a run does not look for a
   marker, so that "Re-run all jobs" runs every job. From 16 October to 4
-  November 2026, up to 20 of 130 CI runs of Shadow's pull requests had files
-  that had passed before. In Shadow, the skipped jobs are 19 of the 22 billed
+  November 2026, up to 20 of 130 CI runs of the first project's pull requests had
+  files that had passed before. In the first project, the skipped jobs are 19 of the 22 billed
   minutes of a run, and in the template 6 of 10. The cost is the new plan
   job: one billed minute for each run, and about 12 seconds more before the
   tests start.
@@ -419,8 +415,8 @@ entry to the choice, the reason, and any rule that follows from it.
   for agents and for the architecture are then different in each project.
   The list has `.oxlintrc.json` also, because it turns each lint rule on and
   sets its options, and an agent can turn off an architecture rule there. It
-  also has the shared files of the test fixture. Shadow changed its copies of
-  them for its own features, so each template change to them conflicted in a
+  also has the shared files of the test fixture. The first project changed its
+  copies of them for its own features, so each template change to them conflicted in a
   sync. A project now changes its test app in `core/tests/index.ts`, gives a
   test its inputs through `backendOptions`, and lists its PGlite extensions in
   `core/database/pglite-extensions.ts`, which it owns. In
@@ -471,8 +467,8 @@ entry to the choice, the reason, and any rule that follows from it.
   `pull_request_target`, so it runs as it is on `main`, and an agent cannot
   make it pass with an edit of the workflow in the pull request. The
   maintainers are in a repository variable, which a pull request cannot
-  change. A check for admin permission does not work, because in Shadow, the
-  first project, each collaborator is an admin. The approval is a label and
+  change. A check for admin permission does not work, because in the first project,
+  each collaborator is an admin. The approval is a label and
   not a review, because a review event runs the workflow file of the pull
   request, which the pull request can change. A new label starts the check
   again, so the person does not have to. GitHub's code owners
@@ -494,8 +490,8 @@ entry to the choice, the reason, and any rule that follows from it.
   a terminal, because the hook does not see a shell command. The list cannot
   name a check that keeps a project on the template, so a fix to such a check
   reaches each project.
-- **A hook tells the agent when its branch is behind `main`.** In Shadow, the
-  first project, a contributor's branch started from the `main` of the day
+- **A hook tells the agent when its branch is behind `main`.** In the first
+  project, a contributor's branch started from the `main` of the day
   before. Its pull request then listed a bug as open that `main` had fixed an
   hour before the branch's first commit. `AGENTS.md` asks for a fetch before
   each new branch, and the hook checks the branch at the start of each
@@ -525,10 +521,10 @@ entry to the choice, the reason, and any rule that follows from it.
   at the first deploy, the hash still stops the migration of a deployed
   database that ran an older version of a file.
 - **Two models review each pull request for rules that no script can check,
-  and the check fails on a finding.** In Shadow, a pull
+  and the check fails on a finding.** In the first project, a pull
   request wrote that its plan doc was correct where the data model doc disagreed, and
   did not correct the data model doc. No static analysis could catch this.
-  In a test on Shadow's pull requests in October
+  In a test on that project's pull requests in October
   2026, Claude Opus and Codex found different problems. In the largest pull
   request, all runs together found 16 problems. Opus found 8, Codex Sol found
   7, and the two together found 12. Codex Astra found 9, but costs more. A run

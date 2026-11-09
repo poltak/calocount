@@ -24,7 +24,7 @@ changes.
 
 ## Run it
 
-You need the Node version in `.nvmrc` and pnpm.
+You need pnpm. It downloads the Node version that the repository pins.
 
 ```sh
 pnpm install

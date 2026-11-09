@@ -57,10 +57,9 @@ Read and follow @docs/agents/project/rules.md and @docs/agents/project/reversals
 - Do not add any new dependencies without explicit user authorization.
 - Do not change the data model without the person's approval. A change to the
   data model is a new or changed migration, which implies a new or changed
-  table, column, or rule between tables, or a change to content in
-  `docs/agents/data-model/`. When a task needs one, stop before you write code.
-  Tell the person the change, the reason, the tradeoffs (if any), and wait for
-  their answer.
+  table, column, or rule between tables. When a task needs one, stop before you
+  write code. Tell the person the change, the reason, the tradeoffs (if any),
+  and wait for their answer.
 - Write a comment only for what the code cannot say: the reason for a choice,
   a constraint that other code relies on, or what breaks when the code changes.
   Do not write a comment that the name, the types, or the next line already
@@ -182,8 +181,6 @@ issue tracker. [Beads](docs/agents/beads.md) describes it.
   `pnpm exec bd close <ID> --reason="..."`.
 - A task that one session finishes needs no issue. The task list of your agent
   tool is enough, and it writes no file.
-- Do not add to `docs/agents/todos/`. It has open work from before beads,
-  and a person moves its items into beads.
 
 ## Project documentation
 

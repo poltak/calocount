@@ -143,6 +143,7 @@ test("turns a new clone of the template into a project", async (context) => {
     /^APP_ACCOUNT_MODE=single-owner$/m,
   );
   assert.match(await readClone(clone, "README.md"), /^# Trial Project\n/);
+  assert.match(await readClone(clone, "README.md"), /^You need pnpm\./m);
   // The project has its own ID for Swamp, and the rest of the marker stays.
   const repoId = /^repoId: [0-9a-f-]{36}$/m;
   const [templateMarker, projectMarker] = [
