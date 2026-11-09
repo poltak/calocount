@@ -153,6 +153,7 @@
           "handlers",
           "utils",
           "scripts",
+          "workers",
           "black-box-tests"
         ],
         "rolesByFeature": {
@@ -352,6 +353,12 @@
       "files": ["backend/src/features/core/live/config.ts"],
       "rules": {
         "node/no-process-env": "off"
+      }
+    },
+    {
+      "files": ["**/src/features/*/workers/**"],
+      "rules": {
+        "unicorn/require-post-message-target-origin": "off"
       }
     },
     {
