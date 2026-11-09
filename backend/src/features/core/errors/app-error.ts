@@ -52,12 +52,17 @@ export function tooManyAttempts({
   retryAfterSeconds,
 }: {
   action: string;
-  retryAfterSeconds: number;
+  retryAfterSeconds: number | undefined;
 }): AppError {
+  const code = "RATE_LIMITED";
+  const refusal = `Too many ${action} attempts.`;
+  if (retryAfterSeconds === undefined) {
+    return new AppError({ code, message: `${refusal} Try again later.` });
+  }
   const unit = retryAfterSeconds === 1 ? "second" : "seconds";
   return new AppError({
-    code: "RATE_LIMITED",
-    message: `Too many ${action} attempts. Try again in ${retryAfterSeconds} ${unit}.`,
+    code,
+    message: `${refusal} Try again in ${retryAfterSeconds} ${unit}.`,
     retryAfterSeconds,
   });
 }

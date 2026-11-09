@@ -30,7 +30,8 @@ export interface SessionChange {
 interface RateLimited {
   ok: false;
   reason: "rateLimited";
-  retryAfterSeconds: number;
+  /** `undefined` when the provider gives no wait. */
+  retryAfterSeconds: number | undefined;
 }
 
 export type PasswordSignInResult =

@@ -300,10 +300,13 @@ export class BetterAuthService implements AuthServiceInterface {
 }
 
 function rateLimited(response: Response) {
+  // Without this check, a missing header gives "Try again in 0 seconds".
+  const seconds = Number(response.headers.get("x-retry-after") ?? undefined);
   return {
     ok: false,
     reason: "rateLimited",
-    retryAfterSeconds: Number(response.headers.get("x-retry-after")),
+    retryAfterSeconds:
+      Number.isInteger(seconds) && seconds > 0 ? seconds : undefined,
   } as const;
 }
 
