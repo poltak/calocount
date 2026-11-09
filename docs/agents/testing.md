@@ -27,11 +27,35 @@ LogicPlugin has a test file of its own, such as
 [`note-draft-plugin.test.ts`](../../frontend/src/features/notes/ui/note-draft-plugin.test.ts).
 
 Backend code has no test runner of its own. Handlers, backend Logic, and Storage
-are covered through these tests.
+are covered through these tests. A project with code that runs only on another
+runtime can run the same tests on [a second host](#a-second-test-host).
 
 Each workflow that has stopped changing must also have
 [black box tests](#black-box-tests). They check the workflow in a real browser,
 and they know only what a user can see.
+
+## A second test host
+
+One test type can run on two hosts. Node is the default. A project adds a second
+host when Node cannot run a part of its backend, such as a Cloudflare Durable
+Object or a binding that only `workerd` has. A test on the second host has the
+same form: `setupLogicTest`, one Logic method, and checks of state and of
+`backend.db`. So it is the same test type, and the [rules](#rules) apply.
+
+- `frontend/vite.config.ts` has a Vitest project for each host. In the project
+  of the second host, a `resolve.alias` points `backend/testing` at a fixture
+  for that host, so `full-application.ts` does not change.
+- `global-setup.ts` runs on Node only. A fixture on another host builds its
+  database in another way.
+- Keep most tests on Node, because they start faster and they can use a DOM.
+  Run a test on the second host when it needs that host, or when its Storage
+  statements use a feature that the database of the Node host can hide.
+- A host that cannot give each test a new copy of a database can keep one
+  database for each test file. Each test there uses new IDs, and does not read
+  a whole table. This is the one exception to the rule that a test has its own
+  database.
+- V8 coverage does not work on `workerd`, and one run has one provider. A
+  coverage run that includes that host uses Istanbul.
 
 ## Rules
 
@@ -176,9 +200,11 @@ How they run:
   test runs at a time.
 
 `pnpm run check` does not run them. CI runs them in a job of their own, on
-each pull request and on each push to `main`. Run them yourself after a change
-to `routes.tsx`, `main.tsx`, `vite.config.ts`, the API client's request
-options, an error boundary, or a page that has a page object.
+each pull request and on each push to `main`. A pull request skips them when
+the same files passed before. Only a change to a Markdown file outside
+`frontend`, `backend`, and `common` can skip them. Run them yourself
+after a change to `routes.tsx`, `main.tsx`, `vite.config.ts`, the API
+client's request options, an error boundary, or a page that has a page object.
 
 ### Build checks
 

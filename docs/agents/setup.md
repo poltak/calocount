@@ -107,6 +107,23 @@ repository compares with the template's `main`. The hook says nothing when the
 fetch fails, as it does with no network. Codex runs it only after you trust
 the hooks of the repository.
 
+### Slow commands of an agent
+
+After each shell command of a Claude Code or Codex agent,
+`.agents/hooks/warn-slow-commands.mjs` tells the agent how long the command
+took, if it took more than 1 minute. After 5 minutes, the message is stronger.
+The message tells the agent to run only the checks of the code that it
+changed, and to run the full checks one time at the end. Without it, an agent
+can run minutes of tests after each small change, because it does not see the
+time that a command takes. The message goes only to the agent. It does not
+stop the command.
+
+Claude Code gives the hook the time of the command. Codex does not, so the
+hook writes the start time of each command to a file in the temporary
+directory of the system, and deletes the file when the command ends. A
+background command of Claude Code ends at once, so the hook does not see its
+time.
+
 ### The development database
 
 `pnpm run dev`, `pnpm run db:migrate`, and `pnpm run auth:setup-owner` make
@@ -130,7 +147,7 @@ database user and password in `.env.example` are for this local database only.
 ### The pre-commit hook
 
 `pnpm install` installs a Git pre-commit hook that runs `lint-staged`. Its
-configuration in `package.json` runs two commands on the staged files:
+configuration in `package.json` runs three commands on the staged files:
 
 1. [`scripts/check-staged-secrets.mjs`](../../scripts/check-staged-secrets.mjs)
    stops the commit when the staged changes have an obvious secret: a file of
@@ -138,13 +155,20 @@ configuration in `package.json` runs two commands on the staged files:
    token in a well-known format. It reads only the lines that the commit adds,
    and it shows the file and the line, not the value. The script lists the
    formats.
-2. Prettier formats the staged files.
+2. [`scripts/check-staged-file-size.mjs`](../../scripts/check-staged-file-size.mjs)
+   stops the commit when it adds a file over 5,000 tokens, or makes such a
+   file larger. It counts a token for each 4 bytes. A file that is over the
+   limit can get smaller or keep its size. The message says how to split a
+   file. The check skips binary files, and the files that `.gitattributes`
+   marks as `linguist-generated`, such as `pnpm-lock.yaml`. Mark generated
+   code there also.
+3. Prettier formats the staged files.
 
 When a value that the check finds is not a secret, such as a key that only a
 test uses, commit again with `SKIP_SECRET_CHECK=1` in the environment. An
 agent asks its person first. The agent review of each pull request looks for
 the secrets and private data that the check cannot find. See
-[Agent review of pull requests](#agent-review-of-pull-requests).
+[Agent review of pull requests](agent-review.md).
 
 ## Database migrations
 
@@ -252,305 +276,13 @@ most pull requests get no result from it and stay blocked.
 
 ## Agent review of pull requests
 
-The "Agent review" workflow of CI gives each pull request to two models,
-Claude Code and Codex. Each one reports rule violations that no lint
-rule or test can check. An example is a doc's content that the change made no longer valid.
-The script also reports each new document in `docs/agents/`.
-[`scripts/agent-review.mjs`](../../scripts/agent-review.mjs) describes each
-step.
-
-- The general rules are in
-  [`.agents/review/prompt.md`](../../.agents/review/prompt.md), which comes
-  from the template.
-- A project adds its own rules in `.agents/review/project-rules.md`. The
-  project owns this file, and a sync never changes it. Without the file, the
-  review uses only the general rules.
-
-In `.agents/review/project-rules.md`, give each rule a heading such as
-`### release-note`. Start its body with `Resolution: fix-required` or
-`Resolution: maintainer-approval`. A missing or invalid policy requires a fix.
-A project rule cannot replace a general rule with the same name.
-Below the policy, say what to report, and give one example, as the rules in `prompt.md` do. The model gets the file from its
-first `###` heading to its end. The review deletes a finding whose rule
-is in neither file. For example:
-
-```md
-### release-note
-
-Resolution: fix-required
-
-The pull request changes text that a user sees, and its description has no
-line that starts with "Release note:". Quote the changed text.
-```
-
-The rules `decision-change`, `new-document`, and `comment-restates-code` permit
-maintainer approval. All other general rules require a fix. The script reads
-the policy from the rules, not from model output. Findings that require a fix
-have no acceptance checkbox. A later review reopens an earlier acceptance
-when the rule no longer permits it. Nonblocking notes can still be accepted.
-
-The check works as follows:
-
-- The models report two kinds of issue. A rule violation breaks a rule. Its
-  ID is such as `F3`, and it fails the check while it is open. An other
-  issue is a problem that no rule covers, such as a likely bug. Its ID is
-  such as `N2`, and it does not fail the check. Each model gives up to three
-  other issues in a review. The ID of an issue does not change in later
-  reviews. The job deletes each issue whose quote is not in the file that it
-  names.
-- The first review posts the master comment of the pull request. The master
-  comment shows each issue under "Open issues" or "Addressed issues", and it
-  stores the issues for the next review. It also has a table of the reviews,
-  and the input and output tokens that each model used in the newest review.
-  For Claude, it also gives the turns and the cost at API prices. Codex
-  gives no cost.
-- Each later review gives the open issues of the master comment to the
-  models, which say for each one if it is addressed. The models also get what
-  a maintainer wrote about the issue: a reply to its line comment, or a comment
-  on the pull request that names its ID. Only comments from persons in
-  `TEMPLATE_MAINTAINERS` count, as with checkboxes and the acceptance label.
-  GitHub's author association does not grant this authority.
-  Replies help the models locate and verify fixes or incorrect findings.
-  They cannot approve a violation, even for a rule that permits approval.
-  Code comments can explain why a finding is incorrect, but cannot grant an
-  exception. An issue is addressed when its quote is not in its file now, or
-  when each model that answered says so. An issue that a model reports again stays open. An
-  addressed issue that a model reports again is open again. The review edits
-  the master comment. Under each issue that the models checked, the master
-  comment
-  shows the status that each model gave, with the reason of the model, so a
-  person sees where the models disagree. The summary does not repeat them.
-- Each later review also posts a summary comment, so GitHub sends a
-  notification. The summary gives the result of the check. It lists the
-  issues that the review addressed, the new issues, the issues that are open
-  again, and the issues where the models disagree. Each issue links to its
-  entry in the master comment. The review hides the summary of the review
-  before it as outdated. If GitHub refuses that to the token of the workflow,
-  the job logs a warning.
-- A maintainer accepts a finding only when its rule permits approval, with
-  its checkbox in the master comment or in its line comment. The next review
-  moves the issue to the addressed issues, and each later review keeps it accepted. To take the
-  acceptance back, a maintainer clears the box, and the next review opens the
-  issue again. GitHub keeps each version of a comment with the person who
-  made it. So the review counts only a box that a person in
-  `TEMPLATE_MAINTAINERS` checked or cleared after the newest edit of the
-  review. An issue that is fixed is addressed, also when a maintainer
-  accepted it. A box changes the check at the next review, so to pass the
-  check now, a maintainer adds the label.
-- The master comment also stores the newest commit that each model read.
-  When the pull request only adds commits after it, the models look for new
-  problems only in those commits, and the summary links to them. The models
-  can read the earlier changes when a rule needs them. When a model fails,
-  the next review starts again from the newest commit that each model read.
-  Each change gets a new review after a rebase, a force push, or a merge of
-  the base branch, after a change in `.agents/review/`, and after an edit of
-  the title or the description.
-- Each new issue on lines that the pull request adds also gets a comment on
-  those lines, in a review of the type "Comment". The line comment links to
-  the issue in the master comment, and the master comment links to the line
-  comment. The review does not request changes, because the check already
-  fails. An issue on other lines is only in the master comment. When a later
-  review verifies a fix, it removes the acceptance box from the line comment
-  and adds the reason. Only accepted issues have checked boxes. A person
-  resolves the conversation, because
-  GitHub can refuse that to the token of a workflow. GitHub sends the lines
-  around a line comment by email, so an issue in a file with a `secret` or
-  `private-data` rule violation gets no line comment.
-- The rules `secret` and `private-data` look at each commit, not only at the
-  diff, because a value that a later commit deletes stays on GitHub. The
-  quote of their rule violation can be in any commit. GitHub can send a
-  comment by email, so the comments show no quote from a file that has such
-  a rule violation.
-- The models get the title and the description of the pull request, and they
-  can read its commit messages, so a rule can ask for a reason there. An edit
-  of the title or the description starts a new review. When that review
-  stops the Claude job of a review of the same head, the stopped review posts
-  nothing and fails, and the new review gives the result.
-- The job fails while a rule violation is open, and when a configured model
-  fails. A configured maintainer can add `agent-review-accepted` to accept
-  approval-permitted findings for the reviewed head. Findings that require a
-  fix and failed review jobs still fail the check. The label does not change
-  stored issue statuses. A later review with open findings removes it.
-  Checkboxes keep eligible issues accepted across reviews. A review without
-  stored issue details must run again before the label can accept findings.
-- A pull request with a comment of a review from before the master comment
-  gets a master comment at its next review. That review takes the open
-  findings of the newest old comment, and gives them the IDs `F1` and up. A
-  box that a maintainer checked in the old comment after its review does not
-  count.
-- Each pull request gets the review, also one that a maintainer opened. A
-  draft gets its review when its author marks it as ready. A dependency update
-  from Renovate or Dependabot gets no review.
-- The models, their versions, and their effort are in `env` at the top of
-  `.github/workflows/agent-review.yml`.
-- Each model runs on the subscription of a person, and not on an API key. The
-  reviews count against the usage limits of that subscription.
-- A model without its secret does not run. With no secret, the workflow reviews nothing and passes.
-
-The review uses `TEMPLATE_MAINTAINERS` from the
-[template-owned check](#files-that-come-from-the-template). Make the label one
-time:
-
-```sh
-gh label create agent-review-accepted --repo <owner>/<repo> --color 0e8a16 \
-  --description "A maintainer accepted the findings of the agent review"
-```
-
-### The Claude Code secret
-
-Run `claude setup-token`, and sign in with a Claude Pro or Max account. It
-shows a token that starts with `sk-ant-oat01-`. Save it, and paste the token
-when `gh` asks for the value:
-
-```sh
-gh secret set CLAUDE_CODE_OAUTH_TOKEN --repo <owner>/<repo>
-```
-
-### The Codex secrets
-
-Codex keeps its login in a file, `auth.json`. When the login is about 8 days
-old, Codex refreshes it during a run, and the old refresh token then stops
-working. So the workflow saves the new file in the secret after each run, and
-one Codex job runs at a time in the repository.
-
-Make a separate login for CI. Do not copy your own `~/.codex/auth.json`. When
-CI refreshes the copy, the login on your computer stops working.
-
-```sh
-mkdir -m 700 /tmp/codex-ci
-printf 'cli_auth_credentials_store = "file"\n' > /tmp/codex-ci/config.toml
-CODEX_HOME=/tmp/codex-ci codex login
-jq '{auth_mode, has_refresh_token: (.tokens.refresh_token != null)}' \
-  /tmp/codex-ci/auth.json
-```
-
-Sign in with a ChatGPT account that has Codex. The last command must show
-`"auth_mode": "chatgpt"` and `"has_refresh_token": true`. Then save the file,
-and delete the folder:
-
-```sh
-gh secret set CODEX_AUTH_JSON --repo <owner>/<repo> < /tmp/codex-ci/auth.json
-rm -rf /tmp/codex-ci
-```
-
-The token of a workflow cannot write a secret, so the workflow needs a
-personal access token to save the refreshed login:
-
-1. Open https://github.com/settings/personal-access-tokens/new.
-2. Set the resource owner to the owner of the repository, and "Repository
-   access" to this repository only.
-3. Under "Repository permissions", set "Secrets" to "Read and write".
-4. Set an expiry, such as one year, and renew the token before that date.
-5. Run `gh secret set CODEX_AUTH_WRITE_TOKEN --repo <owner>/<repo>`, and paste
-   the token. If GitHub says that the organization must approve the token, an
-   owner approves it under "Personal access tokens" in the settings of the
-   organization.
-
-When Codex refreshes the login and the job cannot save it, the job fails, and
-`CODEX_AUTH_JSON` then has a login that does not work. Make a new login with
-the steps above.
+[Agent review](agent-review.md) describes the review of each pull request by
+models in CI: its rules, its labels, and the secrets of its models.
 
 ## Beads issue tracker
 
-[Beads](https://github.com/gastownhall/beads) is an issue tracker for coding
-agents, with a command-line tool, `bd`. Each project uses it. The rules for
-agents are in `AGENTS.md`, under "Issue tracking". Run the tool as
-`pnpm exec bd`. This section writes `bd` for short.
-
-How the issues sync:
-
-- The issues are in a Dolt database in `.beads/embeddeddolt/`, which Git
-  ignores. Dolt is a SQL database with version control. `bd` makes a Dolt
-  commit after each change.
-- `bd dolt push` sends the new commits to `origin` on GitHub, under the ref
-  `refs/dolt/data`. `bd dolt pull` gets the commits of the other persons and
-  merges them. The merge is per field. When one person closes an issue and
-  another changes its priority, both changes stay.
-- Nothing syncs by itself. A push fails when the remote has commits that you
-  did not pull. Pull, and then push again.
-- `git clone` and `git fetch` do not get `refs/dolt/data`, and GitHub shows
-  no issues. Dolt also pushes a branch, `__dolt_remote_info__`, with one file
-  that names the ref. No workflow runs for that branch.
-- Pull requests do not show the issues, so the pre-commit secret check and the
-  agent review do not see them.
-- Anyone who can push to the repository can push issues. Branch protection
-  does not cover `refs/dolt/data`, and `bd dolt push --force` replaces it.
-- All worktrees of a clone use the database in the main checkout. One `bd`
-  process at a time writes to it, and the others wait. `bd doctor` does not
-  work with this kind of database.
-
-### The bd version
-
-`@beads/bd` in the root `package.json` pins the version of `bd`, so
-`pnpm install` gives each person and agent the same one. An older
-`bd` refuses a database that a newer one changed, so the version must be the
-same for all.
-
-- The `allowBuilds` entry in `pnpm-workspace.yaml` lets the install script of
-  the package run. The script downloads the `bd` binary of that version from
-  the GitHub release of beads, about 50 MB, and it does not check a checksum.
-  Each `pnpm install` without a cache downloads it, also in CI.
-- Renovate updates `@beads/bd` in the template, and the update waits for a
-  person, because a new `bd` can change the database. A project gets the
-  update with a sync. After that, each person runs `pnpm install`.
-- When another `bd`, such as one from Homebrew, is on the `PATH`, each command
-  warns about two binaries. Remove the other one.
-
-### Join a project that uses beads
-
-Do this one time on each machine, in the main checkout, on a branch that has
-`.beads/`. `git worktree list` shows the main checkout first. An agent can do
-these steps.
-
-```sh
-pnpm install
-pnpm exec bd metrics off
-pnpm exec bd bootstrap
-chmod 700 .beads
-git config beads.role maintainer
-pnpm exec bd list
-```
-
-- The usage metrics of `bd` are on by default. They send the name of each
-  command, the `bd` version, and the operating system. The setting is for
-  your user, in all projects.
-- `bd bootstrap` copies the issues from `refs/dolt/data`. It uses the SSH URL
-  in `.beads/config.yaml`, so your SSH key for GitHub must work.
-- Without the `chmod` and the `git config`, each `bd` command shows a warning.
-- The template has no issues of its own, so in a clone of the template,
-  `bd bootstrap` finds nothing. Work on the template in a worktree of a
-  project's repository. `bd` there uses the issues of that project.
-
-### Turn on beads in a new project
-
-One person does this one time, after the first push of the project, in its
-main checkout:
-
-1. Run `pnpm exec bd init --skip-hooks --skip-agents --prefix <project name>`.
-   - `--skip-hooks` keeps the [pre-commit hook](#the-pre-commit-hook). The
-     hooks of beads set `core.hooksPath`, and Git then does not run the secret
-     check.
-   - `--skip-agents` keeps the instructions of beads out of `AGENTS.md`,
-     `.claude/settings.json`, and `.codex/`. Those instructions tell agents to
-     file an issue before each change, and to stop the use of memory files.
-2. `bd init` makes a Git commit by itself, with its own message. Undo it with
-   `git reset --soft HEAD~1`, delete `.beads/README.md`, and commit again. The
-   README describes beads in general and has its own instructions for agents.
-3. Run `pnpm exec bd dolt push` to make `refs/dolt/data`, and push the commit.
-
-### Stop the use of beads
-
-1. In each project, keep a copy of the issues if you want one:
-   `pnpm exec bd export -o <file>`.
-2. In the template, remove the "Issue tracking" section and the beads lines
-   of `AGENTS.md` and `docs/agents/README.md`, the `plan-in-docs` rule of the
-   agent review, this section, and the `@beads/bd` package with its entries in
-   `pnpm-workspace.yaml`, `knip.jsonc`, `renovate.json`, and
-   `.prettierignore`. Then sync each project.
-3. In each project, delete `.beads/` and the beads lines in `.gitignore`, and
-   delete the data on GitHub:
-   `git push origin --delete refs/dolt/data refs/heads/__dolt_remote_info__`.
-4. Each person deletes the database in the main checkout: `rm -rf .beads`.
+[Beads](beads.md) describes the issue tracker: its version, how to join a
+project that uses it, and how to turn it on in a new project.
 
 ## Production
 
@@ -598,6 +330,7 @@ The repository has no deployment files yet. These facts hold on any host:
 | `pnpm run auth:reset-password`        | Set a new password for an account.                    |
 | `pnpm --filter frontend dev`          | Start only the frontend dev server.                   |
 | `pnpm --filter frontend test`         | Run the frontend tests and print the coverage report. |
+| `pnpm run test:feature <path>`        | Build, then run the app tests in one path.            |
 | `pnpm run test:browser`               | Run the build checks and the black box tests.         |
 | `pnpm run test:browser:install`       | Download the browser for the browser tests, once.     |
 | `pnpm run test:live-start`            | Start the built backend on a real PostgreSQL.         |
