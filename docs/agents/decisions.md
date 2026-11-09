@@ -17,6 +17,18 @@ entry to the choice, the reason, and any rule that follows from it.
   own in-memory PostgreSQL database, so tests run real queries without a
   database server and cannot affect each other. Kysely chosen for ease of
   switching between real vs in-memory Postgres, without changing interfacing code (Storage classes).
+- **One database engine for each project, chosen at the start.** Kysely gives
+  portable queries, and not a portable database. Transactions, SQL dialects,
+  migrations, and test databases differ between engines. So the template has
+  no engine layer and no portable SQL, and each migration is in the dialect of
+  the one engine. A layer would cost each project on PostgreSQL, and it would
+  still leak: D1 has no interactive transaction, so `transaction()` has no
+  equal there. A project on D1 sends lists of statements, and that reaches its
+  Logic code, so a project cannot change engines later without a redesign. A
+  project on another engine changes `core/database/`, the `transaction`
+  function in `compose-app.ts`, and the test database in `core/tests/index.ts`,
+  and gives `BetterAuthService` its `databaseType`. PostgreSQL stays the
+  default, and a default project sets none of this.
 - **Schema migrations are TypeScript files that run plain SQL, in one
   directory.** The schema history is one sequence for the whole database, so
   the files are in `core/database/migrations/` and not in each feature. A
@@ -575,6 +587,9 @@ entry to the choice, the reason, and any rule that follows from it.
   and pre-commit hooks set up. Main reason is for consistently formatted code for ease of reading.
 - **oxlint chosen for linting.** One blank-line rule comes from the stylistic ESLint
   plugin, loaded through oxlint's JS plugin support.
+  `unicorn/require-post-message-target-origin` is off in `workers/` only: a
+  worker sends only to its page. A Service can send to a pop-up, so it gives
+  a transfer list: `worker.postMessage(data, [])`.
 - **Architecture rules are a local lint plugin, not a separate tool.** The rules
   in `lint/` use the standard ESLint rule API, so one mechanism covers imports,
   naming, and layout, each error cites the architecture document, and ESLint
