@@ -36,3 +36,19 @@ The project's own choices, with their reasons. Read this file when you read
   match. A run across midnight UTC can fail.
 - Passkeys come from a Chromium virtual authenticator that says yes to each
   request (the `passkeyDevice` option and `otherDevicePage`).
+
+## What the new app keeps
+
+- **No Access mode, and no `/api/add-meal`.** Each instance signs in with
+  passkeys, and ChatGPT uses the MCP endpoint. No instance used Access mode or
+  the old Custom GPT route when the port started, so the new app has neither,
+  and their old tests have no new place.
+- **Calocount's own stylesheet.** The new React frontend keeps the old app's
+  look from `legacy/app/globals.css`, with its palette and dark mode. It does
+  not use the template's shared UI components.
+- **API black-box tests for the routes that no page calls.** The MCP endpoint,
+  OAuth, the public summary JSON, `/llms.txt` and the export routes have no
+  page, so the black-box tests cannot reach them, and an integration test
+  starts from a UI Logic method. These tests call the running app over HTTP as
+  an outside client does, and run against both targets, as the black-box
+  tests do. See [rules](rules.md).
