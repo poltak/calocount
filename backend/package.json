@@ -26,17 +26,17 @@
     "auth:reset-password": "pnpm --filter backend... run build && node --env-file-if-exists=../.env dist/features/auth/scripts/reset-password.js"
   },
   "dependencies": {
-    "@hono/node-server": "2.1.5",
+    "@hono/node-server": "2.1.6",
     "@hono/zod-validator": "0.9.1",
     "@app/common": "workspace:*",
-    "better-auth": "1.7.14",
-    "hono": "4.13.14",
-    "kysely": "0.29.7",
+    "better-auth": "1.7.18",
+    "hono": "4.13.16",
+    "kysely": "0.29.8",
     "pg": "8.23.1",
     "zod": "4.6.7"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "0.5.13",
+    "@electric-sql/pglite": "0.5.15",
     "@types/pg": "8.23.1"
   }
 }
