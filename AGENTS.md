@@ -19,8 +19,10 @@ project information. Read the documents that apply to the task.
 - In a project made from the template, do not change a file that
   `templateOwned` in `scripts/template-paths.json` lists. Describe the change
   to the person instead. It goes to the template first, and the project gets
-  it with a sync. A path in `ownPaths` of `template-version.json` is the
-  project's own. Only a person changes that list.
+  it with a sync. When the person agrees, report the gap as the `sync-template`
+  skill says, so that the template learns of it. A path in `ownPaths` of
+  `template-version.json` is the project's own. Only a person changes that
+  list.
 
 ## Start of a task
 
@@ -84,8 +86,10 @@ project information. Read the documents that apply to the task.
 
 - While you work, run `pnpm run typecheck` and `pnpm run lint` after
   TypeScript changes. Also run the app tests of each feature that you change,
-  such as `pnpm --filter frontend exec vitest run src/features/notes`. These
-  take seconds. `pnpm run check` takes minutes, because it runs each app test.
+  such as `pnpm run test:feature src/features/<feature>`. This builds
+  `backend` and `common` first, because the tests load their build. It takes
+  seconds.
+  `pnpm run check` takes minutes, because it runs each app test.
 - Run `pnpm run check` before you push, and before you tell the person that
   the work is done. Each push to a pull request that is ready for review
   starts CI and the agent review, so a failure that CI finds costs a second

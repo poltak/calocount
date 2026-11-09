@@ -125,6 +125,9 @@ export function sameRepository({ left, right }) {
  *   entry stays after `commit` moves past it, as a record of the decision.
  * - `unchanged`: later commits that changed nothing in the project. Only a
  *   sync that is not finished has this list.
+ * - `conflicts`: each commit where `apply` stopped, with the files that it
+ *   stopped at. Only a sync that is not finished has this list. `finish` moves
+ *   it to the message of its commit.
  * - `ownPaths`: the paths that the project took over from the template, each
  *   with a `path` and a `reason`. A path that ends with `/` is a directory.
  */
@@ -145,7 +148,8 @@ export function readVersionFile({ root }) {
         typeof entry?.path === "string" &&
         typeof entry.reason === "string" &&
         entry.reason.trim() !== "",
-    )
+    ) ||
+    !Array.isArray(version.conflicts ?? [])
   ) {
     fail(
       `${VERSION_FILE} must have "template" (a URL), "commit" (a full commit ID), and "skipped" (a list). "ownPaths" is optional, and each of its entries must have a "path" and a "reason".`,

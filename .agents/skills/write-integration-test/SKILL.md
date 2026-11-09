@@ -44,8 +44,7 @@ you start. This skill is the order of work.
    pnpm --filter frontend test
    pnpm run check
    ```
-   To run one file after a first full run has built the backend:
-   `pnpm --filter frontend exec vitest run <path-from-frontend>`.
+   To run one file: `pnpm run test:feature <path-from-frontend>`.
 
 ## Gotchas
 
@@ -62,7 +61,8 @@ you start. This skill is the order of work.
   the new control in `docs/agents/testing.md`. Lint rejects test doubles in
   these files.
 - A backend change needs a rebuild before frontend tests see it.
-  `pnpm --filter frontend test` rebuilds; a bare `vitest run` does not.
+  `pnpm run test:feature` and `pnpm --filter frontend test` rebuild; a bare
+  `vitest run` does not, and it passes or fails on old code.
 - Do not write teardown. The fixture cleans up when the test finishes.
 - The check fails when a function in a UI Logic file never runs in a test. Add
   a test for the operation it belongs to. Uncovered lines and branches do not

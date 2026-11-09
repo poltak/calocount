@@ -362,6 +362,15 @@ function showPlan() {
   }
 }
 
+/** A version with the files that stopped `apply` at this commit, if any. */
+const withConflicts = ({ version, commit, files }) =>
+  files.length > 0
+    ? {
+        ...version,
+        conflicts: [...(version.conflicts ?? []), { commit, files }],
+      }
+    : version;
+
 /**
  * Give a file the content that it has in the project's last commit. When that
  * commit does not have the file, remove the file.
@@ -576,11 +585,16 @@ async function settle({ commit, leftOut, stopped }) {
   }
 
   rmSync(stoppedFile(), { force: true });
+  // `finish` reports these. Until then the version file keeps them, as it does
+  // `unchanged`, so a `git reset` to before the sync also removes this record.
+  const version = withConflicts({
+    version: readVersionFile({ root }),
+    commit: commit.commit,
+    files: stopped.conflicts,
+  });
   if (holds("diff", "--cached", "--quiet", "HEAD")) {
     // No commit names this template commit, so the version file does, until
-    // `finish` moves the version past it. A `git reset` that goes back to
-    // before the sync also removes this record.
-    const version = readVersionFile({ root });
+    // `finish` moves the version past it.
     await writeVersionFile({
       root,
       version: {
@@ -589,6 +603,9 @@ async function settle({ commit, leftOut, stopped }) {
       },
     });
     return undefined;
+  }
+  if (stopped.conflicts.length > 0) {
+    await writeVersionFile({ root, version });
   }
   const [name, email, date] = read(
     "log",
@@ -707,7 +724,11 @@ async function skip({ commitArgument, reason }) {
   await writeVersionFile({
     root,
     version: {
-      ...plan.version,
+      ...withConflicts({
+        version: plan.version,
+        commit: commit.commit,
+        files: stopped?.conflicts ?? [],
+      }),
       skipped: [
         ...plan.version.skipped,
         { commit: commit.commit, subject: commit.subject, reason },
@@ -869,9 +890,10 @@ async function finish() {
       count: leftOutFiles.size,
     });
   }
-  // The new version is past each commit in `unchanged`, so that list ends. A
-  // project's other fields stay, also a field that this script does not know.
-  const { unchanged, ...version } = plan.version;
+  // The new version is past each commit in `unchanged` and `conflicts`, so
+  // those lists end. A project's other fields stay, also a field that this
+  // script does not know.
+  const { unchanged, conflicts = [], ...version } = plan.version;
   await writeVersionFile({ root, version: { ...version, commit: plan.tip } });
   read("add", "--", VERSION_FILE);
   git({
@@ -880,7 +902,13 @@ async function finish() {
     input:
       `Record template version ${short(plan.tip)}\n\n` +
       `- The project has the template up to: ${read("log", "-1", "--format=%s", plan.tip)}\n` +
-      counts.map(({ label, count }) => `- ${label}: ${count}\n`).join(""),
+      counts.map(({ label, count }) => `- ${label}: ${count}\n`).join("") +
+      conflicts
+        .map(
+          ({ commit, files }) =>
+            `- Conflict at ${short(commit)}: ${files.join(", ")}\n`,
+        )
+        .join(""),
   });
   console.log(
     `The project has the template up to ${short(plan.tip)}. Push the branch when it is ready.`,
