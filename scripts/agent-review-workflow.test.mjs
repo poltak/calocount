@@ -10,8 +10,8 @@ const repoRoot = path.resolve(
 );
 
 // The verdict job fails when the plan did not succeed. Without the same
-// condition there, a repository that turns the review off gets a failed check.
-test("the plan and the verdict jobs both stop when AGENT_REVIEW is off", async () => {
+// condition there, an event that skips the plan gets a failed check.
+test("the verdict job skips each event that skips the plan", async () => {
   const workflow = await readFile(
     path.join(repoRoot, ".github/workflows/agent-review.yml"),
     "utf8",
@@ -21,9 +21,13 @@ test("the plan and the verdict jobs both stop when AGENT_REVIEW is off", async (
       .slice(workflow.indexOf(`\n  ${job}:\n`))
       .match(/\n {4}if: ([^\n]+)\n/)[1];
 
-  assert.equal(conditionOf("plan"), "vars.AGENT_REVIEW != 'off'");
-  assert.match(
+  const plan = conditionOf("plan");
+  assert.match(plan, /^vars\.AGENT_REVIEW != 'off' && /);
+  assert.match(plan, /!github\.event\.pull_request\.draft/);
+  assert.match(plan, /'renovate\[bot\]'/);
+  assert.match(plan, /'dependabot\[bot\]'/);
+  assert.ok(
+    conditionOf("verdict").startsWith(`always() && ${plan} && (`),
     conditionOf("verdict"),
-    /^always\(\) && vars\.AGENT_REVIEW != 'off' && \(/,
   );
 });

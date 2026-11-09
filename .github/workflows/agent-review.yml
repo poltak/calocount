@@ -43,9 +43,11 @@ jobs:
     name: Plan
     # A repository with no model secrets, such as the template, sets the
     # variable AGENT_REVIEW to "off". Then no job starts, and no minutes are
-    # billed. The verdict job needs the same condition, because it fails when
-    # the plan did not succeed, and a skipped plan did not succeed.
-    if: vars.AGENT_REVIEW != 'off'
+    # billed. A draft and a dependency update get no review, so their events
+    # start no job either. The bots here are the bots of `DEPENDENCY_BOTS` in
+    # the script. The verdict job needs the same condition, because it fails
+    # when the plan did not succeed, and a skipped plan did not succeed.
+    if: vars.AGENT_REVIEW != 'off' && !github.event.pull_request.draft && github.event.pull_request.user.login != 'renovate[bot]' && github.event.pull_request.user.login != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     # The plan reads the master comment of the earlier reviews.
@@ -174,7 +176,7 @@ jobs:
   verdict:
     name: Agent review
     needs: [plan, claude, codex]
-    if: always() && vars.AGENT_REVIEW != 'off' && (needs.plan.result != 'success' || needs.plan.outputs.mode == 'review' || needs.plan.outputs.mode == 'label')
+    if: always() && vars.AGENT_REVIEW != 'off' && !github.event.pull_request.draft && github.event.pull_request.user.login != 'renovate[bot]' && github.event.pull_request.user.login != 'dependabot[bot]' && (needs.plan.result != 'success' || needs.plan.outputs.mode == 'review' || needs.plan.outputs.mode == 'label')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
