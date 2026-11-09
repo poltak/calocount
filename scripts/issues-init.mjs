@@ -45,7 +45,7 @@ function refuseWhenNotReady() {
   }
   if (existsSync(path.join(root, DATA_DIRECTORY))) {
     fail(
-      `This project has ${DATA_DIRECTORY}/. To use it, follow "Join a project that uses beads" in docs/agents/setup.md.`,
+      `This project has ${DATA_DIRECTORY}/. To use it, follow "Join a project that uses beads" in docs/agents/beads.md.`,
     );
   }
   if (

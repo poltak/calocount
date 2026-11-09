@@ -27,7 +27,7 @@ const GIT_ENVIRONMENT = {
 };
 const START_COMMIT = "1".repeat(40);
 
-// Stands in for `pnpm exec bd init`, and does what `docs/agents/setup.md`
+// Stands in for `pnpm exec bd init`, and does what `docs/agents/beads.md`
 // records of the real command: it writes `.beads/`, and commits it.
 const FAKE_PNPM = `#!/bin/sh
 printf '%s\\n' "$*" > "$FAKE_CALLS"
