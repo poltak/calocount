@@ -433,7 +433,7 @@ entry to the choice, the reason, and any rule that follows from it.
   for each task had no place in a project. One bare line in `AGENTS.md` loads
   the file in both agents. The line has no backticks, because Claude Code does
   not expand an import in a code span. A file that the template shipped would
-  reach only new projects, because a sync leaves out each `projectOwned` path.
+  reach each project once, and then the project owns it.
   With no file, an absent file is the normal case, and both agents ignore it.
   `AGENTS.override.md` is not an option, because Codex reads it in place of
   `AGENTS.md`.
