@@ -249,11 +249,16 @@ describe("backend HTTP app", () => {
     async ({ init }) => {
       const { httpApp, transport } = await createFullApplication();
       httpApp
-        .post("/api/uploads", routeBodyLimit(300 * KILOBYTE), async (context) =>
-          context.json({ receivedBytes: (await context.req.text()).length }),
+        .post(
+          "/api/uploads",
+          routeBodyLimit({ maxBytes: 300 * KILOBYTE }),
+          async (context) =>
+            context.json({ receivedBytes: (await context.req.text()).length }),
         )
-        .post("/api/avatars", routeBodyLimit(150 * KILOBYTE), (context) =>
-          context.text("stored"),
+        .post(
+          "/api/avatars",
+          routeBodyLimit({ maxBytes: 150 * KILOBYTE }),
+          (context) => context.text("stored"),
         );
       const send = (path: string) =>
         transport.fetch(`${ORIGIN}${path}`, { method: "POST", ...init() });
@@ -278,10 +283,15 @@ describe("backend HTTP app", () => {
     },
   );
 
-  it("should apply a route's own limit that is lower than the default", async () => {
+  it("should apply a route's own limit and message, also below the default", async () => {
     const { httpApp, transport } = await createFullApplication();
-    httpApp.post("/api/tags", routeBodyLimit(KILOBYTE), (context) =>
-      context.text("stored"),
+    httpApp.post(
+      "/api/tags",
+      routeBodyLimit({
+        maxBytes: KILOBYTE,
+        message: "The tag list is too long",
+      }),
+      (context) => context.text("stored"),
     );
 
     const response = await transport.fetch(`${ORIGIN}/api/tags`, {
@@ -290,6 +300,9 @@ describe("backend HTTP app", () => {
     });
 
     expect(response.status).toEqual(413);
+    expect(await response.json()).toEqual({
+      error: { code: "PAYLOAD_TOO_LARGE", message: "The tag list is too long" },
+    });
   });
 
   it("should find a route's own limit in a sub-app with its own error handler", async () => {
@@ -298,7 +311,7 @@ describe("backend HTTP app", () => {
       "/api/uploads",
       new Hono()
         .onError((_error, context) => context.text("failed", 500))
-        .post("/", routeBodyLimit(300 * KILOBYTE), (context) =>
+        .post("/", routeBodyLimit({ maxBytes: 300 * KILOBYTE }), (context) =>
           context.text("stored"),
         ),
     );
@@ -315,8 +328,10 @@ describe("backend HTTP app", () => {
     const { httpApp, transport } = await createFullApplication({
       authenticated: false,
     });
-    httpApp.post("/api/uploads", routeBodyLimit(300 * KILOBYTE), (context) =>
-      context.text("stored"),
+    httpApp.post(
+      "/api/uploads",
+      routeBodyLimit({ maxBytes: 300 * KILOBYTE }),
+      (context) => context.text("stored"),
     );
     const body = chunkedBody(LARGE_BODY);
 
