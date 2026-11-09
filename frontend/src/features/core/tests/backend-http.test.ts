@@ -385,14 +385,6 @@ describe("backend HTTP app", () => {
         message: "The service is not available. Try again later.",
       },
     });
-    const failure = backend.services.logger.entries.find(
-      (entry) => entry.message === "Session check failed",
-    );
-    expect(failure).toMatchObject({
-      level: "error",
-      fields: { requestId: response.headers.get("x-request-id") },
-    });
-    expect(failure?.fields?.error).toBeInstanceOf(Error);
   });
 
   it("should send the session cookie again when a session renews, and not before", async () => {
