@@ -33,18 +33,23 @@ function syncInTerminal({ project, typed, args }) {
   const quoted = command
     .map((part) => `'${part.replaceAll("'", "'\\''")}'`)
     .join(" ");
-  const result = spawnSync(
-    "script",
+  const scriptArgs =
     process.platform === "darwin"
       ? ["-q", "/dev/null", ...command]
-      : ["-q", "-e", "-c", quoted, "/dev/null"],
-    {
-      cwd: project,
-      env: GIT_ENVIRONMENT,
-      encoding: "utf8",
-      // `script` waits a long time for a command that reads no typed line.
-      input: typed ? `${typed}\n` : "",
-    },
+      : ["-q", "-e", "-c", quoted, "/dev/null"];
+  // macOS `script` refuses a socket as its input, and Node gives a child a
+  // socket. When its input ends, it also ends the command's input before the
+  // command reads the typed line. So a shell pipe gives the line, and stays
+  // open until the command ends.
+  const typeOneLine = `typed=$1
+shift
+done=$(mktemp -u) && mkfifo "$done" || exit 1
+{ printf '%s\\n' "$typed"; read -r _ < "$done"; } |
+  { script "$@"; status=$?; : > "$done"; rm -f "$done"; exit "$status"; }`;
+  const result = spawnSync(
+    "sh",
+    ["-c", typeOneLine, "sh", typed ?? "", ...scriptArgs],
+    { cwd: project, env: GIT_ENVIRONMENT, encoding: "utf8", input: "" },
   );
   return {
     status: result.status,
