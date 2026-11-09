@@ -1629,7 +1629,7 @@ export function mountDashboard(root: HTMLElement, { readOnly = false, publicView
     const time = localTimeValue();
     const numberField = ({ label, name, placeholder, required = false }: { label: string; name: string; placeholder: string; required?: boolean }) =>
       h("label", null, label, h("input", { name, type: "number", min: "0", step: "any", placeholder, required }));
-    return h("form", { class: "add-meal-form", onsubmit: (event: Event) => void addMeal(event) },
+    return h("form", { class: "add-meal-form", "aria-label": "Log an entry", onsubmit: (event: Event) => void addMeal(event) },
       h("div", { class: "form-heading" },
         h("div", null, h("strong", null, "Log an entry"), h("span", null, "Use a quick estimate now. You can edit it later.")),
         h("label", null, "Time", h("input", { name: "time", type: "time", value: time, required: true, "aria-label": "Entry time" })),
@@ -2070,7 +2070,7 @@ export function mountDashboard(root: HTMLElement, { readOnly = false, publicView
     const copying = pending?.kind === "meal-copy";
     const duplicating = pending?.kind === "meal-duplicate";
     const editing = state.mealEditState.editingMealId === meal.id;
-    return h("div", { class: "meal-group", key: meal.id },
+    return h("div", { class: "meal-group", key: meal.id, role: "article", "aria-label": meal.name },
       h("div", { class: cx("meal-row", !hasPhoto && "without-photo", busy && "is-pending"), "aria-busy": busy },
         h("div", { class: cx("meal-row-content", !hasPhoto && "without-photo") },
           hasPhoto ? h("button", {
