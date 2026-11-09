@@ -215,6 +215,11 @@ entry to the choice, the reason, and any rule that follows from it.
   test that replaces parts of the path can pass while the real path is broken,
   so almost every test runs the whole path and replaces nothing on it. The rules
   are in [testing](testing.md).
+- **A test on a second host is the same test type.** A Durable Object cannot
+  run in the Node fixture, so a project with one needs another runtime for
+  those tests. The test has the same form there, so the two test types stay
+  two, and the backend still has no test runner of its own. The template has
+  no second host, because a default project has no use for one.
 - **Full-application tests run in one process.** One fixture creates an isolated
   backend, its HTTP app, and a frontend app. Frontend requests call the HTTP app
   directly with standard `Request` objects: no network and no listening socket,
