@@ -37,6 +37,46 @@ The project's own choices, with their reasons. Read this file when you read
 - Passkeys come from a Chromium virtual authenticator that says yes to each
   request (the `passkeyDevice` option and `otherDevicePage`).
 
+## One Worker on one origin
+
+- **The new app is one Cloudflare Worker.** It serves the API and the built
+  frontend (Workers static assets) on one origin, as the old app does. The page
+  calls the API on its own origin, so a deployment sends no CORS headers and
+  the cookie is first-party. `frontend/dist` is the assets directory. A path
+  that is not a file gets `index.html`, and the Worker answers `/api/*`,
+  `/health`, `/health/*` and the paths that later phases add (`/mcp`,
+  `/oauth/*`, `/.well-known/*`, `/llms.txt`, `/meal-photos/*`).
+- **`wrangler.jsonc` is at the repository root.** The Deploy to Cloudflare
+  button reads the root. A button from a subfolder needs a folder that has all
+  its inputs, and `backend/` imports the workspace package `common/`. The
+  `cloudflare.bindings` descriptions are in the root `package.json`, and
+  `.dev.vars.example` lists the secret. The config has the same Worker name and
+  D1 database as `legacy/wrangler.jsonc`, so the new app can replace the old one
+  on the same data. The R2, Images and cron settings are copied and unused until
+  a later phase. `vars` hold only values that every instance shares.
+- **The frontend is built with an empty `VITE_API_BASE_URL`.** `pnpm run build`
+  sets it, so the page uses its own origin whatever a local `.env` says.
+- **The reset route is `POST /api/__black-box/reset`.** It empties each app
+  table between black-box tests, as the old app does. It exists only when
+  `CALOCOUNT_BLACK_BOX` is `true`, which only `scripts/black-box-next.mjs` sets.
+  `BlackBoxStorage` deletes, `BlackBoxLogic` plans the batch and refuses without
+  the setting, and the HTTP app mounts the handler only when `config.blackBox`
+  is on. An integration test shows that it is absent without the setting. The
+  stored photos are not deleted yet, because no route stores one.
+- **The `next` target signs in with passkeys.** There is one Worker, and a test
+  with `authenticated: false` gets an empty instance. For `authenticated: true`
+  the fixture uses a virtual authenticator, opens the sign-in page, and saves
+  the first passkey with the setup code, as a real owner does, and gives the
+  test that page. The template's separate frontend and backend origins and the
+  email form no longer fit.
+- **The `next` Worker runs with `wrangler dev` 4.158.0.** The "Network
+  connection lost" stop of the dev proxy, which made the old app's serve script
+  use `vite preview`, did not appear on the passkey sign-in. If it comes back,
+  run the Worker through Miniflare directly.
+- **The build checks of the template run on `next` only.** They use the passkey
+  sign-in on the Worker (`core/tests/browser/`). The check of the header
+  fallback is gone, because the app has no user name in its header.
+
 ## What the new app keeps
 
 - **No Access mode, and no `/api/add-meal`.** Each instance signs in with

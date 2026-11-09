@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { requestId } from "hono/request-id";
 import { secureHeaders } from "hono/secure-headers";
+import { createBlackBoxHandlers } from "../../black-box/handlers/black-box-handlers.js";
 import { createAuthHandlers } from "../../auth/handlers/auth-handlers.js";
 import { requireTrustedOrigin } from "../../auth/handlers/require-trusted-origin.js";
 import { requireSession } from "../../auth/handlers/require-session.js";
@@ -67,6 +68,14 @@ export function createHttpApp({ app, clientAddressHeader }: HttpAppProps) {
         // A page on another origin can read only the headers in this list.
         exposeHeaders: ["X-Request-Id", "Retry-After"],
       }),
+    );
+  }
+  // The reset route for the black-box tests exists only when the test-only
+  // setting is on. It comes before `/api`, so the origin check does not apply.
+  if (app.config.blackBox) {
+    http.route(
+      "/api/__black-box",
+      createBlackBoxHandlers({ logic: app.logic }),
     );
   }
   return (

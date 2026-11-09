@@ -10,32 +10,26 @@ import {
   type Page,
   type TestInfo,
 } from "@playwright/test";
-import type { DatabaseTemplate } from "backend/testing";
-import { TEST_OWNER_CREDENTIALS } from "../tests/test-owner.js";
-import {
-  BACKEND_ORIGIN,
-  BACKEND_PORT,
-  FRONTEND_ORIGIN,
-} from "../tests/browser/origins.js";
+import { PasskeySignInPageObject } from "../../auth/black-box-tests/passkey-sign-in-page-object.js";
 
-/** The setup code of the passkey Worker in `legacy/scripts/black-box-serve.mjs`. */
-const LEGACY_SETUP_CODE = "black-box-setup-code";
+/**
+ * The setup code of the passkey Worker in `legacy/scripts/black-box-serve.mjs`
+ * and of the Worker in `scripts/black-box-next.mjs`.
+ */
+const SETUP_CODE = "black-box-setup-code";
 const RESET_PATH = "/api/__black-box/reset";
-const LEGACY_RESET_ATTEMPTS = 60;
+const RESET_ATTEMPTS = 60;
 
 interface BlackBoxOptions {
   /**
    * Sign the owner in before the test starts. Defaults to true. A test with
    * `false` starts on an instance where passkey sign-in protects the owner
-   * pages, and no passkey exists yet.
+   * pages, and no passkey exists yet. On the old app, a signed-in test uses
+   * the Worker with sign-in off. On the new app, the fixture saves the
+   * owner's passkey through the sign-in page with the setup code, and gives
+   * the test that page.
    */
   authenticated: boolean;
-  /**
-   * Who can have an account. Defaults to the mode that the project runs in.
-   * In `openSignUp` mode, a visitor can sign up, and the owner is one user
-   * among others.
-   */
-  accountMode: "singleOwner" | "openSignUp";
   /**
    * Give the browser of `page` a passkey device, as a phone or a laptop has.
    * It says yes to each passkey request. Defaults to false.
@@ -44,8 +38,6 @@ interface BlackBoxOptions {
 }
 
 interface BlackBoxFixtures {
-  /** The email, name, and password of the owner account. */
-  owner: typeof TEST_OWNER_CREDENTIALS;
   /** The code that saves the first passkey of a new instance. */
   setupCode: string;
   /** A page in a second browser, with no session: a visitor of the app. */
@@ -55,10 +47,6 @@ interface BlackBoxFixtures {
    * session: the owner's other phone or laptop.
    */
   otherDevicePage: Page;
-}
-
-interface BlackBoxWorkerFixtures {
-  databaseTemplate: DatabaseTemplate | null;
 }
 
 type Target = "legacy" | "next";
@@ -82,13 +70,13 @@ function legacyOrigin(input: {
 }
 
 /**
- * The old app has one database for each Worker, so each test starts with an
- * empty one. The reset route exists only on the black box Workers.
+ * Each Worker has one database for a whole run, so each test starts with an
+ * empty one. The reset route exists only on the black-box Workers.
  */
-async function resetLegacyApp(input: {
+async function resetApp(input: {
   browser: Browser;
   origin: string;
-}): Promise<() => Promise<void>> {
+}): Promise<void> {
   const context = await input.browser.newContext();
   try {
     // A Worker that stopped starts again in a few seconds, so a refused
@@ -99,11 +87,11 @@ async function resetLegacyApp(input: {
           `${input.origin}${RESET_PATH}`,
         );
         if (!reset.ok()) {
-          throw new Error(`The reset of the old app failed: ${reset.status()}`);
+          throw new Error(`The reset of the app failed: ${reset.status()}`);
         }
         break;
       } catch (error) {
-        if (attempt >= LEGACY_RESET_ATTEMPTS || !isRefused(error)) {
+        if (attempt >= RESET_ATTEMPTS || !isRefused(error)) {
           throw error;
         }
         await new Promise((resolve) => {
@@ -114,7 +102,6 @@ async function resetLegacyApp(input: {
   } finally {
     await context.close();
   }
-  return async () => {};
 }
 
 function isRefused(error: unknown): boolean {
@@ -137,46 +124,24 @@ async function addPasskeyDevice(page: Page): Promise<void> {
   });
 }
 
-async function startNextBackend(input: {
-  page: Page;
-  template: DatabaseTemplate;
-  authenticated: boolean;
-  accountMode: BlackBoxOptions["accountMode"];
-}): Promise<() => Promise<void>> {
-  const { startTestBackendServer } = await import("backend/testing");
-  const server = await startTestBackendServer({
-    template: input.template,
-    port: BACKEND_PORT,
-    trustedOrigins: [FRONTEND_ORIGIN],
-    accountMode: input.accountMode,
-  });
-  if (input.authenticated) {
-    // The request shares the page's cookies. Signing in through the API
-    // keeps every other test independent of the sign-in page.
-    const signIn = await input.page.request.post(
-      `${BACKEND_ORIGIN}/api/session`,
-      { data: TEST_OWNER_CREDENTIALS },
-    );
-    if (!signIn.ok()) {
-      await server.close();
-      throw new Error(`Test owner sign-in failed: ${signIn.status()}`);
-    }
-  }
-  return () => server.close();
+/**
+ * The new app has one Worker with passkey sign-in, so a signed-in test starts
+ * as a real owner does: it saves the first passkey with the setup code on the
+ * sign-in page. This fixture is exempt from the black-box lint rules.
+ */
+async function signInAsOwner(page: Page): Promise<void> {
+  const signIn = new PasskeySignInPageObject(page);
+  await signIn.goto();
+  await signIn.setUp(SETUP_CODE);
 }
 
 /**
- * The `test` function of every black box test. Each test gets a backend with a
- * database that holds only the owner, and a page that has not opened the app
- * yet. On the new app that is a backend of its own. On the old app it is an
- * emptied database. Set the options with `test.use()`.
+ * The `test` function of every black box test. Each test gets an emptied
+ * database, and a page: signed in as the owner, or with no session. Set the
+ * options with `test.use()`.
  */
-export const test = base.extend<
-  BlackBoxOptions & BlackBoxFixtures,
-  BlackBoxWorkerFixtures
->({
+export const test = base.extend<BlackBoxOptions & BlackBoxFixtures>({
   authenticated: [true, { option: true }],
-  accountMode: ["singleOwner", { option: true }],
   passkeyDevice: [false, { option: true }],
   baseURL: async ({ baseURL, authenticated }, provide, testInfo) => {
     await provide(
@@ -185,64 +150,32 @@ export const test = base.extend<
         : baseURL,
     );
   },
-  // Migrating a database and hashing the owner's password takes more than a
-  // second, so each worker does it once, and each test database is a copy.
-  databaseTemplate: [
-    async ({}, provide, workerInfo) => {
-      if (targetOf(workerInfo) === "legacy") {
-        await provide(null);
-        return;
-      }
-      const { createDatabaseTemplate } = await import("backend/testing");
-      await provide(await createDatabaseTemplate(TEST_OWNER_CREDENTIALS));
-    },
-    { scope: "worker" },
-  ],
-  owner: async ({}, provide) => {
-    await provide(TEST_OWNER_CREDENTIALS);
-  },
   setupCode: async ({}, provide) => {
-    await provide(LEGACY_SETUP_CODE);
+    await provide(SETUP_CODE);
   },
   page: async (
-    {
-      page,
-      browser,
-      baseURL,
-      databaseTemplate,
-      authenticated,
-      accountMode,
-      passkeyDevice,
-    },
+    { page, browser, baseURL, authenticated, passkeyDevice },
     provide,
+    testInfo,
   ) => {
-    if (passkeyDevice) {
+    const signsInWithPasskey = targetOf(testInfo) === "next" && authenticated;
+    if (passkeyDevice || signsInWithPasskey) {
       await addPasskeyDevice(page);
     }
-    const closeBackend = databaseTemplate
-      ? await startNextBackend({
-          page,
-          template: databaseTemplate,
-          authenticated,
-          accountMode,
-        })
-      : await resetLegacyApp({ browser, origin: baseURL ?? "" });
+    await resetApp({ browser, origin: baseURL ?? "" });
     const uncaughtErrors: Error[] = [];
     page.on("pageerror", (error) => uncaughtErrors.push(error));
+    if (signsInWithPasskey) {
+      await signInAsOwner(page);
+    }
 
     await provide(page);
 
     // The old app's dev server can stop when the browser drops an open
     // request, so the test ends after the page's requests end.
-    if (!databaseTemplate) {
-      await page.waitForLoadState("networkidle").catch(() => {});
-    }
-    // Closing the backend ends the page's open requests, and an error from
-    // that is not part of the test.
-    const errorsDuringTest = [...uncaughtErrors];
-    await closeBackend();
+    await page.waitForLoadState("networkidle").catch(() => {});
     expect(
-      errorsDuringTest,
+      uncaughtErrors,
       "Normal use must not cause an error that no code caught",
     ).toEqual([]);
   },

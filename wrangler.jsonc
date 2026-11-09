@@ -1,0 +1,71 @@
+{
+  // This file is at the repository root because the Deploy to Cloudflare
+  // button reads the root, and the Worker imports the workspace package
+  // common/. See docs/agents/project/decisions.md.
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "calocount-app",
+  "main": "backend/src/features/core/server/worker.ts",
+  "compatibility_date": "2026-08-23",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    // `pnpm run build` writes the frontend here, built for the same origin.
+    "directory": "frontend/dist",
+    // The Worker answers these paths. Later phases add the routes for /mcp,
+    // /oauth/*, /.well-known/*, /llms.txt and /meal-photos/*.
+    "run_worker_first": [
+      "/api/*",
+      "/health",
+      "/health/*",
+      "/mcp",
+      "/oauth/*",
+      "/.well-known/*",
+      "/llms.txt",
+      "/meal-photos/*",
+    ],
+    // Any other path gets index.html, and the router shows the page.
+    "not_found_handling": "single-page-application",
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "calocount",
+      "database_id": "a8d1973b-03e6-4c71-b9cd-40ecc335e3f8",
+      "migrations_dir": "backend/migrations",
+    },
+  ],
+  // Not used yet. Later phases store meal photos here.
+  "r2_buckets": [
+    {
+      "binding": "PHOTOS",
+      "bucket_name": "calocount-meals",
+    },
+  ],
+  // Not used yet.
+  "images": {
+    "binding": "IMAGES",
+  },
+  // Not used yet. Hourly cleanup of meal photos that no meal links to.
+  "triggers": {
+    "crons": ["0 * * * *"],
+  },
+  // Only values that are the same for every instance. Each instance sets its
+  // own setup code as a secret on its Worker, in the dashboard or by the
+  // Deploy to Cloudflare button.
+  "vars": {
+    "CALOCOUNT_OWNER_KEY": "default",
+  },
+  // Keep the variables that the dashboard sets. Without this, each deploy
+  // deletes them.
+  "keep_vars": true,
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1,
+    },
+    "traces": {
+      "enabled": true,
+      "head_sampling_rate": 0.05,
+    },
+  },
+}

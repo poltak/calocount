@@ -4,6 +4,8 @@ import type { AuthPasskeyManageLogic } from "../auth/logic/auth-passkey-manage-l
 import type { AuthSessionLogic } from "../auth/logic/auth-session-logic.js";
 import type { PasskeyServiceInterface } from "../auth/services/types.js";
 import type { AuthStorage } from "../auth/storage/auth-storage.js";
+import type { BlackBoxLogic } from "../black-box/logic/black-box-logic.js";
+import type { BlackBoxStorage } from "../black-box/storage/black-box-storage.js";
 import type { HealthLogic } from "../health/logic/health-logic.js";
 import type { HealthStorage } from "../health/storage/health-storage.js";
 import type { RunAtomic } from "./logic/types.js";
@@ -11,6 +13,7 @@ import type { ClockServiceInterface } from "./services/types.js";
 
 export interface BackendStorage {
   auth: AuthStorage;
+  blackBox: BlackBoxStorage;
   health: HealthStorage;
 }
 
@@ -32,6 +35,7 @@ export interface BackendLogic {
   authPasskey: AuthPasskeyLogic;
   authPasskeyManage: AuthPasskeyManageLogic;
   authSession: AuthSessionLogic;
+  blackBox: BlackBoxLogic;
   health: HealthLogic;
 }
 
@@ -49,6 +53,11 @@ export interface AppConfig {
   setupCode: string;
   /** Origins of a frontend on another origin. Only a test backend has any. */
   trustedOrigins: readonly string[];
+  /**
+   * Turns on the reset route for the black-box tests. Only a local test Worker
+   * sets it: `scripts/black-box-next.mjs` through `CALOCOUNT_BLACK_BOX`.
+   */
+  blackBox: boolean;
 }
 
 export interface App {

@@ -1,13 +1,4 @@
 import { defineConfig, devices } from "@playwright/test";
-import {
-  BACKEND_ORIGIN,
-  FRONTEND_ORIGIN,
-  FRONTEND_PORT,
-} from "./src/features/core/tests/browser/origins.js";
-
-/** The build that the browser tests load. Git ignores this directory. */
-const BUILD_DIRECTORY = ".browser-test/dist";
-
 type BlackBoxTarget = "legacy" | "next";
 
 function readBlackBoxTarget(value: string | undefined): BlackBoxTarget {
@@ -24,7 +15,9 @@ function readBlackBoxTarget(value: string | undefined): BlackBoxTarget {
  *
  * - `legacy`: the old app in `legacy/`, on two local Workers. See
  *   `legacy/scripts/black-box-serve.mjs`.
- * - `next`: the new app in `backend/` and `frontend/`.
+ * - `next`: the new app in `backend/` and `frontend/`, as one Worker that
+ *   serves the API and the built frontend on one origin. See
+ *   `scripts/black-box-next.mjs`.
  *
  * The default is `legacy` until the new app has each workflow. The change that
  * makes `next` the default deletes the `legacy` paths here and in the fixture.
@@ -36,6 +29,9 @@ const LEGACY_PORT = Number(process.env["LEGACY_BLACK_BOX_PORT"] || 4274);
 /** Use localhost, not 127.0.0.1: a WebAuthn RP ID cannot be an IP address. */
 const LEGACY_OWNER_ORIGIN = `http://localhost:${LEGACY_PORT}`;
 const LEGACY_PASSKEY_ORIGIN = `http://localhost:${LEGACY_PORT + 1}`;
+// oxlint-disable-next-line node/no-process-env -- As above. Each worktree can run the new app on a port of its own.
+const NEXT_PORT = Number(process.env["NEXT_BLACK_BOX_PORT"] || 4284);
+const NEXT_ORIGIN = `http://localhost:${NEXT_PORT}`;
 
 const legacy = {
   // The template's own tests are for the new app's email sign-in.
@@ -56,15 +52,18 @@ const legacy = {
 };
 
 const next = {
+  // The build checks in `core/tests/browser/` run here on the Worker, with
+  // the passkey sign-in. They do not run on `legacy`.
   testIgnore: [],
-  baseURL: FRONTEND_ORIGIN,
+  baseURL: NEXT_ORIGIN,
   webServer: {
-    // Build the frontend with the backend's origin in it, then serve the
-    // files as a static host does.
-    command: `vite build --outDir ${BUILD_DIRECTORY} && vite preview --outDir ${BUILD_DIRECTORY} --host 127.0.0.1 --port ${FRONTEND_PORT} --strictPort`,
-    env: { VITE_API_BASE_URL: BACKEND_ORIGIN },
-    url: FRONTEND_ORIGIN,
+    // Builds the frontend, migrates a fresh local D1, and starts the Worker.
+    command: `node scripts/black-box-next.mjs --port ${NEXT_PORT}`,
+    cwd: "..",
+    url: `${NEXT_ORIGIN}/api/auth/status`,
     reuseExistingServer: false,
+    // The first run builds the backend and the frontend.
+    timeout: 300_000,
   },
 };
 
@@ -76,16 +75,15 @@ export default defineConfig({
     legacyOwnerOrigin: LEGACY_OWNER_ORIGIN,
     legacyPasskeyOrigin: LEGACY_PASSKEY_ORIGIN,
   },
-  // The build checks in `core/tests/browser/`, and the black box tests in each
+  // The build checks in `core/tests/browser/`, and the black-box tests in each
   // feature's `black-box-tests/` directory.
   testDir: "src/features",
   // Black-box tests, and API black-box tests (docs/agents/project/rules.md).
   testMatch: ["**/*.spec.ts", "**/*.api-spec.ts"],
   testIgnore: app.testIgnore,
   outputDir: ".browser-test/results",
-  // The build has one backend address in it. Each test file or test starts
-  // its own backend there, so only one can run at a time. The old app has one
-  // database for each Worker, so the same holds there.
+  // Each Worker has one database for a whole run, and the fixture empties it
+  // before each test, so only one test can run at a time.
   workers: 1,
   reporter: "list",
   expect: { timeout: 10_000 },

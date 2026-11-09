@@ -1,40 +1,63 @@
 import type { Browser, Page } from "@playwright/test";
-import {
-  createDatabaseTemplate,
-  startTestBackendServer,
-} from "backend/testing";
-import { TEST_OWNER_CREDENTIALS } from "../test-owner.js";
-import { BACKEND_PORT, FRONTEND_ORIGIN } from "./origins.js";
 
-/** The headers that let the page read an answer that a test writes for the API. */
-export const CROSS_ORIGIN_HEADERS = {
-  "access-control-allow-origin": FRONTEND_ORIGIN,
-  "access-control-allow-credentials": "true",
-};
+/**
+ * The setup code of the Worker in `scripts/black-box-next.mjs`, which these
+ * tests run against.
+ */
+const SETUP_CODE = "black-box-setup-code";
+/** The heading of the sign-in page of an instance with no passkey. */
+export const SET_UP_HEADING = "Set up Calocount";
+const RESET_PATH = "/api/__black-box/reset";
 
-/** One backend with one database serves one page for a whole test file. */
-export async function startVisit({ browser }: { browser: Browser }) {
-  const server = await startTestBackendServer({
-    template: await createDatabaseTemplate(TEST_OWNER_CREDENTIALS),
-    port: BACKEND_PORT,
-    trustedOrigins: [FRONTEND_ORIGIN],
+/**
+ * One page, for a whole test file, on the Worker that serves the built
+ * frontend and the API. The Worker is emptied first, so the page starts as a
+ * visitor of a new instance. `baseURL` is the origin of the Worker.
+ */
+export async function startVisit({
+  browser,
+  baseURL,
+}: {
+  browser: Browser;
+  baseURL: string;
+}) {
+  const context = await browser.newContext({ baseURL, timezoneId: "UTC" });
+  const reset = await context.request.post(`${baseURL}${RESET_PATH}`);
+  if (!reset.ok()) {
+    throw new Error(`The reset of the Worker failed: ${reset.status()}`);
+  }
+  const page = await context.newPage();
+  // A virtual authenticator says yes to each passkey request, as a phone does.
+  const session = await context.newCDPSession(page);
+  await session.send("WebAuthn.enable");
+  await session.send("WebAuthn.addVirtualAuthenticator", {
+    options: {
+      protocol: "ctap2",
+      transport: "internal",
+      hasResidentKey: true,
+      hasUserVerification: true,
+      isUserVerified: true,
+      automaticPresenceSimulation: true,
+    },
   });
-  const page = await browser.newPage({ baseURL: FRONTEND_ORIGIN });
   /** Errors that no code caught. Normal use must not cause one. */
   const uncaughtErrors: Error[] = [];
   page.on("pageerror", (error) => uncaughtErrors.push(error));
   return {
     page,
     uncaughtErrors,
-    end: async () => {
-      await page.close();
-      await server.close();
-    },
+    end: () => context.close(),
   };
 }
 
-export async function signIn({ page }: { page: Page }) {
-  await page.getByLabel("Email").fill(TEST_OWNER_CREDENTIALS.email);
-  await page.getByLabel("Password").fill(TEST_OWNER_CREDENTIALS.password);
-  await page.getByRole("button", { name: "Sign in" }).click();
+/**
+ * Save the first passkey with the setup code on the sign-in page of a new
+ * instance, which then opens the page that the visitor asked for.
+ */
+export async function setUp({ page }: { page: Page }) {
+  const heading = page.getByRole("heading", { name: SET_UP_HEADING });
+  await heading.waitFor();
+  await page.getByLabel("Setup code").fill(SETUP_CODE);
+  await page.getByRole("button", { name: "Create passkey" }).click();
+  await heading.waitFor({ state: "hidden" });
 }
