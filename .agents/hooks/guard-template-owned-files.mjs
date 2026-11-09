@@ -6,10 +6,13 @@
 //
 // `templateOwned` in `scripts/template-paths.json` lists the first kind. A
 // project takes their changes only with a sync, because an edit in the project
-// makes the next sync conflict. `personOnly` lists the second kind, because
-// each can loosen a rule of the project. The hook does nothing in the template,
-// which has no `template-version.json`, and nothing while a sync waits for a
-// person to resolve a conflict.
+// makes the next sync conflict. A file that `ownPaths` in
+// `template-version.json` names is the project's own. `personOnly` lists the
+// second kind, because each can loosen a rule of the project. The version file
+// is of the second kind too, because a new entry there turns this hook off for
+// a file. The hook does nothing in the template, which has no
+// `template-version.json`. While a sync waits for a person to resolve a
+// conflict, it allows the edit of a template file.
 //
 // The hook does not see a file that a shell command writes, so it stops only
 // a mistake. The "Template-owned files" check of CI sees each change in a
@@ -19,8 +22,10 @@ import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  GUARDED_FILES,
   PATHS_FILE,
   VERSION_FILE,
+  isProjectPath,
   matchesPath,
 } from "../../scripts/template-files.mjs";
 import { parsePatchFiles } from "./format-edited-files.mjs";
@@ -87,16 +92,9 @@ function locate(file) {
 }
 
 function guardedFiles({ root, files }) {
-  const none = { owned: [], personOnly: [] };
-  if (!existsSync(path.join(root, VERSION_FILE))) {
-    return none;
-  }
-  const stopped = readGit({
-    directory: root,
-    args: ["rev-parse", "--git-path", SYNC_STOPPED],
-  });
-  if (stopped && existsSync(path.resolve(root, stopped))) {
-    return none;
+  const versionFile = path.join(root, VERSION_FILE);
+  if (!existsSync(versionFile)) {
+    return { owned: [], personOnly: [] };
   }
   const pathsFile = path.join(root, PATHS_FILE);
   const lists = existsSync(pathsFile)
@@ -106,9 +104,23 @@ function guardedFiles({ root, files }) {
     files.filter((file) =>
       entries.some((entry) => matchesPath({ entry, file })),
     );
+  const personOnly = [
+    ...files.filter((file) => GUARDED_FILES.includes(file)),
+    ...listed(lists.personOnly),
+  ];
+  const stopped = readGit({
+    directory: root,
+    args: ["rev-parse", "--git-path", SYNC_STOPPED],
+  });
+  if (stopped && existsSync(path.resolve(root, stopped))) {
+    return { owned: [], personOnly };
+  }
+  const { ownPaths } = JSON.parse(readFileSync(versionFile, "utf8"));
   return {
-    owned: listed(lists.templateOwned),
-    personOnly: listed(lists.personOnly),
+    owned: listed(lists.templateOwned).filter(
+      (file) => !isProjectPath({ ownPaths, file }),
+    ),
+    personOnly,
   };
 }
 
@@ -160,12 +172,20 @@ async function main() {
   // A person reads the reason in the prompt. An agent reads it when the edit
   // is denied, also when Claude Code denies an "ask" that nobody can answer.
   const nameOf = (file) => `\`${file}\``;
+  const listedOnly = personOnly.filter((file) => !GUARDED_FILES.includes(file));
   const reason = [
-    ...(personOnly.length > 0
+    ...(listedOnly.length > 0
       ? [
-          `${personOnly.map(nameOf).join(", ")} can loosen a rule of this`,
+          `${listedOnly.map(nameOf).join(", ")} can loosen a rule of this`,
           `project (\`personOnly\` in \`${PATHS_FILE}\`), so a person decides`,
           "each change.",
+        ]
+      : []),
+    ...(listedOnly.length < personOnly.length
+      ? [
+          `\`${VERSION_FILE}\` records what this project took over from the`,
+          "template, and a new entry there turns off this check for a file. A",
+          "person changes it, with `pnpm run template:sync own`.",
         ]
       : []),
     ...(owned.length > 0

@@ -106,6 +106,38 @@ function sync(project, ...args) {
   };
 }
 
+/**
+ * Run the script in a real terminal, and type one line. `own` refuses a process
+ * that has no terminal, and Node cannot make one without `script`.
+ */
+function syncInTerminal({ project, typed, args }) {
+  const command = [
+    process.execPath,
+    path.join(project, "scripts/sync-template.mjs"),
+    ...args,
+  ];
+  const quoted = command
+    .map((part) => `'${part.replaceAll("'", "'\\''")}'`)
+    .join(" ");
+  const result = spawnSync(
+    "script",
+    process.platform === "darwin"
+      ? ["-q", "/dev/null", ...command]
+      : ["-q", "-e", "-c", quoted, "/dev/null"],
+    {
+      cwd: project,
+      env: GIT_ENVIRONMENT,
+      encoding: "utf8",
+      // `script` waits a long time for a command that reads no typed line.
+      input: typed ? `${typed}\n` : "",
+    },
+  );
+  return {
+    status: result.status,
+    output: `${result.stdout}${result.stderr}`,
+  };
+}
+
 const readVersion = async (project) =>
   JSON.parse(await readFile(path.join(project, "template-version.json")));
 const readProjectFile = (project, file) =>
@@ -304,6 +336,33 @@ test("leaves out the files that the project is without, in a commit that changes
   assert.equal(git(project, "status", "--porcelain"), "");
 });
 
+test("names the files that a commit loses in the plan, and counts them in finish", async (context) => {
+  const { template, project } = await createProject(context);
+  const mixed = await templateCommit({
+    template,
+    message: "Change the update schedule and the application",
+    files: {
+      "renovate.json": json({ schedule: ["friday"] }),
+      "src/app.txt": "one\ntwo\nthree\nfour\n",
+    },
+  });
+
+  const plan = sync(project, "plan");
+
+  assert.match(
+    plan.output,
+    new RegExp(
+      `take\\s+${short(mixed)}  Change the update schedule and the application\\n\\s+\\(the project does not get renovate\\.json\\)`,
+    ),
+  );
+  assert.equal(sync(project, "apply").status, 0);
+  assert.equal(sync(project, "finish").status, 0);
+  assert.match(
+    git(project, "log", "-1", "--format=%b"),
+    /^- Files left out of the commits that the project took: 1$/m,
+  );
+});
+
 /** One template commit that adds a migration of the example, with its entry. */
 async function addExampleMigration({ template, files }) {
   const pathsFile = "scripts/template-paths.json";
@@ -325,7 +384,7 @@ async function addExampleMigration({ template, files }) {
   return { pathsFile, migration };
 }
 
-test("leaves out a template change to a project-owned directory", async (context) => {
+test("keeps the project's file in a project-owned directory, and gives it a new file there one time", async (context) => {
   const { template, project } = await createProject(context);
   await write(project, {
     "docs/agents/project/rules.md": "# Rules of the project\n",
@@ -348,11 +407,15 @@ test("leaves out a template change to a project-owned directory", async (context
   assert.equal(result.status, 0, result.output);
   assert.equal(
     git(project, "show", "--name-only", "--format=", "HEAD"),
-    "src/app.txt",
+    "docs/agents/project/decisions.md\nsrc/app.txt",
   );
   assert.equal(
     await readProjectFile(project, "docs/agents/project/rules.md"),
     "# Rules of the project\n",
+  );
+  assert.equal(
+    await readProjectFile(project, "docs/agents/project/decisions.md"),
+    "# Decisions of the template\n",
   );
   assert.equal(git(project, "status", "--porcelain"), "");
 });
@@ -439,6 +502,129 @@ test("leaves out a new file that the template adds with its entry in the list", 
     pathsFile,
   );
   await assert.rejects(readProjectFile(project, "tools/release.txt"));
+});
+
+/** One template commit that adds a project-owned file, with its entry. */
+async function addProjectOwnedFile({ template, file, text, files = {} }) {
+  const pathsFile = "scripts/template-paths.json";
+  const paths = JSON.parse(await readProjectFile(template, pathsFile));
+  return templateCommit({
+    template,
+    message: "Add a file that each project owns",
+    files: {
+      ...files,
+      [file]: text,
+      [pathsFile]: json({
+        ...paths,
+        projectOwned: [...paths.projectOwned, file],
+      }),
+    },
+  });
+}
+
+test("gives an existing project a new project-owned file, and leaves later changes to the file out", async (context) => {
+  const { template, project } = await createProject(context);
+  const file = "src/rules.txt";
+  await addProjectOwnedFile({
+    template,
+    file,
+    text: "the first rules\n",
+    files: { "src/app.txt": "one\ntwo\nthree\nfour\n" },
+  });
+  sync(project, "plan");
+
+  const taken = sync(project, "apply");
+
+  assert.equal(taken.status, 0, taken.output);
+  assert.equal(await readProjectFile(project, file), "the first rules\n");
+  assert.equal(sync(project, "finish").status, 0);
+
+  await write(project, { [file]: "the rules of the project\n" });
+  commit(project, "Write the rules of the project");
+  const later = await templateCommit({
+    template,
+    message: "Change the rules",
+    files: { [file]: "the second rules\n" },
+  });
+
+  assert.match(
+    sync(project, "plan").output,
+    new RegExp(
+      `leave out\\s+${short(later)}  Change the rules\\n\\s+\\(it changes only src/rules\\.txt\\)`,
+    ),
+  );
+  assert.equal(sync(project, "apply").status, 0);
+  assert.equal(
+    await readProjectFile(project, file),
+    "the rules of the project\n",
+  );
+});
+
+test("takes each change to a new project-owned file in one sync, also after a stop", async (context) => {
+  const { template, project } = await createProject(context);
+  const file = "src/rules.txt";
+  await write(project, { "src/app.txt": "one\ntwo of the project\nthree\n" });
+  commit(project, "Change the second line");
+  await addProjectOwnedFile({ template, file, text: "the first rules\n" });
+  await templateCommit({
+    template,
+    message: "Change the second line",
+    files: { "src/app.txt": "one\ntwo of the template\nthree\n" },
+  });
+  await templateCommit({
+    template,
+    message: "Correct the rules",
+    files: { [file]: "the corrected rules\n" },
+  });
+  sync(project, "plan");
+  assert.equal(sync(project, "apply").status, 1);
+  await write(project, { "src/app.txt": "one\ntwo of both\nthree\n" });
+  git(project, "add", "src/app.txt");
+
+  const continued = sync(project, "apply");
+
+  assert.equal(continued.status, 0, continued.output);
+  assert.match(continued.output, /took  \w{7}  Correct the rules/);
+  assert.equal(await readProjectFile(project, file), "the corrected rules\n");
+});
+
+test("keeps a project-owned file out of a project that deleted it", async (context) => {
+  const { template, project } = await createProject(context);
+  await rm(path.join(project, "README.md"));
+  commit(project, "Remove the README");
+  await templateCommit({
+    template,
+    message: "Change the README and the application",
+    files: {
+      "README.md": "# The template, with more text\n",
+      "src/app.txt": "one\ntwo\nthree\nfour\n",
+    },
+  });
+  sync(project, "plan");
+
+  const result = sync(project, "apply");
+
+  assert.equal(result.status, 0, result.output);
+  await assert.rejects(readProjectFile(project, "README.md"));
+  assert.equal(git(project, "status", "--porcelain"), "");
+});
+
+test("keeps the project's own file when the template adds a project-owned file at that path", async (context) => {
+  const { template, project } = await createProject(context);
+  const file = "src/rules.txt";
+  await write(project, { [file]: "the rules of the project\n" });
+  commit(project, "Write the rules of the project");
+  await addProjectOwnedFile({ template, file, text: "the first rules\n" });
+  sync(project, "plan");
+
+  const result = sync(project, "apply");
+
+  assert.equal(result.status, 0, result.output);
+  assert.equal(
+    await readProjectFile(project, file),
+    "the rules of the project\n",
+  );
+  assert.equal(git(project, "status", "--porcelain"), "");
 });
 
 test("takes a change to a file that only some projects keep", async (context) => {
@@ -585,6 +771,68 @@ test("stops when both sides changed one dependency to different versions, and co
   assert.equal(git(project, "status", "--porcelain"), "");
 });
 
+test("keeps a dependency out of a project that removed it when the template updates it", async (context) => {
+  const { template, project } = await createProject(context);
+  const { zod: removed, ...kept } = PACKAGE_JSON.dependencies;
+  assert.equal(removed, "4.0.0");
+  await write(project, {
+    "package.json": json({ ...PACKAGE_JSON, dependencies: kept }),
+  });
+  commit(project, "Remove a dependency");
+  await templateCommit({
+    template,
+    message: "Update the dependencies",
+    files: {
+      "package.json": json({
+        ...PACKAGE_JSON,
+        dependencies: { ...PACKAGE_JSON.dependencies, zod: "4.1.0" },
+      }),
+      "src/app.txt": "one\ntwo\nthree\nfour\n",
+    },
+  });
+  sync(project, "plan");
+
+  const result = sync(project, "apply");
+
+  assert.equal(result.status, 0, result.output);
+  assert.match(
+    result.output,
+    /package\.json: the template updates dependencies\.zod\. The project removed it/,
+  );
+  assert.deepEqual(
+    JSON.parse(await readProjectFile(project, "package.json")).dependencies,
+    kept,
+  );
+  assert.equal(
+    await readProjectFile(project, "src/app.txt"),
+    "one\ntwo\nthree\nfour\n",
+  );
+});
+
+test("stops when the project removed a key that is not a dependency and the template changed it", async (context) => {
+  const { template, project } = await createProject(context);
+  await write(project, {
+    "package.json": json({ ...PACKAGE_JSON, scripts: { check: "node c.mjs" } }),
+  });
+  commit(project, "Remove a script");
+  await templateCommit({
+    template,
+    message: "Change a script",
+    files: {
+      "package.json": json({
+        ...PACKAGE_JSON,
+        scripts: { ...PACKAGE_JSON.scripts, dev: "node dev.mjs --watch" },
+      }),
+    },
+  });
+  sync(project, "plan");
+
+  const result = sync(project, "apply");
+
+  assert.equal(result.status, 1);
+  assert.match(result.output, /package\.json: scripts\.dev/);
+});
+
 test("keeps the project's lockfile when the template's change does not apply to it", async (context) => {
   const { template, project } = await createProject(context);
   await write(project, {
@@ -680,6 +928,322 @@ test("writes the list of migrations again when a template commit adds a migratio
     "createFirst1000000001",
     "createSecond1000000003",
     "createProjectTable1000000005",
+  ]);
+  assert.equal(git(project, "status", "--porcelain"), "");
+});
+
+/** Give the project a list of paths that it took over, in one commit. */
+async function keepPaths({ project, paths }) {
+  await write(project, {
+    "template-version.json": json({
+      ...(await readVersion(project)),
+      ownPaths: paths.map((entry) => ({
+        path: entry,
+        reason: "The project has its own version.",
+      })),
+    }),
+  });
+  commit(project, "Keep paths in the project");
+}
+
+test("leaves each change to a kept path out of the project", async (context) => {
+  const { template, project } = await createProject(context);
+  await rm(path.join(project, "src"), { recursive: true });
+  await write(project, { "package.json": json({ name: "project" }) });
+  commit(project, "Remove the application, and replace the package file");
+  await keepPaths({ project, paths: ["src/", "package.json"] });
+  const change = await templateCommit({
+    template,
+    message: "Change kept paths",
+    files: {
+      "src/app.txt": "one\ntwo\nthree\nfour\n",
+      "src/new.txt": "a new file\n",
+      "package.json": json({ ...PACKAGE_JSON, name: "changed" }),
+    },
+  });
+
+  const plan = sync(project, "plan");
+  const result = sync(project, "apply");
+
+  assert.match(
+    plan.output,
+    new RegExp(
+      `leave out\\s+${short(change)}  Change kept paths\\n\\s+\\(it changes only package\\.json, src/app\\.txt, src/new\\.txt\\)`,
+    ),
+  );
+  assert.equal(result.status, 0, result.output);
+  await assert.rejects(readProjectFile(project, "src/app.txt"));
+  await assert.rejects(readProjectFile(project, "src/new.txt"));
+  assert.equal(
+    await readProjectFile(project, "package.json"),
+    json({ name: "project" }),
+  );
+  assert.equal(git(project, "status", "--porcelain"), "");
+});
+
+test("takes the rest of a commit that changes a kept path, and names what the project does not get", async (context) => {
+  const { template, project } = await createProject(context);
+  await write(project, { "src/app.txt": "the project's own file\n" });
+  commit(project, "Replace a file");
+  await keepPaths({ project, paths: ["src/app.txt"] });
+  const mixed = await templateCommit({
+    template,
+    message: "Change two files",
+    files: {
+      "src/app.txt": "one\ntwo\nthree\nfour\n",
+      "src/other.txt": "another file\n",
+    },
+  });
+
+  const plan = sync(project, "plan");
+  const result = sync(project, "apply");
+
+  assert.match(
+    plan.output,
+    new RegExp(
+      `take\\s+${short(mixed)}  Change two files\\n\\s+\\(the project does not get src/app\\.txt\\)`,
+    ),
+  );
+  assert.equal(result.status, 0, result.output);
+  assert.equal(
+    await readProjectFile(project, "src/app.txt"),
+    "the project's own file\n",
+  );
+  assert.equal(
+    await readProjectFile(project, "src/other.txt"),
+    "another file\n",
+  );
+  assert.equal(sync(project, "finish").status, 0);
+  assert.deepEqual((await readVersion(project)).ownPaths, [
+    { path: "src/app.txt", reason: "The project has its own version." },
+  ]);
+});
+
+test("does not write a list of migrations that the project keeps", async (context) => {
+  const { template, project } = await createProject(context);
+  const database = "backend/src/features/core/database";
+  const list = `${database}/migrations.ts`;
+  const migration = (name) => `export const migration = { name: "${name}" };\n`;
+  for (const directory of [template, project]) {
+    await symlink(
+      path.join(repoRoot, "node_modules"),
+      path.join(directory, "node_modules"),
+    );
+  }
+  const createMigration = () =>
+    execFileSync(
+      process.execPath,
+      [path.join(template, "scripts/create-migration.mjs"), "--sync"],
+      { cwd: template },
+    );
+  for (const script of ["create-migration.mjs", "migration-files.mjs"]) {
+    await cp(
+      path.join(scriptsDirectory, script),
+      path.join(template, "scripts", script),
+    );
+  }
+  await write(template, {
+    [`${database}/migrations/1000000001-create-first.ts`]: migration("first"),
+  });
+  createMigration();
+  await templateCommit({ template, message: "Add a migration", files: {} });
+  sync(project, "plan");
+  assert.equal(sync(project, "apply").status, 0);
+  assert.equal(sync(project, "finish").status, 0);
+
+  /** A mixed commit: one migration, its list, and one file of the application. */
+  const addMigration = async ({ timestamp, name }) => {
+    await write(template, {
+      [`${database}/migrations/${timestamp}-create-${name}.ts`]:
+        migration(name),
+    });
+    createMigration();
+    await templateCommit({
+      template,
+      message: `Add the ${name} migration`,
+      files: { [`src/${name}.txt`]: `${name}\n` },
+    });
+    sync(project, "plan");
+  };
+
+  // The project has its own list.
+  await write(project, { [list]: "the project's list\n" });
+  commit(project, "Write the list of the project");
+  await keepPaths({ project, paths: [list] });
+  await addMigration({ timestamp: 1000000002, name: "second" });
+
+  const ownList = sync(project, "apply");
+
+  assert.equal(ownList.status, 0, ownList.output);
+  assert.equal(await readProjectFile(project, list), "the project's list\n");
+  assert.equal(await readProjectFile(project, "src/second.txt"), "second\n");
+  assert.equal(git(project, "status", "--porcelain"), "");
+  assert.equal(sync(project, "finish").status, 0);
+
+  // The project has no migrations at all.
+  await rm(path.join(project, database), { recursive: true });
+  commit(project, "Remove the migrations");
+  await keepPaths({ project, paths: [`${database}/`] });
+  await addMigration({ timestamp: 1000000003, name: "third" });
+
+  const noList = sync(project, "apply");
+
+  assert.equal(noList.status, 0, noList.output);
+  await assert.rejects(readProjectFile(project, list));
+  assert.equal(await readProjectFile(project, "src/third.txt"), "third\n");
+  assert.equal(git(project, "status", "--porcelain"), "");
+});
+
+test("refuses each command while the project keeps a gate of the template", async (context) => {
+  const { project } = await createProject(context);
+
+  for (const entry of [
+    "scripts/sync-template.mjs",
+    "scripts/",
+    ".agents/hooks/guard-template-owned-files.mjs",
+    ".agents/",
+  ]) {
+    await keepPaths({ project, paths: [entry] });
+
+    for (const command of [["plan"], ["apply"], ["finish"]]) {
+      const result = sync(project, ...command);
+      assert.equal(result.status, 1);
+      assert.match(result.output, /"ownPaths" in template-version\.json names/);
+    }
+  }
+});
+
+test("refuses a kept path that has no reason", async (context) => {
+  const { project } = await createProject(context);
+  await write(project, {
+    "template-version.json": json({
+      ...(await readVersion(project)),
+      ownPaths: [{ path: "src/app.txt" }],
+    }),
+  });
+  commit(project, "Keep a path with no reason");
+
+  const result = sync(project, "plan");
+
+  assert.equal(result.status, 1);
+  assert.match(
+    result.output,
+    /each of its entries must have a "path" and a "reason"/,
+  );
+});
+
+test("refuses to take a path over in a process that has no terminal", async (context) => {
+  const { project } = await createProject(context);
+  const head = git(project, "rev-parse", "HEAD");
+
+  const result = sync(project, "own", "src/app.txt", "The project owns it.");
+
+  assert.equal(result.status, 1);
+  assert.match(result.output, /only a person at a terminal can run it/);
+  assert.equal(git(project, "rev-parse", "HEAD"), head);
+  assert.equal((await readVersion(project)).ownPaths, undefined);
+});
+
+test("takes a path over when the person at a terminal confirms it", async (context) => {
+  const { template, project } = await createProject(context);
+  sync(project, "plan");
+
+  const result = syncInTerminal({
+    project,
+    typed: "own",
+    args: ["own", "src/", "The", "project", "has", "its", "own", "code."],
+  });
+
+  assert.equal(result.status, 0, result.output);
+  assert.match(result.output, /src\/ matches 1 file\./);
+  assert.deepEqual((await readVersion(project)).ownPaths, [
+    { path: "src/", reason: "The project has its own code." },
+  ]);
+  assert.equal(
+    git(project, "log", "-1", "--format=%B"),
+    "Take src/ over from the template\n\n- The reason: The project has its own code.\n- A sync now leaves out each template change to it.",
+  );
+  assert.equal(git(project, "status", "--porcelain"), "");
+
+  await templateCommit({
+    template,
+    message: "Change the application",
+    files: { "src/app.txt": "one\ntwo\nthree\nfour\n" },
+  });
+  assert.match(sync(project, "plan").output, /leave out\s+\w{7}  Change the/);
+});
+
+test("changes nothing when the person at a terminal does not confirm", async (context) => {
+  const { project } = await createProject(context);
+  sync(project, "plan");
+  const head = git(project, "rev-parse", "HEAD");
+
+  const result = syncInTerminal({
+    project,
+    typed: "no",
+    args: ["own", "src/app.txt", "A reason"],
+  });
+
+  assert.equal(result.status, 1, result.output);
+  assert.match(result.output, /Nothing changed/);
+  assert.equal(git(project, "rev-parse", "HEAD"), head);
+  assert.equal(git(project, "status", "--porcelain"), "");
+});
+
+test("refuses to take over a gate, a path with no file, or a path that the project keeps", async (context) => {
+  const { project } = await createProject(context);
+  await keepPaths({ project, paths: ["src/app.txt"] });
+  sync(project, "plan");
+  const own = (entry) =>
+    syncInTerminal({ project, args: ["own", entry, "A reason"] });
+
+  for (const entry of [
+    "scripts/sync-template.mjs",
+    "scripts/",
+    ".agents/hooks/",
+  ]) {
+    const result = own(entry);
+    assert.equal(result.status, 1, result.output);
+    assert.match(result.output, /each project must get the template's fixes/);
+  }
+  assert.match(own("src").output, /No file of the project or the template/);
+  assert.match(own("../src/").output, /No file of the project or the template/);
+  assert.match(own("src/app.txt").output, /already keeps src\/app\.txt/);
+  assert.equal(git(project, "status", "--porcelain"), "");
+});
+
+test("lets a person take over the file that stopped apply", async (context) => {
+  const { template, project } = await createProject(context);
+  await write(project, { "src/app.txt": "one\ntwo of the project\nthree\n" });
+  commit(project, "Change the second line");
+  const tip = await templateCommit({
+    template,
+    message: "Change the second line",
+    files: { "src/app.txt": "one\ntwo of the template\nthree\n" },
+  });
+  sync(project, "plan");
+  assert.equal(sync(project, "apply").status, 1);
+
+  const taken = syncInTerminal({
+    project,
+    typed: "own",
+    args: ["own", "src/app.txt", "The project has its own file."],
+  });
+  const continued = sync(project, "apply");
+  const finished = sync(project, "finish");
+
+  assert.equal(taken.status, 0, taken.output);
+  assert.match(taken.output, /`finish` commits it/);
+  assert.equal(continued.status, 0, continued.output);
+  assert.equal(finished.status, 0, finished.output);
+  assert.equal(
+    await readProjectFile(project, "src/app.txt"),
+    "one\ntwo of the project\nthree\n",
+  );
+  const version = await readVersion(project);
+  assert.equal(version.commit, tip);
+  assert.deepEqual(version.ownPaths, [
+    { path: "src/app.txt", reason: "The project has its own file." },
   ]);
   assert.equal(git(project, "status", "--porcelain"), "");
 });
@@ -816,6 +1380,66 @@ test("names each file that stopped apply in the commit of finish", async (contex
     ],
   });
   assert.equal(git(project, "status", "--porcelain"), "");
+});
+
+/** One template commit that changes the word that `apply` prints for a commit. */
+async function changeTheSyncScript({ template }) {
+  const script = "scripts/sync-template.mjs";
+  const text = await readProjectFile(template, script);
+  const changed = text.replace("`took  ${short", "`taken  ${short");
+  assert.notEqual(changed, text);
+  await templateCommit({
+    template,
+    message: "Change the sync script",
+    files: { [script]: changed },
+  });
+}
+
+test("takes each commit after a change to the sync script with the new script", async (context) => {
+  const { template, project } = await createProject(context);
+  const before = git(project, "rev-parse", "HEAD");
+  await changeTheSyncScript({ template });
+  await templateCommit({
+    template,
+    message: "Change the application",
+    files: { "src/app.txt": "one\ntwo\nthree\nfour\n" },
+  });
+  sync(project, "plan");
+
+  const result = sync(project, "apply");
+
+  assert.equal(result.status, 0, result.output);
+  assert.match(result.output, /took  \w{7}  Change the sync script/);
+  assert.match(result.output, /taken  \w{7}  Change the application/);
+  assert.match(result.output, new RegExp(`git reset --hard ${short(before)}`));
+  assert.equal(git(project, "status", "--porcelain"), "");
+});
+
+test("keeps one commit to go back to when a stop comes after a change to the sync script", async (context) => {
+  const { template, project } = await createProject(context);
+  await write(project, { "src/app.txt": "one\ntwo of the project\nthree\n" });
+  commit(project, "Change the second line");
+  const before = git(project, "rev-parse", "HEAD");
+  await changeTheSyncScript({ template });
+  await templateCommit({
+    template,
+    message: "Change the second line",
+    files: { "src/app.txt": "one\ntwo of the template\nthree\n" },
+  });
+  sync(project, "plan");
+
+  const stopped = sync(project, "apply");
+
+  assert.equal(stopped.status, 1);
+  assert.match(stopped.output, /Stopped at template commit/);
+  await write(project, { "src/app.txt": "one\ntwo of both\nthree\n" });
+  git(project, "add", "src/app.txt");
+  const continued = sync(project, "apply");
+  assert.equal(continued.status, 0, continued.output);
+  assert.match(
+    continued.output,
+    new RegExp(`git reset --hard ${short(before)}`),
+  );
 });
 
 test("leaves out the commit that apply stopped at, with the reason in the version file", async (context) => {
@@ -991,6 +1615,41 @@ test("commits the lockfile and the new template version, one time", async (conte
   assert.equal(sync(project, "apply").status, 0);
   assert.equal(sync(project, "finish").status, 0);
   assert.equal(git(project, "rev-parse", "HEAD"), head);
+});
+
+test("keeps each field of the version file, and ends the list of unchanged commits", async (context) => {
+  const { template, project, start } = await createProject(context);
+  await write(project, {
+    "template-version.json": json({
+      template,
+      commit: start,
+      skipped: [],
+      note: "a field of the project",
+    }),
+    "src/app.txt": "one\ntwo of the project\nthree\n",
+  });
+  commit(project, "Add a field, and change the second line");
+  const tip = await templateCommit({
+    template,
+    message: "Change the second line",
+    files: { "src/app.txt": "one\ntwo of the template\nthree\n" },
+  });
+  sync(project, "plan");
+  assert.equal(sync(project, "apply").status, 1);
+  await write(project, { "src/app.txt": "one\ntwo of the project\nthree\n" });
+  git(project, "add", "src/app.txt");
+  assert.equal(sync(project, "apply").status, 0);
+  assert.deepEqual((await readVersion(project)).unchanged, [tip]);
+
+  const result = sync(project, "finish");
+
+  assert.equal(result.status, 0, result.output);
+  assert.deepEqual(await readVersion(project), {
+    template,
+    commit: tip,
+    skipped: [],
+    note: "a field of the project",
+  });
 });
 
 test("refuses to finish while other changes have no commit", async (context) => {

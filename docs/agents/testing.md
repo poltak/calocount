@@ -6,12 +6,11 @@ the `write-integration-test` skill for a UI Logic test, and the
 
 ## What a test is here
 
-Almost every test must be an integration test of one UI Logic operation (i.e., a user invoked action) against the
+Almost every test must be an integration test of one UI Logic operation, which a user starts, against the
 full application. The test calls a method on a UI Logic class. The request then
 passes through the real API client, backend routes, validation, backend Logic,
 Services, and an isolated in-memory database of the project's engine, all in
 one process.
-Nothing on that path is replaced/mocked.
 
 The canonical example is
 [`notes-logic.test.ts`](../../frontend/src/features/notes/ui/notes-logic.test.ts).
@@ -65,13 +64,14 @@ These rules are for the UI Logic tests. Black box tests have
 
 - **Test through a UI Logic method.** Do not render React components, and do not
   call backend Logic in place of the API path.
-- **One test file per UI Logic or LogicPlugin, beside it.** Each file has a local
-  `setupTest` that calls `setupLogicTest` and constructs the Logic under test.
-  `setupTest` takes the same params in every file, including
-  `skipInitialization` for tests of initialization itself.
+- **One test file per UI Logic or LogicPlugin, beside it.** At the size limit,
+  split it as the pre-commit check says. Each file has a local `setupTest` that
+  calls `setupLogicTest` and constructs the Logic under test. `setupTest` takes
+  the same params in every file, including `skipInitialization` for tests of
+  initialization.
 - **Assert before, during, and after the operation,** on every level it
   touches: the Logic's state, the database rows, and any other state it changes.
-  "During" means after calling the method without awaiting it (only applicable to async methods). Assert only state
+  "During", for an async method, means after the call and before its `await`. Assert only state
   that is relevant to the operation.
 - **Write one test for the success case and one sibling test for each
   anticipated failure.** Consider invalid input, a lost session, refused access,

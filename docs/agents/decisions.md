@@ -474,6 +474,17 @@ entry to the choice, the reason, and any rule that follows from it.
   has each change that came in from `main`. A sync almost always changes
   those files, so the label would go each time a contributor brings `main`
   into the branch.
+- **A project takes over a template path with one list in its version file.**
+  `ownPaths` in `template-version.json` is the one list that the sync, the
+  hook, and the CI check read, so a path that a project replaced or deleted
+  stops no sync. A project cannot use `templateOwned` for this, because a sync
+  reads the lists from the template. Separate lists for a deleted and a
+  replaced path add nothing, because a sync treats both in the same way. An
+  entry ends each template update to its path, so it is for a replaced path,
+  and not for a small edit that a cherry-pick can merge. The `own` command needs
+  a terminal, because the hook does not see a shell command. The list cannot
+  name a check that keeps a project on the template, so a fix to such a check
+  reaches each project.
 - **A hook tells the agent when its branch is behind `main`.** In Shadow, the
   first project, a contributor's branch started from the `main` of the day
   before. Its pull request then listed a bug as open that `main` had fixed an
