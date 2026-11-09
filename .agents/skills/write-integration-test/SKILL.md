@@ -27,7 +27,11 @@ you start. This skill is the order of work.
    - a second call while the first is running.
 4. Open or create `<logic-file>.test.ts` beside the Logic. A new file needs a
    local `setupTest` that calls `setupLogicTest` and constructs the Logic, and
-   small functions that read the rows the tests assert on.
+   small functions that read the rows the tests assert on. When the file is at
+   the size limit of the pre-commit check, put the new tests in a file beside
+   it that is named for their behavior, such as `auth-logic-sign-up.test.ts`,
+   with its own local `setupTest`. Move the fixtures that two of the files
+   share to a module beside them.
 5. Write the success test in three parts:
    - before: assert the task is `pristine` and assert the starting UI state and
      database rows;

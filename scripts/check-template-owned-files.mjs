@@ -12,6 +12,10 @@
 // that the push brings in from the base branch, such as a sync, does not
 // count. In the template, every pull request passes.
 //
+// A file that `ownPaths` of `template-version.json` names is the project's
+// own, and a change to the version file always needs the approval. The job
+// checks out the default branch, so a pull request cannot widen its own list.
+//
 // It reads the event from GITHUB_EVENT_PATH, and the GitHub logins of the
 // maintainers from TEMPLATE_MAINTAINERS, with commas or spaces between them.
 // It calls the GitHub API with `gh`, which reads its token from GH_TOKEN.
@@ -19,7 +23,13 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { PATHS_FILE, VERSION_FILE, matchesPath } from "./template-files.mjs";
+import {
+  GUARDED_FILES,
+  PATHS_FILE,
+  VERSION_FILE,
+  isProjectPath,
+  matchesPath,
+} from "./template-files.mjs";
 
 const LABEL = "template-change-approved";
 // GitHub lists at most 300 files in a compare, so the list of a longer compare
@@ -85,7 +95,8 @@ function ownChanges({ repository, base, head, isOwned }) {
 }
 
 function check() {
-  if (!existsSync(path.join(root, VERSION_FILE))) {
+  const versionFile = path.join(root, VERSION_FILE);
+  if (!existsSync(versionFile)) {
     console.log("This is the template, which can change each of its files.");
     return true;
   }
@@ -99,10 +110,15 @@ function check() {
   const { templateOwned, personOnly = [] } = JSON.parse(
     readFileSync(path.join(root, PATHS_FILE), "utf8"),
   );
+  const { ownPaths } = JSON.parse(readFileSync(versionFile, "utf8"));
   const isListed = (entries, file) =>
     entries.some((entry) => matchesPath({ entry, file }));
+  const isFromTemplate = (file) =>
+    isListed(templateOwned, file) && !isProjectPath({ ownPaths, file });
   const isOwned = (file) =>
-    isListed(templateOwned, file) || isListed(personOnly, file);
+    GUARDED_FILES.includes(file) ||
+    isFromTemplate(file) ||
+    isListed(personOnly, file);
 
   const repository = event.repository.full_name;
   const pull = event.pull_request;
@@ -180,7 +196,7 @@ function check() {
   console.log(
     [
       "",
-      ...([...changed].some((file) => isListed(templateOwned, file))
+      ...([...changed].some(isFromTemplate)
         ? [
             "A project takes changes to a file from the template only with a sync.",
             "Make the change in the template first.",
@@ -188,6 +204,11 @@ function check() {
         : []),
       ...([...changed].some((file) => isListed(personOnly, file))
         ? ["A file in `personOnly` can loosen a rule of this project."]
+        : []),
+      ...([...changed].some((file) => GUARDED_FILES.includes(file))
+        ? [
+            `${VERSION_FILE} records what the project took over from the template.`,
+          ]
         : []),
       `When the change must be in this project now, a maintainer adds the ${LABEL}`,
       "label to the pull request.",

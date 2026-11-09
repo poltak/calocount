@@ -18,10 +18,15 @@ const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../..",
 );
-const OWNED = ["AGENTS.md", "lint/", ".agents/skills/unslop/"];
+const OWNED = [
+  "AGENTS.md",
+  "lint/",
+  ".agents/skills/unslop/",
+  ".agents/hooks/",
+];
 
 /** A project made from the template, with a few of its files. */
-async function createProject(context, { version = true } = {}) {
+async function createProject(context, { version = true, ownPaths } = {}) {
   const directory = await mkdtemp(path.join(os.tmpdir(), "template-owned-"));
   context.after(() => rm(directory, { recursive: true, force: true }));
   execFileSync("git", ["init", "--quiet", directory]);
@@ -30,7 +35,7 @@ async function createProject(context, { version = true } = {}) {
     await writeFile(path.join(directory, file), text);
   };
   if (version) {
-    await write("template-version.json", "{}\n");
+    await write("template-version.json", `${JSON.stringify({ ownPaths })}\n`);
   }
   await write(
     "scripts/template-paths.json",
@@ -38,6 +43,7 @@ async function createProject(context, { version = true } = {}) {
   );
   await write("AGENTS.md", "# Agent instructions\n");
   await write("lint/rule.mjs", "export {};\n");
+  await write(".agents/hooks/guard.mjs", "export {};\n");
   await write(".agents/skills/unslop/SKILL.md", "# Unslop\n");
   await write("docs/agents/decisions.md", "# Decisions\n");
   await write("lint.project.json", "{}\n");
@@ -256,6 +262,70 @@ test("allows each edit in the template, and while a sync waits at a conflict", a
   );
   assert.equal(
     await runGuard(claudeEdit({ project, file: "AGENTS.md" })),
+    undefined,
+  );
+});
+
+test("allows an edit of a template-owned file that the project took over", async (context) => {
+  const project = await createProject(context, {
+    ownPaths: [{ path: "lint/", reason: "The project has its own rules." }],
+  });
+
+  assert.equal(
+    await runGuard(claudeEdit({ project, file: "lint/rule.mjs" })),
+    undefined,
+  );
+  assert.equal(
+    (await runGuard(claudeEdit({ project, file: "AGENTS.md" })))
+      .permissionDecision,
+    "ask",
+  );
+});
+
+test("does not let a project take over a gate of the template", async (context) => {
+  const project = await createProject(context, {
+    ownPaths: [{ path: ".agents/", reason: "A reason." }],
+  });
+
+  const answer = await runGuard(
+    claudeEdit({ project, file: ".agents/hooks/guard.mjs" }),
+  );
+
+  assert.equal(answer.permissionDecision, "ask");
+  assert.equal(
+    await runGuard(
+      claudeEdit({ project, file: ".agents/skills/unslop/SKILL.md" }),
+    ),
+    undefined,
+  );
+});
+
+test("asks before an agent edits the version file, also while a sync waits at a conflict", async (context) => {
+  const project = await createProject(context);
+  const edit = claudeEdit({ project, file: "template-version.json" });
+
+  const answer = await runGuard(edit);
+  await writeFile(
+    path.join(project, ".git/template-sync-stopped"),
+    JSON.stringify({ commit: "0".repeat(40) }),
+  );
+  const atConflict = await runGuard(edit);
+
+  for (const result of [answer, atConflict]) {
+    assert.equal(result.permissionDecision, "ask");
+    assert.match(result.permissionDecisionReason, /`template-version\.json`/);
+    assert.match(result.permissionDecisionReason, /pnpm run template:sync own/);
+    assert.doesNotMatch(result.permissionDecisionReason, /comes from/);
+  }
+});
+
+test("does not guard the version file in the template", async (context) => {
+  const template = await createProject(context, { version: false });
+
+  assert.equal(
+    await runGuard(
+      claudeEdit({ project: template, file: "template-version.json" }),
+    ),
     undefined,
   );
 });
