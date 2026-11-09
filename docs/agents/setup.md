@@ -313,6 +313,71 @@ of `main`. Do not require another job of `ci.yml`, because GitHub counts a
 skipped job as passed. Do not require a workflow with a path filter, because
 most pull requests get no result from it and stay blocked.
 
+### Lint rules of a project
+
+`.oxlintrc.json` and `lint/` come from the template. A project adds to them
+without an edit.
+
+For a new rule or a stricter option, run oxlint a second time with a config of
+the project. A second run cannot weaken the first. Write
+`.oxlintrc.project.json` at the root:
+
+```json
+{
+  "plugins": [],
+  "categories": { "correctness": "off" },
+  "jsPlugins": ["./lint/stack-plugin.mjs"],
+  "rules": {
+    "stack/vendor-imports": [
+      "error",
+      {
+        "vendors": [
+          {
+            "packages": ["stripe"],
+            "allowedIn": ["^features/[^/]+/services/"],
+            "where": "a Service implementation"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Keep `plugins` and `categories` as they are here. Without them, the second run
+repeats oxlint's default rules without the overrides of the first run. A rule
+of the project's own goes in a plugin file outside `lint/`, and its path goes in
+`jsPlugins`.
+
+Then add this script to the root `package.json`. `pnpm run check` runs each
+`check:*` script:
+
+```json
+"check:project-lint": "oxlint -c .oxlintrc.project.json --deny-warnings backend frontend common"
+```
+
+To allow more, add `lint.project.json` at the root. It adds to the lists in
+`.oxlintrc.json`, and it cannot remove a value. A project with no file has the
+template's rules. Each key is optional:
+
+- `roles`: role directories for each feature.
+- `rolesByFeature`: role directories for one feature, such as
+  `{ "rides": ["tiles"] }`.
+- `srcRootFiles`: files at the top of `src/`, such as a second entry point.
+- `compositionFiles`: files that may import and construct across features.
+  Three lint rules skip such a file.
+- `sharedFeatures`: features that each feature may import. Such a feature
+  imports only `core` and `api`.
+
+An unknown key stops lint. The file has no `vendors` key, because a vendor rule
+is stricter, and it goes in the second run.
+
+These keys loosen a rule, so a person decides each change to the file.
+`personOnly` in
+[`scripts/template-paths.json`](../../scripts/template-paths.json) lists it. The
+hook and the "Template-owned files" check treat it as they treat a file from the
+template, and the agent review reports each change.
+
 ### Paths that a project takes over
 
 A project can replace or delete a path that the template has, such as the

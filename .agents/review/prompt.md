@@ -94,6 +94,9 @@ the old decision in the explanation.
 
 A new or changed entry in `docs/agents/project/reversals.md` is such a change.
 
+A change to `lint.project.json` is such a change, because it can loosen a lint
+rule. Quote the changed line, and name the rule in the explanation.
+
 ### comment-restates-code
 
 Resolution: maintainer-approval

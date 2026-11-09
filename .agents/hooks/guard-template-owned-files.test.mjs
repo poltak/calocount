@@ -41,7 +41,7 @@ async function createProject(context, { version = true, ownPaths } = {}) {
     "scripts/template-paths.json",
     JSON.stringify({
       templateOwned: OWNED,
-      personOnly: ["docs/agents/project/reversals.md"],
+      personOnly: ["docs/agents/project/reversals.md", "lint.project.json"],
     }),
   );
   await write("AGENTS.md", "# Agent instructions\n");
@@ -50,6 +50,7 @@ async function createProject(context, { version = true, ownPaths } = {}) {
   await write(".agents/skills/unslop/SKILL.md", "# Unslop\n");
   await write("docs/agents/decisions.md", "# Decisions\n");
   await write("docs/agents/project/reversals.md", "{}\n");
+  await write("lint.project.json", "{}\n");
   await mkdir(path.join(directory, ".claude/skills"), { recursive: true });
   await symlink(
     "../../.agents/skills/unslop",

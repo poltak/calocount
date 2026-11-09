@@ -80,7 +80,7 @@ async function check({
     path.join(directory, "scripts/template-paths.json"),
     JSON.stringify({
       templateOwned: ["AGENTS.md", "lint/", ".agents/hooks/"],
-      personOnly: ["docs/agents/project/reversals.md"],
+      personOnly: ["docs/agents/project/reversals.md", "lint.project.json"],
     }),
   );
   if (version) {

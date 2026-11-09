@@ -106,6 +106,11 @@ other files or directories at the top of `src/`.
 The frontend's `features/api/` holds the typed first-party API client and its
 events.
 
+Product code that two features need does not go in `core`. A project names a
+shared feature for it, as [setup](setup.md#lint-rules-of-a-project) describes.
+Each feature may import a shared feature, and a shared feature imports only
+`core` and `api`.
+
 Put each test file beside the file it tests, named `<file>.test.ts`. Tests that
 span features, and the fixtures they share, live in `features/core/tests/`. A
 black box test tests a workflow, not a file. It is a `<workflow>.spec.ts` file

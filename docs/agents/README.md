@@ -66,7 +66,7 @@ a file when it needs one:
 | A Logic that reacts to another Logic's event   | `…/auth/ui/auth-logic.ts`, `…/notes/ui/note-draft-plugin.ts`                             |
 | A frontend Storage class                       | `frontend/src/features/notes/storage/notes-draft-storage.ts`                             |
 | A write across two features in one transaction | `backend/src/features/notes/logic/notes-logic.ts`                                        |
-| The architecture lint rules and their options  | `lint/`, `.oxlintrc.json`                                                                |
+| The architecture lint rules and their options  | `lint/`, `.oxlintrc.json`, `lint.project.json`                                           |
 | How a project takes template changes           | `scripts/sync-template.mjs`, `workflows/`                                                |
 | What stops an edit of a file from the template | `.agents/hooks/guard-template-owned-files.mjs`, `scripts/check-template-owned-files.mjs` |
 | What tells an agent that a command was slow    | `.agents/hooks/warn-slow-commands.mjs`                                                   |
