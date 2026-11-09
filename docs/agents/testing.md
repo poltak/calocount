@@ -205,8 +205,8 @@ A few files that are not Logic classes have tests of their own:
 - `backend-http.test.ts` covers backend behavior that no UI Logic reaches: the
   list of public routes, the health routes, the security headers, the request
   ID and request log, the request size limit, and the answer to an unexpected
-  error. It sends requests
-  through the fixture's transport, so the whole backend still runs. Add a test
+  error. It sends requests through the fixture's transport, so the whole
+  backend still runs. Add a test
   there only for behavior of the HTTP app itself. A route that a UI Logic calls
   gets its tests through that Logic.
 - `database-schema.test.ts` reads the schema that the migrations made, and
