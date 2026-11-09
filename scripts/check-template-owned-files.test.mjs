@@ -78,7 +78,10 @@ async function check({
   }
   await writeFile(
     path.join(directory, "scripts/template-paths.json"),
-    JSON.stringify({ templateOwned: ["AGENTS.md", "lint/", ".agents/hooks/"] }),
+    JSON.stringify({
+      templateOwned: ["AGENTS.md", "lint/", ".agents/hooks/"],
+      personOnly: ["docs/agents/project/reversals.md"],
+    }),
   );
   if (version) {
     await writeFile(
@@ -146,6 +149,36 @@ test("passes a pull request that changes no file from the template", async (cont
     context,
     answers: {
       [`GET ${PULLS}/files?per_page=100`]: files("docs/agents/decisions.md"),
+    },
+  });
+
+  assert.equal(result.status, 0, result.output);
+});
+
+test("fails a change to a file that only a person changes, and says why", async (context) => {
+  const result = await check({
+    context,
+    answers: {
+      [`GET ${PULLS}/files?per_page=100`]: files(
+        "docs/agents/project/reversals.md",
+      ),
+    },
+  });
+
+  assert.equal(result.status, 1, result.output);
+  assert.match(result.output, /^ {2}docs\/agents\/project\/reversals\.md$/m);
+  assert.match(result.output, /can loosen a rule of this project/);
+  assert.match(result.output, /::error title=Template-owned files::/);
+});
+
+test("passes a maintainer's change to a file that only a person changes", async (context) => {
+  const result = await check({
+    context,
+    author: "owner",
+    answers: {
+      [`GET ${PULLS}/files?per_page=100`]: files(
+        "docs/agents/project/reversals.md",
+      ),
     },
   });
 

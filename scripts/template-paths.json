@@ -1,6 +1,7 @@
 {
   "templateOnly": [
     "docs/agents/template.md",
+    "scripts/project-rules.test.mjs",
     "renovate.json",
     ".agents/skills/start-project/",
     ".claude/skills/start-project",
@@ -24,11 +25,16 @@
   "projectOwned": [
     "README.md",
     ".agents/review/project-rules.md",
-    "backend/src/features/core/database/pglite-extensions.ts"
+    "backend/src/features/core/database/pglite-extensions.ts",
+    "docs/agents/project/"
   ],
+  "personOnly": ["docs/agents/project/reversals.md"],
   "templateOwned": [
     "AGENTS.md",
+    "docs/agents/README.md",
     "docs/agents/code-architecture.md",
+    "docs/agents/decisions.md",
+    "docs/agents/setup.md",
     "docs/agents/testing.md",
     "lint/",
     ".oxlintrc.json",

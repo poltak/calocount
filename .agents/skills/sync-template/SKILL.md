@@ -137,6 +137,9 @@ the project, its data, or a secret in the issue.
 - A Better Auth update can change its tables. Compare `AuthTables` in
   `backend/src/features/auth/storage/types.ts` with the new schema. The
   `verify live-start` step starts the server on a real database.
+- A project's own text in `docs/agents/decisions.md`, `docs/agents/setup.md`,
+  or `docs/agents/README.md` conflicts in a sync. Those files come from the
+  template. In a separate commit, move that text to `docs/agents/project/`.
 - To undo a sync before you push it, use the `git reset` command that `apply`
   prints.
 - Do not push a branch of the project to the template's remote. A change for

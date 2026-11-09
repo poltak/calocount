@@ -1,16 +1,18 @@
-// Stops an agent's edit of a file that a project gets from the template.
-// Claude Code and Codex run it before each edit, with the agent's name:
+// Stops an agent's edit of a file that a project gets from the template, or of
+// a file that only a person changes. Claude Code and Codex run it before each
+// edit, with the agent's name:
 //
 //   node .agents/hooks/guard-template-owned-files.mjs claude|codex
 //
-// `templateOwned` in `scripts/template-paths.json` lists the files. A project
-// takes their changes only with a sync, because an edit in the project makes
-// the next sync conflict. A file that `ownPaths` in `template-version.json`
-// names is the project's own. The version file itself always needs a person,
-// because a new entry there turns this hook off for a file. The hook does
-// nothing in the template, which has no `template-version.json`, and allows
-// the edit of a template file while a sync waits for a person to resolve a
-// conflict.
+// `templateOwned` in `scripts/template-paths.json` lists the first kind. A
+// project takes their changes only with a sync, because an edit in the project
+// makes the next sync conflict. A file that `ownPaths` in
+// `template-version.json` names is the project's own. `personOnly` lists the
+// second kind, because each can loosen a rule of the project. The version file
+// is of the second kind too, because a new entry there turns this hook off for
+// a file. The hook does nothing in the template, which has no
+// `template-version.json`. While a sync waits for a person to resolve a
+// conflict, it allows the edit of a template file.
 //
 // The hook does not see a file that a shell command writes, so it stops only
 // a mistake. The "Template-owned files" check of CI sees each change in a
@@ -89,32 +91,37 @@ function locate(file) {
   };
 }
 
-function ownedFiles({ root, files }) {
+function guardedFiles({ root, files }) {
   const versionFile = path.join(root, VERSION_FILE);
   if (!existsSync(versionFile)) {
-    return [];
+    return { owned: [], personOnly: [] };
   }
-  const guarded = files.filter((file) => GUARDED_FILES.includes(file));
+  const pathsFile = path.join(root, PATHS_FILE);
+  const lists = existsSync(pathsFile)
+    ? JSON.parse(readFileSync(pathsFile, "utf8"))
+    : {};
+  const listed = (entries = []) =>
+    files.filter((file) =>
+      entries.some((entry) => matchesPath({ entry, file })),
+    );
+  const personOnly = [
+    ...files.filter((file) => GUARDED_FILES.includes(file)),
+    ...listed(lists.personOnly),
+  ];
   const stopped = readGit({
     directory: root,
     args: ["rev-parse", "--git-path", SYNC_STOPPED],
   });
   if (stopped && existsSync(path.resolve(root, stopped))) {
-    return guarded;
+    return { owned: [], personOnly };
   }
   const { ownPaths } = JSON.parse(readFileSync(versionFile, "utf8"));
-  const pathsFile = path.join(root, PATHS_FILE);
-  const owned = existsSync(pathsFile)
-    ? (JSON.parse(readFileSync(pathsFile, "utf8")).templateOwned ?? [])
-    : [];
-  return [
-    ...guarded,
-    ...files.filter(
-      (file) =>
-        owned.some((entry) => matchesPath({ entry, file })) &&
-        !isProjectPath({ ownPaths, file }),
+  return {
+    owned: listed(lists.templateOwned).filter(
+      (file) => !isProjectPath({ ownPaths, file }),
     ),
-  ];
+    personOnly,
+  };
 }
 
 async function readHookInput() {
@@ -147,12 +154,12 @@ async function main() {
       ]);
     }
   }
-  const owned = [
-    ...new Set(
-      [...byRoot].flatMap(([root, files]) => ownedFiles({ root, files })),
-    ),
-  ];
-  if (owned.length === 0) {
+  const guarded = [...byRoot].map(([root, files]) =>
+    guardedFiles({ root, files }),
+  );
+  const owned = [...new Set(guarded.flatMap((files) => files.owned))];
+  const personOnly = [...new Set(guarded.flatMap((files) => files.personOnly))];
+  if (owned.length + personOnly.length === 0) {
     return;
   }
 
@@ -164,26 +171,33 @@ async function main() {
       : "deny";
   // A person reads the reason in the prompt. An agent reads it when the edit
   // is denied, also when Claude Code denies an "ask" that nobody can answer.
-  const fromTemplate = owned.filter((file) => !GUARDED_FILES.includes(file));
-  const names = fromTemplate.map((file) => `\`${file}\``).join(", ");
+  const nameOf = (file) => `\`${file}\``;
+  const listedOnly = personOnly.filter((file) => !GUARDED_FILES.includes(file));
   const reason = [
-    ...(fromTemplate.length > 0
+    ...(listedOnly.length > 0
       ? [
-          `${names} ${fromTemplate.length === 1 ? "comes" : "come"} from the template`,
-          `(\`templateOwned\` in \`${PATHS_FILE}\`). This project takes changes to`,
-          "those files only with a sync, and an edit here makes the next sync",
-          "conflict. Make the change in the template first. An agent must not",
-          "write these files in another way, such as with a shell command. It",
-          "describes the change to the person.",
+          `${listedOnly.map(nameOf).join(", ")} can loosen a rule of this`,
+          `project (\`personOnly\` in \`${PATHS_FILE}\`), so a person decides`,
+          "each change.",
         ]
       : []),
-    ...(fromTemplate.length < owned.length
+    ...(listedOnly.length < personOnly.length
       ? [
           `\`${VERSION_FILE}\` records what this project took over from the`,
           "template, and a new entry there turns off this check for a file. A",
           "person changes it, with `pnpm run template:sync own`.",
         ]
       : []),
+    ...(owned.length > 0
+      ? [
+          `${owned.map(nameOf).join(", ")} ${owned.length === 1 ? "comes" : "come"} from the template`,
+          `(\`templateOwned\` in \`${PATHS_FILE}\`). This project takes changes to`,
+          "those files only with a sync, and an edit here makes the next sync",
+          "conflict. Make the change in the template first.",
+        ]
+      : []),
+    "An agent must not write these files in another way, such as with a shell",
+    "command. It describes the change to the person.",
   ].join(" ");
   process.stdout.write(
     JSON.stringify({

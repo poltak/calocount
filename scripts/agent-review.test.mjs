@@ -2543,6 +2543,43 @@ test("verdict finds a secret that a later commit deletes, merges by file, and sh
   );
 });
 
+test("verdict reports no new document for a project's own file", async (context) => {
+  const repo = await repository(context);
+  await mkdir(path.join(repo.directory, "docs/agents/project"));
+  await writeFile(
+    path.join(repo.directory, "docs/agents/project/rules.md"),
+    "# Rules of the project\n",
+  );
+  git(repo.directory, "add", ".");
+  git(
+    repo.directory,
+    "-c",
+    "user.name=Test",
+    "-c",
+    "user.email=test@example.com",
+    "commit",
+    "--quiet",
+    "-m",
+    "Add the rules of the project",
+  );
+  const head = git(repo.directory, "rev-parse", "HEAD");
+
+  const result = await run({
+    repo: { ...repo, head },
+    command: "verdict",
+    action: "synchronize",
+    answers: { [`GET ${PULL}`]: { head: { sha: head } } },
+    env: { MODE: "review", CLAUDE_JOB: job([]), CODEX_JOB: job([]) },
+  });
+
+  const { body } = JSON.parse(
+    result.calls.find(({ call }) => call === SUMMARY_POST).input,
+  );
+  assert.match(body, /\[new-document\]/);
+  assert.match(body, /docs\/agents\/plan\.md/);
+  assert.doesNotMatch(body, /project\/rules\.md/);
+});
+
 test("verdict passes with no comment when no model is set up", async (context) => {
   const repo = await repository(context);
   const result = await run({

@@ -204,6 +204,20 @@ into the project. The `sync-template` skill has the order of its commands, and
 one. `pnpm run template:sync plan` changes no file. It fetches the template
 and lists the new commits.
 
+### Rules of one project
+
+`AGENTS.md` comes from the template, so a project writes its own rules for each
+task in `docs/agents/project/rules.md`. A bare line in `AGENTS.md` loads that
+file. Claude Code expands the `@` import when it loads `AGENTS.md`, and Codex
+opens the file because the line tells it to. When the file does not exist,
+neither agent shows an error.
+
+A `CLAUDE.md`, `.claude/CLAUDE.md`, or `CLAUDE.local.md` in the working
+directory or above it stops Claude Code from reading `AGENTS.md`, so it then
+reads neither file. This includes a personal `CLAUDE.local.md`. Put the line
+`@AGENTS.md` in such a file. Claude Code before version 2.1.277 reads only
+`CLAUDE.md` files, so it needs the same line.
+
 ### Exact versions
 
 The template pins exact versions of Node, pnpm, TypeScript, and each package.
@@ -255,9 +269,9 @@ person or an agent runs the same commands, and the result is the same.
 `templateOwned` in
 [`scripts/template-paths.json`](../../scripts/template-paths.json) lists the
 files that a project takes from the template and does not change, such as
-`AGENTS.md`, the architecture document, the lint rules, and `.oxlintrc.json`,
-which turns the lint rules on. A change to one of them goes to the template
-first.
+`AGENTS.md`, the documents in `docs/agents/`, the lint rules, and
+`.oxlintrc.json`, which turns the lint rules on. A change to one of them goes
+to the template first. A project's own text goes in `docs/agents/project/`.
 
 In a project, a hook stops an agent's edit of one of those files. Claude Code
 asks you first. Codex refuses the edit, and its agent describes the change to
@@ -275,6 +289,11 @@ removes the label. A merge or a rebase of `main` into the branch does not
 remove it, unless `main` changed lines next to that change. When the check
 removes the label, its log names the files and links to the changes of the
 push. The check does nothing in the template.
+
+The hook and the check treat the files in `personOnly` the same way. Those
+files are the project's own, but they can loosen a rule. `reversals.md` in
+`docs/agents/project/` is such a file. See
+[Reverse a decision](README.md#reverse-a-decision).
 
 A project needs two settings on GitHub for the check. Make them one time,
 after the first push:

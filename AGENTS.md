@@ -4,6 +4,8 @@ These instructions apply to the whole repository. Use this file for rules that
 Codex and Claude Code must follow on every task. Use `docs/agents/` for longer
 project information. Read the documents that apply to the task.
 
+Read and follow @docs/agents/project/rules.md and @docs/agents/project/reversals.md when those files exist.
+
 ## Repository
 
 - This is a pnpm workspace with `backend`, `frontend`, and `common` packages.
@@ -188,7 +190,7 @@ issue tracker. [Beads](docs/agents/beads.md) describes it.
 - Before changing, adding, moving, or deleting code in any workspace, read [docs/agents/code-architecture.md](docs/agents/code-architecture.md) and follow its rules.
 - Before writing or changing a test, read [docs/agents/testing.md](docs/agents/testing.md) and follow its rules.
 - Use [docs/agents/README.md](docs/agents/README.md) to find project reference documents.
-- Add stable project facts and decisions under `docs/agents/`. Update the relevant document when those facts change.
+- Add stable project facts and decisions under `docs/agents/`, or under `docs/agents/project/` in a project made from the template. Update the relevant document when those facts change.
 - A document in `docs/agents/` says how the system works and why. Steps to do, phases, checklists, and the status of work go in beads.
 - Use a `SKILL.md` only for a repeatable task workflow. Keep general project rules and reference documents out of skills.
 - When each step of a workflow needs no judgment, put the steps in a script in `scripts/`, with tests, and add a Swamp workflow in `workflows/` that runs it. Its skill then names the workflow, and has only the steps that need judgment. The `sync-template` skill is the model, and [setup](docs/agents/setup.md#swamp) describes Swamp.

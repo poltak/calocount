@@ -12,7 +12,7 @@ export const VERSION_FILE = "template-version.json";
 export const GUARDED_FILES = [VERSION_FILE];
 
 /**
- * The file with five lists of paths. A path that ends with `/` is a
+ * The file with six lists of paths. A path that ends with `/` is a
  * directory.
  *
  * - `templateOnly`: files that only the template needs. `start-project`
@@ -24,6 +24,9 @@ export const GUARDED_FILES = [VERSION_FILE];
  *   removes the example.
  * - `projectOwned`: files that a project writes for itself. A new file here
  *   reaches an existing project one time, and the project then owns it.
+ * - `personOnly`: files that only a person changes, because they can loosen a
+ *   rule of the project. The template has none of them. The hook and the check
+ *   below read this list too. A sync does not read it.
  * - `templateOwned`: files that a project takes from the template and does
  *   not change, unless the project's `ownPaths` names them.
  *   `.agents/hooks/guard-template-owned-files.mjs` and

@@ -49,7 +49,7 @@ export const TEMPLATE_PATHS = {
     "backend/src/features/core/database/migrations/1791009406-create-note.ts",
     ".agents/skills/remove-example/",
   ],
-  projectOwned: ["README.md"],
+  projectOwned: ["README.md", "docs/agents/project/"],
 };
 
 export function git(directory, ...args) {

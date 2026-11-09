@@ -211,6 +211,42 @@ async function addExampleMigration({ template, files }) {
   return { pathsFile, migration };
 }
 
+test("keeps the project's file in a project-owned directory, and gives it a new file there one time", async (context) => {
+  const { template, project } = await createProject(context);
+  await write(project, {
+    "docs/agents/project/rules.md": "# Rules of the project\n",
+  });
+  commit(project, "Add the rules of the project");
+  await templateCommit({
+    template,
+    message: "Change a file and add a document for projects",
+    files: {
+      "src/app.txt": "one\ntwo\nthree\nfour\n",
+      "docs/agents/project/rules.md": "# Rules of the template\n",
+      "docs/agents/project/decisions.md": "# Decisions of the template\n",
+    },
+  });
+
+  sync(project, "plan");
+
+  const result = sync(project, "apply");
+
+  assert.equal(result.status, 0, result.output);
+  assert.equal(
+    git(project, "show", "--name-only", "--format=", "HEAD"),
+    "docs/agents/project/decisions.md\nsrc/app.txt",
+  );
+  assert.equal(
+    await readProjectFile(project, "docs/agents/project/rules.md"),
+    "# Rules of the project\n",
+  );
+  assert.equal(
+    await readProjectFile(project, "docs/agents/project/decisions.md"),
+    "# Decisions of the template\n",
+  );
+  assert.equal(git(project, "status", "--porcelain"), "");
+});
+
 test("gives a project that has the example each new part of the example", async (context) => {
   const { template, project } = await createProject(context);
   const { pathsFile, migration } = await addExampleMigration({
