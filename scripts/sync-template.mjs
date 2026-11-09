@@ -39,6 +39,11 @@ const MIGRATIONS_DIRECTORY = "backend/src/features/core/database/migrations/";
 const MIGRATION_LIST = "backend/src/features/core/database/migrations.ts";
 const MIGRATION_SCRIPT = "scripts/create-migration.mjs";
 const CONFLICT_MARKER = /^(?:<{7}|>{7}) /m;
+// The rules of a sync are in these files, and a running script does not read
+// its own new version.
+const RULE_FILES = ["scripts/sync-template.mjs", "scripts/template-files.mjs"];
+// The commit to go back to, for an `apply` that an `apply` started.
+const SYNC_START = "TEMPLATE_SYNC_START";
 
 const CHECKS = {
   // A template commit can change dependencies, so the lockfile can change.
@@ -599,7 +604,8 @@ async function apply() {
     );
   }
   // A run that stops and continues is one sync, with one commit to go back to.
-  const before = stopped?.before ?? read("rev-parse", "HEAD");
+  const before =
+    stopped?.before ?? process.env[SYNC_START] ?? read("rev-parse", "HEAD");
   const report = ({ commit, made }) =>
     console.log(
       made
@@ -638,10 +644,25 @@ async function apply() {
       rmSync(stoppedFile(), { force: true });
       fail(`Could not cherry-pick ${short(commit.commit)}:\n${picked.stderr}`);
     }
-    report({
+    const made = await settle({
       commit,
-      made: await settle({ commit, leftOut: plan.leftOut, stopped: progress }),
+      leftOut: plan.leftOut,
+      stopped: progress,
     });
+    report({ commit, made });
+    if (made && commit.files.some((file) => RULE_FILES.includes(file))) {
+      // The plan of each later commit must come from the new rules.
+      const { status } = spawnSync(
+        process.execPath,
+        [fileURLToPath(import.meta.url), "apply"],
+        {
+          cwd: root,
+          stdio: "inherit",
+          env: { ...process.env, [SYNC_START]: before },
+        },
+      );
+      process.exit(status ?? 1);
+    }
   }
 
   console.log(
