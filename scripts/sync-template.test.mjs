@@ -676,6 +676,68 @@ test("stops when both sides changed one dependency to different versions, and co
   assert.equal(git(project, "status", "--porcelain"), "");
 });
 
+test("keeps a dependency out of a project that removed it when the template updates it", async (context) => {
+  const { template, project } = await createProject(context);
+  const { zod: removed, ...kept } = PACKAGE_JSON.dependencies;
+  assert.equal(removed, "4.0.0");
+  await write(project, {
+    "package.json": json({ ...PACKAGE_JSON, dependencies: kept }),
+  });
+  commit(project, "Remove a dependency");
+  await templateCommit({
+    template,
+    message: "Update the dependencies",
+    files: {
+      "package.json": json({
+        ...PACKAGE_JSON,
+        dependencies: { ...PACKAGE_JSON.dependencies, zod: "4.1.0" },
+      }),
+      "src/app.txt": "one\ntwo\nthree\nfour\n",
+    },
+  });
+  sync(project, "plan");
+
+  const result = sync(project, "apply");
+
+  assert.equal(result.status, 0, result.output);
+  assert.match(
+    result.output,
+    /package\.json: the template updates dependencies\.zod\. The project removed it/,
+  );
+  assert.deepEqual(
+    JSON.parse(await readProjectFile(project, "package.json")).dependencies,
+    kept,
+  );
+  assert.equal(
+    await readProjectFile(project, "src/app.txt"),
+    "one\ntwo\nthree\nfour\n",
+  );
+});
+
+test("stops when the project removed a key that is not a dependency and the template changed it", async (context) => {
+  const { template, project } = await createProject(context);
+  await write(project, {
+    "package.json": json({ ...PACKAGE_JSON, scripts: { check: "node c.mjs" } }),
+  });
+  commit(project, "Remove a script");
+  await templateCommit({
+    template,
+    message: "Change a script",
+    files: {
+      "package.json": json({
+        ...PACKAGE_JSON,
+        scripts: { ...PACKAGE_JSON.scripts, dev: "node dev.mjs --watch" },
+      }),
+    },
+  });
+  sync(project, "plan");
+
+  const result = sync(project, "apply");
+
+  assert.equal(result.status, 1);
+  assert.match(result.output, /package\.json: scripts\.dev/);
+});
+
 test("keeps the project's lockfile when the template's change does not apply to it", async (context) => {
   const { template, project } = await createProject(context);
   await write(project, {
