@@ -4,17 +4,25 @@ import type { AuthPasskeyManageLogic } from "../auth/logic/auth-passkey-manage-l
 import type { AuthSessionLogic } from "../auth/logic/auth-session-logic.js";
 import type { PasskeyServiceInterface } from "../auth/services/types.js";
 import type { AuthStorage } from "../auth/storage/auth-storage.js";
+import type { EntriesLogic } from "../entries/logic/entries-logic.js";
+import type { EntryReadsLogic } from "../entries/logic/entry-reads-logic.js";
+import type { SavedEntriesLogic } from "../entries/logic/saved-entries-logic.js";
+import type { EntriesStorage } from "../entries/storage/entries-storage.js";
 import type { BlackBoxLogic } from "../black-box/logic/black-box-logic.js";
 import type { BlackBoxStorage } from "../black-box/storage/black-box-storage.js";
 import type { HealthLogic } from "../health/logic/health-logic.js";
 import type { HealthStorage } from "../health/storage/health-storage.js";
+import type { SettingsLogic } from "../settings/logic/settings-logic.js";
+import type { SettingsStorage } from "../settings/storage/settings-storage.js";
 import type { RunAtomic } from "./logic/types.js";
 import type { ClockServiceInterface } from "./services/types.js";
 
 export interface BackendStorage {
   auth: AuthStorage;
   blackBox: BlackBoxStorage;
+  entries: EntriesStorage;
   health: HealthStorage;
+  settings: SettingsStorage;
 }
 
 /**
@@ -36,7 +44,11 @@ export interface BackendLogic {
   authPasskeyManage: AuthPasskeyManageLogic;
   authSession: AuthSessionLogic;
   blackBox: BlackBoxLogic;
+  entries: EntriesLogic;
+  entryReads: EntryReadsLogic;
   health: HealthLogic;
+  savedEntries: SavedEntriesLogic;
+  settings: SettingsLogic;
 }
 
 /**

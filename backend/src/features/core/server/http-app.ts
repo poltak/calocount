@@ -3,6 +3,9 @@ import { cors } from "hono/cors";
 import { requestId } from "hono/request-id";
 import { secureHeaders } from "hono/secure-headers";
 import { createBlackBoxHandlers } from "../../black-box/handlers/black-box-handlers.js";
+import { createDashboardHandlers } from "../../entries/handlers/dashboard-handlers.js";
+import { createEntryHandlers } from "../../entries/handlers/entry-handlers.js";
+import { createSavedEntryHandlers } from "../../entries/handlers/saved-entry-handlers.js";
 import { createAuthHandlers } from "../../auth/handlers/auth-handlers.js";
 import { requireTrustedOrigin } from "../../auth/handlers/require-trusted-origin.js";
 import { requireSession } from "../../auth/handlers/require-session.js";
@@ -31,12 +34,13 @@ interface HttpAppProps extends ApiHttpAppProps {
   clientAddressHeader?: string | undefined;
 }
 
-/**
- * Every business route, including future routes, shares the session gate. The
- * app has no business route yet.
- */
-function createBusinessHttpApp() {
-  return new Hono<AuthEnvironment>().use("*", requireSession());
+/** Every business route, including future routes, shares the session gate. */
+function createBusinessHttpApp({ app }: ApiHttpAppProps) {
+  return new Hono<AuthEnvironment>()
+    .use("*", requireSession())
+    .route("/", createDashboardHandlers({ logic: app.logic }))
+    .route("/meals", createEntryHandlers({ logic: app.logic }))
+    .route("/saved-entries", createSavedEntryHandlers({ logic: app.logic }));
 }
 
 /**
@@ -49,7 +53,7 @@ export function createApiHttpApp({ app }: ApiHttpAppProps) {
     .use("*", requireTrustedOrigin({ config: app.config }))
     .use("*", resolveSession({ services: app.services, logic: app.logic }))
     .route("/auth", createAuthHandlers({ logic: app.logic }))
-    .route("/", createBusinessHttpApp());
+    .route("/", createBusinessHttpApp({ app }));
 }
 
 export function createHttpApp({ app, clientAddressHeader }: HttpAppProps) {

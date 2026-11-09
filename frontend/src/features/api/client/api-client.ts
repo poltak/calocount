@@ -1,6 +1,9 @@
 import type { ApiType } from "backend/api";
 import { hc } from "hono/client";
 
+/** The body of the response of a route, for one status. Other code reads response types through this layer. */
+export type { InferResponseType as ApiResponseBody } from "hono/client";
+
 const NO_CONNECTION =
   "No connection. Check your internet connection and try again.";
 

@@ -8,13 +8,13 @@
       "types": "./dist/features/core/events/event-emitter.d.ts",
       "default": "./dist/features/core/events/event-emitter.js"
     },
-    "./features/core/logic/logic-plugin": {
-      "types": "./dist/features/core/logic/logic-plugin.d.ts",
-      "default": "./dist/features/core/logic/logic-plugin.js"
-    },
     "./features/core/logic/logic": {
       "types": "./dist/features/core/logic/logic.d.ts",
       "default": "./dist/features/core/logic/logic.js"
+    },
+    "./features/core/logic/logic-plugin": {
+      "types": "./dist/features/core/logic/logic-plugin.d.ts",
+      "default": "./dist/features/core/logic/logic-plugin.js"
     },
     "./features/core/services/console-logger-service": {
       "types": "./dist/features/core/services/console-logger-service.d.ts",
@@ -35,6 +35,22 @@
     "./features/core/utils/log-level": {
       "types": "./dist/features/core/utils/log-level.d.ts",
       "default": "./dist/features/core/utils/log-level.js"
+    },
+    "./features/core/utils/logical-date": {
+      "types": "./dist/features/core/utils/logical-date.d.ts",
+      "default": "./dist/features/core/utils/logical-date.js"
+    },
+    "./features/entries/utils/entry-kind": {
+      "types": "./dist/features/entries/utils/entry-kind.d.ts",
+      "default": "./dist/features/entries/utils/entry-kind.js"
+    },
+    "./features/entries/utils/nutrient-provenance": {
+      "types": "./dist/features/entries/utils/nutrient-provenance.d.ts",
+      "default": "./dist/features/entries/utils/nutrient-provenance.js"
+    },
+    "./features/entries/utils/nutrients": {
+      "types": "./dist/features/entries/utils/nutrients.d.ts",
+      "default": "./dist/features/entries/utils/nutrients.js"
     }
   },
   "scripts": {

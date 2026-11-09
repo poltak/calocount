@@ -65,6 +65,8 @@ test("should open another page from a link without a page load", async () => {
 });
 
 test("should sign the owner out, and ask for sign-in again", async () => {
+  // The link above led to the dashboard, which has its sign-out in the settings.
+  await page.getByRole("button", { name: "Open settings" }).click();
   await page.getByRole("button", { name: "Sign out" }).click();
 
   await expect(page).toHaveURL(/\/login$/);

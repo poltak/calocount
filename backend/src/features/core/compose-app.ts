@@ -2,10 +2,16 @@ import { AuthPasskeyLogic } from "../auth/logic/auth-passkey-logic.js";
 import { AuthPasskeyManageLogic } from "../auth/logic/auth-passkey-manage-logic.js";
 import { AuthSessionLogic } from "../auth/logic/auth-session-logic.js";
 import { AuthStorage } from "../auth/storage/auth-storage.js";
+import { EntriesLogic } from "../entries/logic/entries-logic.js";
+import { EntryReadsLogic } from "../entries/logic/entry-reads-logic.js";
+import { SavedEntriesLogic } from "../entries/logic/saved-entries-logic.js";
+import { EntriesStorage } from "../entries/storage/entries-storage.js";
 import { BlackBoxLogic } from "../black-box/logic/black-box-logic.js";
 import { BlackBoxStorage } from "../black-box/storage/black-box-storage.js";
 import { HealthLogic } from "../health/logic/health-logic.js";
 import { HealthStorage } from "../health/storage/health-storage.js";
+import { SettingsLogic } from "../settings/logic/settings-logic.js";
+import { SettingsStorage } from "../settings/storage/settings-storage.js";
 import { createRunAtomic } from "./database/atomic.js";
 import type { D1Binding } from "./database/d1-binding.js";
 import type { Database } from "./database/database.js";
@@ -30,7 +36,9 @@ function createStorage(db: Database): BackendStorage {
   return {
     auth: new AuthStorage({ db }),
     blackBox: new BlackBoxStorage({ db }),
+    entries: new EntriesStorage({ db }),
     health: new HealthStorage({ db }),
+    settings: new SettingsStorage({ db }),
   };
 }
 
@@ -57,7 +65,11 @@ export function composeApp({
     }),
     authSession: new AuthSessionLogic({ storage, services, config }),
     blackBox: new BlackBoxLogic({ storage, services, atomic, config }),
+    entries: new EntriesLogic({ storage, services, atomic }),
+    entryReads: new EntryReadsLogic({ storage, services }),
     health: new HealthLogic({ storage, services }),
+    savedEntries: new SavedEntriesLogic({ storage, services, atomic }),
+    settings: new SettingsLogic({ storage, services }),
   };
 
   return {

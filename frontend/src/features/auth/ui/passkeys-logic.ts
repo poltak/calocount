@@ -4,7 +4,7 @@ import type { FrontendLogicProps } from "../../core/logic/types.js";
 import type { PasskeyRegistrationOptions } from "../services/types.js";
 import { ceremonyMessage } from "../utils/passkey-messages.js";
 
-type PasskeysProps = FrontendLogicProps<never, "passkeys", "auth">;
+type PasskeysProps = FrontendLogicProps<never, "passkeys" | "dialogs", "auth">;
 
 interface PasskeyInfo {
   id: string;
@@ -83,8 +83,22 @@ export class PasskeysLogic extends Logic<PasskeysProps, PasskeysState> {
     });
   }
 
-  /** The backend keeps the last passkey and refuses its removal. */
+  /**
+   * Ask first. A no leaves everything as it was. The backend keeps the last
+   * passkey and refuses its removal.
+   */
   async removePasskey({ id }: { id: string }): Promise<void> {
+    const target = this.state.passkeys.find((candidate) => candidate.id === id);
+    if (
+      target &&
+      !this.deps.services.dialogs.confirm(
+        target.current
+          ? `Remove the passkey "${target.name}"? You signed in with it, so this device signs out.`
+          : `Remove the passkey "${target.name}"? Devices that signed in with it sign out.`,
+      )
+    ) {
+      return;
+    }
     await this.executeTask("removePasskey", async () => {
       const response = await this.deps.api.auth.passkeys[":id"].$delete(
         { param: { id: encodeURIComponent(id) } },

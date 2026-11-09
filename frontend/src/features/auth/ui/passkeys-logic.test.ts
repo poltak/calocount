@@ -95,6 +95,32 @@ describe("PasskeysLogic tests", () => {
     expect(await readPasskeyIds(backend.db)).toEqual([owner.passkey.id]);
   });
 
+  it("should ask before it removes a passkey, and remove nothing on a no", async () => {
+    const { backend, frontend, logic } = await setupTest();
+    await logic.addPasskey();
+    const other = logic.state.passkeys.find(({ current }) => !current);
+    frontend.services.dialogs.answerWith(false);
+
+    await logic.removePasskey({ id: other?.id ?? "" });
+
+    expect(frontend.services.dialogs.questions).toEqual([
+      `Remove the passkey "${other?.name}"? Devices that signed in with it sign out.`,
+    ]);
+    expect(logic.state.removePasskeyState).toEqual("pristine");
+    expect(await readPasskeyIds(backend.db)).toHaveLength(2);
+  });
+
+  it("should warn that the device signs out when the passkey is the one in use", async () => {
+    const { frontend, logic, owner } = await setupTest();
+    await logic.addPasskey();
+
+    await logic.removePasskey({ id: owner.passkey.id });
+
+    expect(frontend.services.dialogs.questions).toEqual([
+      'Remove the passkey "Owner"? You signed in with it, so this device signs out.',
+    ]);
+  });
+
   it("should end the session of a passkey with its removal", async () => {
     const { backend, logic, owner } = await setupTest();
     await logic.addPasskey();
