@@ -134,6 +134,12 @@ The check works as follows:
 - Each model runs on the subscription of a person, and not on an API key. The
   reviews count against the usage limits of that subscription.
 - A model without its secret does not run. With no secret, the workflow reviews nothing and passes.
+- A repository that does not use the review sets the repository variable
+  `AGENT_REVIEW` to `off`, with
+  `gh variable set AGENT_REVIEW --body off`. Then no job of the workflow
+  starts, and the pull request gets no "Agent review" check. Without the
+  variable, each job runs and bills at least one minute, also with no secret.
+  The template sets the variable, because it has no model secrets.
 
 The review uses `TEMPLATE_MAINTAINERS` from the
 [template-owned check](setup.md#files-that-come-from-the-template). Make the label one
