@@ -5,10 +5,11 @@ name: Agent review
 # `.agents/review/prompt.md`, and a project adds its own in
 # `.agents/review/project-rules.md`. The first review posts a master comment
 # with each issue, and each later review edits it and posts a summary. The
-# "Agent review" job fails while a rule violation is open, until a maintainer
-# accepts it with its checkbox or with the `agent-review-accepted` label.
-# `scripts/agent-review.mjs` has the logic, and `docs/agents/setup.md` the
-# secrets of a project.
+# "Agent review" job fails while a rule violation is open. A maintainer can
+# accept only findings whose rules permit approval. Fix-required findings and
+# failed review jobs cannot be accepted.
+# `scripts/agent-review.mjs` has the logic, and `docs/agents/agent-review.md`
+# the secrets of a project.
 #
 # The trigger is `pull_request`, so GitHub runs this file as it is in the pull
 # request. The reviewers must read the files of the pull request, and a
@@ -40,6 +41,11 @@ env:
 jobs:
   plan:
     name: Plan
+    # A repository with no model secrets, such as the template, sets the
+    # variable AGENT_REVIEW to "off". Then no job starts, and no minutes are
+    # billed. The verdict job needs the same condition, because it fails when
+    # the plan did not succeed, and a skipped plan did not succeed.
+    if: vars.AGENT_REVIEW != 'off'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     # The plan reads the master comment of the earlier reviews.
@@ -51,17 +57,20 @@ jobs:
       mode: ${{ steps.plan.outputs.mode }}
       earlier: ${{ steps.plan.outputs.earlier }}
     steps:
-      - name: Check out the scripts
+      - name: Check out the scripts and review rules
         uses: actions/checkout@v7
         with:
           persist-credentials: false
-          sparse-checkout: scripts
+          sparse-checkout: |
+            scripts
+            .agents/review
 
       - name: Choose a review, a check of the label, or nothing
         id: plan
         run: node scripts/agent-review.mjs plan
         env:
           GH_TOKEN: ${{ github.token }}
+          TEMPLATE_MAINTAINERS: ${{ vars.TEMPLATE_MAINTAINERS }}
 
   claude:
     name: Claude
@@ -165,7 +174,7 @@ jobs:
   verdict:
     name: Agent review
     needs: [plan, claude, codex]
-    if: always() && (needs.plan.result != 'success' || needs.plan.outputs.mode == 'review' || needs.plan.outputs.mode == 'label')
+    if: always() && vars.AGENT_REVIEW != 'off' && (needs.plan.result != 'success' || needs.plan.outputs.mode == 'review' || needs.plan.outputs.mode == 'label')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:

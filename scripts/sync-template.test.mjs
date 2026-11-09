@@ -762,6 +762,59 @@ test("stops at a conflict that no rule resolves, and continues after a person re
     git(project, "log", "-3", "--format=%s"),
     "Add another file\nChange the second line\nAdd a file",
   );
+  // The version file keeps the record of the stop for `finish`.
+  assert.equal(
+    git(project, "status", "--porcelain"),
+    " M template-version.json",
+  );
+});
+
+test("names each file that stopped apply in the commit of finish", async (context) => {
+  const { template, project } = await createProject(context);
+  await write(project, {
+    "src/app.txt": "one\ntwo of the project\nthree\n",
+    "src/other.txt": "of the project\n",
+  });
+  commit(project, "Change two files");
+  const resolved = await templateCommit({
+    template,
+    message: "Change the second line",
+    files: { "src/app.txt": "one\ntwo of the template\nthree\n" },
+  });
+  const skipped = await templateCommit({
+    template,
+    message: "Add another file",
+    files: { "src/other.txt": "of the template\n" },
+  });
+  sync(project, "plan");
+  assert.equal(sync(project, "apply").status, 1);
+  await write(project, { "src/app.txt": "one\ntwo of both\nthree\n" });
+  git(project, "add", "src/app.txt");
+  assert.equal(sync(project, "apply").status, 1);
+  assert.equal(
+    sync(project, "skip", short(skipped), "The project has its own file.")
+      .status,
+    0,
+  );
+
+  const result = sync(project, "finish");
+
+  assert.equal(result.status, 0, result.output);
+  assert.equal(
+    git(project, "log", "-1", "--format=%b"),
+    `- The project has the template up to: Add another file\n- New template commits in the project: 1\n- Left out by a person: 1\n- Conflict at ${short(resolved)}: src/app.txt\n- Conflict at ${short(skipped)}: src/other.txt`,
+  );
+  assert.deepEqual(await readVersion(project), {
+    template,
+    commit: skipped,
+    skipped: [
+      {
+        commit: skipped,
+        subject: "Add another file",
+        reason: "The project has its own file.",
+      },
+    ],
+  });
   assert.equal(git(project, "status", "--porcelain"), "");
 });
 
@@ -865,6 +918,37 @@ test("finds a change that the template took from the project", async (context) =
   assert.equal(
     await readProjectFile(project, "src/from-project.txt"),
     "from the project\n",
+  );
+});
+
+test("finds a change that the template took with the commands of template.md", async (context) => {
+  const { template, project } = await createProject(context);
+  await write(project, { "src/from-project.txt": "from the project\n" });
+  const original = commit(project, "Add a file in the project");
+  const worktree = path.join(path.dirname(project), "template-change");
+
+  git(project, "fetch", "--quiet", "template");
+  git(
+    project,
+    "worktree",
+    "add",
+    "--quiet",
+    "-b",
+    "feature/from-project",
+    worktree,
+    "template/main",
+  );
+  git(worktree, "cherry-pick", "-x", original);
+  git(template, "fetch", "--quiet", project, "feature/from-project");
+  git(template, "merge", "--quiet", "--ff-only", "FETCH_HEAD");
+
+  const result = sync(project, "plan");
+
+  assert.match(
+    result.output,
+    new RegExp(
+      `have\\s+\\w{7}  Add a file in the project\\n\\s+\\(it came from commit ${short(original)} of this project\\)`,
+    ),
   );
 });
 

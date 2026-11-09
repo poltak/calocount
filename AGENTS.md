@@ -11,7 +11,9 @@ Read and follow @docs/agents/project/rules.md and @docs/agents/project/reversals
 - This is a pnpm workspace with `backend`, `frontend`, and `common` packages.
 - Put code used by both apps in `common`. Code imported by `frontend` must work in a browser. Keep server-only code in `backend`.
 - `backend` code never imports from `frontend`, and vice-versa. Though this has a narrow exception: frontend code may use `import type` from `backend/api`.
-- Only Node test files may load `backend/testing`.
+- Only test files may load `backend/testing`. They run on Node, and a project
+  can add a second host for the same tests, as
+  [testing](docs/agents/testing.md#a-second-test-host) says.
 - Use the Node version in `.nvmrc` and the pnpm version in `package.json`.
   pnpm runs scripts on the Node version pinned in `devEngines.runtime`, so run
   Node through pnpm (`pnpm run …`, `pnpm exec node …`), not bare `node`. The
@@ -19,7 +21,8 @@ Read and follow @docs/agents/project/rules.md and @docs/agents/project/reversals
 - In a project made from the template, do not change a file that
   `templateOwned` in `scripts/template-paths.json` lists. Describe the change
   to the person instead. It goes to the template first, and the project gets
-  it with a sync.
+  it with a sync. When the person agrees, report the gap as the `sync-template`
+  skill says, so that the template learns of it.
 
 ## Start of a task
 
@@ -39,6 +42,9 @@ Read and follow @docs/agents/project/rules.md and @docs/agents/project/reversals
   feature needs to expose a public API.
 - Avoid depth in function call stacks as much as possible. Unnecessary depth makes for
   very hard-to-grok code.
+- Keep each file under 5,000 tokens (20,000 bytes). The pre-commit hook stops
+  a commit that adds a larger file or makes one grow, and its message says how
+  to split the file. Plan the split before a change makes a file too large.
 - Do not write unit tests for modules. Full app integration tests should be written which fit our standards.
   Read [docs/agents/testing.md](docs/agents/testing.md) for more context.
 - When you finish a change to a page or a workflow that has no black box
@@ -80,8 +86,10 @@ Read and follow @docs/agents/project/rules.md and @docs/agents/project/reversals
 
 - While you work, run `pnpm run typecheck` and `pnpm run lint` after
   TypeScript changes. Also run the app tests of each feature that you change,
-  such as `pnpm --filter frontend exec vitest run src/features/notes`. These
-  take seconds. `pnpm run check` takes minutes, because it runs each app test.
+  such as `pnpm run test:feature src/features/<feature>`. This builds
+  `backend` and `common` first, because the tests load their build. It takes
+  seconds.
+  `pnpm run check` takes minutes, because it runs each app test.
 - Run `pnpm run check` before you push, and before you tell the person that
   the work is done. Each push to a pull request that is ready for review
   starts CI and the agent review, so a failure that CI finds costs a second
@@ -103,16 +111,22 @@ Read and follow @docs/agents/project/rules.md and @docs/agents/project/reversals
 - When the "Agent review" check of a pull request fails, tell the person about
   each finding. Change the text only where a finding is correct. Do not run
   the review again to get a different result.
+- After a fix for an agent review finding is pushed, reply with the commit
+  and the checks that passed. The review verifies the fix and records its
+  status. Acceptance checkboxes are only for configured maintainers to
+  approve findings whose rules permit approval. Agents must not check them
+  to report a fix. Resolve the line conversation after the review verifies
+  the fix or records maintainer approval.
 
 ## Issue tracking
 
 Each project keeps its issues and its open work in beads, a command-line
-issue tracker. [Setup](docs/agents/setup.md#beads-issue-tracker) describes it.
+issue tracker. [Beads](docs/agents/beads.md) describes it.
 
 - Run it as `pnpm exec bd`. `package.json` pins its version, so all persons
   and agents use the same one. When `bd` says "no beads database found", do
   the steps of
-  [Join a project that uses beads](docs/agents/setup.md#join-a-project-that-uses-beads).
+  [Join a project that uses beads](docs/agents/beads.md#join-a-project-that-uses-beads).
   Do not run `bd init` for this. Run it only to turn on beads in a new
   project.
 - This section replaces the agent instructions of beads. Do not run

@@ -73,6 +73,7 @@ best matches their responsibility.
 - `src/features/<feature>/utils/`: re-usable utility functions that might be used by multiple other parts of the feature X
 - `src/features/<feature>/handlers/`: backend transport handlers related to feature X, when needed
 - `src/features/<feature>/scripts/`: command-line entry points related to feature X
+- `src/features/<feature>/workers/`: modules that run on a thread of their own, such as a browser Web Worker. A worker module is not a Service class. A Service of the feature starts it and exchanges messages with it, and tests use a fake of that Service
 - `src/features/<feature>/black-box-tests/`: in the frontend, the black box tests of feature X and the page objects of its pages, and nothing else
 
 A LogicPlugin lives in the same layer directory as the Logic classes that consume

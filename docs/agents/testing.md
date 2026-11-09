@@ -9,7 +9,8 @@ the `write-integration-test` skill for a UI Logic test, and the
 Almost every test must be an integration test of one UI Logic operation (i.e., a user invoked action) against the
 full application. The test calls a method on a UI Logic class. The request then
 passes through the real API client, backend routes, validation, backend Logic,
-Services, and an isolated in-memory PostgreSQL database, all in one process.
+Services, and an isolated in-memory database of the project's engine, all in
+one process.
 Nothing on that path is replaced/mocked.
 
 The canonical example is
@@ -27,11 +28,35 @@ LogicPlugin has a test file of its own, such as
 [`note-draft-plugin.test.ts`](../../frontend/src/features/notes/ui/note-draft-plugin.test.ts).
 
 Backend code has no test runner of its own. Handlers, backend Logic, and Storage
-are covered through these tests.
+are covered through these tests. A project with code that runs only on another
+runtime can run the same tests on [a second host](#a-second-test-host).
 
 Each workflow that has stopped changing must also have
 [black box tests](#black-box-tests). They check the workflow in a real browser,
 and they know only what a user can see.
+
+## A second test host
+
+One test type can run on two hosts. Node is the default. A project adds a second
+host when Node cannot run a part of its backend, such as a Cloudflare Durable
+Object or a binding that only `workerd` has. A test on the second host has the
+same form: `setupLogicTest`, one Logic method, and checks of state and of
+`backend.db`. So it is the same test type, and the [rules](#rules) apply.
+
+- `frontend/vite.config.ts` has a Vitest project for each host. In the project
+  of the second host, a `resolve.alias` points `backend/testing` at a fixture
+  for that host, so `full-application.ts` does not change.
+- `global-setup.ts` runs on Node only. A fixture on another host builds its
+  database in another way.
+- Keep most tests on Node, because they start faster and they can use a DOM.
+  Run a test on the second host when it needs that host, or when its Storage
+  statements use a feature that the database of the Node host can hide.
+- A host that cannot give each test a new copy of a database can keep one
+  database for each test file. Each test there uses new IDs, and does not read
+  a whole table. This is the one exception to the rule that a test has its own
+  database.
+- V8 coverage does not work on `workerd`, and one run has one provider. A
+  coverage run that includes that host uses Istanbul.
 
 ## Rules
 
@@ -137,8 +162,9 @@ The fixture's transport can also reproduce timing and connection problems:
 
 A few files that are not Logic classes have tests of their own:
 
-- `api-client.test.ts` checks only the client's types, which no running test
-  can check. The UI Logic tests cover its behavior.
+- `api-client.test.ts` checks the client's types, which no running test can
+  check, and its base URL, which each fixture sets to one value. The UI Logic
+  tests cover its other behavior.
 - `latest-request.test.ts` tests a small helper that has no I/O.
 - `use-logic.test.tsx` is the only Vitest test that renders components,
   because the hook's lifecycle exists only inside React. Do not add other
@@ -176,9 +202,11 @@ How they run:
   test runs at a time.
 
 `pnpm run check` does not run them. CI runs them in a job of their own, on
-each pull request and on each push to `main`. Run them yourself after a change
-to `routes.tsx`, `main.tsx`, `vite.config.ts`, the API client's request
-options, an error boundary, or a page that has a page object.
+each pull request and on each push to `main`. A pull request skips them when
+the same files passed before. Only a change to a Markdown file outside
+`frontend`, `backend`, and `common` can skip them. Run them yourself
+after a change to `routes.tsx`, `main.tsx`, `vite.config.ts`, the API
+client's request options, an error boundary, or a page that has a page object.
 
 ### Build checks
 

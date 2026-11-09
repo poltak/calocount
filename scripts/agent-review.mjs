@@ -24,10 +24,10 @@
 // that GitHub sends a notification. The summary says what changed, and links
 // each issue to its entry in the master comment.
 //
-// A maintainer accepts one issue with its checkbox, and the next review moves
-// it to the addressed issues. The `agent-review-accepted` label accepts each
-// open finding of one head. A later review with open findings removes the
-// label, so it is for the findings that the maintainer saw. A draft gets its
+// A maintainer accepts only findings whose rules permit approval. The
+// `agent-review-accepted` label accepts those findings for one head. Findings
+// that require a fix and failed review jobs still block it. A later review
+// removes the label, so it is for the findings that the maintainer saw. A draft gets its
 // review when it is ready, and a dependency update gets none.
 //
 // The master comment also stores the newest commit that each model read. When
@@ -36,7 +36,7 @@
 //
 // Each new issue on lines that the pull request adds also gets a comment on
 // those lines, in a review. When a later review finds that it is addressed, it
-// checks the box of the line comment.
+// records the verified fix without an acceptance box.
 //
 // Each command reads the event from GITHUB_EVENT_PATH, and writes its outputs
 // to GITHUB_OUTPUT. The maintainers are in TEMPLATE_MAINTAINERS, with commas or
@@ -75,7 +75,6 @@ const EARLIER_FILE = ".agent-review/earlier-issues.md";
 // The box of an issue, with its ID, in the master comment or in a line
 // comment.
 const BOX = /^- \[([ x])\] (?:<a id="[\w-]+"><\/a>)?\*\*([FN]\d+) ·/gm;
-const LINE_BOX = /^- \[[ x]\] (?=\*\*[FN]\d+ ·)/m;
 // GraphQL and REST give the login of the token of a workflow in two forms.
 const BOT_LOGINS = new Set(["github-actions", "github-actions[bot]"]);
 // GitHub keeps each version of a comment, with the person who made it, so a
@@ -112,6 +111,7 @@ const MINIMIZE_QUERY = `mutation ($id: ID!) {
 // Each line comment has the ID of its issue, so that a later review can find
 // the line comment of an issue that it addressed.
 const LINE_PATTERN = /<!-- agent-review-line ([FN]\d+) -->/;
+const ISSUE_ID = /\b[FN]\d+\b/g;
 const PROMPT_FILE = ".agents/review/prompt.md";
 const PROJECT_RULES_FILE = ".agents/review/project-rules.md";
 const SCHEMA_FILE = ".agents/review/findings.schema.json";
@@ -307,6 +307,15 @@ function writeEarlierIssues(earlier) {
       "",
       issue.explanation,
       "",
+      `Resolution: ${kindOf(issue) === "N" ? "nonblocking" : (policies.get(issue.rule) ?? "fix-required")}`,
+      "Replies are evidence only. They cannot approve a violation.",
+      "",
+      ...(issue.comments ?? []).flatMap(({ author, body }) => [
+        `A comment of the maintainer ${author}:`,
+        "",
+        quoteBlock(body),
+        "",
+      ]),
     );
   }
   mkdirSync(path.dirname(path.join(root, EARLIER_FILE)), { recursive: true });
@@ -317,12 +326,45 @@ function writeEarlierIssues(earlier) {
 
 /** Returns the name of each rule, which is the text of its heading. */
 function ruleNames() {
-  const text = `${readFileSync(path.join(root, PROMPT_FILE), "utf8")}\n${projectRules()}`;
-  return new Set([
-    ...[...text.matchAll(RULE_HEADING)].map(([, name]) => name),
-    "new-document",
-  ]);
+  return new Set(policies.keys());
 }
+
+function rulePolicies() {
+  const rules = new Map();
+  for (const text of [
+    readFileSync(path.join(root, PROMPT_FILE), "utf8"),
+    projectRules(),
+  ]) {
+    const headings = [...text.matchAll(RULE_HEADING)];
+    for (const [index, heading] of headings.entries()) {
+      const name = heading[1];
+      if (rules.has(name)) continue;
+      const body = text.slice(
+        heading.index + heading[0].length,
+        headings[index + 1]?.index,
+      );
+      const policy = body.match(
+        /^\s*Resolution: (fix-required|maintainer-approval)\s*\n/,
+      );
+      rules.set(name, policy?.[1] ?? "fix-required");
+    }
+  }
+  return rules;
+}
+
+const permitsApproval = (issue) =>
+  kindOf(issue) === "N" || policies.get(issue.rule) === "maintainer-approval";
+
+const reviewIssues = (issues) =>
+  issues.map((issue) =>
+    issue.status === "accepted" && !permitsApproval(issue)
+      ? {
+          ...factsOf(issue),
+          status: "open",
+          reason: "This rule requires a fix and does not permit acceptance.",
+        }
+      : issue,
+  );
 
 function readPages(route) {
   return JSON.parse(
@@ -393,21 +435,70 @@ function plan() {
 }
 
 function earlierReview(event) {
-  const comment = reviewComment({
-    repository: event.repository.full_name,
-    number: event.pull_request.number,
-  });
+  const repository = event.repository.full_name;
+  const { number } = event.pull_request;
+  const comment = reviewComment({ repository, number });
   const [, head, , reviewed, base] = comment?.body.match(MARKER_FIELDS) ?? [];
   if (!head) return "";
   const master = comment.body.startsWith(MASTER_MARKER);
-  const issues = master
-    ? (stateOf(comment.body)?.issues ?? [])
-    : oldIssues({ body: comment.body, head });
+  const issues = reviewIssues(
+    master
+      ? (stateOf(comment.body)?.issues ?? [])
+      : oldIssues({ body: comment.body, head }),
+  );
   const open = issues.filter((issue) => issue.status === "open").length;
+  const comments = maintainerComments({ repository, number });
   console.log(
     `${master ? "The master comment" : `The comment of the review of ${head}`} has ${count(open, "open issue")}.`,
   );
-  return pack({ head, comment: comment.id, master, issues, reviewed, base });
+  return pack({
+    head,
+    comment: comment.id,
+    master,
+    issues: issues.map((issue) =>
+      comments.has(issue.id)
+        ? { ...issue, comments: comments.get(issue.id) }
+        : issue,
+    ),
+    reviewed,
+    base,
+  });
+}
+
+/**
+ * What the maintainers wrote about each issue: a reply to its line comment, or
+ * a comment on the pull request that names its ID.
+ */
+function maintainerComments({ repository, number }) {
+  const written = new Map();
+  const add = (id, { user, body }) =>
+    written.set(id, [...(written.get(id) ?? []), { author: user.login, body }]);
+  const isMaintainerComment = ({ user }) =>
+    isMaintainer(user?.login) && !BOT_LOGINS.has(user?.login);
+  const lineComments = readPages(
+    `repos/${repository}/pulls/${number}/comments?per_page=100`,
+  ).flat();
+  const issueOfLine = new Map(
+    lineComments.flatMap((comment) => {
+      const id = comment.body?.match(LINE_PATTERN)?.[1];
+      return id && BOT_LOGINS.has(comment.user?.login)
+        ? [[comment.id, id]]
+        : [];
+    }),
+  );
+  for (const comment of lineComments.filter(isMaintainerComment)) {
+    const id = issueOfLine.get(comment.in_reply_to_id);
+    if (id) add(id, comment);
+  }
+  const pullComments = readPages(
+    `repos/${repository}/issues/${number}/comments?per_page=100`,
+  ).flat();
+  for (const comment of pullComments.filter(isMaintainerComment)) {
+    for (const id of new Set(comment.body?.match(ISSUE_ID) ?? [])) {
+      add(id, comment);
+    }
+  }
+  return written;
 }
 
 /**
@@ -641,7 +732,7 @@ function saveCodexLogin() {
       [
         "Codex refreshed its login, and the CODEX_AUTH_WRITE_TOKEN secret is not set,",
         "so the CODEX_AUTH_JSON secret now has a login that does not work.",
-        "Make a new login as docs/agents/setup.md describes.",
+        "See docs/agents/agent-review.md for a new login.",
         "::error title=Agent review::The Codex login changed, and the workflow cannot save it.",
       ].join("\n"),
     );
@@ -887,6 +978,14 @@ function addedLines(file, { base, head }) {
 const anchorOf = (id) => `agent-review-${id.toLowerCase()}`;
 const isOpen = (issue) => issue.status === "open";
 const isOpenFinding = (issue) => isOpen(issue) && kindOf(issue) === "F";
+const issuePrefix = (issue) =>
+  permitsApproval(issue) && issue.status !== "fixed"
+    ? `- [${issue.status === "accepted" ? "x" : " "}]`
+    : "-";
+const acceptanceText = (issue) =>
+  permitsApproval(issue)
+    ? "A configured maintainer can accept this issue with its checkbox. Replies do not grant approval."
+    : "This issue requires a fix. Checkboxes, labels, and replies cannot accept it.";
 const firstSentence = (text) =>
   flatten(text)
     .split(/(?<=[.!?])\s/)[0]
@@ -919,11 +1018,11 @@ function lineComments({ added, range, view }) {
           ...(each && { start_line: start, start_side: "RIGHT" }),
           body: [
             `<!-- agent-review-line ${issue.id} -->`,
-            `- [ ] **${view.title(issue)}** (${issue.models.join(", ")})`,
+            `${issuePrefix(issue)} **${view.title(issue)}** (${issue.models.join(", ")})`,
             "",
             escapeOutsideCode(flatten(issue.explanation).slice(0, 1000)),
             "",
-            `${view.issueLink(issue)} in the master comment of the agent review. A maintainer accepts the issue as it is with its box, and the next review moves it to the addressed issues.`,
+            `${view.issueLink(issue)} in the master comment of the agent review. ${acceptanceText(issue)}`,
           ].join("\n"),
         },
       ];
@@ -931,12 +1030,11 @@ function lineComments({ added, range, view }) {
 }
 
 /**
- * Checks the box of the line comment of each addressed or accepted issue, and
- * says why. Returns the address of the line comment of each issue. A person
+ * Records verified fixes and maintainer acceptance on line comments. A person
  * resolves the conversation, because GitHub can refuse `resolveReviewThread`
  * to the token of a workflow, also with `pull-requests: write`.
  */
-function markLines({ repository, number, fixed, accepted, link }) {
+function markLines({ repository, number, issues, fixed, accepted, link }) {
   const marks = new Map([
     ...fixed.map((issue) => [
       issue.id,
@@ -955,16 +1053,28 @@ function markLines({ repository, number, fixed, accepted, link }) {
     const id = comment.body?.match(LINE_PATTERN)?.[1];
     if (!id || comment.user?.login !== "github-actions[bot]") continue;
     if (!addresses.has(id)) addresses.set(id, comment.html_url);
+    const issue = issues.find((issue) => issue.id === id);
+    if (!issue) continue;
     const lines = marks.get(id);
-    if (!lines || /^- \[x\] \*\*[FN]\d+ ·/m.test(comment.body)) continue;
+    let body = comment.body.replace(
+      /^-(?: \[[ x]\])? (?=\*\*[FN]\d+ ·)/m,
+      `${issuePrefix(issue)} `,
+    );
+    body = body.replace(
+      "A maintainer accepts the issue as it is with its box, and the next review moves it to the addressed issues.",
+      acceptanceText(issue),
+    );
+    body = body.replace(
+      "A configured maintainer can accept this issue with its checkbox. Replies do not grant approval.",
+      acceptanceText(issue),
+    );
+    if (lines && !lines.every((line) => body.includes(line)))
+      body = [body, "", ...lines].join("\n");
+    if (body === comment.body) continue;
     callApi({
       method: "PATCH",
       route: `repos/${repository}/pulls/comments/${comment.id}`,
-      body: {
-        body: [comment.body.replace(LINE_BOX, "- [x] "), "", ...lines].join(
-          "\n",
-        ),
-      },
+      body: { body },
     });
   }
   return addresses;
@@ -1095,7 +1205,7 @@ function followUp({ issues, findings, notes, models, accepted, review, head }) {
     ) {
       return fix("Each model that checked it says that it is addressed.");
     }
-    if (accepted.has(issue.id)) {
+    if (permitsApproval(issue) && accepted.has(issue.id)) {
       const item = {
         ...now(),
         status: "accepted",
@@ -1110,7 +1220,9 @@ function followUp({ issues, findings, notes, models, accepted, review, head }) {
         ...now(),
         status: "open",
         reopened: review,
-        reason: "A maintainer cleared its box.",
+        reason: permitsApproval(issue)
+          ? "A maintainer cleared its box."
+          : "This rule requires a fix and does not permit acceptance.",
       };
       changes.reopened.push(item);
       return item;
@@ -1184,7 +1296,7 @@ function boxChanges(versions) {
 function acceptances({ repository, number, issues, master }) {
   const accepted = new Map(
     issues
-      .filter((issue) => issue.status === "accepted")
+      .filter((issue) => issue.status === "accepted" && permitsApproval(issue))
       .map((issue) => [issue.id, issue.acceptedBy]),
   );
   if (!master) return accepted;
@@ -1228,7 +1340,9 @@ function acceptances({ repository, number, issues, master }) {
     return boxChanges(versionsOf(line)).filter(({ key }) => key === id);
   });
   const ids = new Set(
-    issues.filter((issue) => issue.status !== "fixed").map(({ id }) => id),
+    issues
+      .filter((issue) => issue.status !== "fixed" && permitsApproval(issue))
+      .map(({ id }) => id),
   );
   const changes = [...boxChanges(masterVersions), ...lineChanges]
     .filter(({ key, at }) => ids.has(key) && at > since)
@@ -1329,9 +1443,6 @@ function ruleLinkOf({ server, repository, head }) {
     `${server}/${repository}/blob/${head}/${encodeURI(file)}`;
   return (rule) => {
     if (generalNames.has(rule)) return `[${rule}](${general.url}#${rule})`;
-    if (rule === "new-document") {
-      return `[${rule}](${fileUrl("docs/agents/README.md")}#where-to-add-information)`;
-    }
     return `[${rule}](${fileUrl(PROJECT_RULES_FILE)}#${rule})`;
   };
 }
@@ -1424,7 +1535,7 @@ function rulesText({ view, repository, head }) {
   const projectText = existsSync(path.join(root, PROJECT_RULES_FILE))
     ? ` The rules of ${repository} only are in ${view.link({ file: PROJECT_RULES_FILE })}.`
     : "";
-  return `${generalText}${projectText} To accept each open rule violation of a commit now, a maintainer adds the \`${LABEL}\` label. A later review with open rule violations removes the label.`;
+  return `${generalText}${projectText} The \`${LABEL}\` label accepts only findings whose rules permit maintainer approval, for this head. Findings that require a fix and failed review jobs still fail the check. A later review with open rule violations removes the label.`;
 }
 
 function openEntry({ issue, view, review }) {
@@ -1434,7 +1545,7 @@ function openEntry({ issue, view, review }) {
     ...(issue.lineComment ? [`[on its line](${issue.lineComment})`] : []),
   ];
   return [
-    `- [ ] <a id="${anchorOf(issue.id)}"></a>**${view.title(issue)}** in ${view.link(issue)} (${issue.models.join(", ")}) · ${marks.join(" · ")}`,
+    `${issuePrefix(issue)} <a id="${anchorOf(issue.id)}"></a>**${view.title(issue)}** in ${view.link(issue)} (${issue.models.join(", ")}) · ${kindOf(issue) === "N" ? "Nonblocking note" : permitsApproval(issue) ? "Maintainer approval permitted" : "Fix required"} · ${marks.join(" · ")}`,
     "",
     ...(view.showsQuote(issue) ? [quoteBlock(issue.quote), ""] : []),
     escapeOutsideCode(flatten(issue.explanation).slice(0, 1000)),
@@ -1515,7 +1626,7 @@ function masterBody({
       `#### Open issues: ${open.length}`,
       "",
       open.length > 0
-        ? "A maintainer accepts an issue as it is with its checkbox, here or on its line, and the next review moves it to the addressed issues. An open rule violation fails the check. An other issue does not."
+        ? "Findings marked Fix required cannot be accepted. Only findings that permit maintainer approval and nonblocking notes have acceptance checkboxes. Replies are evidence, not approval. An open rule violation fails the check. An other issue does not."
         : "No issue is open.",
       "",
     ];
@@ -1681,7 +1792,7 @@ function summaryBody({
   if (blockers > 0) {
     lines.push(
       "",
-      `To pass the check, address each open rule violation. A maintainer can also accept an issue with its checkbox in the master comment, and the next review moves it to the addressed issues. To accept each open rule violation of this commit now, a maintainer adds the \`${LABEL}\` label.`,
+      `To pass the check, fix each finding that requires a fix. A configured maintainer can accept only findings that permit approval, with their checkboxes or the \`${LABEL}\` label for this head. Replies do not grant approval.`,
     );
   }
   lines.push(...usageLines({ models, title: "Model usage" }));
@@ -1758,7 +1869,7 @@ function reviewVerdict(event) {
   ];
   if (models.every((model) => model.state === "not-configured")) {
     console.log(
-      "No model is set up, so nothing reviewed the pull request. docs/agents/setup.md describes the secrets.",
+      "No model is set up, so nothing reviewed the pull request. docs/agents/agent-review.md has the secrets.",
     );
     return true;
   }
@@ -1923,15 +2034,12 @@ function reviewVerdict(event) {
     lineFailed(error);
   }
   let addresses = new Map();
-  if (
-    comments.length > 0 ||
-    changes.fixed.length > 0 ||
-    changes.accepted.length > 0
-  ) {
+  if (issues.length > 0) {
     try {
       addresses = markLines({
         repository,
         number: pull.number,
+        issues,
         fixed: changes.fixed,
         accepted: changes.accepted,
         link: view.reviewLink(review),
@@ -1975,7 +2083,7 @@ function reviewVerdict(event) {
     );
   }
   console.log(
-    `::error title=Agent review::The review has ${blockers} open ${blockers === 1 ? "item" : "items"}. A maintainer accepts them with the ${LABEL} label.`,
+    `::error title=Agent review::The review has ${blockers} open ${blockers === 1 ? "item" : "items"}. Fix required findings and failed review jobs cannot be accepted.`,
   );
   return false;
 }
@@ -1983,16 +2091,18 @@ function reviewVerdict(event) {
 function labelVerdict(event) {
   const repository = event.repository.full_name;
   const pull = event.pull_request;
-  const marker = reviewComment({ repository, number: pull.number })?.body.match(
-    MARKER_FIELDS,
-  );
+  const comment = reviewComment({ repository, number: pull.number });
+  const marker = comment?.body.match(MARKER_FIELDS);
   if (marker?.[1] !== pull.head.sha) {
     console.log(
       `::error title=Agent review::The review of ${pull.head.sha} has not finished. Its result replaces this one.`,
     );
     return false;
   }
-  if (Number(marker[2]) === 0) {
+  const state = stateOf(comment.body);
+  const issues = reviewIssues(state?.issues ?? []);
+  const open = issues.filter(isOpenFinding);
+  if (Number(marker[2]) === 0 && open.length === 0) {
     console.log("The review of the head commit has no open items.");
     return true;
   }
@@ -2006,13 +2116,30 @@ function labelVerdict(event) {
       )
       .at(-1)?.actor?.login;
     if (isMaintainer(adder)) {
-      console.log(`${adder}, a maintainer, accepted the open items.`);
+      if (!state) {
+        console.log(
+          "The earlier review has no issue state. Run a new review before applying the acceptance label.",
+        );
+        return false;
+      }
+      const required = open.filter((issue) => !permitsApproval(issue));
+      const failures =
+        Number(marker[2]) - state.issues.filter(isOpenFinding).length;
+      console.log(
+        `${adder}, a maintainer, accepted ${count(open.length - required.length, "approval-permitted finding")} for this head.`,
+      );
+      if (required.length > 0 || failures !== 0) {
+        console.log(
+          "Findings that require a fix and failed review jobs cannot be accepted.",
+        );
+        return false;
+      }
       return true;
     }
     console.log(`${adder} added the ${LABEL} label, and is not a maintainer.`);
   }
   console.log(
-    `::error title=Agent review::The review has ${marker[2]} open items. A maintainer accepts them with the ${LABEL} label.`,
+    `::error title=Agent review::The review has ${marker[2]} open items. The ${LABEL} label accepts only findings whose rules permit approval.`,
   );
   return false;
 }
@@ -2032,6 +2159,7 @@ const commands = {
   verdict,
 };
 const command = commands[process.argv[2]];
+const policies = rulePolicies();
 if (!command) {
   console.error(
     `Usage: node scripts/agent-review.mjs <${Object.keys(commands).join("|")}>`,

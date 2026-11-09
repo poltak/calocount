@@ -4,7 +4,7 @@
       "Bash(pnpm run typecheck)",
       "Bash(pnpm run build)",
       "Bash(pnpm run lint)",
-      "Bash(pnpm --filter frontend exec vitest run:*)",
+      "Bash(pnpm run test:feature:*)",
       "Bash(pnpm run check)"
     ]
   },
@@ -40,6 +40,28 @@
             "type": "command",
             "command": "node \"${CLAUDE_PROJECT_DIR}/.agents/hooks/format-edited-files.mjs\" \"${CLAUDE_PROJECT_DIR}\"",
             "timeout": 60
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.agents/hooks/warn-slow-commands.mjs\" claude",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.agents/hooks/warn-slow-commands.mjs\" claude",
+            "timeout": 10
           }
         ]
       }

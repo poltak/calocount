@@ -14,6 +14,10 @@ instructions.
   Read before changing a framework, authentication, the API transport, or test
   setup.
 - [Setup and commands](setup.md): read to run, configure, or check the project.
+- [Beads](beads.md): the issue tracker, its version, and how to join it or
+  turn it on. Read before setting up beads.
+- [Agent review](agent-review.md): the review of each pull request by models
+  in CI. Read before a change to its rules, its workflow, or its secrets.
 - [Evals](evals.md): how to measure a prompt with real models. Read before
   writing or running an eval.
 - `docs/agents/template.md`: how a project starts from the template, how it
@@ -65,6 +69,7 @@ a file when it needs one:
 | The architecture lint rules and their options  | `lint/`, `.oxlintrc.json`                                                                |
 | How a project takes template changes           | `scripts/sync-template.mjs`, `workflows/`                                                |
 | What stops an edit of a file from the template | `.agents/hooks/guard-template-owned-files.mjs`, `scripts/check-template-owned-files.mjs` |
+| What tells an agent that a command was slow    | `.agents/hooks/warn-slow-commands.mjs`                                                   |
 | The test fixture                               | `frontend/src/features/core/tests/full-application.ts`                                   |
 | A model integration test                       | `frontend/src/features/notes/ui/notes-logic.test.ts`                                     |
 | The build checks in a real browser             | `frontend/src/features/core/tests/browser/built-app.spec.ts`                             |
