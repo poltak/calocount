@@ -59,7 +59,7 @@ runs.
    it. The third is to set the maintainers and the label of the
    "Template-owned files" check, with the commands in `docs/agents/setup.md`.
    The fourth, after the push, is to turn on the issue tracker, as "Turn on
-   beads in a new project" in `docs/agents/setup.md` describes.
+   beads in a new project" in `docs/agents/beads.md` describes.
 
 ## What the script does
 
