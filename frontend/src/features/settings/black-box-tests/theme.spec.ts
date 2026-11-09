@@ -9,6 +9,8 @@ test.describe("theme preference", () => {
       await new TodayPageObject(page).goto();
       const settings = new SettingsPageObject(page);
       await settings.open();
+      // First another choice, so that the test does not pass on the default.
+      await settings.field(theme === "Dark" ? "Light" : "Dark").check();
       await settings.field(theme).check();
       await page.reload();
       await settings.open();

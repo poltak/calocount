@@ -11,6 +11,24 @@ const PNG_PHOTO: PhotoFile = {
   ),
 };
 
+/** Two photos that differ in colour, so that a test sees which one shows. */
+const RED_PHOTO: PhotoFile = {
+  name: "red.png",
+  mimeType: "image/png",
+  buffer: Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAEUlEQVR4nGO4IyeHFTEMLQkAid1GAXiz9RcAAAAASUVORK5CYII=",
+    "base64",
+  ),
+};
+const BLUE_PHOTO: PhotoFile = {
+  name: "blue.png",
+  mimeType: "image/png",
+  buffer: Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAEUlEQVR4nGOQs7mDFTEMLQkAGQpNgZweqk4AAAAASUVORK5CYII=",
+    "base64",
+  ),
+};
+
 test.describe("the owner adds a photo to an entry", () => {
   test("should show a thumbnail that opens a preview, and close the preview", async ({
     page,
@@ -111,17 +129,22 @@ test.describe("the owner changes the photo of an entry", () => {
     await today.addEntry({
       name: "Photo snack",
       calories: 120,
-      photo: PNG_PHOTO,
+      photo: RED_PHOTO,
     });
+    const thumbnail = today.photoThumbnail("Photo snack");
+    // Both pictures come from a new page, so that only the photo differs.
+    await page.reload();
+    await expect(thumbnail).toBeVisible();
+    const redThumbnail = await thumbnail.screenshot({ animations: "disabled" });
     await today.editEntry("Photo snack");
 
-    await today.replaceEntryPhoto("Photo snack", {
-      ...PNG_PHOTO,
-      name: "replacement.png",
-    });
+    await today.replaceEntryPhoto("Photo snack", BLUE_PHOTO);
     await today.saveEntryEditor("Photo snack");
 
     await page.reload();
-    await expect(today.photoThumbnail("Photo snack")).toBeVisible();
+    await expect(thumbnail).toBeVisible();
+    expect(await thumbnail.screenshot({ animations: "disabled" })).not.toEqual(
+      redThumbnail,
+    );
   });
 });
