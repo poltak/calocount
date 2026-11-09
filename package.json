@@ -66,7 +66,7 @@
     "embedded-postgres": "18.4.0-beta.17",
     "knip": "6.44.1",
     "lint-staged": "17.6.0",
-    "oxlint": "1.90.0",
+    "oxlint": "1.91.0",
     "prettier": "3.9.10",
     "simple-git-hooks": "2.14.0",
     "typescript": "7.0.2"
