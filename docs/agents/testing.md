@@ -162,8 +162,9 @@ The fixture's transport can also reproduce timing and connection problems:
 
 A few files that are not Logic classes have tests of their own:
 
-- `api-client.test.ts` checks only the client's types, which no running test
-  can check. The UI Logic tests cover its behavior.
+- `api-client.test.ts` checks the client's types, which no running test can
+  check, and its base URL, which each fixture sets to one value. The UI Logic
+  tests cover its other behavior.
 - `latest-request.test.ts` tests a small helper that has no I/O.
 - `use-logic.test.tsx` is the only Vitest test that renders components,
   because the hook's lifecycle exists only inside React. Do not add other
