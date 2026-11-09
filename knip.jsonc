@@ -1,0 +1,40 @@
+{
+  // The "Agent review" workflow installs the Codex CLI on the CI machine, and
+  // no package of the repository has it. `script` comes with the system, and
+  // the sync tests use it to get a real terminal.
+  "ignoreBinaries": ["codex", "script"],
+  // People and agents run bd with `pnpm exec bd`, and no code or script of the
+  // repository calls it.
+  "ignoreDependencies": ["@beads/bd"],
+  // The old app, until the rebuild replaces it.
+  "ignoreWorkspaces": ["legacy"],
+  "workspaces": {
+    ".": {
+      "entry": [
+        ".agents/hooks/check-branch-is-current.mjs",
+        ".agents/hooks/format-edited-files.mjs",
+        ".agents/hooks/guard-template-owned-files.mjs",
+      ],
+      "project": [".agents/hooks/**/*.mjs", "lint/**/*.mjs"],
+    },
+    "backend": {
+      "entry": [
+        "src/features/core/live/index.ts",
+        "src/features/core/tests/index.ts",
+        "src/features/core/server/start.ts",
+        "src/features/core/scripts/migrate.ts",
+        "src/features/auth/scripts/setup-owner.ts",
+        "src/features/auth/scripts/reset-password.ts",
+        // The eval script of a project calls the eval harness. The template
+        // has no eval of its own.
+        "src/features/core/scripts/eval-command.ts",
+      ],
+    },
+    "frontend": {
+      "entry": [
+        "src/features/core/live/index.ts",
+        "src/features/core/tests/index.ts",
+      ],
+    },
+  },
+}

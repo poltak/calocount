@@ -1,0 +1,22 @@
+.agents/skills/
+.claude/worktrees/
+# Git can ignore this file through the global gitignore of a person, but Prettier reads only the root ignore files.
+.claude/settings.local.json
+**/node_modules/
+.data/
+# bd writes these files. The .gitignore in the folder keeps the database and the backups out of Git, but Prettier reads only the root ignore files.
+.beads/
+**/.browser-test/
+**/dist/
+**/coverage/
+pnpm-lock.yaml
+.swamp/
+.swamp.yaml
+# The old app has its own format rules, and the rebuild replaces it.
+legacy/
+# The documents and the ChatGPT plugin of the old app.
+docs/*.md
+docs/custom-gpt/
+docs/plugin/
+plugins/
+.agents/plugins/

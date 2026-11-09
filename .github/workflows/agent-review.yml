@@ -1,0 +1,213 @@
+name: Agent review
+
+# Two models read each pull request and report text that breaks a rule that no
+# lint rule or test can check. The general rules are in
+# `.agents/review/prompt.md`, and a project adds its own in
+# `.agents/review/project-rules.md`. The first review posts a master comment
+# with each issue, and each later review edits it and posts a summary. The
+# "Agent review" job fails while a rule violation is open. A maintainer can
+# accept only findings whose rules permit approval. Fix-required findings and
+# failed review jobs cannot be accepted.
+# `scripts/agent-review.mjs` has the logic, and `docs/agents/agent-review.md`
+# the secrets of a project.
+#
+# The trigger is `pull_request`, so GitHub runs this file as it is in the pull
+# request. The reviewers must read the files of the pull request, and a
+# `pull_request_target` job must never check out code from it. A pull request
+# that changes this file or the script fails the "Template-owned files" check,
+# which the pull request cannot change.
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+      - edited
+      - labeled
+      - unlabeled
+
+permissions:
+  contents: read
+
+env:
+  CLAUDE_CODE_VERSION: 2.1.303
+  CLAUDE_MODEL: opus
+  CLAUDE_EFFORT: high
+  CODEX_VERSION: 0.163.0
+  CODEX_MODEL: gpt-6.1-sol
+  CODEX_EFFORT: high
+
+jobs:
+  plan:
+    name: Plan
+    # A repository with no model secrets, such as the template, sets the
+    # variable AGENT_REVIEW to "off". Then no job starts, and no minutes are
+    # billed. A draft and a dependency update get no review, so their events
+    # start no job either. The bots here are the bots of `DEPENDENCY_BOTS` in
+    # the script. The verdict job needs the same condition, because it fails
+    # when the plan did not succeed, and a skipped plan did not succeed.
+    if: vars.AGENT_REVIEW != 'off' && !github.event.pull_request.draft && github.event.pull_request.user.login != 'renovate[bot]' && github.event.pull_request.user.login != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # The plan reads the master comment of the earlier reviews.
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+    outputs:
+      mode: ${{ steps.plan.outputs.mode }}
+      earlier: ${{ steps.plan.outputs.earlier }}
+    steps:
+      - name: Check out the scripts and review rules
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            scripts
+            .agents/review
+
+      - name: Choose a review, a check of the label, or nothing
+        id: plan
+        run: node scripts/agent-review.mjs plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TEMPLATE_MAINTAINERS: ${{ vars.TEMPLATE_MAINTAINERS }}
+
+  claude:
+    name: Claude
+    needs: plan
+    if: needs.plan.outputs.mode == 'review'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # A new push to the pull request stops the review of the old head commit.
+    concurrency:
+      group: agent-review-claude-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    outputs:
+      status: ${{ steps.review.outputs.status }}
+      findings: ${{ steps.review.outputs.findings }}
+      notes: ${{ steps.review.outputs.notes }}
+      statuses: ${{ steps.review.outputs.statuses }}
+      message: ${{ steps.review.outputs.message }}
+      usage: ${{ steps.review.outputs.usage }}
+    steps:
+      # npm refuses to run in the repository, because `devEngines` names pnpm.
+      - name: Install Claude Code
+        working-directory: ${{ runner.temp }}
+        run: npm install --global "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}"
+
+      - name: Check out the head commit
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          # The review compares the head with the commit where the branch left
+          # its base, so it needs the history of both.
+          fetch-depth: 0
+          # The reviewer can read each file, so the token stays out of
+          # `.git/config`.
+          persist-credentials: false
+
+      - name: Review
+        id: review
+        run: node scripts/agent-review.mjs claude
+        env:
+          EARLIER_REVIEW: ${{ needs.plan.outputs.earlier }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+
+  codex:
+    name: Codex
+    needs: plan
+    if: needs.plan.outputs.mode == 'review'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Two jobs that refresh the Codex login at the same time leave a login that
+    # does not work. So one Codex job runs at a time in the repository, and a
+    # new push does not stop it. GitHub keeps one waiting job and cancels the
+    # others, and the verdict reports a cancelled review as an open item.
+    concurrency:
+      group: agent-review-codex
+      cancel-in-progress: false
+    outputs:
+      status: ${{ steps.review.outputs.status }}
+      findings: ${{ steps.review.outputs.findings }}
+      notes: ${{ steps.review.outputs.notes }}
+      statuses: ${{ steps.review.outputs.statuses }}
+      message: ${{ steps.review.outputs.message }}
+      usage: ${{ steps.review.outputs.usage }}
+    steps:
+      - name: Install Codex
+        working-directory: ${{ runner.temp }}
+        run: npm install --global "@openai/codex@${CODEX_VERSION}"
+
+      # Codex runs each command of the model in a bubblewrap sandbox, and
+      # Ubuntu 24.04 blocks the user namespaces that bubblewrap needs. OpenAI's
+      # codex-action makes the same change.
+      - name: Let the Codex sandbox start
+        run: |
+          if [ "$(sysctl -n kernel.unprivileged_userns_clone 2>/dev/null)" = 0 ]; then
+            sudo sysctl -w kernel.unprivileged_userns_clone=1
+          fi
+          if [ "$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null)" = 1 ]; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
+
+      - name: Check out the head commit
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Review
+        id: review
+        run: node scripts/agent-review.mjs codex
+        env:
+          EARLIER_REVIEW: ${{ needs.plan.outputs.earlier }}
+          CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+
+      - name: Save the refreshed Codex login
+        if: always()
+        run: node scripts/agent-review.mjs save-codex-login
+        env:
+          CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
+          GH_TOKEN: ${{ secrets.CODEX_AUTH_WRITE_TOKEN }}
+
+  verdict:
+    name: Agent review
+    needs: [plan, claude, codex]
+    if: always() && vars.AGENT_REVIEW != 'off' && !github.event.pull_request.draft && github.event.pull_request.user.login != 'renovate[bot]' && github.event.pull_request.user.login != 'dependabot[bot]' && (needs.plan.result != 'success' || needs.plan.outputs.mode == 'review' || needs.plan.outputs.mode == 'label')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: write
+    # One verdict at a time for each pull request, in order, so that a label
+    # event reads the master comment after the review before it.
+    concurrency:
+      group: agent-review-verdict-${{ github.event.pull_request.number }}
+      cancel-in-progress: false
+    steps:
+      # GitHub counts a skipped job as passed for a required check. So a failed
+      # plan must fail this job, and must not skip it.
+      - name: Fail when the plan did not finish
+        if: needs.plan.result != 'success'
+        run: exit 1
+
+      - name: Check out the head commit
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Post the issues, and pass or fail
+        run: node scripts/agent-review.mjs verdict
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MODE: ${{ needs.plan.outputs.mode }}
+          EARLIER_REVIEW: ${{ needs.plan.outputs.earlier }}
+          TEMPLATE_MAINTAINERS: ${{ vars.TEMPLATE_MAINTAINERS }}
+          CLAUDE_JOB: ${{ toJSON(needs.claude) }}
+          CODEX_JOB: ${{ toJSON(needs.codex) }}

@@ -1,0 +1,4 @@
+interface:
+    display_name: 'Write Integration Test'
+    short_description: 'Test a UI Logic operation against the full application'
+    default_prompt: 'Use $write-integration-test to add integration tests for this UI Logic operation.'

@@ -1,0 +1,23 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "declaration": true,
+    // Lets the frontend name this project in `references`. An editor then
+    // reads this source directly, and shows correct types before any build.
+    // It also makes a build write only the files that changed, so the watch
+    // build that `dev` starts after the first build does not restart the
+    // server. The record sits in `dist`, so that deleting `dist` also resets it.
+    "composite": true,
+    "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo",
+    // Lets the frontend's coverage report name backend source lines.
+    "sourceMap": true,
+    "lib": ["ES2023"],
+    "types": ["node"],
+    // PGlite declarations also name browser and Emscripten types.
+    "skipLibCheck": true
+  },
+  "include": ["src/**/*.ts"],
+  "references": [{ "path": "../common" }]
+}

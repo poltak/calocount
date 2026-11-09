@@ -1,0 +1,419 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": [
+    "typescript",
+    "unicorn",
+    "oxc",
+    "react",
+    "jsx-a11y",
+    "import",
+    "node"
+  ],
+  "jsPlugins": [
+    "@stylistic/eslint-plugin",
+    "./lint/architecture-plugin.mjs",
+    "./lint/stack-plugin.mjs",
+    "./lint/testing-plugin.mjs"
+  ],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn"
+  },
+  "rules": {
+    "curly": ["error", "all"],
+    "@stylistic/lines-between-class-members": [
+      "error",
+      {
+        "enforce": [
+          {
+            "blankLine": "always",
+            "prev": "*",
+            "next": "method"
+          },
+          {
+            "blankLine": "always",
+            "prev": "method",
+            "next": "*"
+          }
+        ]
+      }
+    ],
+    "unicorn/require-module-specifiers": "off",
+    "react/rules-of-hooks": "error",
+    "react/exhaustive-deps": "warn",
+    "react/react-in-jsx-scope": "off",
+    "import/no-cycle": "error",
+    "oxc/no-barrel-file": [
+      "error",
+      {
+        "threshold": 0
+      }
+    ],
+    "node/no-process-env": "error",
+    "no-console": "error",
+    "typescript/no-explicit-any": "error",
+    "architecture/feature-boundaries": [
+      "error",
+      {
+        "sharedFeatures": ["core", "api"],
+        "sharedRoles": ["black-box-tests"],
+        "compositionFiles": [
+          "features/core/live/index.ts",
+          "features/core/tests/index.ts",
+          "features/core/tests/full-application.ts",
+          "features/core/evals/index.ts",
+          "features/core/compose-app.ts",
+          "features/core/types.ts",
+          "features/core/server/http-app.ts",
+          "features/core/ui/routes.tsx"
+        ]
+      }
+    ],
+    "architecture/layer-imports": [
+      "error",
+      {
+        "collectionTypeFiles": ["features/core/types.ts"],
+        "coreServiceFeatures": ["core"]
+      }
+    ],
+    "architecture/service-implementations": [
+      "error",
+      {
+        "compositionFiles": [
+          "features/core/live/index.ts",
+          "features/core/tests/index.ts",
+          "features/core/tests/full-application.ts",
+          "features/core/evals/index.ts",
+          "features/core/compose-app.ts",
+          "features/core/types.ts",
+          "features/core/server/http-app.ts",
+          "features/core/ui/routes.tsx"
+        ]
+      }
+    ],
+    "architecture/no-construction": [
+      "error",
+      {
+        "compositionFiles": [
+          "features/core/live/index.ts",
+          "features/core/tests/index.ts",
+          "features/core/tests/full-application.ts",
+          "features/core/evals/index.ts",
+          "features/core/compose-app.ts",
+          "features/core/types.ts",
+          "features/core/server/http-app.ts",
+          "features/core/ui/routes.tsx"
+        ]
+      }
+    ],
+    "architecture/own-storage": [
+      "error",
+      {
+        "propsTypes": ["BackendLogicProps", "FrontendLogicProps"],
+        "exemptFeatures": ["core"]
+      }
+    ],
+    "architecture/handler-dependencies": [
+      "error",
+      {
+        "serviceCollections": ["BackendServices"],
+        "storageCollections": ["BackendStorage"],
+        "coreServices": ["logger"],
+        "sessionFiles": [
+          "features/auth/handlers/require-session.ts",
+          "features/auth/handlers/require-trusted-origin.ts"
+        ]
+      }
+    ],
+    "architecture/role-naming": [
+      "error",
+      {
+        "exemptFeatures": ["core"]
+      }
+    ],
+    "architecture/constructor-deps": [
+      "error",
+      {
+        "exemptFeatures": ["core"]
+      }
+    ],
+    "architecture/file-layout": [
+      "error",
+      {
+        "srcRootFiles": ["main.tsx"],
+        "featureRootFiles": ["types"],
+        "featureRootFilesByFeature": {
+          "core": ["compose-app"]
+        },
+        "roles": [
+          "services",
+          "logic",
+          "storage",
+          "ui",
+          "handlers",
+          "utils",
+          "scripts",
+          "workers",
+          "black-box-tests"
+        ],
+        "rolesByFeature": {
+          "core": [
+            "live",
+            "tests",
+            "server",
+            "database",
+            "errors",
+            "events",
+            "evals",
+            "types"
+          ],
+          "api": ["client"]
+        }
+      }
+    ],
+    "architecture/transaction-scope": "error",
+    "stack/vendor-imports": [
+      "error",
+      {
+        "vendors": [
+          {
+            "packages": ["better-auth"],
+            "allowedIn": ["^features/[^/]+/services/"],
+            "where": "a Service implementation"
+          },
+          {
+            "packages": ["kysely", "pg", "@electric-sql/pglite"],
+            "allowedIn": [
+              "^features/[^/]+/storage/",
+              "^features/core/database/"
+            ],
+            "where": "Storage classes and core/database"
+          },
+          {
+            "workspace": "backend",
+            "packages": ["hono", "@hono/node-server", "@hono/zod-validator"],
+            "allowedIn": [
+              "^features/[^/]+/handlers/",
+              "^features/core/server/",
+              "^features/core/tests/"
+            ],
+            "where": "handlers and core/server"
+          },
+          {
+            "workspace": "frontend",
+            "packages": ["hono"],
+            "allowedIn": ["^features/api/"],
+            "where": "the API client"
+          },
+          {
+            "packages": ["react", "react-dom", "react-router"],
+            "allowedIn": [
+              "^features/[^/]+/ui/.*\\.tsx$",
+              "^features/core/logic/",
+              "^main\\.tsx$"
+            ],
+            "where": "UI components, core/logic hooks, and main.tsx"
+          }
+        ]
+      }
+    ],
+    "stack/no-component-state": [
+      "error",
+      {
+        "hooks": ["useState", "useReducer", "useActionState", "useOptimistic"]
+      }
+    ],
+    "testing/ui-logic-tested": "error",
+    "testing/logic-tests": [
+      "error",
+      {
+        "fixtureFile": "features/core/tests/full-application.ts",
+        "fixtureName": "setupLogicTest",
+        "forbiddenFiles": ["features/core/tests/index.ts"],
+        "forbiddenPackages": [
+          "backend/testing",
+          "react",
+          "react-dom",
+          "@testing-library/react",
+          "@testing-library/dom"
+        ]
+      }
+    ],
+    "testing/black-box-tests": [
+      "error",
+      {
+        "fixtureFile": "features/core/black-box-tests/black-box-test.ts",
+        "exemptFiles": ["features/core/tests/browser/built-app.spec.ts"]
+      }
+    ],
+    "import/no-unassigned-import": [
+      "warn",
+      {
+        "allow": ["**/*.css"]
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["frontend/src/**", "common/src/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "^(?:backend|@app/backend)(?:/|$)",
+                "message": "Frontend and common code must not import the backend workspace."
+              },
+              {
+                "regex": "^(?:\\.\\./)+backend(?:/|$)",
+                "message": "Frontend and common code must not import the backend workspace."
+              },
+              {
+                "regex": "^(?:node:|(?:_http_agent|_http_client|_http_common|_http_incoming|_http_outgoing|_http_server|_tls_common|_tls_wrap|assert|async_hooks|buffer|child_process|cluster|console|constants|crypto|dgram|diagnostics_channel|dns|domain|events|fs|http|http2|https|inspector|module|net|os|path|perf_hooks|process|punycode|querystring|readline|repl|stream|string_decoder|sys|timers|tls|trace_events|tty|url|util|v8|vm|wasi|worker_threads|zlib)(?:/|$))",
+                "message": "Frontend and common code must not import Node.js built-ins."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["frontend/src/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "backend/api",
+                "allowTypeImports": true,
+                "message": "Import only the public API type; backend runtime code must not reach the browser."
+              }
+            ],
+            "patterns": [
+              {
+                "group": ["backend", "backend/*", "!backend/api"],
+                "message": "Only the public backend/api type may be imported by frontend code."
+              },
+              {
+                "group": ["@app/backend", "@app/backend/*"],
+                "message": "Use the explicit backend/api type export."
+              },
+              {
+                "regex": "^(?:\\.\\./)+backend(?:/|$)",
+                "message": "Use the public API type instead of importing backend source."
+              },
+              {
+                "regex": "^(?:node:|(?:_http_agent|_http_client|_http_common|_http_incoming|_http_outgoing|_http_server|_tls_common|_tls_wrap|assert|async_hooks|buffer|child_process|cluster|console|constants|crypto|dgram|diagnostics_channel|dns|domain|events|fs|http|http2|https|inspector|module|net|os|path|perf_hooks|process|punycode|querystring|readline|repl|stream|string_decoder|sys|timers|tls|trace_events|tty|url|util|v8|vm|wasi|worker_threads|zlib)(?:/|$))",
+                "message": "Frontend code must not import Node.js built-ins."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "frontend/src/**/*.test.ts",
+        "frontend/src/**/*.test.tsx",
+        "frontend/src/features/core/tests/full-application.ts",
+        "frontend/src/features/core/tests/global-setup.ts",
+        "frontend/src/features/core/black-box-tests/black-box-test.ts",
+        "frontend/src/features/core/tests/browser/built-app.spec.ts"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "backend",
+                  "backend/*",
+                  "!backend/api",
+                  "!backend/testing"
+                ],
+                "message": "Frontend tests may load only backend/testing and the backend/api type."
+              },
+              {
+                "group": ["@app/backend", "@app/backend/*"],
+                "message": "Use the explicit backend/testing export."
+              },
+              {
+                "regex": "^(?:\\.\\./)+backend(?:/|$)",
+                "message": "Use backend/testing instead of importing backend source."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["backend/src/features/core/live/config.ts"],
+      "rules": {
+        "node/no-process-env": "off"
+      }
+    },
+    {
+      "files": ["**/src/features/*/workers/**"],
+      "rules": {
+        "unicorn/require-post-message-target-origin": "off"
+      }
+    },
+    {
+      "files": [
+        "common/src/features/core/services/console-logger-service.ts",
+        "backend/src/features/*/scripts/**"
+      ],
+      "rules": {
+        "no-console": "off"
+      }
+    },
+    {
+      "files": ["frontend/src/**"],
+      "rules": {
+        "no-restricted-globals": [
+          "error",
+          {
+            "name": "window",
+            "message": "Browser capabilities belong behind a Service or the API client. See docs/agents/code-architecture.md (Where code belongs)."
+          },
+          {
+            "name": "document",
+            "message": "Browser capabilities belong behind a Service or the API client. See docs/agents/code-architecture.md (Where code belongs)."
+          },
+          {
+            "name": "localStorage",
+            "message": "Browser capabilities belong behind a Service or the API client. See docs/agents/code-architecture.md (Where code belongs)."
+          },
+          {
+            "name": "sessionStorage",
+            "message": "Browser capabilities belong behind a Service or the API client. See docs/agents/code-architecture.md (Where code belongs)."
+          },
+          {
+            "name": "navigator",
+            "message": "Browser capabilities belong behind a Service or the API client. See docs/agents/code-architecture.md (Where code belongs)."
+          },
+          {
+            "name": "fetch",
+            "message": "Browser capabilities belong behind a Service or the API client. See docs/agents/code-architecture.md (Where code belongs)."
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "frontend/src/features/*/services/**",
+        "frontend/src/features/api/**",
+        "frontend/src/main.tsx",
+        "frontend/src/**/*.test.ts",
+        "frontend/src/**/*.test.tsx"
+      ],
+      "rules": {
+        "no-restricted-globals": "off"
+      }
+    }
+  ],
+  "ignorePatterns": ["**/dist/**", "**/coverage/**"]
+}

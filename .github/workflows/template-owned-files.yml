@@ -1,0 +1,50 @@
+name: Template-owned files
+
+# A project takes some files from the template, and changes them only with a
+# sync. This check fails a pull request that changes one of them, until a
+# maintainer approves the change. `scripts/check-template-owned-files.mjs`
+# has the rules, and `docs/agents/setup.md` the setup for a project.
+#
+# The trigger is `pull_request_target`, so GitHub runs this file and the
+# script as they are on the default branch, also for a pull request to another
+# branch. A pull request cannot change the check that it gets. The token of
+# this trigger can write, so the job must never check out or run code from the
+# pull request.
+#
+# The job runs for each label event, also for other labels. A skipped job
+# counts as a pass for a required check. Unlike CI, it also runs for a draft,
+# because a push to a draft must remove an old approval.
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: write
+
+# One run at a time for each pull request, in order. A push must remove an
+# old approval before a later run reads the labels.
+concurrency:
+  group: template-owned-files-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Template-owned files
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out the default branch
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # The script uses only the modules of Node, so it needs no install,
+      # and the Node of the runner image runs it. A result after a new label
+      # then takes seconds.
+      - name: Check the changed files
+        run: node scripts/check-template-owned-files.mjs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TEMPLATE_MAINTAINERS: ${{ vars.TEMPLATE_MAINTAINERS }}
