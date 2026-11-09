@@ -12,13 +12,15 @@ template. Some reasons come from what happened in it.
 
 ## Backend
 
-- **Hono for HTTP routing.** Chosen for its small API and its support for Node,
-  Deno, and other runtimes (avoids runtime lock-in). Register routes by chaining, because the typed client derives its endpoint types from the chained result.
+- **Hono for HTTP routing.** Chosen for its small API, and because the same
+  routes run on Node, Deno, Workers, and other runtimes. That covers the routes
+  only. A host also needs a root of its own, and [hosting](hosting.md) says what
+  that root must do. Register routes by chaining, because the typed client derives its endpoint types from the chained result.
 - **Zod 4 with `@hono/zod-validator` for request validation.** Schemas check the
   shape of input and supply its TypeScript types. Hono by itself does not come with
   request validation.
-- **Node through `@hono/node-server`.** Node is the current runtime. A Deno entry
-  point could use `Deno.serve` later, for example.
+- **Node through `@hono/node-server`.** Node is the default host, as a
+  long-lived process. Another host has its own entry file and its own root.
 - **PostgreSQL through Kysely, with PGlite in tests.** Each test app gets its
   own in-memory PostgreSQL database, so tests run real queries without a
   database server and cannot affect each other. Kysely chosen for ease of

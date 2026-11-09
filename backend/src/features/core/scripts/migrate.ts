@@ -1,14 +1,15 @@
-import { readLiveConfig } from "../live/config.js";
+import { readDatabaseUrl, readLiveConfig } from "../live/config.js";
 import { createApp } from "../live/index.js";
 
 try {
   const config = readLiveConfig();
-  const target = new URL(config.databaseUrl);
+  const databaseUrl = readDatabaseUrl();
+  const target = new URL(databaseUrl);
   console.log(
     `Migrating database "${target.pathname.slice(1)}" on ${target.host}`,
   );
 
-  const app = createApp({ config });
+  const app = createApp({ config, databaseUrl });
   try {
     const applied = await app.logic.migration.migrate();
     console.log(
