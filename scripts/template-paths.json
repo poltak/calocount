@@ -58,6 +58,8 @@
     "scripts/check-template-owned-files.mjs",
     "scripts/check-template-owned-files.test.mjs",
     "scripts/migration-files.mjs",
+    "scripts/sync-template-fixtures.mjs",
+    "scripts/sync-template-own-paths.test.mjs",
     "scripts/sync-template.mjs",
     "scripts/sync-template.test.mjs",
     "scripts/template-files.mjs",
