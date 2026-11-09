@@ -732,7 +732,7 @@ function saveCodexLogin() {
       [
         "Codex refreshed its login, and the CODEX_AUTH_WRITE_TOKEN secret is not set,",
         "so the CODEX_AUTH_JSON secret now has a login that does not work.",
-        "Make a new login as docs/agents/setup.md describes.",
+        "See docs/agents/agent-review.md for a new login.",
         "::error title=Agent review::The Codex login changed, and the workflow cannot save it.",
       ].join("\n"),
     );
@@ -1867,7 +1867,7 @@ function reviewVerdict(event) {
   ];
   if (models.every((model) => model.state === "not-configured")) {
     console.log(
-      "No model is set up, so nothing reviewed the pull request. docs/agents/setup.md describes the secrets.",
+      "No model is set up, so nothing reviewed the pull request. docs/agents/agent-review.md has the secrets.",
     );
     return true;
   }
