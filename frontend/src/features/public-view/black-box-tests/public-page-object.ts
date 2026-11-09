@@ -22,4 +22,9 @@ export class PublicPageObject {
   get ownerLink() {
     return this.page.getByRole("link", { name: "Open owner view" });
   }
+
+  /** The line that says in which timezone the page shows days and times. */
+  timezoneNotice(timezone: string) {
+    return this.page.getByText(`Days and times are shown in ${timezone} time.`);
+  }
 }
