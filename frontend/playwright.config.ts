@@ -79,7 +79,8 @@ export default defineConfig({
   // The build checks in `core/tests/browser/`, and the black box tests in each
   // feature's `black-box-tests/` directory.
   testDir: "src/features",
-  testMatch: "**/*.spec.ts",
+  // Black-box tests, and API black-box tests (docs/agents/project/rules.md).
+  testMatch: ["**/*.spec.ts", "**/*.api-spec.ts"],
   testIgnore: app.testIgnore,
   outputDir: ".browser-test/results",
   // The build has one backend address in it. Each test file or test starts

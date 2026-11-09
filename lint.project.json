@@ -1,0 +1,4 @@
+{
+  "roles": ["api-tests"],
+  "compositionFiles": ["features/core/api-tests/api-test.ts"]
+}
