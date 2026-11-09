@@ -697,8 +697,7 @@ const transactionScope = {
     messages: {
       outside:
         "Inside a transaction, use the Storage that the callback receives. `this.deps.storage` is not part of the transaction. " +
-        DOC +
-        " (Transactions).",
+        "See docs/agents/database.md (Transactions).",
     },
   },
   create(context) {

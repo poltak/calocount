@@ -16,8 +16,7 @@
 //
 // The branch is the working tree, with the files that are not committed, and
 // it starts at the commit where it left `main`. The check reads the table
-// names from the SQL, which is plain, as docs/agents/code-architecture.md
-// requires.
+// names from the SQL, which is plain, as docs/agents/database.md requires.
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";

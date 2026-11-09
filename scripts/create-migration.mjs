@@ -30,7 +30,7 @@ export const migration = defineMigration({
     // Run each statement in its own call. The database has snake_case names:
     // "table_name" ("column_name"). A new table needs the standard columns
     // and the "updated_at" trigger. Copy them from
-    // docs/agents/code-architecture.md (Database schema).
+    // docs/agents/database.md (Database schema).
     await sql\`\`.execute(db);
   },
 });

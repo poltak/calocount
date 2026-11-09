@@ -7,6 +7,7 @@
     "scripts/document-links.test.mjs",
     ".claude/skills/start-project",
     ".github/workflows/start-project.yml",
+    "scripts/database-document.test.mjs",
     "scripts/start-project.mjs",
     "scripts/start-project.test.mjs",
     "workflows/workflow-start-project.yaml"
@@ -37,6 +38,7 @@
     "docs/agents/decisions.md",
     "docs/agents/setup.md",
     "docs/agents/testing.md",
+    "docs/agents/database.md",
     "lint/",
     ".oxlintrc.json",
     ".agents/hooks/",

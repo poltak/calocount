@@ -185,6 +185,7 @@ issue tracker. [Beads](docs/agents/beads.md) describes it.
 ## Project documentation
 
 - Before changing, adding, moving, or deleting code in any workspace, read [docs/agents/code-architecture.md](docs/agents/code-architecture.md) and follow its rules.
+- Before changing a table, a migration, or a transaction, read [docs/agents/database.md](docs/agents/database.md) and follow its rules.
 - Before writing or changing a test, read [docs/agents/testing.md](docs/agents/testing.md) and follow its rules.
 - Use [docs/agents/README.md](docs/agents/README.md) to find project reference documents.
 - Add stable project facts and decisions under `docs/agents/`, or under `docs/agents/project/` in a project made from the template. Update the relevant document when those facts change.

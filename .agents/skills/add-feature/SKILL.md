@@ -19,7 +19,7 @@ feature must be added to.
 2. Create the table, if the feature stores data.
    - Run `pnpm run db:migration:create create-<table>`.
    - Write the `create table` statement with the three standard columns, and
-     the `updated_at` trigger. Copy both from `code-architecture.md` (Database
+     the `updated_at` trigger. Copy both from `database.md` (Database
      schema). The migration has the snake_case names of the database, and the
      table type has the camelCase names.
    - Declare the table type in `backend/src/features/<feature>/storage/types.ts`.
@@ -29,7 +29,7 @@ feature must be added to.
 3. Write the backend Storage class in `storage/<feature>-storage.ts`. Limit
    each query to the records that the user can read.
 4. Write the backend Logic class in `logic/<feature>-logic.ts`. An operation
-   with several writes runs them in `this.deps.transaction()`.
+   with several writes runs them as `database.md` (Transactions) says.
 5. Write the routes in `handlers/<feature>-handlers.ts`. Validate each input
    with `validator()`.
 6. Add the feature to the backend composition. All three are necessary:
