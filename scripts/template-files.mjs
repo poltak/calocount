@@ -94,6 +94,9 @@ export function sameRepository({ left, right }) {
  *   entry stays after `commit` moves past it, as a record of the decision.
  * - `unchanged`: later commits that changed nothing in the project. Only a
  *   sync that is not finished has this list.
+ * - `conflicts`: each commit where `apply` stopped, with the files that it
+ *   stopped at. Only a sync that is not finished has this list. `finish` moves
+ *   it to the message of its commit.
  */
 export function readVersionFile({ root }) {
   const file = path.join(root, VERSION_FILE);
@@ -105,7 +108,8 @@ export function readVersionFile({ root }) {
     typeof version.template !== "string" ||
     !/^[0-9a-f]{40}$/.test(version.commit ?? "") ||
     !Array.isArray(version.skipped) ||
-    !Array.isArray(version.unchanged ?? [])
+    !Array.isArray(version.unchanged ?? []) ||
+    !Array.isArray(version.conflicts ?? [])
   ) {
     fail(
       `${VERSION_FILE} must have "template" (a URL), "commit" (a full commit ID), and "skipped" (a list).`,

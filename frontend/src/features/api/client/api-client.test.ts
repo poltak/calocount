@@ -1,6 +1,6 @@
 import type { InferRequestType, InferResponseType } from "hono/client";
-import { describe, expectTypeOf, it } from "vitest";
-import type { BackendApi } from "./api-client.js";
+import { describe, expect, expectTypeOf, it } from "vitest";
+import { createApiClient, type BackendApi } from "./api-client.js";
 
 type GetNote = BackendApi["notes"][":noteId"]["$get"];
 type DeleteNote = BackendApi["notes"][":noteId"]["$delete"];
@@ -31,5 +31,23 @@ describe("typed API client", () => {
         issues?: { path: string; message: string }[];
       };
     }>();
+  });
+});
+
+// Each test fixture sets one absolute base URL, so no other test reaches this.
+describe("API client base URL", () => {
+  it("should build an absolute link to a route", () => {
+    const api = createApiClient({ baseUrl: "http://app.test/" });
+
+    expect(api.me.$url().href).toEqual("http://app.test/api/me");
+  });
+
+  it("should refuse a base URL that is not absolute", () => {
+    expect(() => createApiClient({ baseUrl: "/app" })).toThrow(
+      'The API base URL is not absolute: "/app"',
+    );
+    expect(() => createApiClient({ baseUrl: "" })).toThrow(
+      'The API base URL is not absolute: ""',
+    );
   });
 });
