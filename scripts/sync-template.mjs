@@ -101,7 +101,7 @@ const unmergedFiles = () => list("diff", "--name-only", "--diff-filter=U");
  * - `leave out`: it changes only files that the project is without.
  * - `skipped`: a person left it out, with a reason in the version file.
  */
-function loadPlan({ fetch }) {
+function loadPlan({ fetch, before = readStopped()?.before ?? "HEAD" }) {
   const version = readVersionFile({ root });
   if (!version) {
     fail(
@@ -182,7 +182,15 @@ function loadPlan({ fetch }) {
     fail(`The template has no ${PATHS_FILE} at commit ${short(tip)}.`);
   }
   const paths = JSON.parse(pathsFile.stdout);
-  const projectFiles = list("ls-tree", "-r", "--name-only", "HEAD");
+  // The files at the start of the sync. After a stop, HEAD also has the files
+  // that this sync gave the project, and a later commit must still reach them.
+  const projectFiles = list("ls-tree", "-r", "--name-only", before);
+  const lastTemplateFiles = list(
+    "ls-tree",
+    "-r",
+    "--name-only",
+    version.commit,
+  );
   const projectHas = (entry) =>
     projectFiles.some((file) => matchesPath({ entry, file }));
   const entryFor = ({ entries, file }) =>
@@ -195,7 +203,11 @@ function loadPlan({ fetch }) {
 
   const leftOut = (file) => {
     if (entryFor({ entries: paths.projectOwned, file })) {
-      return true;
+      // A file that is new in the template reaches a project that is without
+      // it, because an owned file can depend on it. A file that the template
+      // had at the last sync, and the project is without, is one that the
+      // project deleted.
+      return projectFiles.includes(file) || lastTemplateFiles.includes(file);
     }
     const templateOnly = entryFor({ entries: paths.templateOnly, file });
     if (templateOnly) {
@@ -596,16 +608,16 @@ async function settle({ commit, leftOut, stopped }) {
 }
 
 async function apply() {
-  let plan = loadPlan({ fetch: false });
   const stopped = readStopped();
+  // A run that stops and continues is one sync, with one commit to go back to.
+  const before =
+    stopped?.before ?? process.env[SYNC_START] ?? read("rev-parse", "HEAD");
+  let plan = loadPlan({ fetch: false, before });
   if (!stopped && changedFiles().length > 0) {
     fail(
       `The working tree has changes. Commit them, or discard them, before \`apply\`:\n  ${changedFiles().join("\n  ")}`,
     );
   }
-  // A run that stops and continues is one sync, with one commit to go back to.
-  const before =
-    stopped?.before ?? process.env[SYNC_START] ?? read("rev-parse", "HEAD");
   const report = ({ commit, made }) =>
     console.log(
       made
@@ -626,7 +638,7 @@ async function apply() {
       commit,
       made: await settle({ commit, leftOut: plan.leftOut, stopped }),
     });
-    plan = loadPlan({ fetch: false });
+    plan = loadPlan({ fetch: false, before });
   }
 
   for (const commit of plan.commits.filter(({ action }) => action === "take")) {

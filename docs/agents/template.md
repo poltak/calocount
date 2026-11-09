@@ -107,6 +107,11 @@ workflow file, run `swamp workflow validate`.
   remove an entry, because a project that is behind still needs it.
   [`scripts/template-files.mjs`](../../scripts/template-files.mjs) describes
   the lists.
+- A new `projectOwned` file reaches each existing project one time, in the
+  version that the sync takes. Later template changes to the file reach no
+  project that has it. A project with a `sync-template.mjs` from before this
+  rule leaves the file out, so an owned file must not depend on a new
+  `projectOwned` file until those projects have synced.
 - `start-project.mjs` finds each place that it changes by the text of the
   file. When a commit changes one of those files, the "Start project" workflow
   of CI makes a project from the commit and runs each check on the project.

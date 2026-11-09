@@ -409,6 +409,129 @@ test("leaves out a new file that the template adds with its entry in the list", 
   await assert.rejects(readProjectFile(project, "tools/release.txt"));
 });
 
+/** One template commit that adds a project-owned file, with its entry. */
+async function addProjectOwnedFile({ template, file, text, files = {} }) {
+  const pathsFile = "scripts/template-paths.json";
+  const paths = JSON.parse(await readProjectFile(template, pathsFile));
+  return templateCommit({
+    template,
+    message: "Add a file that each project owns",
+    files: {
+      ...files,
+      [file]: text,
+      [pathsFile]: json({
+        ...paths,
+        projectOwned: [...paths.projectOwned, file],
+      }),
+    },
+  });
+}
+
+test("gives an existing project a new project-owned file, and leaves later changes to the file out", async (context) => {
+  const { template, project } = await createProject(context);
+  const file = "src/rules.txt";
+  await addProjectOwnedFile({
+    template,
+    file,
+    text: "the first rules\n",
+    files: { "src/app.txt": "one\ntwo\nthree\nfour\n" },
+  });
+  sync(project, "plan");
+
+  const taken = sync(project, "apply");
+
+  assert.equal(taken.status, 0, taken.output);
+  assert.equal(await readProjectFile(project, file), "the first rules\n");
+  assert.equal(sync(project, "finish").status, 0);
+
+  await write(project, { [file]: "the rules of the project\n" });
+  commit(project, "Write the rules of the project");
+  const later = await templateCommit({
+    template,
+    message: "Change the rules",
+    files: { [file]: "the second rules\n" },
+  });
+
+  assert.match(
+    sync(project, "plan").output,
+    new RegExp(
+      `leave out\\s+${short(later)}  Change the rules\\n\\s+\\(it changes only src/rules\\.txt\\)`,
+    ),
+  );
+  assert.equal(sync(project, "apply").status, 0);
+  assert.equal(
+    await readProjectFile(project, file),
+    "the rules of the project\n",
+  );
+});
+
+test("takes each change to a new project-owned file in one sync, also after a stop", async (context) => {
+  const { template, project } = await createProject(context);
+  const file = "src/rules.txt";
+  await write(project, { "src/app.txt": "one\ntwo of the project\nthree\n" });
+  commit(project, "Change the second line");
+  await addProjectOwnedFile({ template, file, text: "the first rules\n" });
+  await templateCommit({
+    template,
+    message: "Change the second line",
+    files: { "src/app.txt": "one\ntwo of the template\nthree\n" },
+  });
+  await templateCommit({
+    template,
+    message: "Correct the rules",
+    files: { [file]: "the corrected rules\n" },
+  });
+  sync(project, "plan");
+  assert.equal(sync(project, "apply").status, 1);
+  await write(project, { "src/app.txt": "one\ntwo of both\nthree\n" });
+  git(project, "add", "src/app.txt");
+
+  const continued = sync(project, "apply");
+
+  assert.equal(continued.status, 0, continued.output);
+  assert.match(continued.output, /took  \w{7}  Correct the rules/);
+  assert.equal(await readProjectFile(project, file), "the corrected rules\n");
+});
+
+test("keeps a project-owned file out of a project that deleted it", async (context) => {
+  const { template, project } = await createProject(context);
+  await rm(path.join(project, "README.md"));
+  commit(project, "Remove the README");
+  await templateCommit({
+    template,
+    message: "Change the README and the application",
+    files: {
+      "README.md": "# The template, with more text\n",
+      "src/app.txt": "one\ntwo\nthree\nfour\n",
+    },
+  });
+  sync(project, "plan");
+
+  const result = sync(project, "apply");
+
+  assert.equal(result.status, 0, result.output);
+  await assert.rejects(readProjectFile(project, "README.md"));
+  assert.equal(git(project, "status", "--porcelain"), "");
+});
+
+test("keeps the project's own file when the template adds a project-owned file at that path", async (context) => {
+  const { template, project } = await createProject(context);
+  const file = "src/rules.txt";
+  await write(project, { [file]: "the rules of the project\n" });
+  commit(project, "Write the rules of the project");
+  await addProjectOwnedFile({ template, file, text: "the first rules\n" });
+  sync(project, "plan");
+
+  const result = sync(project, "apply");
+
+  assert.equal(result.status, 0, result.output);
+  assert.equal(
+    await readProjectFile(project, file),
+    "the rules of the project\n",
+  );
+  assert.equal(git(project, "status", "--porcelain"), "");
+});
+
 test("takes a change to a file that only some projects keep", async (context) => {
   const { template, project } = await createProject(context);
   await write(project, { "renovate.json": json({ schedule: ["monday"] }) });
