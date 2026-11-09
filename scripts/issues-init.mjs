@@ -40,7 +40,7 @@ function readPrefix() {
 function refuseWhenNotReady() {
   if (!readVersionFile({ root })) {
     fail(
-      `This repository has no ${VERSION_FILE}. The template has no issues of its own, so run this in a project.`,
+      `This repository has no ${VERSION_FILE}, so it is the template, which has its issues already. Run this in a project.`,
     );
   }
   if (existsSync(path.join(root, DATA_DIRECTORY))) {

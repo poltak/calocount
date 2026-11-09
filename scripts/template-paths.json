@@ -1,5 +1,6 @@
 {
   "templateOnly": [
+    ".beads/",
     "docs/agents/template.md",
     "scripts/project-rules.test.mjs",
     "renovate.json",

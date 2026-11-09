@@ -355,3 +355,28 @@ test("takes a change to a file that only some projects keep", async (context) =>
     json({ schedule: ["friday"] }),
   );
 });
+
+test("leaves out each change to the issues of the template, also in a project with issues of its own", async (context) => {
+  const { template, project } = await createProject(context);
+  const projectIssues = "sync:\n  remote: the-project\n";
+  await write(project, { ".beads/config.yaml": projectIssues });
+  commit(project, "Turn on the beads issue tracker");
+  await templateCommit({
+    template,
+    message: "Turn on the beads issue tracker",
+    files: {
+      ".beads/config.yaml": "sync:\n  remote: the-template\n",
+      ".beads/metadata.json": json({ database: "template" }),
+    },
+  });
+  sync(project, "plan");
+
+  const result = sync(project, "apply");
+
+  assert.equal(result.status, 0, result.output);
+  assert.equal(
+    await readProjectFile(project, ".beads/config.yaml"),
+    projectIssues,
+  );
+  assert.equal(git(project, "ls-files", ".beads/metadata.json"), "");
+});

@@ -10,6 +10,9 @@ export const VERSION_FILE = "template-version.json";
 // list of files. In a project, an agent or a pull request changes them only
 // with a person's approval.
 export const GUARDED_FILES = [VERSION_FILE];
+// The template and each project that turned on beads have issues of their own
+// in this directory.
+const ISSUES_DIRECTORY = ".beads/";
 
 /**
  * The file with six lists of paths. A path that ends with `/` is a
@@ -38,7 +41,7 @@ export const GUARDED_FILES = [VERSION_FILE];
  * that is new since the project's last sync and that the project is without.
  * When the project is without the example, a sync also leaves out each change
  * to an `example` or `withExample` path. It also leaves out each change to a
- * path in `ownPaths` of the project's version file.
+ * path in `ownPaths` of the project's version file, and to `.beads/`.
  *
  * A sync reads the lists from the newest template commit, not from the
  * project. A template commit that adds a file and its entry here therefore
@@ -76,10 +79,15 @@ export const isGate = (entry) =>
       matchesPath({ entry, file: gate }),
   );
 
-/** True for a file that the project took over from the template. */
+/**
+ * True for a file that the project took over from the template, and for the
+ * issues, which each repository has for itself. A sync never takes a template
+ * change to such a file.
+ */
 export const isProjectPath = ({ ownPaths = [], file }) =>
-  !isGate(file) &&
-  ownPaths.some(({ path: entry }) => matchesPath({ entry, file }));
+  matchesPath({ entry: ISSUES_DIRECTORY, file }) ||
+  (!isGate(file) &&
+    ownPaths.some(({ path: entry }) => matchesPath({ entry, file })));
 
 /**
  * Run Git in the repository. A command that fails stops the script, unless

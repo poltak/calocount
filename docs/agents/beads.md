@@ -65,9 +65,11 @@ pnpm exec bd list
 - `bd bootstrap` copies the issues from `refs/dolt/data`. It uses the SSH URL
   in `.beads/config.yaml`, so your SSH key for GitHub must work.
 - Without the `chmod` and the `git config`, each `bd` command shows a warning.
-- The template has no issues of its own, so in a clone of the template,
-  `bd bootstrap` finds nothing. Work on the template in a worktree of a
-  project's repository. `bd` there uses the issues of that project.
+- The template has issues of its own, in the template's repository. A project
+  does not get them: `.beads/` is in `templateOnly`, so `start-project`
+  removes it, and a sync leaves out each change to it. In a worktree of a
+  project's repository, `bd` uses the issues of that project, so file a
+  template issue from a clone of the template.
 
 ## Turn on beads in a new project
 
@@ -97,14 +99,14 @@ prefix with `--prefix <name>`.
 
 ## Stop the use of beads
 
-1. In each project, keep a copy of the issues if you want one:
-   `pnpm exec bd export -o <file>`.
+1. In the template and in each project, keep a copy of the issues if you want
+   one: `pnpm exec bd export -o <file>`.
 2. In the template, remove the "Issue tracking" section and the beads lines
    of `AGENTS.md` and `docs/agents/README.md`, the `plan-in-docs` rule of the
    agent review, this section, and the `@beads/bd` package with its entries in
    `pnpm-workspace.yaml`, `knip.jsonc`, `renovate.json`, and
    `.prettierignore`. Then sync each project.
-3. In each project, delete `.beads/` and the beads lines in `.gitignore`, and
-   delete the data on GitHub:
+3. In the template and in each project, delete `.beads/` and the beads lines
+   in `.gitignore`, and delete the data on GitHub:
    `git push origin --delete refs/dolt/data refs/heads/__dolt_remote_info__`.
 4. Each person deletes the database in the main checkout: `rm -rf .beads`.

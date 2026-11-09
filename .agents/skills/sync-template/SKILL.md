@@ -105,6 +105,8 @@ the project, its data, or a secret in the issue.
 - It leaves out each change to a path in `ownPaths` of
   `template-version.json`. The project took that path over from the template.
 - It never takes the template's `README.md`.
+- It never takes a change to `.beads/`. The template and each project have
+  issues of their own there.
 - It gives the project a new `projectOwned` file one time, when the project
   does not have a file at that path. The project then owns the file, and the
   script leaves out later template changes to it. A `projectOwned` file that
