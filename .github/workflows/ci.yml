@@ -19,8 +19,8 @@ concurrency:
   cancel-in-progress: true
 
 # Each job runs on GitHub's runners, or on the runners that the variable
-# CI_RUNNER names. The WorldBrain organization sets it to `railway`, the
-# self-hosted runners of WorldBrain/ci-runner. Jobs on those runners share a
+# CI_RUNNER names. A WorldBrain repository sets it to `railway`, the label of
+# the self-hosted runners of WorldBrain/ci-runner. Jobs on those runners share a
 # disk, so no job of this file may get a secret or a token that can write.
 # docs/agents/ci.md (Runners) has the details.
 #
