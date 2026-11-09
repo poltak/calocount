@@ -50,6 +50,11 @@ interface BlackBoxFixtures {
   setupCode: string;
   /** A page in a second browser, with no session: a visitor of the app. */
   visitorPage: Page;
+  /**
+   * A page in a second browser with a passkey device of its own and no
+   * session: the owner's other phone or laptop.
+   */
+  otherDevicePage: Page;
 }
 
 interface BlackBoxWorkerFixtures {
@@ -240,6 +245,19 @@ export const test = base.extend<
       errorsDuringTest,
       "Normal use must not cause an error that no code caught",
     ).toEqual([]);
+  },
+  otherDevicePage: async ({ browser, baseURL, page }, provide) => {
+    // `page` first, so that the other device sees the same backend.
+    void page;
+    const context = await browser.newContext({
+      ...(baseURL === undefined ? {} : { baseURL }),
+      timezoneId: "UTC",
+    });
+    const device = await context.newPage();
+    await addPasskeyDevice(device);
+    await provide(device);
+    await device.waitForLoadState("networkidle").catch(() => {});
+    await context.close();
   },
   visitorPage: async ({ browser, baseURL, page }, provide) => {
     // `page` first, so that the visitor sees the same backend.

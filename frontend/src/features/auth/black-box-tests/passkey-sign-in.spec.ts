@@ -1,6 +1,7 @@
 import { expect } from "@playwright/test";
 import { test } from "../../core/black-box-tests/black-box-test.js";
 import { TodayPageObject } from "../../entries/black-box-tests/today-page-object.js";
+import { SettingsPageObject } from "../../settings/black-box-tests/settings-page-object.js";
 import { PasskeySignInPageObject } from "./passkey-sign-in-page-object.js";
 
 test.use({ authenticated: false, passkeyDevice: true });
@@ -27,7 +28,9 @@ test.describe("passkey sign-in", () => {
     await signIn.setUp(setupCode);
     await new TodayPageObject(page).addEntryButton.waitFor();
 
-    await page.context().clearCookies();
+    const settings = new SettingsPageObject(page);
+    await settings.open();
+    await settings.signOut();
     await signIn.goto();
     await signIn.signIn();
 

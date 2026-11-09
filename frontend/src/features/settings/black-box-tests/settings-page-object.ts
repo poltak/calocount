@@ -31,6 +31,28 @@ export class SettingsPageObject {
     return this.dialog.getByRole("button", { name: /^Remove passkey / });
   }
 
+  /** The Remove buttons of the passkeys that the settings list. */
+  get removePasskeyButtons() {
+    return this.dialog.getByRole("button", { name: /^Remove passkey / });
+  }
+
+  /** Remove a passkey of another device, and say yes to the question. */
+  async removeOtherDevicePasskey() {
+    this.page.once("dialog", (dialog) => void dialog.accept());
+    await this.dialog
+      .getByRole("listitem")
+      .filter({ hasNotText: "This device" })
+      .getByRole("button", { name: /^Remove passkey / })
+      .click();
+  }
+
+  async signOut() {
+    await this.dialog
+      .getByRole("button", { name: "Sign out", exact: true })
+      .click();
+    await this.dialog.waitFor({ state: "hidden" });
+  }
+
   async open() {
     await this.page.getByRole("button", { name: "Open settings" }).click();
     await this.dialog.waitFor();

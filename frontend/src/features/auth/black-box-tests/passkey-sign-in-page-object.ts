@@ -47,6 +47,19 @@ export class PasskeySignInPageObject {
     await this.createPasskeyButton.click();
   }
 
+  /** On the sign-in page, add a passkey for this device with the setup code. */
+  async recover(setupCode: string): Promise<void> {
+    await this.signInHeading.waitFor();
+    await this.page
+      .getByRole("button", { name: "Lost your passkey? Use your setup code" })
+      .click();
+    const heading = this.page.getByRole("heading", { name: "Add a passkey" });
+    await heading.waitFor();
+    await this.setupCodeField.fill(setupCode);
+    await this.createPasskeyButton.click();
+    await heading.waitFor({ state: "hidden" });
+  }
+
   async signIn(): Promise<void> {
     await this.signInHeading.waitFor();
     await this.signInButton.click();
