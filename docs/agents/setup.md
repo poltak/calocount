@@ -215,6 +215,17 @@ into the project. The `sync-template` skill has the order of its commands, and
 one. `pnpm run template:sync plan` changes no file. It fetches the template
 and lists the new commits.
 
+`apply` takes the commits one at a time, and the template can have merged
+them in another order. A file from the template can then end the sync with a
+text that no conflict showed. So `finish` compares each file in
+`templateOwned` with the template at the commit that the sync reached. It
+stops and names each file that differs, that the template has and the project
+does not, or that the project has and the template does not. It skips a path
+in `ownPaths`, and a file that the project is without, such as a file of the
+removed example. To go on, take the template's file with
+`git checkout <commit> -- <path>` and commit it. When the project must keep
+its file, ask the person to run `pnpm run template:sync own <path> "<reason>"`.
+
 ### Rules of one project
 
 `AGENTS.md` comes from the template, so a project writes its own rules for each
@@ -406,7 +417,8 @@ agent gives the person the command and the reason.
 After that:
 
 - A sync leaves out each template change to the path. `plan` names the files
-  that a commit loses, and `finish` counts them.
+  that a commit loses, and `finish` counts them. `finish` does not compare the
+  path with the template.
 - The hook and the "Template-owned files" check treat the path as the
   project's own.
 - The project gets no template fix to the path. So use an entry for a path

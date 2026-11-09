@@ -43,6 +43,12 @@ is a conflict that no rule of the script resolves.
    or run `pnpm run template:sync apply` again.
 5. When a check fails, correct the code and commit the correction. Then retry
    the failed step.
+   `finish` is also a check. It compares each file in `templateOwned` with the
+   template, and it stops at a difference. Read the files that it names. A
+   file of the project must be the same as the template's file, so run
+   `git checkout <commit> -- <path>` with the commit that `finish` prints,
+   commit the result, and run `finish` again. When the project must keep its
+   file, ask the person to take the path over with `own`.
 6. Show the person the new commits. Push only when the person asks for it.
 
 ## Resolve a conflict
@@ -120,6 +126,9 @@ the project, its data, or a secret in the issue.
   apply to it, and `verify install` brings it up to date. The project then does not
   get the template's updates of indirect dependencies.
 - It writes the list of migrations again when a commit adds a migration.
+- `finish` stops when a file in `templateOwned` is not the same as the
+  template at the commit that the sync reached. It skips a path in `ownPaths`
+  and a file that the project is without.
 - `finish` names each file that stopped `apply` in the message of its commit.
   `git log --grep="^- Conflict at"` lists the stops of past syncs. A file that
   appears often is a reason to report a gap to the template.

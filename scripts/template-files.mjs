@@ -33,8 +33,8 @@ const ISSUES_DIRECTORY = ".beads/";
  * - `templateOwned`: files that a project takes from the template and does
  *   not change, unless the project's `ownPaths` names them.
  *   `.agents/hooks/guard-template-owned-files.mjs` and
- *   `check-template-owned-files.mjs` read this list from the project. A sync
- *   does not read it.
+ *   `check-template-owned-files.mjs` read this list from the project. `apply`
+ *   does not read it. `finish` compares these files with the template.
  *
  * A sync leaves out each template change to a `templateOnly` path that the
  * project is without, and each change to a `projectOwned` path, except a file
@@ -46,7 +46,7 @@ const ISSUES_DIRECTORY = ".beads/";
  * A sync reads the lists from the newest template commit, not from the
  * project. A template commit that adds a file and its entry here therefore
  * keeps that file out of each project. Add the entry in the commit that adds
- * the file, and do not remove an entry of the four lists that a sync reads.
+ * the file, and do not remove an entry of the four lists that `apply` reads.
  */
 export const PATHS_FILE = "scripts/template-paths.json";
 

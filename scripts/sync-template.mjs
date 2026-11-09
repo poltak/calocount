@@ -13,7 +13,8 @@
 //   pnpm run template:sync verify <install|check|browser|live-start>
 //       Run one check. It does nothing when the project took no commit.
 //   pnpm run template:sync finish
-//       Commit the lockfile and the new template version.
+//       Compare the template-owned files with the template, then commit the
+//       lockfile and the new template version. It stops at a difference.
 //
 // Each command reads the state from Git and from `template-version.json`, so
 // a command that stopped can run again. The `sync-template` workflow runs
@@ -74,7 +75,8 @@ const USAGE = `Usage: pnpm run template:sync <command>
   skip <commit> <reason>    Leave one new commit out of the project.
   own <path> <reason>       Take a path over from the template, in a terminal.
   verify <${Object.keys(CHECKS).join("|")}>
-  finish                    Commit the lockfile and the template version.`;
+  finish                    Check the owned files, then commit the lockfile and
+                            the template version.`;
 
 /** The output of a Git command that must succeed. */
 const read = (...args) => git({ root, args }).stdout;
@@ -896,6 +898,46 @@ function verify(name) {
   }
 }
 
+/**
+ * The template-owned files that differ from the template at the commit that
+ * the sync reached. `apply` takes commits one by one, and the template merged
+ * them in another order, so a file can end the sync with a text that no
+ * conflict showed. The list is the project's `templateOwned`. `leftOut` is the
+ * rule that `apply` uses, so a path in `ownPaths`, a file that only the
+ * template needs, and a file of a removed example are not in the result.
+ */
+function differingOwnedFiles({ plan }) {
+  const owned =
+    JSON.parse(read("show", `HEAD:${PATHS_FILE}`)).templateOwned ?? [];
+  const filesOf = (commit) => list("ls-tree", "-r", "--name-only", commit);
+  const projectFiles = new Set(filesOf("HEAD"));
+  const templateFiles = new Set(filesOf(plan.tip));
+  const blob = (commit, file) =>
+    git({
+      root,
+      args: ["rev-parse", "--verify", "--quiet", `${commit}:${file}`],
+      allowFailure: true,
+    }).stdout;
+  return [...new Set([...projectFiles, ...templateFiles])]
+    .filter(
+      (file) =>
+        owned.some((entry) => matchesPath({ entry, file })) &&
+        !plan.leftOut(file),
+    )
+    .map((file) => ({
+      file,
+      problem: !templateFiles.has(file)
+        ? "the template does not have it"
+        : !projectFiles.has(file)
+          ? "the project does not have it"
+          : blob("HEAD", file) === blob(plan.tip, file)
+            ? undefined
+            : "the text differs",
+    }))
+    .filter(({ problem }) => problem !== undefined)
+    .sort((left, right) => (left.file < right.file ? -1 : 1));
+}
+
 async function finish() {
   const plan = loadPlan({ fetch: false });
   requireApplied({ plan, command: "finish" });
@@ -905,6 +947,26 @@ async function finish() {
   if (other.length > 0) {
     fail(
       `Commit these changes, or discard them, before \`finish\`:\n  ${other.join("\n  ")}`,
+    );
+  }
+  // A difference stops `finish`, as an unfinished `apply` and a change with no
+  // commit do. A person who finds it after the push, as issue 96 reports, has
+  // a project with a wrong file in its history. A person who accepts a
+  // difference has a way to say so: `own` for the path, which the check then
+  // leaves out. A warning would pass in the workflow, where no person reads it.
+  const differing =
+    plan.tip === plan.version.commit ? [] : differingOwnedFiles({ plan });
+  if (differing.length > 0) {
+    fail(
+      `These template-owned files are not the same as the template at ${short(plan.tip)}:\n` +
+        differing
+          .map(({ file, problem }) => `  ${file} (${problem})`)
+          .join("\n") +
+        `\n\nThe cause can be the order of the template's merges, or a commit that the project skipped. ` +
+        `\`git diff ${short(plan.tip)} -- <path>\` shows a difference. ` +
+        `To take the template's file, run \`git checkout ${short(plan.tip)} -- <path>\` ` +
+        `(\`git rm <path>\` for a file that the template does not have), commit it, and run \`finish\` again. ` +
+        `To keep the project's file, ask the person to run \`pnpm run template:sync own <path> "<reason>"\`.`,
     );
   }
   if (changed.includes(LOCKFILE)) {
