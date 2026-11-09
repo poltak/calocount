@@ -9,7 +9,8 @@ the `write-integration-test` skill for a UI Logic test, and the
 Almost every test must be an integration test of one UI Logic operation (i.e., a user invoked action) against the
 full application. The test calls a method on a UI Logic class. The request then
 passes through the real API client, backend routes, validation, backend Logic,
-Services, and an isolated in-memory PostgreSQL database, all in one process.
+Services, and an isolated in-memory database of the project's engine, all in
+one process.
 Nothing on that path is replaced/mocked.
 
 The canonical example is
@@ -194,8 +195,9 @@ The fixture's transport can also reproduce timing and connection problems:
 
 A few files that are not Logic classes have tests of their own:
 
-- `api-client.test.ts` checks only the client's types, which no running test
-  can check. The UI Logic tests cover its behavior.
+- `api-client.test.ts` checks the client's types, which no running test can
+  check, and its base URL, which each fixture sets to one value. The UI Logic
+  tests cover its other behavior.
 - `latest-request.test.ts` tests a small helper that has no I/O.
 - `use-logic.test.tsx` is the only Vitest test that renders components,
   because the hook's lifecycle exists only inside React. Do not add other
