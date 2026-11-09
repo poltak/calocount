@@ -1,6 +1,7 @@
 /** Cloudflare Worker entry point for the Calocount app. */
 import { clearedSessionCookie, readSessionCookie, sessionCookie } from "../app/auth/cookies";
 import { resolveAuthMode } from "../app/auth/mode";
+import { handleBlackBoxRoute } from "./black-box";
 import type { CleanupBucket } from "./photo-cleanup";
 import { isOwnerPagePath, renderNotFound, renderOwnerPage, renderPage, renderSignInPage } from "./pages";
 import { handleRoute } from "./routes";
@@ -66,6 +67,8 @@ const worker = {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     const pathname = url.pathname.length > 1 ? url.pathname.replace(/\/+$/, "") || "/" : url.pathname;
+    const blackBox = await handleBlackBoxRoute(request, pathname, env);
+    if (blackBox) return blackBox;
     const routed = await handleRoute(request, pathname);
     if (routed) return routed;
     if (request.method !== "GET" && request.method !== "HEAD") {
