@@ -5,7 +5,8 @@ const NO_CONNECTION =
   "No connection. Check your internet connection and try again.";
 
 export interface ApiClientProps {
-  baseUrl?: string;
+  /** An absolute URL. `$url()` of the client fails on a relative one. */
+  baseUrl: string;
   fetch?: typeof globalThis.fetch;
   onSessionRejected?: () => void;
 }
@@ -15,10 +16,13 @@ export interface ApiClientProps {
  * come from the Hono routes.
  */
 export function createApiClient({
-  baseUrl = "",
+  baseUrl,
   fetch,
   onSessionRejected,
-}: ApiClientProps = {}) {
+}: ApiClientProps) {
+  if (!URL.canParse(baseUrl)) {
+    throw new Error(`The API base URL is not absolute: "${baseUrl}"`);
+  }
   const transport = fetch ?? globalThis.fetch.bind(globalThis);
   const authenticatedFetch: typeof globalThis.fetch = async (input, init) => {
     let response: Response;

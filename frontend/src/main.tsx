@@ -14,7 +14,8 @@ if (!rootElement) {
 }
 
 const app = createApp({
-  baseUrl: import.meta.env.VITE_API_BASE_URL,
+  // An empty value in a `.env` file also means the page's own origin.
+  baseUrl: import.meta.env.VITE_API_BASE_URL || window.location.origin,
   browserStorage: window.localStorage,
   // The console shows every entry in development, and only problems in a build.
   logLevel: import.meta.env.DEV ? "debug" : "warn",
