@@ -62,7 +62,7 @@ test("passes placeholders, values of tests, and .env.example", async (context) =
   const directory = await repository(context);
   await stage(directory, {
     ".env.example":
-      "BETTER_AUTH_SECRET=\nDATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54320/app\n",
+      "BETTER_AUTH_SECRET=\nDATABASE_URL=postgresql://postgres:postgres@127.0.0.1:25432/app\n",
     "docs/setup.md": "It shows a token that starts with `sk-ant-oat01-`.\n",
     "src/auth.test.ts": 'const password = "a-test-password";\n',
   });

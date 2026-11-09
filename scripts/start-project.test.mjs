@@ -136,7 +136,7 @@ test("turns a new clone of the template into a project", async (context) => {
   );
   assert.match(
     await readClone(clone, ".env.example"),
-    /^DATABASE_URL=postgresql:\/\/postgres:postgres@127\.0\.0\.1:54320\/trial-project$/m,
+    /^DATABASE_URL=postgresql:\/\/postgres:postgres@127\.0\.0\.1:25432\/trial-project$/m,
   );
   assert.match(
     await readClone(clone, ".env.example"),

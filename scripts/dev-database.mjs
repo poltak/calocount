@@ -84,6 +84,10 @@ async function startEmbeddedPostgres(url) {
     user,
     password,
     persistent: true,
+    // PostgreSQL that cannot listen on one of its addresses still starts on the
+    // others. Then the commands, which connect to the host of DATABASE_URL, get
+    // a refused connection. With only that host, the start fails at once.
+    postgresFlags: ["-c", `listen_addresses=${host}`],
     // The server's own output is long. It goes to a file, not the terminal.
     onLog: writeLog,
     onError: writeLog,
@@ -157,7 +161,7 @@ if (isLocal && !(await isListening({ host, port: Number(url.port || 5432) }))) {
     postgres = await startEmbeddedPostgres(url);
   } catch (error) {
     fail(
-      `The embedded PostgreSQL did not start: ${error instanceof Error ? error.message : String(error)}\nSee ${path.relative(root, logFile)}.`,
+      `The embedded PostgreSQL did not start${error instanceof Error ? `: ${error.message}` : "."}\nSee ${path.relative(root, logFile)}.`,
     );
   }
   console.log(
