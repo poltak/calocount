@@ -8,6 +8,15 @@ export class PrivacyPageObject {
     return this.page.getByRole("heading", { name: "Privacy Policy", level: 1 });
   }
 
+  /** Every heading of the policy, in page order. */
+  get headings() {
+    return this.page.getByRole("heading");
+  }
+
+  get effectiveDate() {
+    return this.page.getByText(/^Effective date/);
+  }
+
   section(name: string) {
     return this.page.getByRole("region", { name });
   }
