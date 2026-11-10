@@ -6,8 +6,6 @@
   // People, agents, and `scripts/issues-init.mjs` run bd with `pnpm exec bd`,
   // and knip reads no code that imports it.
   "ignoreDependencies": ["@beads/bd"],
-  // The old app, until the rebuild replaces it.
-  "ignoreWorkspaces": ["legacy"],
   "workspaces": {
     ".": {
       "entry": [

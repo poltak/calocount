@@ -182,10 +182,6 @@ vite.config.ts.timestamp-*
 !.dev.vars.example
 !.dev.vars.local.example
 
-# The results of the old app's tests
-/legacy/test-results/
-/legacy/playwright-report/
-
 # Beads / Dolt files (added by bd init)
 .dolt/
 *.db

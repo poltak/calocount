@@ -8,14 +8,10 @@ import {
   test as base,
   type Browser,
   type Page,
-  type TestInfo,
 } from "@playwright/test";
 import { PasskeySignInPageObject } from "../../auth/black-box-tests/passkey-sign-in-page-object.js";
 
-/**
- * The setup code of the passkey Worker in `legacy/scripts/black-box-serve.mjs`
- * and of the Worker in `scripts/black-box-next.mjs`.
- */
+/** The setup code of the Worker in `scripts/black-box-next.mjs`. */
 const SETUP_CODE = "black-box-setup-code";
 const RESET_PATH = "/api/__black-box/reset";
 const RESET_ATTEMPTS = 60;
@@ -24,10 +20,9 @@ interface BlackBoxOptions {
   /**
    * Sign the owner in before the test starts. Defaults to true. A test with
    * `false` starts on an instance where passkey sign-in protects the owner
-   * pages, and no passkey exists yet. On the old app, a signed-in test uses
-   * the Worker with sign-in off. On the new app, the fixture saves the
-   * owner's passkey through the sign-in page with the setup code, and gives
-   * the test that page.
+   * pages, and no passkey exists yet. For a signed-in test, the fixture saves
+   * the owner's passkey through the sign-in page with the setup code, and
+   * gives the test that page.
    */
   authenticated: boolean;
   /**
@@ -49,29 +44,9 @@ interface BlackBoxFixtures {
   otherDevicePage: Page;
 }
 
-type Target = "legacy" | "next";
-
-function targetOf(testInfo: Pick<TestInfo, "config">): Target {
-  return testInfo.config.metadata["blackBoxTarget"] === "next"
-    ? "next"
-    : "legacy";
-}
-
-function legacyOrigin(input: {
-  testInfo: Pick<TestInfo, "config">;
-  authenticated: boolean;
-}): string {
-  const { metadata } = input.testInfo.config;
-  return String(
-    input.authenticated
-      ? metadata["legacyOwnerOrigin"]
-      : metadata["legacyPasskeyOrigin"],
-  );
-}
-
 /**
- * Each Worker has one database for a whole run, so each test starts with an
- * empty one. The reset route exists only on the black-box Workers.
+ * The Worker has one database for a whole run, so each test starts with an
+ * empty one. The reset route exists only on the black-box Worker.
  */
 async function resetApp(input: {
   browser: Browser;
@@ -125,8 +100,7 @@ async function addPasskeyDevice(page: Page): Promise<void> {
 }
 
 /**
- * The new app has one Worker with passkey sign-in, so a signed-in test starts
- * as a real owner does: it saves the first passkey with the setup code on the
+ * A signed-in test starts as a real owner does: it saves the first passkey with the setup code on the
  * sign-in page. This fixture is exempt from the black-box lint rules.
  */
 async function signInAsOwner(page: Page): Promise<void> {
@@ -143,37 +117,25 @@ async function signInAsOwner(page: Page): Promise<void> {
 export const test = base.extend<BlackBoxOptions & BlackBoxFixtures>({
   authenticated: [true, { option: true }],
   passkeyDevice: [false, { option: true }],
-  baseURL: async ({ baseURL, authenticated }, provide, testInfo) => {
-    await provide(
-      targetOf(testInfo) === "legacy"
-        ? legacyOrigin({ testInfo, authenticated })
-        : baseURL,
-    );
-  },
   setupCode: async ({}, provide) => {
     await provide(SETUP_CODE);
   },
   page: async (
     { page, browser, baseURL, authenticated, passkeyDevice },
     provide,
-    testInfo,
   ) => {
-    const signsInWithPasskey = targetOf(testInfo) === "next" && authenticated;
-    if (passkeyDevice || signsInWithPasskey) {
+    if (passkeyDevice || authenticated) {
       await addPasskeyDevice(page);
     }
     await resetApp({ browser, origin: baseURL ?? "" });
     const uncaughtErrors: Error[] = [];
     page.on("pageerror", (error) => uncaughtErrors.push(error));
-    if (signsInWithPasskey) {
+    if (authenticated) {
       await signInAsOwner(page);
     }
 
     await provide(page);
 
-    // The old app's dev server can stop when the browser drops an open
-    // request, so the test ends after the page's requests end.
-    await page.waitForLoadState("networkidle").catch(() => {});
     expect(
       uncaughtErrors,
       "Normal use must not cause an error that no code caught",

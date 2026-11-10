@@ -226,6 +226,3 @@ changes. [`template-version.json`](template-version.json) names the template and
 template commit that the project has. The `sync-template` workflow takes the
 new commits, and [setup](docs/agents/setup.md#changes-from-the-template) has
 its commands.
-
-The port onto the template is in progress. Until it ends, the running app is
-the old app in [`legacy/`](legacy/README.md).

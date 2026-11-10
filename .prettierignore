@@ -12,9 +12,7 @@
 pnpm-lock.yaml
 .swamp/
 .swamp.yaml
-# The old app has its own format rules, and the rebuild replaces it.
-legacy/
-# The documents and the ChatGPT plugin of the old app.
+# The documents and the ChatGPT plugin of the earlier app.
 docs/*.md
 docs/custom-gpt/
 docs/plugin/

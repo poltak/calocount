@@ -3,19 +3,10 @@
 How to run what the project adds. Read this file when you read
 [setup and commands](../setup.md).
 
-## The old app
+## The app
 
-The old app is the `legacy` workspace. The root checks skip it.
-
-```sh
-pnpm --filter legacy run dev
-pnpm --filter legacy run check
-```
-
-## The new app
-
-The new app is one Worker. It serves the API and the built frontend on one
-origin, as the old app does. `wrangler.jsonc` at the repository root holds its
+The app is one Worker. It serves the API and the built frontend on one
+origin. `wrangler.jsonc` at the repository root holds its
 config.
 
 ```sh
@@ -35,28 +26,18 @@ migrations to the remote D1 and deploys. An agent never runs it.
 ```sh
 pnpm run test:browser:install
 cd frontend
-pnpm exec playwright test                               # against the old app
-BLACK_BOX_TARGET=next pnpm exec playwright test         # against the new app
-LEGACY_BLACK_BOX_PORT=4374 pnpm exec playwright test    # other ports
-NEXT_BLACK_BOX_PORT=4294 BLACK_BOX_TARGET=next pnpm exec playwright test
+pnpm exec playwright test
+NEXT_BLACK_BOX_PORT=4294 pnpm exec playwright test    # another port
 ```
 
-| Target   | Port                                            | Started by                           |
-| -------- | ----------------------------------------------- | ------------------------------------ |
-| `legacy` | `LEGACY_BLACK_BOX_PORT` (4274) and the next one | `legacy/scripts/black-box-serve.mjs` |
-| `next`   | `NEXT_BLACK_BOX_PORT` (4284)                    | `scripts/black-box-next.mjs`         |
+`scripts/black-box-next.mjs` starts the Worker on `NEXT_BLACK_BOX_PORT` (4284).
+A worktree that runs the tests at the same time as another one needs another
+port. Each run builds the backend and the frontend, then starts `wrangler dev`
+on a fresh local D1 in `.wrangler/black-box/`.
 
-A worktree that runs the tests at the same time as another one needs other
-ports. The first `legacy` run builds the old app, and a later run builds it
-again only when one of its inputs changed. A `next` run builds the backend and
-the frontend each time, then starts `wrangler dev` on a fresh local D1 in
-`.wrangler/black-box/`.
-
-The `next` Worker has the setup code `black-box-setup-code` and the reset route.
-A test with `authenticated: true` starts as the signed-in owner: the fixture
-saves the owner's passkey on the sign-in page. Most tests fail on `next` until
-the Calocount features exist, and the failures are the to-do list of the
-rebuild.
+The Worker has the setup code `black-box-setup-code` and the reset route. A
+test with `authenticated: true` starts as the signed-in owner: the fixture
+saves the owner's passkey on the sign-in page.
 
 ## Git hooks
 

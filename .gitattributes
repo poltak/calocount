@@ -1,6 +1,1 @@
 pnpm-lock.yaml linguist-generated
-# The old app until the port ends. Its large files only get accessible names
-# for the black-box tests, so the file size check skips them. legacy/ is
-# deleted when the new app passes each black-box test.
-legacy/** linguist-generated
-legacy/worker-configuration.d.ts linguist-generated=true whitespace=-trailing-space

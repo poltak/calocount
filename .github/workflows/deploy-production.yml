@@ -42,14 +42,11 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install browser
-        run: pnpm --filter legacy exec playwright install --with-deps chromium
+        run: pnpm --filter frontend exec playwright install --with-deps chromium
 
       - name: Run checks
-        run: pnpm --filter legacy run check
-
-      - name: Dry-run deployment
-        run: pnpm --filter legacy run deploy:dry
+        run: pnpm run check
 
       # Builds, applies the remote D1 migrations, then deploys the Worker.
       - name: Deploy Worker
-        run: pnpm --filter legacy run deploy
+        run: pnpm run deploy

@@ -56,17 +56,6 @@ test.afterAll(async () => {
   await server.stop();
 });
 
-// Only a Worker started for the black-box tests may fetch from a local
-// address, and the old app has no such switch. The old app's checks of the
-// download are in its unit tests.
-test.beforeEach(({ baseURL }, testInfo) => {
-  void baseURL;
-  testInfo.skip(
-    testInfo.config.metadata["blackBoxTarget"] !== "next",
-    "Only the new Worker can fetch a photo from a local server.",
-  );
-});
-
 function meal(name = "Photo lunch") {
   return {
     request_id: crypto.randomUUID(),

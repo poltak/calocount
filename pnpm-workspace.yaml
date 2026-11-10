@@ -2,8 +2,6 @@ packages:
   - backend
   - frontend
   - common
-  # The old app, until the rebuild replaces it. See legacy/README.md.
-  - legacy
 
 # The embedded PostgreSQL for development has one package for each platform.
 # Its install script makes the symlinks that the binaries need.
@@ -16,7 +14,7 @@ allowBuilds:
   # Its install script downloads the bd binary of the pinned version from the
   # GitHub release of beads. Without it, `pnpm exec bd` has no binary to run.
   "@beads/bd": true
-  # The old app builds with Vite and runs on workerd through Wrangler.
+  # The frontend builds with Vite and the Worker runs on workerd through Wrangler.
   esbuild: true
   workerd: true
 

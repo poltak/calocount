@@ -15,7 +15,7 @@ script, and checks only what that client gets back.
   named `<workflow>.api-spec.ts`.
 - Take `test` from `frontend/src/features/core/api-tests/api-test.ts`. Each
   test gets an empty backend with passkey sign-in, on the same
-  `BLACK_BOX_TARGET` as the black-box tests.
+  Worker setup as the black-box tests.
 - Call only the routes that the client calls, through `ownerRequest`,
   `anonymousRequest` or `agent` (an MCP client that the owner connected with
   OAuth). Do not read the database, and do not import code of the app.

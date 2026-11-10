@@ -8,7 +8,7 @@ import { McpClient } from "./mcp-client.js";
 import { connectWithOAuth } from "./oauth-client.js";
 
 interface ApiFixtures {
-  /** The origin of the API. On both targets one Worker serves the page and the API. */
+  /** The origin of the API. One Worker serves the page and the API. */
   apiOrigin: string;
   /** `page`, signed in as the owner through the passkey setup. */
   ownerPage: Page;
@@ -41,7 +41,7 @@ export const test = blackBoxTest.extend<ApiFixtures>({
     const storageState = await ownerPage.context().storageState();
     const request = await playwright.request.newContext({
       storageState,
-      // The old Worker refuses a write from another site.
+      // The Worker refuses a write from another site.
       ...(baseURL === undefined
         ? {}
         : { extraHTTPHeaders: { origin: baseURL } }),
