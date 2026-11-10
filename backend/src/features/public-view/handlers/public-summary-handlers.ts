@@ -6,6 +6,7 @@ import {
 import { Hono } from "hono";
 import { z } from "zod";
 import type { AppConfig } from "../../core/types.js";
+import { readDashboard } from "./public-dashboard-read.js";
 import {
   readDaily,
   readDay,
@@ -13,10 +14,12 @@ import {
   type PublicLogic,
 } from "./public-reads.js";
 
-const VIEWS_MESSAGE = "view must be one of: daily, month, day.";
+const VIEWS_MESSAGE = "view must be one of: dashboard, daily, month, day.";
 
 /** The views share one path, because Cloudflare Access can make only one exact path public. */
 const publicSummaryQuery = z.discriminatedUnion("view", [
+  // No view is the dashboard, which the old app returned for the public page.
+  z.object({ view: z.literal("dashboard").optional() }),
   z.object({ view: z.literal("daily") }),
   z.object({
     view: z.literal("month"),
@@ -88,6 +91,9 @@ export function createPublicSummaryHandlers({
       const query = context.req.valid("query");
       const read = { logic, ownerKey, timeZone };
       switch (query.view) {
+        case undefined:
+        case "dashboard":
+          return context.json(await readDashboard(read), 200);
         case "daily":
           return context.json(await readDaily(read), 200);
         case "month":

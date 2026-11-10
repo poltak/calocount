@@ -13,6 +13,8 @@ export interface PublicEntryView {
   name: string;
   description: string;
   kind: EntryKind | null;
+  /** True when the public photo route serves an image for this entry. */
+  hasPhoto: boolean;
   calories: number;
   protein: number;
   carbs: number;
@@ -34,6 +36,7 @@ export function publicEntryViewOf({
     name: itemNames[0] || (kind ? `${entryKindLabels[kind]} entry` : "Entry"),
     description: itemNames.join(", "),
     kind,
+    hasPhoto: meal.hasPhoto,
     calories: meal.totalCalories,
     protein: meal.totalProteinG,
     carbs: meal.totalCarbsG,

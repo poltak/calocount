@@ -3,6 +3,11 @@ import { SimpleWebAuthnService } from "../../auth/services/simple-webauthn-servi
 import { composeApp } from "../compose-app.js";
 import type { D1Binding } from "../database/d1-binding.js";
 import { createDatabase } from "../database/database.js";
+import {
+  CloudflareImagesService,
+  type ImagesBinding,
+} from "../services/cloudflare-images-service.js";
+import { FetchPhotoDownloadService } from "../services/fetch-photo-download-service.js";
 import { JsonLoggerService } from "../services/json-logger-service.js";
 import { SystemClockService } from "../services/system-clock-service.js";
 import type { App } from "../types.js";
@@ -13,6 +18,8 @@ export interface WorkerEnvironment extends WorkerVars {
   DB: D1Binding;
   /** The R2 bucket of the entry photos. */
   PHOTOS: PhotoBucket;
+  /** The Images binding. A plain `wrangler dev` may not have it, and then HEIC photos are refused. */
+  IMAGES?: ImagesBinding | undefined;
 }
 
 /**
@@ -41,6 +48,8 @@ export function createApp({
       }),
       clock: new SystemClockService(),
       passkeys: new SimpleWebAuthnService(),
+      images: new CloudflareImagesService(env.IMAGES),
+      photoDownload: new FetchPhotoDownloadService(),
     },
   });
 }

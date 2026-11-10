@@ -135,9 +135,8 @@ The project's own choices, with their reasons. Read this file when you read
   lies about its length stops at 11 MiB (the photo limit of 10 MiB, and a margin).
   A JSON body keeps the limit of 100 kB. The form cannot set `photoKey`: a
   caller sends a new file or leaves the photo as it is. The types JPEG, PNG and
-  WebP are checked against the first bytes of the file. HEIC conversion with the
-  `IMAGES` binding belongs to the MCP photos, and the dashboard does not take
-  HEIC.
+  WebP are checked against the first bytes of the file. The dashboard does not
+  take HEIC. Only `add_meals` converts it (see "MCP photos" below).
 - **The file goes to the bucket before the entry is saved,** because the entry
   needs the key. A failed save deletes the new object. A replaced or deleted
   photo is deleted after the save, and only when no other entry uses the key:
@@ -171,11 +170,21 @@ The project's own choices, with their reasons. Read this file when you read
   public field by name, so a new private column cannot reach a visitor.
 - **Days count in the saved timezone of the owner,** and in UTC when it is
   missing or invalid. The daily view keeps the latest 366 days.
-- **The old `dashboard` view is gone.** The old app answered a request with no
-  `view` with a 30-day projection of food items and nutrients, and the public
-  page loaded it. The new page needs only the daily and day views, so a request
-  with no `view` gets 400 `invalid_query`, and `/llms.txt` does not describe
-  that view. Add it again only for a reader that needs it.
+- **A request with no `view` is the old `dashboard` view.** It is the 30-day
+  projection of food items and nutrients, with the old JSON (no `view` field):
+  `readDashboard` in `public-view/handlers/public-dashboard-read.ts`. The
+  weights are newest first, as the old app listed them. `view=dashboard` is the
+  same view, and `/llms.txt` describes it again.
+- **`GET /meal-photos/<entry ID>` serves the photo of an entry to a visitor.**
+  The URL holds the entry ID, so the R2 key stays private. It answers only
+  while the public view is on, and only for a complete entry of the owner with
+  a JPEG, PNG or WebP photo in the seven days that end today in the saved
+  timezone (`public-photo-policy.ts`). Any other case is the same 404 body.
+  A matching `If-None-Match` gets a 304.
+- **The public page has a calendar and photo thumbnails.** The calendar is the
+  panel of the history feature with `source: "public"`, which reads
+  `GET /api/public/summary?view=month&month=YYYY-MM`. `routes.tsx` passes it to
+  the page as a render prop, as it does for the owner dashboard.
 
 ## Insights
 
@@ -193,3 +202,29 @@ The project's own choices, with their reasons. Read this file when you read
 - **The panels have no "Inspect entry" action yet.** The old app opened the
   entry in the dashboard editor or in an editor for older entries. The new
   panels only list the entries.
+
+## MCP photos
+
+- **`add_meals` takes `photos` and `photo_meal_indices`.** The tool checks the
+  values with the old messages and codes, downloads each photo, and stores it
+  with the entry in one call. `EntriesLogic.createExternal` does the work with
+  two Services in `core/services/`: `PhotoDownloadService` (`fetch`) and
+  `ImagesService` (the Cloudflare `IMAGES` binding). The photo key uses the
+  entry ID `meal_external_<request ID>`, as the old app did.
+- **Only the file hosts of ChatGPT are fetched,** over HTTPS with no port and
+  no credentials (`files.openai.com`, `*.oaiusercontent.com` and Azure Blob
+  account hosts). A Worker started for the black-box tests (`CALOCOUNT_BLACK_BOX`)
+  also fetches `http://localhost` and `http://127.0.0.1`, so that an API test
+  can serve an image. No deployment has this switch.
+- **A redirect is a failed download.** Workers do not implement
+  `redirect: "error"` and `fetch` throws on it, so the Service uses `manual` and
+  rejects a 3xx answer.
+- **A failed download saves the meal without the photo** and adds
+  `photo_status: "download_failed"` to its result. Any other photo problem
+  (type, size, content, conversion) saves no meal and gives the tool error with
+  the old code. A retry of a saved request ID does not download again.
+- **HEIC becomes a JPEG through `IMAGES`.** A Worker with no `IMAGES` binding
+  (a plain `wrangler dev`) refuses HEIC with `image_conversion_unavailable`, as
+  the old app did. The local binding of `wrangler dev` has no HEIC decoder, so
+  the API tests accept `image_conversion_failed` or `image_conversion_unavailable`
+  there.

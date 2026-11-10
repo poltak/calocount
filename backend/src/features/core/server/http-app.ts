@@ -26,6 +26,7 @@ import { createMcpHandlers } from "../../mcp/handlers/mcp-handlers.js";
 import { createHealthHandlers } from "../../health/handlers/health-handlers.js";
 import { createInsightsHandlers } from "../../insights/handlers/insights-handlers.js";
 import { createLlmsHandlers } from "../../public-view/handlers/llms-handlers.js";
+import { createPublicPhotoHandlers } from "../../public-view/handlers/public-photo-handlers.js";
 import { createPublicSummaryHandlers } from "../../public-view/handlers/public-summary-handlers.js";
 import { createSettingsHandlers } from "../../settings/handlers/settings-handlers.js";
 import { createWeightHandlers } from "../../weights/handlers/weight-handlers.js";
@@ -112,6 +113,10 @@ export function createHttpApp({ app, clientAddressHeader }: HttpAppProps) {
         "/llms.txt",
         createLlmsHandlers({ logic: app.logic, config: app.config }),
       )
+      .route(
+        "/meal-photos",
+        createPublicPhotoHandlers({ logic: app.logic, config: app.config }),
+      )
       .route("/api", createApiHttpApp({ app }))
       // The routes for agents and scripts take a token, not the session cookie.
       .route(
@@ -120,7 +125,11 @@ export function createHttpApp({ app, clientAddressHeader }: HttpAppProps) {
       )
       .route(
         "/",
-        createMcpHandlers({ logic: app.logic, services: app.services }),
+        createMcpHandlers({
+          logic: app.logic,
+          services: app.services,
+          config: app.config,
+        }),
       )
       .onError(createErrorHandler({ services: app.services }))
       .notFound(handleNotFound)

@@ -48,4 +48,6 @@ export interface CalendarSlotProps {
   disabled: boolean;
   onSelectDate: (date: string) => void;
   onClose: () => void;
+  /** Whose days the calendar reads. The default is the owner's. */
+  source?: "owner" | "public";
 }

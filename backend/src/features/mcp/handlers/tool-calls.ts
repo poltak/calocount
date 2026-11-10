@@ -1,4 +1,9 @@
-import type { BackendLogic, BackendServices } from "../../core/types.js";
+import { ExternalPhotoError } from "../../entries/types.js";
+import type {
+  AppConfig,
+  BackendLogic,
+  BackendServices,
+} from "../../core/types.js";
 import type { MealWithItems } from "../../entries/storage/types.js";
 import { isObject, type JsonObject } from "../utils/json-object.js";
 import { McpToolError } from "../utils/mcp-tool-error.js";
@@ -24,6 +29,7 @@ import type { CallTool, ToolCallResult } from "./mcp-protocol.js";
 interface ToolCallProps {
   logic: Pick<BackendLogic, "entries" | "entryReads" | "settings" | "weights">;
   services: Pick<BackendServices, "logger">;
+  config: Pick<AppConfig, "blackBox">;
 }
 
 type ToolCall = (input: {
@@ -53,10 +59,15 @@ function textResult({
   };
 }
 
-function mealResultPayload(
-  status: "created" | "already_exists",
-  { meal }: MealWithItems,
-) {
+function mealResultPayload({
+  status,
+  entry: { meal },
+  photoStatus,
+}: {
+  status: "created" | "already_exists";
+  entry: MealWithItems;
+  photoStatus?: "download_failed" | undefined;
+}) {
   return {
     status,
     meal_id: meal.id,
@@ -68,6 +79,7 @@ function mealResultPayload(
     fat: meal.totalFatG,
     eaten_at: new Date(meal.consumedAt).toISOString(),
     has_image: Boolean(meal.photoKey),
+    ...(photoStatus ? { photo_status: photoStatus } : {}),
   };
 }
 
@@ -81,7 +93,7 @@ function hasNutrientValue(nutrients: unknown): boolean {
 }
 
 /** The tools of the MCP endpoint. Each one calls the Logic of the feature that owns the data. */
-export function createToolCaller({ logic, services }: ToolCallProps): {
+export function createToolCaller({ logic, services, config }: ToolCallProps): {
   call: (input: { accountKey: string }) => CallTool;
 } {
   /** The saved timezone sets the days of every read, and it belongs to the profile. */
@@ -90,7 +102,10 @@ export function createToolCaller({ logic, services }: ToolCallProps): {
   }
 
   const addMeals: ToolCall = async ({ ownerKey, args }) => {
-    const requests = parseAddMeals(args);
+    const requests = parseAddMeals({
+      args,
+      allowLocalHttp: config.blackBox,
+    });
     const results = await logic.entries.createExternal({ ownerKey, requests });
     const today = await logic.entryReads.today({
       ownerKey,
@@ -117,8 +132,12 @@ export function createToolCaller({ logic, services }: ToolCallProps): {
         status: "batch_processed",
         created_count: created,
         already_exists_count: alreadySaved,
-        meals: results.map(({ created: isNew, entry }) =>
-          mealResultPayload(isNew ? "created" : "already_exists", entry),
+        meals: results.map(({ created: isNew, entry, photoStatus }) =>
+          mealResultPayload({
+            status: isNew ? "created" : "already_exists",
+            entry,
+            photoStatus,
+          }),
         ),
         daily_totals: {
           date: today.date,
@@ -320,7 +339,10 @@ export function createToolCaller({ logic, services }: ToolCallProps): {
     try {
       result = await tool.run({ ownerKey, args: toolArguments });
     } catch (error) {
-      if (error instanceof McpToolError) {
+      if (
+        error instanceof McpToolError ||
+        error instanceof ExternalPhotoError
+      ) {
         return toolErrorResult(error.code, error.message);
       }
       services.logger.error("MCP tool failed", { tool: name, error });

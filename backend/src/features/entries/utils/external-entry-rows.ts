@@ -10,10 +10,16 @@ export function buildExternalEntryRows({
   ownerKey,
   request,
   timestamp,
+  photo,
 }: {
   ownerKey: string;
   request: ExternalMealRequest;
   timestamp: number;
+  photo?: {
+    photoKey: string;
+    photoMimeType: string;
+    photoSizeBytes: number;
+  };
 }): { meal: NewMealLog; items: NewMealItem[] } {
   const source = "chatgpt";
   return buildEntryRows({
@@ -25,6 +31,7 @@ export function buildExternalEntryRows({
       source,
       caption: request.name,
       externalRequestId: request.requestId,
+      ...photo,
       items: [
         {
           id: `item_external_${request.requestId}`,

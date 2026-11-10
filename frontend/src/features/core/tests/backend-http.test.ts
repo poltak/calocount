@@ -13,6 +13,7 @@ const PUBLIC_ROUTES = [
   "GET /health",
   "GET /health/ready",
   "GET /llms.txt",
+  "GET /meal-photos/:id",
   "GET /api/auth/status",
   "POST /api/auth/register/options",
   "POST /api/auth/register/verify",

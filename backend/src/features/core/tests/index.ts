@@ -8,6 +8,8 @@ import {
 } from "../database/database.js";
 import { findStandardColumnProblems } from "../database/standard-columns.js";
 import { readLiveConfig } from "../live/config.js";
+import { CloudflareImagesService } from "../services/cloudflare-images-service.js";
+import { FetchPhotoDownloadService } from "../services/fetch-photo-download-service.js";
 import { FakeClockService } from "../services/fake-clock-service.js";
 import type { App, AppConfig, BackendServices } from "../types.js";
 import { randomToken, sha256Base64Url, sha256Hex } from "../utils/crypto.js";
@@ -130,6 +132,8 @@ export function createApp({
     logger: new MemoryLoggerService(),
     clock: new FakeClockService(),
     passkeys: new SimpleWebAuthnService(),
+    images: new CloudflareImagesService(undefined),
+    photoDownload: new FetchPhotoDownloadService(),
   };
   const photoBucket = new MemoryPhotoBucket();
   const app = composeApp({

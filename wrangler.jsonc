@@ -40,7 +40,7 @@
       "bucket_name": "calocount-meals",
     },
   ],
-  // Not used yet. The MCP photos convert HEIC with it.
+  // The MCP photos convert HEIC with it. A plain `wrangler dev` may lack it, and then HEIC photos are refused.
   "images": {
     "binding": "IMAGES",
   },

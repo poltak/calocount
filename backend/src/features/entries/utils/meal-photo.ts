@@ -54,7 +54,7 @@ function startsWith(bytes: Uint8Array, signature: number[], offset = 0) {
   return signature.every((byte, index) => bytes[offset + index] === byte);
 }
 
-function detectType(bytes: Uint8Array): string | null {
+export function detectType(bytes: Uint8Array): string | null {
   if (startsWith(bytes, [0xff, 0xd8, 0xff])) {
     return "image/jpeg";
   }
@@ -106,7 +106,7 @@ function checkPhoto({
  * `null` means too large, and the stream is cancelled. A claimed
  * `Content-Length` proves nothing, so the count is of the bytes read.
  */
-async function readBoundedBytes({
+export async function readBoundedBytes({
   stream,
   maxBytes,
 }: {
