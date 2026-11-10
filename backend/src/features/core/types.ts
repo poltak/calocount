@@ -1,4 +1,7 @@
 import type { LoggerServiceInterface } from "@app/common/features/core/services/types";
+import type { AuthConnectionsLogic } from "../auth/logic/auth-connections-logic.js";
+import type { AuthOAuthLogic } from "../auth/logic/auth-oauth-logic.js";
+import type { AuthOAuthTokenLogic } from "../auth/logic/auth-oauth-token-logic.js";
 import type { AuthPasskeyLogic } from "../auth/logic/auth-passkey-logic.js";
 import type { AuthPasskeyManageLogic } from "../auth/logic/auth-passkey-manage-logic.js";
 import type { AuthSessionLogic } from "../auth/logic/auth-session-logic.js";
@@ -43,6 +46,9 @@ export interface BackendServices extends BackendCoreServices {
 }
 
 export interface BackendLogic {
+  authConnections: AuthConnectionsLogic;
+  authOAuth: AuthOAuthLogic;
+  authOAuthToken: AuthOAuthTokenLogic;
   authPasskey: AuthPasskeyLogic;
   authPasskeyManage: AuthPasskeyManageLogic;
   authSession: AuthSessionLogic;

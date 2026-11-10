@@ -18,6 +18,21 @@ const PUBLIC_ROUTES = [
   "POST /api/auth/login/options",
   "POST /api/auth/login/verify",
   "POST /api/auth/logout",
+  // The routes for agents. `/mcp` and `/oauth/token` answer 401 without a
+  // token, so they are not in this list. The rest are discovery documents, the
+  // client registration, the preflight requests, and the consent page, which
+  // sends a visitor without a session to the sign-in page.
+  "GET /.well-known/oauth-authorization-server",
+  "OPTIONS /.well-known/oauth-authorization-server",
+  "GET /.well-known/oauth-protected-resource",
+  "OPTIONS /.well-known/oauth-protected-resource",
+  "GET /.well-known/oauth-protected-resource/mcp",
+  "OPTIONS /.well-known/oauth-protected-resource/mcp",
+  "POST /oauth/register",
+  "OPTIONS /oauth/register",
+  "OPTIONS /oauth/token",
+  "GET /oauth/authorize",
+  "POST /oauth/authorize",
 ];
 
 const ORIGIN = "http://app.test";

@@ -57,6 +57,20 @@ export class WeightsStorage {
       .execute();
   }
 
+  /** The earliest date that has a weight, or `null` when the owner has none. */
+  async findFirstDate({
+    ownerKey,
+  }: {
+    ownerKey: string;
+  }): Promise<string | null> {
+    const row = await this.deps.db
+      .selectFrom("dailyWeights")
+      .select((expression) => expression.fn.min("logicalDate").as("first"))
+      .where("ownerKey", "=", ownerKey)
+      .executeTakeFirst();
+    return row?.first ?? null;
+  }
+
   /** A second weight for the same day replaces the first and keeps its ID. */
   async upsertDay(weight: NewDailyWeight): Promise<DailyWeightRow> {
     return this.deps.db

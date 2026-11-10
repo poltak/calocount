@@ -59,6 +59,11 @@ export class WeightsLogic extends Logic<WeightsProps, Record<string, never>> {
     return row && serialiseWeight(row);
   }
 
+  /** The earliest date with a weight, also before any range that a reader asks for. */
+  firstDate({ ownerKey }: { ownerKey: string }): Promise<string | null> {
+    return this.deps.storage.weights.findFirstDate({ ownerKey });
+  }
+
   async range({
     ownerKey,
     from,

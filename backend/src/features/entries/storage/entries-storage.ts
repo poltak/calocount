@@ -13,6 +13,9 @@ import type {
   SavedEntryRow,
 } from "./types.js";
 
+/** D1 allows 100 bound values in a statement, and the query of the items also binds the owner. */
+const MEAL_ID_CHUNK_SIZE = 40;
+
 /** The entries of the owner with their items, the revisions of their edits, and the saved entries. */
 export class EntriesStorage {
   constructor(private readonly deps: BackendStorageProps) {}
@@ -46,6 +49,101 @@ export class EntriesStorage {
       .orderBy(sql`rowid`)
       .execute();
     return { meal, items };
+  }
+
+  async findEntryByRequestId({
+    ownerKey,
+    requestId,
+  }: {
+    ownerKey: string;
+    requestId: string;
+  }): Promise<MealWithItems | undefined> {
+    const meal = await this.deps.db
+      .selectFrom("mealLogs")
+      .select("id")
+      .where("ownerKey", "=", ownerKey)
+      .where("externalRequestId", "=", requestId)
+      .executeTakeFirst();
+    return meal ? this.findEntry({ ownerKey, id: meal.id }) : undefined;
+  }
+
+  /** The entries that agents logged with these request IDs. An ID with no entry has no result. */
+  async listEntriesByRequestIds({
+    ownerKey,
+    requestIds,
+  }: {
+    ownerKey: string;
+    requestIds: string[];
+  }): Promise<MealWithItems[]> {
+    const meals = [];
+    for (
+      let start = 0;
+      start < requestIds.length;
+      start += MEAL_ID_CHUNK_SIZE
+    ) {
+      meals.push(
+        ...(await this.deps.db
+          .selectFrom("mealLogs")
+          .selectAll()
+          .where("ownerKey", "=", ownerKey)
+          .where(
+            "externalRequestId",
+            "in",
+            requestIds.slice(start, start + MEAL_ID_CHUNK_SIZE),
+          )
+          .execute()),
+      );
+    }
+    return this.attachItems({ ownerKey, meals });
+  }
+
+  /**
+   * One page of complete entries from `from` up to, not including, `to`,
+   * newest first. The cursor is the last entry of the page before.
+   */
+  async listCompleteEntriesPage({
+    ownerKey,
+    from,
+    to,
+    limit,
+    cursor,
+  }: {
+    ownerKey: string;
+    from: number;
+    to: number;
+    limit: number;
+    cursor: { consumedAt: number; id: string } | null;
+  }): Promise<{ entries: MealWithItems[]; hasMore: boolean }> {
+    let query = this.deps.db
+      .selectFrom("mealLogs")
+      .selectAll()
+      .where("ownerKey", "=", ownerKey)
+      .where("status", "=", "complete")
+      .where("consumedAt", ">=", from)
+      .where("consumedAt", "<", to);
+    if (cursor) {
+      query = query.where((expression) =>
+        expression.or([
+          expression("consumedAt", "<", cursor.consumedAt),
+          expression.and([
+            expression("consumedAt", "=", cursor.consumedAt),
+            expression("id", "<", cursor.id),
+          ]),
+        ]),
+      );
+    }
+    const meals = await query
+      .orderBy("consumedAt", "desc")
+      .orderBy("id", "desc")
+      .limit(limit + 1)
+      .execute();
+    return {
+      entries: await this.attachItems({
+        ownerKey,
+        meals: meals.slice(0, limit),
+      }),
+      hasMore: meals.length > limit,
+    };
   }
 
   /** The entries from `from` up to, not including, `to`, newest first. */
@@ -94,6 +192,39 @@ export class EntriesStorage {
       meal,
       items: itemsByMeal.get(meal.id) ?? [],
     }));
+  }
+
+  /**
+   * The statements of an entry that an agent logs. A retry with the same
+   * request ID, and a second item with the same ID, change nothing, so
+   * parallel retries cannot save a meal twice.
+   */
+  planInsertExternalEntry({
+    meal,
+    items,
+  }: {
+    meal: NewMealLog;
+    items: NewMealItem[];
+  }): PlannedStatement<never>[] {
+    const { db } = this.deps;
+    return [
+      planWrite(
+        db
+          .insertInto("mealLogs")
+          .values(meal)
+          .onConflict((conflict) =>
+            conflict.column("externalRequestId").doNothing(),
+          ),
+      ),
+      ...items.map((item) =>
+        planWrite(
+          db
+            .insertInto("mealItems")
+            .values(item)
+            .onConflict((conflict) => conflict.column("id").doNothing()),
+        ),
+      ),
+    ];
   }
 
   /** One statement for the entry and one for each item. D1 limits the values of a statement, so a multi-row insert of items does not fit. */
@@ -200,6 +331,42 @@ export class EntriesStorage {
           .where("id", "=", id),
       ),
     ];
+  }
+
+  private async attachItems({
+    ownerKey,
+    meals,
+  }: {
+    ownerKey: string;
+    meals: MealWithItems["meal"][];
+  }): Promise<MealWithItems[]> {
+    const itemsByMeal = new Map<string, MealWithItems["items"]>();
+    for (let start = 0; start < meals.length; start += MEAL_ID_CHUNK_SIZE) {
+      const items = await this.deps.db
+        .selectFrom("mealItems")
+        .selectAll()
+        .where("ownerKey", "=", ownerKey)
+        .where(
+          "mealId",
+          "in",
+          meals.slice(start, start + MEAL_ID_CHUNK_SIZE).map(({ id }) => id),
+        )
+        .orderBy("createdAt", "desc")
+        .orderBy(sql`rowid`)
+        .execute();
+      for (const item of items) {
+        const group = itemsByMeal.get(item.mealId);
+        if (group) {
+          group.push(item);
+        } else {
+          itemsByMeal.set(item.mealId, [item]);
+        }
+      }
+    }
+    return meals.map((meal) => ({
+      meal,
+      items: itemsByMeal.get(meal.id) ?? [],
+    }));
   }
 
   // ---------- Saved entries ----------

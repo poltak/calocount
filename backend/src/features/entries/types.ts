@@ -34,6 +34,8 @@ export interface EntryInput {
   notes?: string | null | undefined;
   items?: EntryItemInput[] | undefined;
   savedEntryId?: string | null | undefined;
+  /** The request ID of the agent that logged the entry, so that a retry finds it. */
+  externalRequestId?: string | null | undefined;
   photoKey?: string | null | undefined;
   photoMimeType?: string | null | undefined;
   photoSizeBytes?: number | null | undefined;
@@ -43,4 +45,21 @@ export interface EntryInput {
 export interface EntryPatch extends EntryInput {
   /** Why the owner made the edit. The revision records it. */
   reason?: string | undefined;
+  /** Who made the edit, as the revision records it. The default is the dashboard. */
+  revisionSource?: string | undefined;
+}
+
+/** A meal that an agent logs through MCP. The totals are those of its one item. */
+export interface ExternalMealRequest {
+  /** A UUID that the agent made. The same ID again is a retry. */
+  requestId: string;
+  name: string;
+  kcal: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  consumedAt: number;
+  nutrients?: Partial<
+    Record<NutrientKey | NutrientUpperLimitKey, number | null>
+  >;
 }

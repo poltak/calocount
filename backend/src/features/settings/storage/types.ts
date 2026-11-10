@@ -45,3 +45,4 @@ export interface SettingsTables {
 export type SettingsRow = Selectable<SettingsTable>;
 export type NewSettings = SettingsTable;
 export type NewGoalChange = GoalChangeTable;
+export type GoalChangeRow = Selectable<GoalChangeTable>;

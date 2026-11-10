@@ -16,7 +16,7 @@ import type {
   NewMealLog,
   SavedEntryRow,
 } from "../storage/types.js";
-import type { EntryInput, EntryItemInput } from "./entry-input.js";
+import type { EntryInput, EntryItemInput } from "../types.js";
 import { newId } from "./ids.js";
 
 const TRACKED_KEYS = [...NUTRIENT_KEYS, ...NUTRIENT_UPPER_LIMIT_KEYS] as const;
@@ -165,7 +165,7 @@ export function buildEntryRows({
       confidence: input.confidence ?? null,
       assumptionsJson: JSON.stringify(input.assumptions ?? []),
       notes: input.notes ?? null,
-      externalRequestId: null,
+      externalRequestId: input.externalRequestId ?? null,
       savedEntryId: input.savedEntryId ?? null,
       createdAt: timestamp,
       updatedAt: timestamp,

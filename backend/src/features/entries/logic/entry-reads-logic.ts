@@ -7,6 +7,8 @@ import {
 import { aggregateNutrients } from "@app/common/features/entries/utils/nutrients";
 import type { BackendLogicProps } from "../../core/logic/types.js";
 import type { MealWithItems } from "../storage/types.js";
+import { serialiseEntry } from "../utils/entry-rows.js";
+import { summariseDays } from "../utils/nutrition-days.js";
 
 type EntryReadsProps = BackendLogicProps<"entries", "clock">;
 
@@ -41,6 +43,117 @@ export class EntryReadsLogic extends Logic<
       to: calendar.firstInstant(shiftDateKey(date, 1)),
     });
     return { date, timeZone: calendar.timeZone, entries };
+  }
+
+  /**
+   * One page of complete entries for the dates of a range, newest first. The
+   * dates are days in the given timezone. The cursor is the last entry of the
+   * page before.
+   */
+  async historyPage({
+    ownerKey,
+    startDate,
+    endDate,
+    pageSize,
+    cursor,
+    timeZone,
+  }: {
+    ownerKey: string;
+    startDate: string;
+    endDate: string;
+    pageSize: number;
+    cursor: { consumedAt: number; id: string } | null;
+    timeZone: string | undefined;
+  }) {
+    const calendar = zonedCalendar(resolveTimeZone(timeZone));
+    const { entries, hasMore } =
+      await this.deps.storage.entries.listCompleteEntriesPage({
+        ownerKey,
+        from: calendar.firstInstant(startDate),
+        to: calendar.firstInstant(shiftDateKey(endDate, 1)),
+        limit: pageSize,
+        cursor,
+      });
+    return {
+      timeZone: calendar.timeZone,
+      hasMore,
+      entries: entries.map((entry) => ({
+        ...entry,
+        date: calendar.dateKey(entry.meal.consumedAt),
+      })),
+    };
+  }
+
+  /** The totals and the nutrient coverage of each date of a range, including dates with no entry. */
+  async nutritionDays({
+    ownerKey,
+    startDate,
+    endDate,
+    dayCount,
+    timeZone,
+  }: {
+    ownerKey: string;
+    startDate: string;
+    endDate: string;
+    dayCount: number;
+    timeZone: string | undefined;
+  }) {
+    const calendar = zonedCalendar(resolveTimeZone(timeZone));
+    const entries = await this.deps.storage.entries.listEntriesInRange({
+      ownerKey,
+      from: calendar.firstInstant(startDate),
+      to: calendar.firstInstant(shiftDateKey(endDate, 1)),
+    });
+    return {
+      timeZone: calendar.timeZone,
+      days: summariseDays({
+        entries,
+        startDate,
+        dayCount,
+        dateKey: calendar.dateKey,
+      }),
+    };
+  }
+
+  /** The totals of today, which an agent gets back after it logs meals. */
+  async today({
+    ownerKey,
+    timeZone,
+  }: {
+    ownerKey: string;
+    timeZone: string | undefined;
+  }) {
+    const calendar = zonedCalendar(resolveTimeZone(timeZone));
+    const date = calendar.dateKey(this.deps.services.clock.now());
+    const [day] = summariseDays({
+      entries: await this.deps.storage.entries.listEntriesInRange({
+        ownerKey,
+        from: calendar.firstInstant(date),
+        to: calendar.firstInstant(shiftDateKey(date, 1)),
+      }),
+      startDate: date,
+      dayCount: 1,
+      dateKey: calendar.dateKey,
+    });
+    return {
+      date,
+      calories: day?.totals.caloriesKcal ?? 0,
+      proteinG: day?.totals.proteinG ?? 0,
+      mealCount: day?.mealCount ?? 0,
+    };
+  }
+
+  /** Every entry of the owner as the API sends it, newest first, and the time of the read, for the export. */
+  async everything({ ownerKey }: { ownerKey: string }) {
+    const entries = await this.deps.storage.entries.listEntriesInRange({
+      ownerKey,
+      from: 0,
+      to: Number.MAX_SAFE_INTEGER,
+    });
+    return {
+      exportedAt: this.deps.services.clock.now(),
+      entries: entries.map(serialiseEntry),
+    };
   }
 
   /** The totals of each of the last seven days. Only complete entries count. */

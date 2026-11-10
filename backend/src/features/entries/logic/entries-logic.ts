@@ -5,13 +5,14 @@ import type {
   BackendLogicProps,
 } from "../../core/logic/types.js";
 import type { MealWithItems } from "../storage/types.js";
-import type { EntryInput, EntryPatch } from "../utils/entry-input.js";
+import type { EntryInput, EntryPatch, ExternalMealRequest } from "../types.js";
 import {
   buildEntryRows,
   buildItemRows,
   snapshotOf,
   totalsOf,
 } from "../utils/entry-rows.js";
+import { buildExternalEntryRows } from "../utils/external-entry-rows.js";
 import { newId } from "../utils/ids.js";
 
 type EntriesProps = BackendLogicProps<"entries", "clock"> & BackendAtomicProps;
@@ -57,6 +58,7 @@ export class EntriesLogic extends Logic<EntriesProps, Record<string, never>> {
       throw new AppError(NOT_FOUND);
     }
     const timestamp = services.clock.now();
+    const revisionSource = patch.revisionSource ?? "dashboard";
     const replacement = patch.items
       ? buildItemRows({ items: patch.items, ownerKey, mealId: id, timestamp })
       : null;
@@ -97,17 +99,77 @@ export class EntriesLogic extends Logic<EntriesProps, Record<string, never>> {
         id: newId("revision"),
         mealId: id,
         ownerKey,
-        source: "dashboard",
+        source: revisionSource,
         beforeJson: JSON.stringify(before),
         afterJson: JSON.stringify({
           meal: { ...before.meal, ...changes },
           items,
         }),
-        reason: patch.reason?.trim() || "edit",
+        reason:
+          patch.reason?.trim() ||
+          (revisionSource === "dashboard" ? "edit" : "correction"),
         createdAt: timestamp,
       }),
     ]);
     return this.read({ ownerKey, id });
+  }
+
+  async findByRequestId({
+    ownerKey,
+    requestId,
+  }: {
+    ownerKey: string;
+    requestId: string;
+  }): Promise<MealWithItems | undefined> {
+    return this.deps.storage.entries.findEntryByRequestId({
+      ownerKey,
+      requestId,
+    });
+  }
+
+  /**
+   * Save the meals that an agent logs, in one batch. A meal with a request ID
+   * that the owner already has is not saved again, so the agent can retry.
+   * Each result says whether this call saved the meal.
+   */
+  async createExternal({
+    ownerKey,
+    requests,
+  }: {
+    ownerKey: string;
+    requests: ExternalMealRequest[];
+  }): Promise<Array<{ created: boolean; entry: MealWithItems }>> {
+    const { storage, atomic, services } = this.deps;
+    const timestamp = services.clock.now();
+    const rows = requests.map((request) =>
+      buildExternalEntryRows({ ownerKey, request, timestamp }),
+    );
+    const results = await atomic((planning) =>
+      rows.flatMap((row) => planning.entries.planInsertExternalEntry(row)),
+    );
+    let position = 0;
+    const created = rows.map(({ items }) => {
+      const saved = results[position]?.changes === 1;
+      position += 1 + items.length;
+      return saved;
+    });
+    const entries = await storage.entries.listEntriesByRequestIds({
+      ownerKey,
+      requestIds: requests.map(({ requestId }) => requestId),
+    });
+    const byRequestId = new Map(
+      entries.map((entry) => [entry.meal.externalRequestId, entry]),
+    );
+    return requests.map(({ requestId }, index) => {
+      const entry = byRequestId.get(requestId);
+      if (!entry) {
+        throw new AppError({
+          code: "INTERNAL",
+          message: "The entry was not saved.",
+        });
+      }
+      return { created: created[index] ?? false, entry };
+    });
   }
 
   /** The guard is in the statement: an entry that is gone deletes no row. */

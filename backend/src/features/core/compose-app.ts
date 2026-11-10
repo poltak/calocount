@@ -1,3 +1,6 @@
+import { AuthConnectionsLogic } from "../auth/logic/auth-connections-logic.js";
+import { AuthOAuthLogic } from "../auth/logic/auth-oauth-logic.js";
+import { AuthOAuthTokenLogic } from "../auth/logic/auth-oauth-token-logic.js";
 import { AuthPasskeyLogic } from "../auth/logic/auth-passkey-logic.js";
 import { AuthPasskeyManageLogic } from "../auth/logic/auth-passkey-manage-logic.js";
 import { AuthSessionLogic } from "../auth/logic/auth-session-logic.js";
@@ -59,6 +62,14 @@ export function composeApp({
   const atomic = createRunAtomic({ binding, storage });
 
   const logic: BackendLogic = {
+    authConnections: new AuthConnectionsLogic({ storage, services, atomic }),
+    authOAuth: new AuthOAuthLogic({ storage, services, atomic, config }),
+    authOAuthToken: new AuthOAuthTokenLogic({
+      storage,
+      services,
+      atomic,
+      config,
+    }),
     authPasskey: new AuthPasskeyLogic({ storage, services, atomic, config }),
     authPasskeyManage: new AuthPasskeyManageLogic({
       storage,

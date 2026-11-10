@@ -19,6 +19,9 @@ import {
 } from "../handlers/error-responses.js";
 import { logRequests } from "../handlers/request-log.js";
 import type { RequestEnvironment } from "../handlers/types.js";
+import { createOAuthHandlers } from "../../auth/handlers/oauth-handlers.js";
+import { createExportHandlers } from "../../export/handlers/export-handlers.js";
+import { createMcpHandlers } from "../../mcp/handlers/mcp-handlers.js";
 import { createHealthHandlers } from "../../health/handlers/health-handlers.js";
 import { createSettingsHandlers } from "../../settings/handlers/settings-handlers.js";
 import { createWeightHandlers } from "../../weights/handlers/weight-handlers.js";
@@ -41,6 +44,7 @@ function createBusinessHttpApp({ app }: ApiHttpAppProps) {
   return new Hono<AuthEnvironment>()
     .use("*", requireSession())
     .route("/", createDashboardHandlers({ logic: app.logic }))
+    .route("/export", createExportHandlers({ logic: app.logic }))
     .route("/meals", createEntryHandlers({ logic: app.logic }))
     .route("/saved-entries", createSavedEntryHandlers({ logic: app.logic }))
     .route("/settings", createSettingsHandlers({ logic: app.logic }))
@@ -95,6 +99,15 @@ export function createHttpApp({ app, clientAddressHeader }: HttpAppProps) {
       .use("*", defaultBodyLimit(MAX_REQUEST_BODY_BYTES))
       .use("*", resolveClientAddress({ header: clientAddressHeader }))
       .route("/api", createApiHttpApp({ app }))
+      // The routes for agents and scripts take a token, not the session cookie.
+      .route(
+        "/",
+        createOAuthHandlers({ logic: app.logic, services: app.services }),
+      )
+      .route(
+        "/",
+        createMcpHandlers({ logic: app.logic, services: app.services }),
+      )
       .onError(createErrorHandler({ services: app.services }))
       .notFound(handleNotFound)
   );

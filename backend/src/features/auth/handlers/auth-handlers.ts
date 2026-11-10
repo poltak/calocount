@@ -35,7 +35,7 @@ const verifySchema = z.object({
 interface AuthHandlerProps {
   logic: Pick<
     BackendLogic,
-    "authPasskey" | "authPasskeyManage" | "authSession"
+    "authConnections" | "authPasskey" | "authPasskeyManage" | "authSession"
   >;
 }
 
@@ -156,6 +156,23 @@ export function createAuthHandlers({ logic }: AuthHandlerProps) {
           );
         }
         return context.json(result, 200);
+      })
+      .get("/connections", requireSession(), async (context) => {
+        return context.json(
+          {
+            connections: await logic.authConnections.list({
+              ownerKey: context.get("session").ownerKey,
+            }),
+          },
+          200,
+        );
+      })
+      .delete("/connections/:id", requireSession(), async (context) => {
+        await logic.authConnections.remove({
+          ownerKey: context.get("session").ownerKey,
+          id: context.req.param("id"),
+        });
+        return context.json({ removed: true as const }, 200);
       })
   );
 }
