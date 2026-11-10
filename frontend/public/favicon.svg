@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">Calocount</title>
+  <rect width="64" height="64" rx="16" fill="#0f131b"/>
+  <rect x="13" y="34" width="10" height="17" rx="5" fill="#f3a45f"/>
+  <rect x="27" y="24" width="10" height="27" rx="5" fill="#ffbf7d"/>
+  <rect x="41" y="12" width="10" height="39" rx="5" fill="#a4d9b7"/>
+</svg>

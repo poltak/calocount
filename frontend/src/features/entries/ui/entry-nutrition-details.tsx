@@ -58,7 +58,7 @@ function ItemDetail({ item }: { item: ItemView }) {
           return (
             <span key={key}>
               <b>{nutrientLabel(key)}</b>
-              {` ${nutrientValueText(value, key)} `}
+              {` ${nutrientValueText(value, key)}`}
               {value !== null && (
                 <small className="meal-item-provenance">
                   {nutrientValueOriginLabel(item.nutrientProvenance[key])}
