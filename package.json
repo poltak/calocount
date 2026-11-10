@@ -18,7 +18,7 @@
     "check:unused": "pnpm run unused:check",
     "node-version:check": "node scripts/check-node-version.mjs",
     "build": "pnpm --filter backend... run build && VITE_API_BASE_URL= pnpm --filter frontend run build",
-    "dev": "pnpm run build && wrangler d1 migrations apply DB --local && wrangler dev --port 8787",
+    "dev": "pnpm --filter backend... run build && node scripts/dev.mjs",
     "deploy": "pnpm run build && wrangler d1 migrations apply DB --remote && wrangler deploy",
     "db:migration:create": "node scripts/create-migration.mjs",
     "template:sync": "node scripts/sync-template.mjs",

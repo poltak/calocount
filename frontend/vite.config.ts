@@ -40,7 +40,18 @@ class SizeBalancedSequencer extends BaseSequencer {
   }
 }
 
-/** How long an API request waits for a backend that is starting or restarting. */
+/** The paths that `wrangler.jsonc` lists in `run_worker_first`. */
+const WORKER_PATHS = [
+  "/api",
+  "/health",
+  "/mcp",
+  "/oauth",
+  "/.well-known",
+  "/llms.txt",
+  "/meal-photos",
+];
+
+/** How long an API request waits for a Worker that is starting or restarting. */
 const BACKEND_WAIT_MS = 10_000;
 
 /** Resolve when the backend answers its health route, or when the wait is over. */
@@ -57,9 +68,9 @@ async function waitForBackend(origin: string): Promise<void> {
 }
 
 /**
- * `pnpm run dev` restarts the backend after each change to its code. A page
+ * `wrangler dev` restarts the Worker after each change to its code. A page
  * that reloads at the same moment would get a proxy error. This holds each API
- * request until the backend answers again.
+ * request until the Worker answers again.
  */
 function holdApiRequestsUntilBackendAnswers(origin: string): Plugin {
   return {
@@ -81,15 +92,13 @@ function writeAppName(): Plugin {
 }
 
 export default defineConfig(({ mode }) => {
-  // The backend takes HOST and PORT from the process environment, then from
-  // the root `.env`. Read them the same way, so the proxy follows the backend.
-  // The `test:shard` script sets VITEST_SHARD.
+  // The `dev` script of the repository root sets DEV_WORKER_PORT, and starts
+  // `wrangler dev` on it. The `test:shard` script sets VITEST_SHARD.
   const env = loadEnv(mode, fileURLToPath(new URL("..", import.meta.url)), [
-    "HOST",
-    "PORT",
+    "DEV_WORKER_PORT",
     "VITEST_SHARD",
   ]);
-  const backendOrigin = `http://${env.HOST || "127.0.0.1"}:${env.PORT || "3000"}`;
+  const backendOrigin = `http://127.0.0.1:${env.DEV_WORKER_PORT || "8787"}`;
 
   return {
     plugins: [
@@ -98,9 +107,11 @@ export default defineConfig(({ mode }) => {
       holdApiRequestsUntilBackendAnswers(backendOrigin),
     ],
     server: {
-      proxy: {
-        "/api": { target: backendOrigin, changeOrigin: true },
-      },
+      // Without `changeOrigin`, the Worker sees the host of the browser
+      // (`localhost`). A passkey needs it as the relying party.
+      proxy: Object.fromEntries(
+        WORKER_PATHS.map((path) => [path, { target: backendOrigin }]),
+      ),
     },
     test: {
       // Logic tests need no browser. The one rendered test opts into jsdom.
