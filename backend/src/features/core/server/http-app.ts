@@ -26,6 +26,7 @@ import { createMcpHandlers } from "../../mcp/handlers/mcp-handlers.js";
 import { createHealthHandlers } from "../../health/handlers/health-handlers.js";
 import { createLlmsHandlers } from "../../public-view/handlers/llms-handlers.js";
 import { createPublicSummaryHandlers } from "../../public-view/handlers/public-summary-handlers.js";
+import { resolveProfile } from "../../settings/handlers/resolve-profile.js";
 import { createSettingsHandlers } from "../../settings/handlers/settings-handlers.js";
 import { createWeightHandlers } from "../../weights/handlers/weight-handlers.js";
 import type { App } from "../types.js";
@@ -46,6 +47,7 @@ interface HttpAppProps extends ApiHttpAppProps {
 function createBusinessHttpApp({ app }: ApiHttpAppProps) {
   return new Hono<AuthEnvironment>()
     .use("*", requireSession())
+    .use("*", resolveProfile({ logic: app.logic }))
     .route("/", createDashboardHandlers({ logic: app.logic }))
     .route("/export", createExportHandlers({ logic: app.logic }))
     .route("/meals", createEntryHandlers({ logic: app.logic }))

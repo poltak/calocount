@@ -1,6 +1,7 @@
 import { Logic, type TaskState } from "@app/common/features/core/logic/logic";
 import type { ProteinGoalMode } from "@app/common/features/goals/utils/daily-targets";
 import type { NutrientKey } from "@app/common/features/entries/utils/nutrients";
+import type { Profile } from "@app/common/features/core/utils/profile";
 import { requireApiSuccess } from "../../api/client/api-client.js";
 import type { FrontendLogicProps } from "../../core/logic/types.js";
 import { failureMessage } from "../../core/logic/failure-message.js";
@@ -12,7 +13,10 @@ import {
   type SettingsDraft,
 } from "../utils/settings-draft.js";
 
-type SettingsProps = FrontendLogicProps<never, "clock", "settings">;
+type SettingsProps = FrontendLogicProps<never, "clock", "settings"> & {
+  /** The log whose settings these are. */
+  profile: Profile;
+};
 
 interface SettingsState {
   isOpen: boolean;
@@ -115,7 +119,7 @@ export class SettingsLogic extends Logic<
       return;
     }
     await this.executeTask("save", async () => {
-      const result = patchOfDraft(draft);
+      const result = patchOfDraft({ draft, profile: this.deps.profile });
       if ("error" in result) {
         throw new Error(result.error);
       }

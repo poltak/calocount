@@ -81,6 +81,17 @@ export class SettingsLogic extends Logic<SettingsProps, Record<string, never>> {
     return this.deps.storage.settings.findSettings({ ownerKey });
   }
 
+  /** The switch is in the owner's row, and the partner profile reads it there. */
+  async partnerProfileEnabled({
+    accountKey,
+  }: {
+    accountKey: string;
+  }): Promise<boolean> {
+    return (
+      (await this.read({ ownerKey: accountKey }))?.partnerProfileEnabled === 1
+    );
+  }
+
   /** The latest recorded changes of the calorie and protein goals, oldest first. */
   goalChanges({
     ownerKey,

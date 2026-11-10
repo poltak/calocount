@@ -41,14 +41,18 @@ export function createApp({
   };
 
   const apiAccessEvents = new EventEmitter<ApiAccessEvent>();
+  const onSessionRejected = () =>
+    apiAccessEvents.emitDetached({ type: "sessionRejected" });
   return {
     storage,
     services,
     apiAccessEvents,
-    api: createApiClient({
+    profile: "owner",
+    api: createApiClient({ ...apiProps, onSessionRejected }),
+    partnerApi: createApiClient({
       ...apiProps,
-      onSessionRejected: () =>
-        apiAccessEvents.emitDetached({ type: "sessionRejected" }),
+      onSessionRejected,
+      profile: "partner",
     }),
   };
 }

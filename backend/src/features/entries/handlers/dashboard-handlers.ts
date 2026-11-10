@@ -7,10 +7,10 @@ import {
 import { Hono } from "hono";
 import { z } from "zod";
 import { validator } from "../../core/handlers/validator.js";
+import type { ProfileEnvironment } from "../../core/handlers/types.js";
 import type { BackendLogic } from "../../core/types.js";
 import { serialiseEntry } from "../utils/entry-rows.js";
 import { proteinGoalOfDay, proteinTargetsOfDays } from "./protein-goal.js";
-import type { SessionEnvironment } from "./types.js";
 
 const timeZoneQuery = z.object({
   timezone: z
@@ -35,7 +35,7 @@ interface DashboardHandlerProps {
 
 /** The reads of the owner dashboard: one day of entries and its weight, a month of totals, and the recent days with the goals and weights. */
 export function createDashboardHandlers({ logic }: DashboardHandlerProps) {
-  return new Hono<SessionEnvironment>()
+  return new Hono<ProfileEnvironment>()
     .get("/days", validator("query", monthQuery), async (context) => {
       const { ownerKey } = context.get("session");
       const { month, timezone } = context.req.valid("query");
@@ -96,12 +96,15 @@ export function createDashboardHandlers({ logic }: DashboardHandlerProps) {
       validator("query", timeZoneQuery),
       async (context) => {
         const { ownerKey } = context.get("session");
-        const [summary, goals] = await Promise.all([
+        const [summary, goals, partnerProfileEnabled] = await Promise.all([
           logic.entryReads.summary({
             ownerKey,
             timeZone: context.req.valid("query").timezone,
           }),
           logic.settings.dailyGoals({ ownerKey }),
+          logic.settings.partnerProfileEnabled({
+            accountKey: context.get("accountKey"),
+          }),
         ]);
         const firstDate = summary.days[0]?.date ?? summary.date;
         const firstTrendDate = summary.trendDays[0]?.date ?? firstDate;
@@ -123,6 +126,8 @@ export function createDashboardHandlers({ logic }: DashboardHandlerProps) {
           {
             date: summary.date,
             timezone: summary.timeZone,
+            profile: context.get("profile"),
+            partnerProfileEnabled,
             targets: {
               calories: goals.calories,
               proteinG: todayProtein.targetG,

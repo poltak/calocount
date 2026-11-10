@@ -32,6 +32,10 @@
       "types": "./dist/features/core/utils/app-name.d.ts",
       "default": "./dist/features/core/utils/app-name.js"
     },
+    "./features/core/utils/profile": {
+      "types": "./dist/features/core/utils/profile.d.ts",
+      "default": "./dist/features/core/utils/profile.js"
+    },
     "./features/core/utils/log-level": {
       "types": "./dist/features/core/utils/log-level.d.ts",
       "default": "./dist/features/core/utils/log-level.js"

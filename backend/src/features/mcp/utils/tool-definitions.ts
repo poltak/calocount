@@ -1,4 +1,4 @@
-import { PROFILES } from "./profile.js";
+import { PROFILES } from "@app/common/features/core/utils/profile";
 import type { JsonObject } from "./json-object.js";
 import { isObject } from "./json-object.js";
 import { ADD_MEALS_TOOL, UPDATE_MEAL_TOOL } from "./meal-tool-definitions.js";

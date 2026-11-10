@@ -1,4 +1,8 @@
 import type { ApiType } from "backend/api";
+import {
+  withProfile,
+  type Profile,
+} from "@app/common/features/core/utils/profile";
 import { hc } from "hono/client";
 
 /** The body of the response of a route, for one status. Other code reads response types through this layer. */
@@ -12,6 +16,8 @@ export interface ApiClientProps {
   baseUrl: string;
   fetch?: typeof globalThis.fetch;
   onSessionRejected?: () => void;
+  /** The log that each request names. The owner log needs no mark. */
+  profile?: Profile;
 }
 
 /**
@@ -22,6 +28,7 @@ export function createApiClient({
   baseUrl,
   fetch,
   onSessionRejected,
+  profile = "owner",
 }: ApiClientProps) {
   if (!URL.canParse(baseUrl)) {
     throw new Error(`The API base URL is not absolute: "${baseUrl}"`);
@@ -30,7 +37,7 @@ export function createApiClient({
   const authenticatedFetch: typeof globalThis.fetch = async (input, init) => {
     let response: Response;
     try {
-      response = await transport(input, init);
+      response = await transport(namedProfile({ input, profile }), init);
     } catch (error) {
       // fetch rejects with a TypeError without a connection. Its message differs in each browser.
       if (error instanceof TypeError) {
@@ -47,6 +54,20 @@ export function createApiClient({
     init: { credentials: "include" },
     fetch: authenticatedFetch,
   });
+}
+
+/** hc passes a string or a URL, and never a Request. */
+function namedProfile({
+  input,
+  profile,
+}: {
+  input: Parameters<typeof globalThis.fetch>[0];
+  profile: Profile;
+}): Parameters<typeof globalThis.fetch>[0] {
+  if (profile === "owner" || input instanceof Request) {
+    return input;
+  }
+  return withProfile({ url: String(input), profile });
 }
 
 export type BackendApi = ReturnType<typeof createApiClient>;

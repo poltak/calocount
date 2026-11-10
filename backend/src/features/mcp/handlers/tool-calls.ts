@@ -14,7 +14,11 @@ import {
   parseNutritionSummaryInput,
   parseWeightHistoryInput,
 } from "../utils/nutrition-read-input.js";
-import { isProfile, profileDataKey, type Profile } from "../utils/profile.js";
+import {
+  isProfile,
+  profileDataKey,
+  type Profile,
+} from "@app/common/features/core/utils/profile";
 import {
   NUTRIENT_KEYS,
   NUTRIENT_UPPER_LIMIT_KEYS,

@@ -14,11 +14,13 @@ import {
   SettingsProvider,
   useSettings,
 } from "../../settings/ui/settings-context.js";
+import { ProfileSwitch } from "../../partner-profile/ui/profile-switch.js";
 import { PrivacyPage } from "../../public-view/ui/privacy-page.js";
 import { PublicDashboardPage } from "../../public-view/ui/public-dashboard-page.js";
 import { useWeights, WeightProvider } from "../../weights/ui/weight-context.js";
 import { WeightPanel } from "../../weights/ui/weight-panel.js";
 import { WeightTrendPanel } from "../../weights/ui/weight-trend-panel.js";
+import { FrontendAppProvider, useFrontendApp } from "./frontend-app-context.js";
 import { ErrorBoundary } from "./error-boundary.js";
 import { PageErrorFallback } from "./error-fallbacks.js";
 import type { ProtectedPageContext } from "./signed-in-user.js";
@@ -74,6 +76,7 @@ function OwnerLayout() {
 
 /** The owner dashboard with the parts that other features give it. */
 function OwnerDashboard() {
+  const { profile } = useFrontendApp();
   const settings = useSettings();
   const weights = useWeights();
   return (
@@ -89,6 +92,12 @@ function OwnerDashboard() {
       weightEvents={weights.logic.events}
       weightBusy={weights.logic.busy}
       renderCalendar={(props) => <CalendarPanel {...props} />}
+      renderProfileSwitch={({ partnerProfileEnabled }) => (
+        <ProfileSwitch
+          profile={profile}
+          partnerProfileEnabled={partnerProfileEnabled}
+        />
+      )}
       renderWeightTrend={(props) => <WeightTrendPanel {...props} />}
       renderWeightPanel={({ selectedDate, weights: dayWeights, ...props }) => (
         <WeightPanel
@@ -98,6 +107,20 @@ function OwnerDashboard() {
         />
       )}
     />
+  );
+}
+
+/** The pages under `/owner/partner` talk to the partner log of the same sign-in. */
+function PartnerLayout() {
+  const app = useFrontendApp();
+  const partnerApp = useMemo(
+    () => ({ ...app, api: app.partnerApi, profile: "partner" as const }),
+    [app],
+  );
+  return (
+    <FrontendAppProvider app={partnerApp}>
+      <OwnerLayout />
+    </FrontendAppProvider>
   );
 }
 
@@ -136,6 +159,9 @@ function Shell() {
         <Route element={<SessionGate />}>
           <Route element={<OwnerLayout />}>
             <Route path="/owner" element={<OwnerDashboard />} />
+          </Route>
+          <Route element={<PartnerLayout />}>
+            <Route path="/owner/partner" element={<OwnerDashboard />} />
           </Route>
           <Route element={<ProtectedLayout />}>
             <Route

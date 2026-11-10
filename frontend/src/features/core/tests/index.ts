@@ -40,6 +40,8 @@ export function createApp({
 }: TestAppProps): TestApp {
   const apiAccessEvents = new EventEmitter<ApiAccessEvent>();
   const browserStorage = new MemoryKeyValueStore();
+  const onSessionRejected = () =>
+    apiAccessEvents.emitDetached({ type: "sessionRejected" });
   return {
     browserStorage,
     storage: {
@@ -56,11 +58,13 @@ export function createApp({
       windowFocus: new FakeWindowFocusService(),
     },
     apiAccessEvents,
-    api: createApiClient({
+    profile: "owner",
+    api: createApiClient({ fetch, baseUrl, onSessionRejected }),
+    partnerApi: createApiClient({
       fetch,
       baseUrl,
-      onSessionRejected: () =>
-        apiAccessEvents.emitDetached({ type: "sessionRejected" }),
+      onSessionRejected,
+      profile: "partner",
     }),
   };
 }

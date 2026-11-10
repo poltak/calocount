@@ -50,7 +50,12 @@ export function DashboardProvider({
     [app],
   );
   const photoDeps = useMemo(
-    () => ({ storage: {}, services: {}, api: { photos: app.api.photos } }),
+    () => ({
+      storage: {},
+      services: {},
+      api: { photos: app.api.photos },
+      profile: app.profile,
+    }),
     [app],
   );
   const photos = useLogic({ LogicClass: PhotoPreviewLogic, deps: photoDeps });

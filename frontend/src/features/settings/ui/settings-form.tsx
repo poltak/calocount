@@ -119,7 +119,8 @@ const THEMES: { theme: ThemePreference; label: string; detail: string }[] = [
 /** The targets, the timezone, the theme, the nutrition goals and the upper-limit consents. */
 export function SettingsForm() {
   const { logic, state, theme } = useSettings();
-  const { clock } = useFrontendApp().services;
+  const app = useFrontendApp();
+  const { clock } = app.services;
   const deviceTimeZone = clock.timeZone();
   const loading = state.loadState === "running";
   const saving = state.saveState === "running";
@@ -264,24 +265,49 @@ export function SettingsForm() {
           </div>
         </section>
 
-        <section
-          className="settings-section public-view-settings"
-          aria-labelledby="public-view-title"
-        >
-          <SectionHeading
-            id="public-view-title"
-            title="Public dashboard"
-            detail="Who can see your log"
-          />
-          <ReferenceSetting
-            id="public-view-enabled"
-            label="Show my log to anyone who opens the site address"
-            detail="Visitors see your entries, food items, nutrients, weights and the photos of the last seven days. They cannot make changes. Notes and captions stay private. When this is off, the site address opens your own dashboard after you sign in."
-            checked={draft.publicViewEnabled}
-            disabled={disabled}
-            onChange={(checked) => change({ publicViewEnabled: checked })}
-          />
-        </section>
+        {app.profile === "owner" && (
+          <>
+            <section
+              className="settings-section public-view-settings"
+              aria-labelledby="public-view-title"
+            >
+              <SectionHeading
+                id="public-view-title"
+                title="Public dashboard"
+                detail="Who can see your log"
+              />
+              <ReferenceSetting
+                id="public-view-enabled"
+                label="Show my log to anyone who opens the site address"
+                detail="Visitors see your entries, food items, nutrients, weights and the photos of the last seven days. They cannot make changes. Notes and captions stay private. When this is off, the site address opens your own dashboard after you sign in."
+                checked={draft.publicViewEnabled}
+                disabled={disabled}
+                onChange={(checked) => change({ publicViewEnabled: checked })}
+              />
+            </section>
+
+            <section
+              className="settings-section partner-profile-settings"
+              aria-labelledby="partner-profile-title"
+            >
+              <SectionHeading
+                id="partner-profile-title"
+                title="Partner profile"
+                detail="A second log on this site"
+              />
+              <ReferenceSetting
+                id="partner-profile-enabled"
+                label="Keep a second log for a partner"
+                detail="Adds a Partner profile at /owner/partner with its own entries, weights and goals. It uses your sign-in, and ChatGPT can log to it when you ask. The public dashboard shows only your log."
+                checked={draft.partnerProfileEnabled}
+                disabled={disabled}
+                onChange={(checked) =>
+                  change({ partnerProfileEnabled: checked })
+                }
+              />
+            </section>
+          </>
+        )}
 
         <section
           className="settings-section appearance-settings"

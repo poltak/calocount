@@ -1,9 +1,16 @@
 import { Logic } from "@app/common/features/core/logic/logic";
+import {
+  withProfile,
+  type Profile,
+} from "@app/common/features/core/utils/profile";
 import type { FrontendLogicProps } from "../../core/logic/types.js";
 import { photoPath } from "../utils/photo-path.js";
 import type { EntryView } from "../utils/entry-view.js";
 
-type PhotoPreviewProps = FrontendLogicProps<never, never, "photos">;
+type PhotoPreviewProps = FrontendLogicProps<never, never, "photos"> & {
+  /** The log whose photos these are. The photo route needs it. */
+  profile: Profile;
+};
 
 interface PhotoPreviewState {
   /** The entry whose photo shows large, or `null`. */
@@ -27,7 +34,8 @@ export class PhotoPreviewLogic extends Logic<
     if (key === null) {
       return null;
     }
-    return this.deps.api.photos[":key{.+}"].$url({ param: { key } }).href;
+    const { href } = this.deps.api.photos[":key{.+}"].$url({ param: { key } });
+    return withProfile({ url: href, profile: this.deps.profile });
   }
 
   /** The address of the photo, unless it is known to fail. */
