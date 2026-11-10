@@ -46,6 +46,13 @@ export class SettingsPageObject {
       .click();
   }
 
+  /** Pick the Light, Dark or System theme, and close the settings. */
+  async chooseTheme(theme: "Light" | "Dark" | "System") {
+    await this.open();
+    await this.field(theme).check();
+    await this.save();
+  }
+
   async signOut() {
     await this.dialog
       .getByRole("button", { name: "Sign out", exact: true })

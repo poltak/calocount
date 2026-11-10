@@ -21,6 +21,12 @@ export interface NewEntry {
   fat?: number;
   /** Optional nutrients by their label in "Advanced nutrition", such as `Fiber`. */
   nutrients?: Record<string, number>;
+  /**
+   * Where each value in `nutrients` came from, by the label of the nutrient and
+   * the label of the origin, such as `Nutrition label`. A value with no origin
+   * here keeps the origin that the form suggests.
+   */
+  origins?: Record<string, string>;
   photo?: PhotoFile;
 }
 
@@ -319,6 +325,14 @@ export class TodayPageObject {
     });
   }
 
+  /** The select for where a nutrient value came from, in "Advanced nutrition". */
+  entryFormNutrientOrigin(label: string): Locator {
+    return this.addEntryForm.getByRole("combobox", {
+      name: `${label} value origin`,
+      exact: true,
+    });
+  }
+
   entryFormError(message: string): Locator {
     return this.page.getByText(message, { exact: true });
   }
@@ -352,6 +366,11 @@ export class TodayPageObject {
       for (const [label, value] of nutrients) {
         await this.entryFormNutrient(label).fill(String(value));
       }
+      for (const [label, origin] of Object.entries(entry.origins ?? {})) {
+        await this.entryFormNutrientOrigin(label).selectOption({
+          label: origin,
+        });
+      }
     }
     if (entry.photo !== undefined) {
       await form.getByLabel("Photo (optional)").setInputFiles(entry.photo);
@@ -373,6 +392,24 @@ export class TodayPageObject {
       .first()
       .getByRole("status")
       .waitFor({ state: "hidden" });
+  }
+
+  /**
+   * Log entries on earlier days, then open today again. Each item says how many
+   * days ago its entry belongs to.
+   */
+  async logHistory(
+    items: Array<{ daysAgo: number; entry: NewEntry }>,
+  ): Promise<void> {
+    let at = 0;
+    for (const { daysAgo: count, entry } of items.toSorted(
+      (first, second) => first.daysAgo - second.daysAgo,
+    )) {
+      await this.goToPreviousDay(count - at);
+      at = count;
+      await this.addEntry(entry);
+    }
+    await this.goto();
   }
 
   async editEntry(name: string): Promise<void> {
