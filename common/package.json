@@ -44,6 +44,10 @@
       "types": "./dist/features/entries/utils/entry-kind.d.ts",
       "default": "./dist/features/entries/utils/entry-kind.js"
     },
+    "./features/entries/utils/nutrient-goals": {
+      "types": "./dist/features/entries/utils/nutrient-goals.d.ts",
+      "default": "./dist/features/entries/utils/nutrient-goals.js"
+    },
     "./features/entries/utils/nutrient-provenance": {
       "types": "./dist/features/entries/utils/nutrient-provenance.d.ts",
       "default": "./dist/features/entries/utils/nutrient-provenance.js"
@@ -51,6 +55,10 @@
     "./features/entries/utils/nutrients": {
       "types": "./dist/features/entries/utils/nutrients.d.ts",
       "default": "./dist/features/entries/utils/nutrients.js"
+    },
+    "./features/goals/utils/daily-targets": {
+      "types": "./dist/features/goals/utils/daily-targets.d.ts",
+      "default": "./dist/features/goals/utils/daily-targets.js"
     }
   },
   "scripts": {

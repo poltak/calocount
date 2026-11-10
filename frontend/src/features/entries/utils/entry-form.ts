@@ -11,7 +11,7 @@ import {
   type NutrientProvenanceMap,
 } from "@app/common/features/entries/utils/nutrient-provenance";
 import { applyTotalChanges } from "./item-totals.js";
-import { parseNutrientText } from "./nutrient-format.js";
+import { parseNutrientText } from "../../core/utils/nutrient-format.js";
 import {
   TRACKED_NUTRIENT_KEYS,
   type EntryView,

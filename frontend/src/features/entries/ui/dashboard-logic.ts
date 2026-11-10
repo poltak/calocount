@@ -4,13 +4,22 @@ import {
   shiftDateKey,
 } from "@app/common/features/core/utils/logical-date";
 import type { NutrientKey } from "@app/common/features/entries/utils/nutrients";
+import { resolveNutrientGoals } from "@app/common/features/entries/utils/nutrient-goals";
+import type { SettingsEvents } from "../../settings/types.js";
+import type { WeightEvents } from "../../weights/types.js";
 import { requireApiSuccess } from "../../api/client/api-client.js";
 import { LatestRequest } from "../../core/logic/latest-request.js";
 import type { FrontendLogicProps } from "../../core/logic/types.js";
 import type { EntryEvent, EntryEvents } from "../types.js";
-import type { SavedEntry, SummaryDay } from "../utils/api-types.js";
+import type {
+  DayWeightRow,
+  ProteinGoalOfDay,
+  SavedEntry,
+  SummaryDay,
+  SummaryTargets,
+} from "../utils/api-types.js";
 import { entryViewOf, type EntryView } from "../utils/entry-view.js";
-import { failureMessage } from "../utils/failure-message.js";
+import { failureMessage } from "../../core/logic/failure-message.js";
 
 type DashboardProps = FrontendLogicProps<
   "entries",
@@ -19,6 +28,9 @@ type DashboardProps = FrontendLogicProps<
 > & {
   /** The Logic classes that change entries. The dashboard reads again after each change. */
   entryEvents: readonly EntryEvents[];
+  /** The goals and the weights come from other features. The dashboard reads again after a save. */
+  settingsEvents: readonly SettingsEvents[];
+  weightEvents: readonly WeightEvents[];
 };
 
 export const DASHBOARD_SECTIONS = [
@@ -40,9 +52,15 @@ interface DashboardState {
   /** The logical date of today in the timezone of this device. `null` until the first read. */
   today: string | null;
   timeZone: string;
-  targets: { calories: number; proteinG: number | null };
+  targets: SummaryTargets;
   /** The last seven days, oldest first. */
   days: SummaryDay[];
+  /** The weights of those days. A day without a weight is not in the list. */
+  recentWeights: DayWeightRow[];
+  /** The weight of `selectedDate`, if the owner saved one. */
+  weight: DayWeightRow | null;
+  /** The protein target of `selectedDate`. `null` until the day is read. */
+  proteinGoal: ProteinGoalOfDay | null;
   averageCalories: number;
   selectedDate: string | null;
   /** The entries of `selectedDate`. */
@@ -76,8 +94,15 @@ export class DashboardLogic extends Logic<
         loadDayError: null,
         today: null,
         timeZone: "UTC",
-        targets: { calories: 0, proteinG: null },
+        targets: {
+          calories: 0,
+          proteinG: null,
+          nutrients: resolveNutrientGoals(),
+        },
         days: [],
+        recentWeights: [],
+        weight: null,
+        proteinGoal: null,
         averageCalories: 0,
         selectedDate: null,
         entries: [],
@@ -97,6 +122,12 @@ export class DashboardLogic extends Logic<
     });
     for (const emitter of this.deps.entryEvents) {
       this.listen(emitter, (event) => this.onEntryEvent(event));
+    }
+    for (const emitter of this.deps.settingsEvents) {
+      this.listen(emitter, (event) => this.onChange(event.message));
+    }
+    for (const emitter of this.deps.weightEvents) {
+      this.listen(emitter, (event) => this.onChange(event.message));
     }
     // The owner may come back to the page on another day.
     this.registerCleanup(
@@ -130,7 +161,12 @@ export class DashboardLogic extends Logic<
     if (!today || !isDateKey(date) || date > today || date === selectedDate) {
       return;
     }
-    this.setState({ selectedDate: date, entries: [], statusMessage: null });
+    this.setState({
+      selectedDate: date,
+      entries: [],
+      weight: null,
+      statusMessage: null,
+    });
     await this.loadDay();
   }
 
@@ -187,9 +223,18 @@ export class DashboardLogic extends Logic<
     this.setState({
       statusMessage: event.message,
       ...(moves
-        ? { selectedDate: event.date ?? selectedDate, entries: [] }
+        ? {
+            selectedDate: event.date ?? selectedDate,
+            entries: [],
+            weight: null,
+          }
         : {}),
     });
+    return this.loadDashboard();
+  }
+
+  private onChange(message: string): Promise<void> {
+    this.setState({ statusMessage: message });
     return this.loadDashboard();
   }
 
@@ -229,6 +274,7 @@ export class DashboardLogic extends Logic<
       targets: summary.targets,
       days: summary.days,
       averageCalories: summary.averageCalories,
+      recentWeights: summary.recentWeights,
       savedEntries,
       selectedDate: keepsSelection ? selectedDate : summary.date,
     });
@@ -263,6 +309,8 @@ export class DashboardLogic extends Logic<
         entries: day.meals.map((entry) =>
           entryViewOf({ entry, timeZone: day.timezone }),
         ),
+        weight: day.weight,
+        proteinGoal: day.proteinGoal,
         loadDayState: "success",
       });
     } catch (error) {

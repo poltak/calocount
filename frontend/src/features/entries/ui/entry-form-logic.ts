@@ -9,7 +9,7 @@ import type { NutrientKey } from "@app/common/features/entries/utils/nutrients";
 import { requireApiSuccess } from "../../api/client/api-client.js";
 import type { FrontendLogicProps } from "../../core/logic/types.js";
 import type { EntryEvent } from "../types.js";
-import { clockTime } from "../utils/dashboard-format.js";
+import { clockTime } from "../../core/utils/dashboard-format.js";
 import {
   editBody,
   newEntryBody,
@@ -19,7 +19,7 @@ import {
   type TotalField,
 } from "../utils/entry-form.js";
 import type { EntryView } from "../utils/entry-view.js";
-import { failureMessage } from "../utils/failure-message.js";
+import { failureMessage } from "../../core/logic/failure-message.js";
 
 type EntryFormProps = FrontendLogicProps<never, "clock", "meals">;
 

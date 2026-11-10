@@ -2,6 +2,7 @@ import { Kysely, type KyselyPlugin } from "kysely";
 import type { AuthTables } from "../../auth/storage/types.js";
 import type { EntriesTables } from "../../entries/storage/types.js";
 import type { SettingsTables } from "../../settings/storage/types.js";
+import type { WeightsTables } from "../../weights/storage/types.js";
 import type { D1Binding } from "./d1-binding.js";
 import { D1Dialect } from "./d1-dialect.js";
 import { DatabaseNames } from "./database-names.js";
@@ -15,7 +16,7 @@ import type { AdoptedTable, BaseTable } from "./table-kinds.js";
  * project takes over the PostgreSQL files (beads issue calocount-bcx.7.1).
  */
 export interface DatabaseSchema
-  extends AuthTables, EntriesTables, SettingsTables {}
+  extends AuthTables, EntriesTables, SettingsTables, WeightsTables {}
 
 /** The tables that are not in `ADOPTED_TABLES` and lack the columns of `BaseTable`. */
 type TablesWithoutStandardColumns = {

@@ -1,5 +1,7 @@
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { useLogic } from "../../core/logic/use-logic.js";
+import type { SettingsEvents } from "../../settings/types.js";
+import type { WeightEvents } from "../../weights/types.js";
 import { useFrontendApp } from "../../core/ui/frontend-app-context.js";
 import { DashboardLogic } from "./dashboard-logic.js";
 import { EntryActionsLogic } from "./entry-actions-logic.js";
@@ -16,7 +18,18 @@ interface DashboardContextValue {
 const DashboardContext = createContext<DashboardContextValue | null>(null);
 
 /** Owns the Logic classes of the owner dashboard for the life of the page. */
-export function DashboardProvider({ children }: { children: ReactNode }) {
+export function DashboardProvider({
+  settingsEvents,
+  weightEvents,
+  weightBusy,
+  children,
+}: {
+  settingsEvents: SettingsEvents;
+  weightEvents: WeightEvents;
+  /** True while the weight form saves. */
+  weightBusy: boolean;
+  children: ReactNode;
+}) {
   const app = useFrontendApp();
   const formDeps = useMemo(
     () => ({
@@ -49,8 +62,10 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         "saved-entries": app.api["saved-entries"],
       },
       entryEvents: [form.logic.events, actions.logic.events],
+      settingsEvents: [settingsEvents],
+      weightEvents: [weightEvents],
     }),
-    [app, form.logic, actions.logic],
+    [app, form.logic, actions.logic, settingsEvents, weightEvents],
   );
   const dashboard = useLogic({
     LogicClass: DashboardLogic,
@@ -63,6 +78,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     busy:
       form.logic.busy ||
       actions.logic.busy ||
+      weightBusy ||
       dashboard.state.loadDashboardState === "running",
   };
   return (

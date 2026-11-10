@@ -1,13 +1,20 @@
 import { NUTRIENT_KEYS } from "@app/common/features/entries/utils/nutrients";
-import { cx } from "../utils/class-names.js";
-import { showTrendDateLabel } from "../utils/dashboard-calculations.js";
-import { trendDateLabel } from "../utils/dashboard-format.js";
 import {
+  goalKindWord,
+  nutrientGoalKind,
+} from "@app/common/features/entries/utils/nutrient-goals";
+import { cx } from "../../core/utils/class-names.js";
+import {
+  showTrendDateLabel,
+  trendDateLabel,
+} from "../../core/utils/dashboard-format.js";
+import {
+  formatNutrientAmount,
   groupedNutrientKeys,
   nutrientGroupLabel,
   nutrientLabel,
   nutrientUnit,
-} from "../utils/nutrient-format.js";
+} from "../../core/utils/nutrient-format.js";
 import { useDashboard } from "./dashboard-context.js";
 
 function oneDecimal(value: number): string {
@@ -17,7 +24,10 @@ function oneDecimal(value: number): string {
 /** One nutrient over the last seven days. A day without a value is a gap, not a zero. */
 export function NutrientTrendPanel() {
   const { dashboard } = useDashboard();
-  const { days, selectedDate, trendNutrient } = dashboard.state;
+  const { days, selectedDate, trendNutrient, targets } = dashboard.state;
+  const goal = targets.nutrients[trendNutrient];
+  const goalValue = goal.value;
+  const goalWord = goalKindWord(nutrientGoalKind(trendNutrient, goal));
   const points = days.map((day) => ({
     date: day.date,
     amount: day.nutrients[trendNutrient].amount,
@@ -29,7 +39,7 @@ export function NutrientTrendPanel() {
     known.length > 0
       ? known.reduce((sum, amount) => sum + amount, 0) / known.length
       : null;
-  const max = Math.max(1, ...known);
+  const max = Math.max(1, goalValue ?? 0, ...known);
   const unit = nutrientUnit(trendNutrient);
   const label = nutrientLabel(trendNutrient);
   return (
@@ -78,7 +88,16 @@ export function NutrientTrendPanel() {
                 {average === null ? "—" : `${oneDecimal(average)} ${unit}`}
               </strong>
             </span>
-            <span>No daily goal</span>
+            {goalValue !== null ? (
+              <span>
+                {`Daily ${goalWord} `}
+                <strong>
+                  {`${formatNutrientAmount(goalValue, trendNutrient)} ${unit}`}
+                </strong>
+              </span>
+            ) : (
+              <span>No daily goal</span>
+            )}
             <span
               className={
                 known.length === points.length
@@ -104,6 +123,16 @@ export function NutrientTrendPanel() {
               <div className="grid-line line-one" />
               <div className="grid-line line-two" />
               <div className="grid-line line-three" />
+              {goalValue !== null && (
+                <div
+                  className={`nutrient-trend-goal-line goal-${goalWord}`}
+                  style={{
+                    bottom: `${Math.min(100, (goalValue / max) * 100)}%`,
+                  }}
+                >
+                  <span>{`${goalWord[0]?.toUpperCase()}${goalWord.slice(1)}`}</span>
+                </div>
+              )}
               <div className="nutrient-trend-bars">
                 {points.map((point, index) => (
                   <button

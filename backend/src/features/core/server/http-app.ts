@@ -20,6 +20,8 @@ import {
 import { logRequests } from "../handlers/request-log.js";
 import type { RequestEnvironment } from "../handlers/types.js";
 import { createHealthHandlers } from "../../health/handlers/health-handlers.js";
+import { createSettingsHandlers } from "../../settings/handlers/settings-handlers.js";
+import { createWeightHandlers } from "../../weights/handlers/weight-handlers.js";
 import type { App } from "../types.js";
 
 /** The server refuses a larger request body. A route that takes more uses `routeBodyLimit`. */
@@ -40,7 +42,9 @@ function createBusinessHttpApp({ app }: ApiHttpAppProps) {
     .use("*", requireSession())
     .route("/", createDashboardHandlers({ logic: app.logic }))
     .route("/meals", createEntryHandlers({ logic: app.logic }))
-    .route("/saved-entries", createSavedEntryHandlers({ logic: app.logic }));
+    .route("/saved-entries", createSavedEntryHandlers({ logic: app.logic }))
+    .route("/settings", createSettingsHandlers({ logic: app.logic }))
+    .route("/weights", createWeightHandlers({ logic: app.logic }));
 }
 
 /**

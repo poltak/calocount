@@ -25,8 +25,23 @@ interface SettingsTable {
   updatedAt: number;
 }
 
+/** The goals the owner saved, one row for each change, so that a later view can show the goal of an earlier day. */
+interface GoalChangeTable {
+  id: string;
+  ownerKey: string;
+  changedAt: number;
+  dailyCalorieTarget: number | null;
+  proteinGoalMode: string;
+  dailyProteinTargetG: number | null;
+  dailyProteinTargetPerKg: number | null;
+  createdAt: number;
+}
+
 export interface SettingsTables {
   settings: SettingsTable;
+  goalChanges: GoalChangeTable;
 }
 
 export type SettingsRow = Selectable<SettingsTable>;
+export type NewSettings = SettingsTable;
+export type NewGoalChange = GoalChangeTable;

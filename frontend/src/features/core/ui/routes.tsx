@@ -14,8 +14,15 @@ import { SessionGate } from "../../auth/ui/session-gate.js";
 import { SignInPage } from "../../auth/ui/sign-in-page.js";
 import { DashboardPage } from "../../entries/ui/dashboard-page.js";
 import { SettingsButton } from "../../settings/ui/settings-button.js";
+import { SettingsForm } from "../../settings/ui/settings-form.js";
 import { SettingsDialog } from "../../settings/ui/settings-dialog.js";
-import { SettingsProvider } from "../../settings/ui/settings-context.js";
+import {
+  SettingsProvider,
+  useSettings,
+} from "../../settings/ui/settings-context.js";
+import { useWeights, WeightProvider } from "../../weights/ui/weight-context.js";
+import { WeightPanel } from "../../weights/ui/weight-panel.js";
+import { WeightTrendPanel } from "../../weights/ui/weight-trend-panel.js";
 import { ErrorBoundary } from "./error-boundary.js";
 import { PageErrorFallback } from "./error-fallbacks.js";
 import type { ProtectedPageContext } from "./signed-in-user.js";
@@ -60,10 +67,40 @@ function OwnerLayout() {
   const location = useLocation();
   return (
     <SettingsProvider>
-      <ErrorBoundary resetKey={location.key} Fallback={PageErrorFallback}>
-        <Outlet />
-      </ErrorBoundary>
+      <WeightProvider>
+        <ErrorBoundary resetKey={location.key} Fallback={PageErrorFallback}>
+          <Outlet />
+        </ErrorBoundary>
+      </WeightProvider>
     </SettingsProvider>
+  );
+}
+
+/** The owner dashboard with the parts that other features give it. */
+function OwnerDashboard() {
+  const settings = useSettings();
+  const weights = useWeights();
+  return (
+    <DashboardPage
+      topbarActions={<SettingsButton />}
+      belowTopbar={
+        <SettingsDialog>
+          <SettingsForm />
+          <AccountSection />
+        </SettingsDialog>
+      }
+      settingsEvents={settings.logic.events}
+      weightEvents={weights.logic.events}
+      weightBusy={weights.logic.busy}
+      renderWeightTrend={(props) => <WeightTrendPanel {...props} />}
+      renderWeightPanel={({ selectedDate, weights: dayWeights, ...props }) => (
+        <WeightPanel
+          selectedDate={selectedDate}
+          weights={dayWeights}
+          {...props}
+        />
+      )}
+    />
   );
 }
 
@@ -79,19 +116,7 @@ function Shell() {
         <Route element={<SessionGate />}>
           <Route element={<OwnerLayout />}>
             <Route path="/" element={<Navigate to="/owner" replace />} />
-            <Route
-              path="/owner"
-              element={
-                <DashboardPage
-                  topbarActions={<SettingsButton />}
-                  belowTopbar={
-                    <SettingsDialog>
-                      <AccountSection />
-                    </SettingsDialog>
-                  }
-                />
-              }
-            />
+            <Route path="/owner" element={<OwnerDashboard />} />
           </Route>
           <Route element={<ProtectedLayout />}>
             <Route

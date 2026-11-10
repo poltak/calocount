@@ -1,9 +1,10 @@
-import { cx } from "../utils/class-names.js";
+import { cx } from "../../core/utils/class-names.js";
+import { calculateCalorieChartScale } from "../utils/dashboard-calculations.js";
 import {
-  calculateCalorieChartScale,
+  formatNumber,
   showTrendDateLabel,
-} from "../utils/dashboard-calculations.js";
-import { formatNumber, trendDateLabel } from "../utils/dashboard-format.js";
+  trendDateLabel,
+} from "../../core/utils/dashboard-format.js";
 import { useDashboard } from "./dashboard-context.js";
 
 function formatChartTick(value: number): string {

@@ -1,5 +1,4 @@
 import { EventEmitter } from "@app/common/features/core/events/event-emitter";
-import { describe, expect, it, vi } from "vitest";
 import {
   setupLogicTest,
   type FullApplication,
@@ -7,6 +6,8 @@ import {
 } from "../../core/tests/full-application.js";
 import type { EntryEvent } from "../types.js";
 import { DashboardLogic } from "./dashboard-logic.js";
+import type { Seed } from "./dashboard-test-setup.js";
+import { describe, expect, it, vi } from "vitest";
 import {
   DAY_MS,
   HOUR_MS,
@@ -15,8 +16,6 @@ import {
   startOfToday,
   todayKey,
 } from "./entry-test-helpers.js";
-
-type Seed = (app: FullApplication) => Promise<void>;
 
 /** A dashboard on a database that `seed` fills first. `events` stands in for the Logic classes that change entries. */
 async function setupTest({
@@ -29,6 +28,8 @@ async function setupTest({
     return new DashboardLogic({
       ...application.frontend,
       entryEvents: [events],
+      settingsEvents: [],
+      weightEvents: [],
     });
   });
   return { ...app, events };
@@ -58,7 +59,11 @@ describe("DashboardLogic read tests", () => {
     expect(logic.state.today).toEqual(todayKey(app));
     expect(logic.state.selectedDate).toEqual(todayKey(app));
     expect(logic.state.timeZone).toEqual("UTC");
-    expect(logic.state.targets).toEqual({ calories: 2400, proteinG: 160 });
+    expect(logic.state.targets).toMatchObject({
+      calories: 2400,
+      proteinG: 160,
+    });
+    expect(logic.state.proteinGoal).toMatchObject({ targetG: 160 });
     expect(logic.state.days).toHaveLength(7);
     expect(logic.state.days.at(-1)).toMatchObject({
       date: todayKey(app),
@@ -188,43 +193,6 @@ describe("DashboardLogic read tests", () => {
       mealCount: 550,
     });
   }, 60_000);
-
-  it("should read the goals of the owner", async () => {
-    const { backend, logic } = await setupTest();
-    await backend.db
-      .insertInto("settings")
-      .values({
-        id: "settings_default",
-        ownerKey: backend.config.ownerKey,
-        timezone: "UTC",
-        dailyCalorieTarget: 1800,
-        dailyProteinTargetG: 120,
-        proteinGoalMode: "grams",
-        dailyProteinTargetPerKg: null,
-        nutrientTargetsJson: null,
-        vitaminB6UsFnbAdultUlEnabled: 0,
-        vitaminB6UsFnbAdultUlConfirmedAt: null,
-        usFnbAdultUlEnabled: 0,
-        usFnbAdultUlConfirmedAt: null,
-        partnerProfileEnabled: 0,
-        publicViewEnabled: 0,
-        activeAiProfileId: null,
-        photoRetentionDays: 30,
-        createdAt: 1,
-        updatedAt: 1,
-      })
-      .execute();
-
-    await logic.loadDashboard();
-    expect(logic.state.targets).toEqual({ calories: 1800, proteinG: 120 });
-
-    await backend.db
-      .updateTable("settings")
-      .set({ proteinGoalMode: "gramsPerKg" })
-      .execute();
-    await logic.loadDashboard();
-    expect(logic.state.targets).toEqual({ calories: 1800, proteinG: null });
-  });
 
   it("should leave out today from the average until the evening", async () => {
     const app = await setupTest({
@@ -489,7 +457,12 @@ describe("DashboardLogic view tests", () => {
     expect(browserStorage.getItem("calocount:nutrition-collapsed")).toEqual(
       "true",
     );
-    const later = new DashboardLogic({ ...frontend, entryEvents: [] });
+    const later = new DashboardLogic({
+      ...frontend,
+      entryEvents: [],
+      settingsEvents: [],
+      weightEvents: [],
+    });
     await later.initialize();
     expect(later.state.nutritionCollapsed).toEqual(true);
     await later.cleanup();

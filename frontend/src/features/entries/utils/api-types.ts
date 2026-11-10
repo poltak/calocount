@@ -16,3 +16,7 @@ export type SavedEntry = ApiResponseBody<
   BackendApi["saved-entries"]["$get"],
   200
 >["entries"][number];
+export type SummaryTargets = DashboardSummary["targets"];
+type DayRead = ApiResponseBody<BackendApi["days"][":date"]["$get"], 200>;
+export type DayWeightRow = NonNullable<DayRead["weight"]>;
+export type ProteinGoalOfDay = DayRead["proteinGoal"];

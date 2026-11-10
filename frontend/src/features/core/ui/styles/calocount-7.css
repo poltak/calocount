@@ -1,0 +1,699 @@
+.macro-protein-swatch {
+  background: var(--chart-green);
+}
+
+.macro-fat-swatch {
+  background: var(--chart-orange);
+}
+
+.bar-column,
+.macro-trend-column,
+.nutrient-trend-column,
+.weight-point-column {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.bar-column,
+.macro-trend-column,
+.nutrient-trend-column,
+.protein-target-day {
+  isolation: isolate;
+}
+
+.bar-column.is-selected::before,
+.macro-trend-column.is-selected::before,
+.nutrient-trend-column.is-selected::before,
+.protein-target-day.is-selected::before,
+.weight-point-column.is-selected::before {
+  position: absolute;
+  z-index: -1;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: min(100% + 6px, 60px);
+  border-radius: 9px;
+  background: linear-gradient(
+    180deg,
+    transparent,
+    color-mix(in srgb, var(--foreground) 6%, transparent)
+  );
+  transform: translateX(-50%);
+  content: "";
+  pointer-events: none;
+}
+
+.bar-column.is-selected > span:last-child,
+.macro-trend-column.is-selected > span:last-child,
+.nutrient-trend-column.is-selected > span:last-child,
+.protein-target-day.is-selected > span:last-child,
+.weight-point-column.is-selected > span:last-child {
+  color: var(--foreground);
+  font-weight: 700;
+}
+
+.macro-trend-column,
+.weight-point-column {
+  padding: 0;
+}
+
+.bar-value,
+.macro-tooltip,
+.weight-tooltip,
+.protein-target-tooltip {
+  padding: 3px 7px;
+  border-radius: 6px;
+  background: var(--tooltip-background);
+  box-shadow: 0 6px 16px rgb(0 0 0 / 22%);
+  color: var(--tooltip-text);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.bar-column:focus-visible,
+.macro-trend-column:focus-visible,
+.nutrient-trend-column:focus-visible,
+.weight-point-column:focus-visible {
+  outline: 2px solid var(--orange);
+  outline-offset: 2px;
+}
+
+.bar-chart.is-month .bars,
+.macro-trend-chart.is-month .macro-trend-bars,
+.nutrient-trend-chart.is-month .nutrient-trend-bars {
+  gap: 2px;
+  padding-inline: 2px;
+}
+
+.bar-chart.is-month .bar-column,
+.macro-trend-chart.is-month .macro-trend-column,
+.nutrient-trend-chart.is-month .nutrient-trend-column {
+  min-width: 0;
+}
+
+.nutrient-trend-chart.is-month .nutrient-trend-bar {
+  width: min(8px, 72%);
+  border-radius: 3px 3px 1px 1px;
+}
+
+.bar-chart.is-month .bar-value,
+.nutrient-trend-chart.is-month .bar-value {
+  pointer-events: none;
+}
+
+.macro-tooltip,
+.weight-tooltip {
+  position: absolute;
+  z-index: 3;
+  top: 1px;
+  left: 50%;
+  width: max-content;
+  max-width: 170px;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%);
+  transition: opacity 150ms ease;
+}
+
+.macro-trend-column:hover .macro-tooltip,
+.macro-trend-column:focus .macro-tooltip,
+.weight-point-column:hover .weight-tooltip,
+.weight-point-column:focus .weight-tooltip {
+  opacity: 1;
+}
+
+.weight-line {
+  position: absolute;
+  inset: 0 5px 21px;
+  width: calc(100% - 10px);
+  height: calc(100% - 21px);
+  overflow: visible;
+}
+
+.weight-line polyline {
+  fill: none;
+  stroke: var(--chart-green);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.weight-line .weight-raw-line {
+  opacity: 0.28;
+  stroke-width: 1.5;
+}
+
+.weight-line .weight-average-path {
+  stroke-width: 2.5;
+  filter: drop-shadow(0 4px 6px var(--chart-weight-shadow));
+}
+
+.weight-area {
+  fill: url(#weight-area-fill);
+}
+
+.weight-area-start {
+  stop-color: var(--chart-green);
+  stop-opacity: 0.2;
+}
+
+.weight-area-end {
+  stop-color: var(--chart-green);
+  stop-opacity: 0;
+}
+
+.weight-chart-legend {
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.weight-change {
+  margin-left: auto;
+  color: var(--muted-strong);
+  font-weight: 650;
+}
+
+.compact-select {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.compact-select select {
+  min-height: 30px;
+  padding: 5px 25px 5px 10px;
+  border: 1px solid var(--button-secondary-border);
+  border-radius: var(--radius-control);
+  background-color: var(--button-secondary-background);
+  color: var(--muted-strong);
+  font: inherit;
+  cursor: pointer;
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease;
+}
+
+.weight-points {
+  position: absolute;
+  inset: 0 5px;
+  display: flex;
+}
+
+.weight-point-column {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+}
+
+.weight-point {
+  position: absolute;
+  left: 50%;
+  width: 9px;
+  height: 9px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: var(--chart-green);
+  box-shadow: 0 0 0 1.5px var(--chart-green);
+  transform: translate(-50%, 50%);
+  transition: box-shadow 150ms ease;
+}
+
+.weight-point-column:hover .weight-point,
+.weight-point-column.is-selected .weight-point {
+  box-shadow:
+    0 0 0 1.5px var(--chart-green),
+    0 0 0 6px color-mix(in srgb, var(--chart-green) 22%, transparent);
+}
+
+.weight-point-column > span:last-child {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 21px;
+  padding-top: 8px;
+  color: var(--chart-axis-strong);
+  font-size: 10px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.weight-chart.is-month .weight-point {
+  width: 6px;
+  height: 6px;
+}
+
+.ai-note-topline .close-button {
+  margin-left: auto;
+}
+
+.weight-panel {
+  padding: 21px;
+}
+
+.weight-reading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 17px;
+  padding: 14px 16px;
+  border: 1px solid var(--form-control-border);
+  border-radius: var(--radius-tile);
+  background: var(--reading-background);
+}
+
+.weight-reading strong {
+  color: var(--foreground);
+  font-size: 30px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.045em;
+}
+
+.weight-reading strong small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.weight-reading time,
+.weight-reading span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.weight-reading.empty {
+  align-items: center;
+}
+
+.weight-reading.empty strong {
+  color: var(--muted-strong);
+  font-size: 13px;
+  letter-spacing: 0;
+}
+
+.weight-reading.is-pending {
+  border-color: #526b69;
+  box-shadow: inset 3px 0 0 var(--green);
+}
+
+.pending-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--blue);
+  font-size: 9px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.weight-form {
+  display: grid;
+  grid-template-columns: minmax(140px, 180px) auto auto;
+  align-items: end;
+  gap: 9px;
+  margin-top: 12px;
+}
+
+.weight-form label {
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.weight-form input {
+  width: 100%;
+  min-height: 34px;
+  padding: 5px 10px;
+  border: 1px solid var(--form-control-border);
+  border-radius: var(--radius-control);
+  outline: 0;
+  background: var(--form-control-background);
+  color: var(--foreground);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.weight-form input:focus {
+  border-color: var(--orange);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--orange) 22%, transparent);
+}
+
+.weight-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.weight-facts div {
+  display: grid;
+  gap: 5px;
+  padding: 11px 13px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-tile);
+  background: var(--surface-soft);
+}
+
+.weight-facts span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.weight-facts strong {
+  color: var(--foreground);
+  font-size: 17px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+}
+
+.weight-facts small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.cancel-button:disabled,
+.weight-heading .primary-button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.meal-row.is-pending .meal-name-line strong,
+.meal-row.is-pending .meal-stat {
+  opacity: 0.78;
+}
+
+.nutrient-goal-reading {
+  color: var(--muted);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.nutrient-stat.has-goal-progress {
+  --goal-color: var(--chart-blue);
+  background: color-mix(in srgb, var(--goal-color) 5%, var(--surface-soft));
+}
+
+.nutrient-stat.has-goal-progress::after {
+  position: absolute;
+  z-index: -1;
+  inset: auto 0 0;
+  height: 3px;
+  background: color-mix(in srgb, var(--goal-color) 18%, transparent);
+  content: "";
+}
+
+.nutrient-stat.has-goal-progress::before {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: var(--goal-progress);
+  height: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--goal-color);
+  content: "";
+  transition: width 220ms ease;
+}
+
+.nutrient-stat.goal-complete,
+.nutrient-stat.goal-within {
+  --goal-color: var(--chart-green);
+}
+
+.nutrient-stat.goal-warning {
+  --goal-color: var(--chart-orange);
+}
+
+.nutrient-stat.goal-exceeded {
+  --goal-color: var(--red);
+}
+
+.nutrient-stat.goal-reference {
+  --goal-color: var(--chart-neutral);
+}
+
+.nutrient-stat.goal-partial::before {
+  background-image: repeating-linear-gradient(
+    135deg,
+    transparent 0 4px,
+    rgb(0 0 0 / 28%) 4px 7px
+  );
+}
+
+.nutrient-goal-percent {
+  color: var(--muted);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+}
+
+.nutrient-stat.goal-complete .nutrient-goal-percent {
+  color: var(--green);
+}
+
+.nutrient-stat.goal-warning .nutrient-goal-percent {
+  color: var(--orange-soft);
+}
+
+.nutrient-stat.goal-exceeded .nutrient-goal-percent {
+  color: var(--red);
+}
+
+.nutrient-trend-goal-line {
+  position: absolute;
+  z-index: 2;
+  right: 0;
+  left: 0;
+  border-top: 1px dashed rgb(103 177 137 / 80%);
+  pointer-events: none;
+}
+
+.nutrient-trend-goal-line.goal-limit {
+  border-color: rgb(229 160 85 / 85%);
+}
+
+.nutrient-trend-goal-line span {
+  position: absolute;
+  right: 0;
+  bottom: 4px;
+  padding: 2px 7px;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  background: var(--surface-raised);
+  color: var(--chart-target-label);
+  font-size: 9px;
+  font-weight: 650;
+  line-height: 1.2;
+}
+
+.nutrient-trend-chart.is-month .nutrient-trend-column > span:last-child {
+  overflow: visible;
+  width: max-content;
+  max-width: none;
+  text-overflow: clip;
+}
+
+.nutrient-trend-chart.is-month .nutrient-trend-gap {
+  visibility: hidden;
+}
+
+.nutrient-trend-column.missing {
+  opacity: 0.75;
+}
+
+.done-button:disabled,
+.correction-button:disabled,
+.save-button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+:root[data-theme="light"] .data-banner,
+:root[data-theme="light"] .action-feedback {
+  border-color: var(--line);
+  background: var(--surface-soft);
+  color: var(--muted-strong);
+}
+
+:root[data-theme="light"] .data-banner > span {
+  background: #dcebe2;
+  color: var(--green);
+}
+
+:root[data-theme="light"] .data-banner.demo {
+  border-color: #e6c9ad;
+  background: #fbf1e7;
+  color: #765234;
+}
+
+:root[data-theme="light"] .data-banner.demo > span {
+  background: #f1dcc5;
+  color: var(--orange-soft);
+}
+
+:root[data-theme="light"] .data-banner.public {
+  border-color: #b9d7c4;
+  background: #edf7f0;
+  color: var(--green);
+}
+
+:root[data-theme="light"] .data-banner.public > span {
+  background: #d5ebdc;
+  color: var(--green);
+}
+
+:root[data-theme="light"] .history-chevron {
+  color: var(--muted-strong);
+}
+
+:root[data-theme="light"] .quick-tip {
+  border-color: #bdcbc3;
+  background: var(--surface-soft);
+}
+
+:root[data-theme="light"] .quick-tip p {
+  color: #53635d;
+}
+
+:root[data-theme="light"] .ai-note {
+  border-color: #dbcda9;
+  background: linear-gradient(145deg, #fffaf0 0%, #f3f5ed 100%);
+}
+
+:root[data-theme="light"] .ai-note p {
+  color: #5e6a65;
+}
+
+:root[data-theme="light"] .nutrient-stat.goal-partial::before {
+  background-image: repeating-linear-gradient(
+    135deg,
+    transparent 0 4px,
+    rgb(255 255 255 / 55%) 4px 7px
+  );
+}
+
+@media (max-width: 620px) {
+  .chart-panel,
+  .weight-panel,
+  .macro-panel,
+  .history-panel {
+    padding: 17px 15px;
+  }
+
+  .primary-goal-grid,
+  .nutrient-goal-input-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .nutrient-goal-settings-intro {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .settings-save-button {
+    justify-self: stretch;
+  }
+
+  .weight-form {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .weight-form label {
+    grid-column: span 2;
+  }
+
+  .weight-form .save-button {
+    grid-column: auto;
+  }
+
+  .weight-reading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 5px;
+  }
+}
+
+.panel-heading .eyebrow,
+.compact-heading .eyebrow,
+.weight-heading .eyebrow,
+.meal-heading .eyebrow {
+  display: none;
+}
+
+.chart-range-select {
+  min-height: 28px;
+  font-size: 10px;
+}
+
+.weight-panel,
+.saved-entries-panel {
+  padding: 17px 18px;
+}
+
+.weight-reading {
+  min-height: 72px;
+}
+
+@media (max-width: 880px) {
+  .primary-column > .nutrition-overview,
+  .primary-column > .meals-panel,
+  .primary-column > .weight-panel {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 620px) {
+  .protein-goal-hint,
+  .protein-goal-link {
+    display: none;
+  }
+
+  .chart-range-select {
+    min-height: 25px;
+    padding-top: 3px;
+    padding-bottom: 3px;
+  }
+
+  .history-panel,
+  .weight-panel,
+  .saved-entries-panel {
+    padding: 12px;
+  }
+}
+
+/* The status line of the settings is an output element, which is inline by default. */
+.settings-help {
+  display: block;
+}
+
+/* The old panel was a section in the page flow. A dialog element is out of the flow by default, and the page content would cover its lower part. */
+dialog.settings-panel {
+  position: relative;
+  inset: auto;
+  z-index: 5;
+  display: block;
+  width: auto;
+  max-width: none;
+  max-height: none;
+  margin: 12px 0 0;
+  color: inherit;
+}

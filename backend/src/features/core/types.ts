@@ -14,6 +14,8 @@ import type { HealthLogic } from "../health/logic/health-logic.js";
 import type { HealthStorage } from "../health/storage/health-storage.js";
 import type { SettingsLogic } from "../settings/logic/settings-logic.js";
 import type { SettingsStorage } from "../settings/storage/settings-storage.js";
+import type { WeightsLogic } from "../weights/logic/weights-logic.js";
+import type { WeightsStorage } from "../weights/storage/weights-storage.js";
 import type { RunAtomic } from "./logic/types.js";
 import type { ClockServiceInterface } from "./services/types.js";
 
@@ -23,6 +25,7 @@ export interface BackendStorage {
   entries: EntriesStorage;
   health: HealthStorage;
   settings: SettingsStorage;
+  weights: WeightsStorage;
 }
 
 /**
@@ -49,6 +52,7 @@ export interface BackendLogic {
   health: HealthLogic;
   savedEntries: SavedEntriesLogic;
   settings: SettingsLogic;
+  weights: WeightsLogic;
 }
 
 /**

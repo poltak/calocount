@@ -14,7 +14,7 @@ import type {
   NutrientValueOrigin,
 } from "@app/common/features/entries/utils/nutrient-provenance";
 import type { SerializedEntry } from "./api-types.js";
-import { clockTime } from "./dashboard-format.js";
+import { clockTime } from "../../core/utils/dashboard-format.js";
 
 export const TRACKED_NUTRIENT_KEYS = [
   ...NUTRIENT_KEYS,

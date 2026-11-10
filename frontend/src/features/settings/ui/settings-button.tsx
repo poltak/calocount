@@ -10,7 +10,7 @@ export function SettingsButton() {
       aria-label="Open settings"
       aria-expanded={state.isOpen}
       aria-controls="settings-panel"
-      onClick={() => logic.open()}
+      onClick={() => void logic.open()}
     >
       <svg
         viewBox="0 0 16 16"

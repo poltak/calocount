@@ -1,9 +1,12 @@
-import { cx } from "../utils/class-names.js";
+import { cx } from "../../core/utils/class-names.js";
 import {
   calculateTargetPercent,
   compareAverageToTarget,
 } from "../utils/dashboard-calculations.js";
-import { formatNumber } from "../utils/dashboard-format.js";
+import {
+  formatNumber,
+  fullDateLabel,
+} from "../../core/utils/dashboard-format.js";
 import { dayTotals } from "../utils/entry-view.js";
 import { useDashboard } from "./dashboard-context.js";
 
@@ -56,10 +59,11 @@ export function SummaryGrid() {
   const { state } = dashboard;
   const totals = dayTotals(state.entries);
   const calorieGoal = state.targets.calories;
-  const proteinGoal = state.targets.proteinG;
+  const proteinGoal = state.proteinGoal?.targetG ?? null;
   const remainingCalories = calorieGoal - totals.calories;
   const comparison = compareAverageToTarget(state.averageCalories, calorieGoal);
   const caloriePercent = calculateTargetPercent(totals.calories, calorieGoal);
+  const weightDate = state.proteinGoal?.weightDate ?? null;
   const remainingProtein =
     proteinGoal === null ? 0 : proteinGoal - totals.protein;
   return (
@@ -95,6 +99,9 @@ export function SummaryGrid() {
             <p className="metric-subtitle">
               Record a weight to calculate your daily protein goal.
             </p>
+            <a className="secondary-button protein-goal-link" href="#weight">
+              Record weight
+            </a>
           </div>
         ) : (
           <>
@@ -109,6 +116,11 @@ export function SummaryGrid() {
                   ? `${formatNumber(Math.round(remainingProtein))}g left to reach your target`
                   : `${formatNumber(Math.round(Math.abs(remainingProtein)))}g above target`}
               </p>
+              {weightDate !== null && weightDate !== state.selectedDate && (
+                <span className="protein-goal-hint">
+                  {`Using weight from ${fullDateLabel(weightDate)}`}
+                </span>
+              )}
             </div>
             <MetricRing
               className="protein-ring"

@@ -64,3 +64,13 @@ export function clockTime(timestamp: number, timeZone: string): string {
   }
   return formatter.format(new Date(timestamp));
 }
+
+/** The chart labels the first and the last day, and more on a long range. */
+export function showTrendDateLabel(index: number, total: number): boolean {
+  return (
+    total <= 7 ||
+    index === 0 ||
+    index === total - 1 ||
+    (index % 7 === 0 && index < total - 2)
+  );
+}

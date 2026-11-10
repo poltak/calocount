@@ -1,5 +1,5 @@
 import { calculateMacroPercentages } from "../utils/dashboard-calculations.js";
-import { formatNumber } from "../utils/dashboard-format.js";
+import { formatNumber } from "../../core/utils/dashboard-format.js";
 import { dayTotals } from "../utils/entry-view.js";
 import { useDashboard } from "./dashboard-context.js";
 

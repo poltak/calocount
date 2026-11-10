@@ -1,4 +1,4 @@
-import { formatNumber } from "../utils/dashboard-format.js";
+import { formatNumber } from "../../core/utils/dashboard-format.js";
 import { useDashboard } from "./dashboard-context.js";
 
 /** The entries that the owner keeps to log again. */

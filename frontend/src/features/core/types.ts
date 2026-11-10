@@ -5,10 +5,13 @@ import type { ClockServiceInterface } from "../clock/services/types.js";
 import type { DialogServiceInterface } from "../dialogs/services/types.js";
 import type { EntriesStorage } from "../entries/storage/entries-storage.js";
 import type { PasskeyServiceInterface } from "../auth/services/types.js";
+import type { SettingsStorage } from "../settings/storage/settings-storage.js";
+import type { ThemeServiceInterface } from "../settings/services/types.js";
 import type { WindowFocusServiceInterface } from "../window-focus/services/types.js";
 
 export interface FrontendStorage {
   entries: EntriesStorage;
+  settings: SettingsStorage;
 }
 
 /**
@@ -23,6 +26,7 @@ export interface FrontendServices extends FrontendCoreServices {
   clock: ClockServiceInterface;
   dialogs: DialogServiceInterface;
   passkeys: PasskeyServiceInterface;
+  theme: ThemeServiceInterface;
   windowFocus: WindowFocusServiceInterface;
 }
 

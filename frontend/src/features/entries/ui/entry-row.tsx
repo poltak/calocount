@@ -1,5 +1,5 @@
 import { entryKindLabels } from "@app/common/features/entries/utils/entry-kind";
-import { formatNumber } from "../utils/dashboard-format.js";
+import { formatNumber } from "../../core/utils/dashboard-format.js";
 import type { EntryView } from "../utils/entry-view.js";
 import { useDashboard } from "./dashboard-context.js";
 import { EntryEditor } from "./entry-editor.js";

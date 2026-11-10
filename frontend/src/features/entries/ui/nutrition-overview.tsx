@@ -1,6 +1,6 @@
 import { aggregateNutrients } from "@app/common/features/entries/utils/nutrients";
 import type { NutrientKey } from "@app/common/features/entries/utils/nutrients";
-import { formatNumber } from "../utils/dashboard-format.js";
+import { formatNumber } from "../../core/utils/dashboard-format.js";
 import { dayTotals } from "../utils/entry-view.js";
 import { useDashboard } from "./dashboard-context.js";
 import { NutrientStat } from "./nutrient-stat.js";
@@ -128,6 +128,7 @@ export function NutritionOverview() {
           <div className="nutrition-highlight-grid">
             {HIGHLIGHT_KEYS.map((key) => (
               <NutrientStat
+                showGoal
                 key={key}
                 className="nutrition-highlight"
                 nutrientKey={key}
@@ -151,12 +152,14 @@ export function NutritionOverview() {
             <div className="nutrient-stat-grid nutrient-stat-grid-compact">
               <MacroDetail label="Total carbohydrates" grams={totals.carbs} />
               <NutrientStat
+                showGoal
                 nutrientKey="fiberG"
                 label="Fibre"
                 total={nutrients.fiberG}
                 showCoverage={false}
               />
               <NutrientStat
+                showGoal
                 nutrientKey="totalSugarsG"
                 label="Total sugars"
                 total={nutrients.totalSugarsG}
@@ -179,6 +182,7 @@ export function NutritionOverview() {
               <MacroDetail label="Total fat" grams={totals.fat} />
               {FAT_PROFILE.map(([key, label]) => (
                 <NutrientStat
+                  showGoal
                   key={key}
                   nutrientKey={key}
                   label={label}
@@ -187,6 +191,7 @@ export function NutritionOverview() {
                 />
               ))}
               <NutrientStat
+                showGoal
                 className="nutrient-stat-nested"
                 nutrientKey="omega3G"
                 label="Omega-3 · part of polyunsaturated"
@@ -217,6 +222,7 @@ export function NutritionOverview() {
               <div className="nutrient-stat-grid">
                 {keys.map((key) => (
                   <NutrientStat
+                    showGoal
                     key={key}
                     nutrientKey={key}
                     total={nutrients[key]}

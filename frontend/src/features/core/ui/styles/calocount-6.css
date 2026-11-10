@@ -1,0 +1,551 @@
+/* More of the stylesheet of the old app (legacy/app/globals.css): the settings, weight, goal and light theme rules. Class names are unchanged. */
+
+:root[data-theme="light"] {
+  --background: #f5f7f6;
+  --surface: #ffffff;
+  --surface-raised: #f9fbfa;
+  --surface-soft: #f1f5f3;
+  --line: #dde6e0;
+  --line-soft: #e7eeea;
+  --foreground: #17211f;
+  --muted: #5f6f6a;
+  --muted-strong: #3f4f4a;
+  --orange: #b85f1c;
+  --orange-soft: #9f5015;
+  --green: #2c7a4f;
+  --green-bright: #2a8a55;
+  --blue: #2f6a94;
+  --purple: #6a55a3;
+  --red: #b4483c;
+  --button-primary-background: #c2410c;
+  --button-primary-hover-background: #9a3412;
+  --button-primary-text: #ffffff;
+  --button-primary-shadow: 0 6px 16px rgb(194 65 12 / 20%);
+  --button-secondary-background: #f1f5f3;
+  --button-secondary-border: #c9d6ce;
+  --button-secondary-hover-background: #e4eee8;
+  --button-quiet-hover-background: rgb(31 42 42 / 7%);
+  --button-action-background: rgb(31 42 42 / 5%);
+  --button-action-hover-background: rgb(31 42 42 / 9%);
+  --form-control-background: #ffffff;
+  --form-control-border: #c3d0c8;
+  --file-button-background: #e2ebe6;
+  --reading-background: var(--surface-soft);
+  --form-container-background: var(--surface-raised);
+  --editor-background: var(--surface-raised);
+  --detail-card-background: var(--surface-raised);
+  --selected-background: #e3f2ea;
+  --selected-border: #b7d6c4;
+  --chart-axis: #687872;
+  --chart-axis-strong: #5d6d67;
+  --chart-grid: rgb(56 77 67 / 13%);
+  --chart-target: #718b7d;
+  --chart-target-label: #55665f;
+  --chart-neutral: #9db6c2;
+  --chart-legend-line: #71817b;
+  --chart-bar-shadow: rgb(245 124 43 / 20%);
+  --chart-weight-shadow: rgb(34 160 92 / 18%);
+  --chart-stack-shadow: rgb(31 42 42 / 8%);
+  --chart-orange: #f57c2b;
+  --chart-green: #22a05c;
+  --chart-blue: #3d84e6;
+  --chart-fill-opacity: 1;
+  --chart-calorie-start: #fdb77a;
+  --chart-calorie-end: #f57c2b;
+  --chart-calorie-emphasis-start: #fb9a4c;
+  --chart-calorie-emphasis-end: #ea6410;
+  --chart-weight-start: #5fd492;
+  --chart-weight-end: #22a05c;
+  --chart-base: #e6eeea;
+  --chart-gap: #64756d;
+  --chart-empty-border: #c5d2ca;
+  --ring-track: #e3ebe6;
+  --text-button-hover: #864b16;
+  --text-blue-hover: #23587c;
+  --text-danger-hover: #a34a40;
+  --tip-background: rgb(238 243 240 / 72%);
+  --tooltip-background: #1d2927;
+  --tooltip-text: #ffffff;
+  --page-glow-warm: rgb(253 186 116 / 20%);
+  --page-glow-cool: rgb(134 214 170 / 20%);
+  --panel-sheen: linear-gradient(
+    180deg,
+    rgb(255 255 255 / 0%),
+    rgb(255 255 255 / 0%)
+  );
+  --panel-shadow: 0 1px 2px rgb(23 43 34 / 5%), 0 10px 30px rgb(23 43 34 / 6%);
+  --selection: rgb(245 124 43 / 24%);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    --background: #f5f7f6;
+    --surface: #ffffff;
+    --surface-raised: #f9fbfa;
+    --surface-soft: #f1f5f3;
+    --line: #dde6e0;
+    --line-soft: #e7eeea;
+    --foreground: #17211f;
+    --muted: #5f6f6a;
+    --muted-strong: #3f4f4a;
+    --orange: #b85f1c;
+    --orange-soft: #9f5015;
+    --green: #2c7a4f;
+    --green-bright: #2a8a55;
+    --blue: #2f6a94;
+    --purple: #6a55a3;
+    --red: #b4483c;
+    --button-primary-background: #c2410c;
+    --button-primary-hover-background: #9a3412;
+    --button-primary-text: #ffffff;
+    --button-primary-shadow: 0 6px 16px rgb(194 65 12 / 20%);
+    --button-secondary-background: #f1f5f3;
+    --button-secondary-border: #c9d6ce;
+    --button-secondary-hover-background: #e4eee8;
+    --button-quiet-hover-background: rgb(31 42 42 / 7%);
+    --button-action-background: rgb(31 42 42 / 5%);
+    --button-action-hover-background: rgb(31 42 42 / 9%);
+    --form-control-background: #ffffff;
+    --form-control-border: #c3d0c8;
+    --file-button-background: #e2ebe6;
+    --reading-background: var(--surface-soft);
+    --form-container-background: var(--surface-raised);
+    --editor-background: var(--surface-raised);
+    --detail-card-background: var(--surface-raised);
+    --selected-background: #e3f2ea;
+    --selected-border: #b7d6c4;
+    --chart-axis: #687872;
+    --chart-axis-strong: #5d6d67;
+    --chart-grid: rgb(56 77 67 / 13%);
+    --chart-target: #718b7d;
+    --chart-target-label: #55665f;
+    --chart-neutral: #9db6c2;
+    --chart-legend-line: #71817b;
+    --chart-bar-shadow: rgb(245 124 43 / 20%);
+    --chart-weight-shadow: rgb(34 160 92 / 18%);
+    --chart-stack-shadow: rgb(31 42 42 / 8%);
+    --chart-orange: #f57c2b;
+    --chart-green: #22a05c;
+    --chart-blue: #3d84e6;
+    --chart-fill-opacity: 1;
+    --chart-calorie-start: #fdb77a;
+    --chart-calorie-end: #f57c2b;
+    --chart-calorie-emphasis-start: #fb9a4c;
+    --chart-calorie-emphasis-end: #ea6410;
+    --chart-weight-start: #5fd492;
+    --chart-weight-end: #22a05c;
+    --chart-base: #e6eeea;
+    --chart-gap: #64756d;
+    --chart-empty-border: #c5d2ca;
+    --ring-track: #e3ebe6;
+    --text-button-hover: #864b16;
+    --text-blue-hover: #23587c;
+    --text-danger-hover: #a34a40;
+    --tip-background: rgb(238 243 240 / 72%);
+    --tooltip-background: #1d2927;
+    --tooltip-text: #ffffff;
+    --page-glow-warm: rgb(253 186 116 / 20%);
+    --page-glow-cool: rgb(134 214 170 / 20%);
+    --panel-sheen: linear-gradient(
+      180deg,
+      rgb(255 255 255 / 0%),
+      rgb(255 255 255 / 0%)
+    );
+    --panel-shadow:
+      0 1px 2px rgb(23 43 34 / 5%), 0 10px 30px rgb(23 43 34 / 6%);
+    --selection: rgb(245 124 43 / 24%);
+    color-scheme: light;
+  }
+}
+
+.settings-heading h2 {
+  margin: 0;
+  color: var(--foreground);
+  font-size: 18px;
+  font-weight: 680;
+  letter-spacing: -0.035em;
+}
+
+.settings-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  margin-top: 15px;
+}
+
+.settings-section,
+.nutrient-goal-settings {
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-tile);
+  background: var(--surface-soft);
+}
+
+.reference-setting {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 12px;
+  color: var(--foreground);
+  cursor: pointer;
+}
+
+.reference-setting input {
+  flex: none;
+  margin: 2px 0 0;
+  accent-color: var(--orange);
+}
+
+.reference-setting label {
+  display: block;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.reference-setting small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.settings-section-heading strong,
+.nutrient-goal-settings summary strong {
+  display: block;
+  color: var(--foreground);
+  font-size: 13px;
+  font-weight: 680;
+}
+
+.settings-section-heading span,
+.nutrient-goal-settings summary small {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.primary-goal-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.protein-goal-fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.protein-goal-fieldset legend {
+  margin-bottom: 5px;
+  padding: 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.protein-goal-mode-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.theme-options {
+  margin-top: 12px;
+}
+
+.settings-form .protein-goal-mode-options label {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 11px;
+  border: 1px solid var(--form-control-border);
+  border-radius: var(--radius-control);
+  background: var(--form-control-background);
+  cursor: pointer;
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease;
+}
+
+.settings-form .protein-goal-mode-options label:hover {
+  border-color: var(--muted);
+}
+
+.settings-form .protein-goal-mode-options label:has(input:checked) {
+  border-color: var(--orange);
+  background: color-mix(
+    in srgb,
+    var(--orange) 8%,
+    var(--form-control-background)
+  );
+}
+
+.settings-form .protein-goal-mode-options input[type="radio"] {
+  width: auto;
+  min-height: auto;
+  margin-top: 1px;
+  accent-color: var(--orange);
+}
+
+.protein-goal-mode-options span {
+  display: grid;
+  gap: 1px;
+}
+
+.protein-goal-mode-options strong {
+  color: var(--foreground);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.protein-goal-mode-options small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.protein-goal-fieldset > label {
+  margin-top: 10px;
+}
+
+.settings-form label {
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.settings-form input {
+  width: 100%;
+  min-height: 36px;
+  padding: 6px 10px;
+  border: 1px solid var(--form-control-border);
+  border-radius: var(--radius-control);
+  outline: 0;
+  background: var(--form-control-background);
+  color: var(--foreground);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.settings-form input:focus,
+.timezone-setting select:focus {
+  border-color: var(--orange);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--orange) 22%, transparent);
+}
+
+.timezone-setting {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.timezone-setting select {
+  min-width: 240px;
+  min-height: 36px;
+  padding: 6px 10px;
+  border: 1px solid var(--form-control-border);
+  border-radius: var(--radius-control);
+  outline: 0;
+  background: var(--form-control-background);
+  color: var(--foreground);
+  font-size: 13px;
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.settings-form .reference-setting input[type="checkbox"] {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  min-height: 0;
+  padding: 0;
+}
+
+.settings-form .reference-setting > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-form .reference-setting label {
+  display: block;
+  color: var(--foreground);
+}
+
+.nutrient-goal-settings > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 15px 16px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.nutrient-goal-settings > summary::-webkit-details-marker {
+  display: none;
+}
+
+.settings-summary-action {
+  color: var(--blue);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.nutrient-goal-settings-body {
+  display: grid;
+  gap: 13px;
+  padding: 0 16px 16px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.nutrient-goal-settings-intro {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 13px;
+}
+
+.nutrient-goal-settings-intro p,
+.nutrient-goal-disclaimer {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.nutrient-goal-fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 11px;
+  border: 1px solid var(--line-soft);
+  border-radius: 7px;
+}
+
+.nutrient-goal-fieldset legend {
+  padding: 0 5px;
+  color: var(--muted-strong);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.nutrient-goal-input-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px 12px;
+}
+
+.nutrient-goal-input > span:first-child {
+  display: grid;
+  min-width: 0;
+}
+
+.nutrient-goal-input > span strong {
+  overflow: hidden;
+  color: var(--muted-strong);
+  font-size: 11px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nutrient-goal-input > span small {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.nutrient-goal-input-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+}
+
+.nutrient-goal-input-control > span {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.settings-save-button {
+  grid-column: 1;
+  justify-self: end;
+}
+
+.settings-help {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.protein-goal-hint {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.protein-goal-link {
+  display: inline-flex;
+  margin-top: 9px;
+}
+
+.chart-range,
+.panel-meta {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.chart-range-select {
+  min-height: 30px;
+  padding: 5px 25px 5px 10px;
+  border: 1px solid var(--button-secondary-border);
+  border-radius: var(--radius-control);
+  background-color: var(--button-secondary-background);
+  color: var(--muted-strong);
+  font: inherit;
+  font-size: 10px;
+  font-weight: 650;
+  cursor: pointer;
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease;
+}
+
+.chart-range-select:hover,
+.compact-select select:hover {
+  border-color: var(--muted);
+  background-color: var(--button-secondary-hover-background);
+}
+
+.chart-range-select:focus-visible {
+  outline: 2px solid var(--orange);
+  outline-offset: 2px;
+}
+
+.weight-swatch {
+  background: var(--chart-green);
+}
+
+.weight-average-line {
+  border-color: var(--chart-green);
+  border-top-style: solid;
+  border-top-width: 2px;
+}
+
+.macro-carbs-swatch {
+  background: var(--chart-blue);
+}

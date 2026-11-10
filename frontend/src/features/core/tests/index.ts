@@ -5,6 +5,8 @@ import { MemoryLoggerService } from "@app/common/features/core/services/memory-l
 import type { ApiAccessEvent } from "../../api/client/access-events.js";
 import { FakeClockService } from "../../clock/services/fake-clock-service.js";
 import { FakeDialogService } from "../../dialogs/services/fake-dialog-service.js";
+import { FakeThemeService } from "../../settings/services/fake-theme-service.js";
+import { SettingsStorage } from "../../settings/storage/settings-storage.js";
 import { EntriesStorage } from "../../entries/storage/entries-storage.js";
 import { SoftPasskeyService } from "../../auth/services/soft-passkey-service.js";
 import { FakeWindowFocusService } from "../../window-focus/services/fake-window-focus-service.js";
@@ -20,6 +22,7 @@ export interface TestApp extends App {
     dialogs: FakeDialogService;
     /** The device's passkeys. A test gives it the owner's passkey, or makes it fail. */
     passkeys: SoftPasskeyService;
+    theme: FakeThemeService;
     windowFocus: FakeWindowFocusService;
   };
 }
@@ -39,13 +42,17 @@ export function createApp({
   const browserStorage = new MemoryKeyValueStore();
   return {
     browserStorage,
-    storage: { entries: new EntriesStorage({ store: browserStorage }) },
+    storage: {
+      entries: new EntriesStorage({ store: browserStorage }),
+      settings: new SettingsStorage({ store: browserStorage }),
+    },
     services: {
       logger: new MemoryLoggerService(),
       clock: new FakeClockService(),
       dialogs: new FakeDialogService(),
       // The page's origin is the one of the backend in these tests.
       passkeys: new SoftPasskeyService({ origin: new URL(baseUrl).origin }),
+      theme: new FakeThemeService(),
       windowFocus: new FakeWindowFocusService(),
     },
     apiAccessEvents,

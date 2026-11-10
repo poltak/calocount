@@ -1,4 +1,4 @@
-import { formatNumber, weekdayOf } from "../utils/dashboard-format.js";
+import { formatNumber, weekdayOf } from "../../core/utils/dashboard-format.js";
 import { dayTotals } from "../utils/entry-view.js";
 import { AddEntryForm } from "./add-entry-form.js";
 import { useDashboard } from "./dashboard-context.js";

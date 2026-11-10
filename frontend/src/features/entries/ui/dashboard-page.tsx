@@ -1,6 +1,9 @@
 import { useEffect, type ReactNode } from "react";
 import { useLocation } from "react-router";
-import { cx } from "../utils/class-names.js";
+import type { SettingsEvents } from "../../settings/types.js";
+import type { WeightEvents } from "../../weights/types.js";
+import type { WeightSlotProps } from "../types.js";
+import { cx } from "../../core/utils/class-names.js";
 import { CalorieTrendPanel } from "./calorie-trend-panel.js";
 import { DashboardProvider, useDashboard } from "./dashboard-context.js";
 import { DashboardTopbar } from "./dashboard-topbar.js";
@@ -67,16 +70,37 @@ function LoadingState() {
   );
 }
 
+/** What other features give the dashboard. Only the route composes them. */
+interface DashboardPageProps {
+  topbarActions: ReactNode;
+  belowTopbar: ReactNode;
+  settingsEvents: SettingsEvents;
+  weightEvents: WeightEvents;
+  weightBusy: boolean;
+  renderWeightTrend: (props: WeightSlotProps) => ReactNode;
+  renderWeightPanel: (props: WeightSlotProps) => ReactNode;
+}
+
 function DashboardView({
   topbarActions,
   belowTopbar,
-}: {
-  topbarActions: ReactNode;
-  belowTopbar: ReactNode;
-}) {
-  const { dashboard } = useDashboard();
+  renderWeightTrend,
+  renderWeightPanel,
+}: Pick<
+  DashboardPageProps,
+  "topbarActions" | "belowTopbar" | "renderWeightTrend" | "renderWeightPanel"
+>) {
+  const { dashboard, busy } = useDashboard();
   const { logic, state } = dashboard;
   const { hash } = useLocation();
+  const weightSlot: WeightSlotProps = {
+    dates: state.days.map((day) => day.date),
+    weights: state.recentWeights,
+    selectedDate: state.selectedDate,
+    weight: state.weight,
+    timeZone: state.timeZone,
+    busy,
+  };
   useEffect(() => {
     logic.setActiveSection({ hash });
   }, [logic, hash]);
@@ -94,7 +118,9 @@ function DashboardView({
           <div className="content-grid">
             <section className="primary-column">
               <CalorieTrendPanel />
+              {renderWeightTrend(weightSlot)}
               <NutritionOverview />
+              {renderWeightPanel(weightSlot)}
               <MacroPanel />
               <SavedEntriesPanel />
               <MealsPanel />
@@ -120,15 +146,18 @@ function DashboardView({
  * the dialog that it opens, so the route gives them in.
  */
 export function DashboardPage({
-  topbarActions,
-  belowTopbar,
-}: {
-  topbarActions: ReactNode;
-  belowTopbar: ReactNode;
-}) {
+  settingsEvents,
+  weightEvents,
+  weightBusy,
+  ...slots
+}: DashboardPageProps) {
   return (
-    <DashboardProvider>
-      <DashboardView topbarActions={topbarActions} belowTopbar={belowTopbar} />
+    <DashboardProvider
+      settingsEvents={settingsEvents}
+      weightEvents={weightEvents}
+      weightBusy={weightBusy}
+    >
+      <DashboardView {...slots} />
     </DashboardProvider>
   );
 }

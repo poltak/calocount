@@ -8,6 +8,8 @@
 @import "./styles/calocount-3.css";
 @import "./styles/calocount-4.css";
 @import "./styles/calocount-5.css";
+@import "./styles/calocount-6.css";
+@import "./styles/calocount-7.css";
 
 /* The header of a page that has no top bar of its own, such as "Page not found". */
 header:not(.topbar) {

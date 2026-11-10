@@ -4,9 +4,9 @@ import { requireApiSuccess } from "../../api/client/api-client.js";
 import type { FrontendLogicProps } from "../../core/logic/types.js";
 import type { EntryEvent } from "../types.js";
 import type { SavedEntry } from "../utils/api-types.js";
-import { clockTime } from "../utils/dashboard-format.js";
+import { clockTime } from "../../core/utils/dashboard-format.js";
 import type { EntryView } from "../utils/entry-view.js";
-import { failureMessage } from "../utils/failure-message.js";
+import { failureMessage } from "../../core/logic/failure-message.js";
 
 type EntryActionsProps = FrontendLogicProps<
   never,

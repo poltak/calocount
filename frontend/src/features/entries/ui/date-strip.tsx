@@ -1,10 +1,10 @@
-import { cx } from "../utils/class-names.js";
+import { cx } from "../../core/utils/class-names.js";
 import {
   dayOfMonth,
   fullDateLabel,
   weekdayInitial,
   weekdayOf,
-} from "../utils/dashboard-format.js";
+} from "../../core/utils/dashboard-format.js";
 import { useDashboard } from "./dashboard-context.js";
 
 /** The heading with the day in view, the arrows, and the seven recent days. */

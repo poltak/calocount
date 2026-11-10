@@ -4,7 +4,10 @@ import {
 } from "@app/common/features/entries/utils/nutrients";
 import { nutrientValueOriginLabel } from "@app/common/features/entries/utils/nutrient-provenance";
 import type { EntryView, ItemView } from "../utils/entry-view.js";
-import { nutrientLabel, nutrientValueText } from "../utils/nutrient-format.js";
+import {
+  nutrientLabel,
+  nutrientValueText,
+} from "../../core/utils/nutrient-format.js";
 import { NutrientStat } from "./nutrient-stat.js";
 
 function amount(value: number): string {

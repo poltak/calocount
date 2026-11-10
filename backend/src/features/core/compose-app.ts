@@ -12,6 +12,8 @@ import { HealthLogic } from "../health/logic/health-logic.js";
 import { HealthStorage } from "../health/storage/health-storage.js";
 import { SettingsLogic } from "../settings/logic/settings-logic.js";
 import { SettingsStorage } from "../settings/storage/settings-storage.js";
+import { WeightsLogic } from "../weights/logic/weights-logic.js";
+import { WeightsStorage } from "../weights/storage/weights-storage.js";
 import { createRunAtomic } from "./database/atomic.js";
 import type { D1Binding } from "./database/d1-binding.js";
 import type { Database } from "./database/database.js";
@@ -39,6 +41,7 @@ function createStorage(db: Database): BackendStorage {
     entries: new EntriesStorage({ db }),
     health: new HealthStorage({ db }),
     settings: new SettingsStorage({ db }),
+    weights: new WeightsStorage({ db }),
   };
 }
 
@@ -69,7 +72,8 @@ export function composeApp({
     entryReads: new EntryReadsLogic({ storage, services }),
     health: new HealthLogic({ storage, services }),
     savedEntries: new SavedEntriesLogic({ storage, services, atomic }),
-    settings: new SettingsLogic({ storage, services }),
+    settings: new SettingsLogic({ storage, services, atomic }),
+    weights: new WeightsLogic({ storage, services }),
   };
 
   return {

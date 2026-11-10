@@ -11,7 +11,7 @@ import {
   nutrientGroupLabel,
   nutrientLabel,
   nutrientUnit,
-} from "../utils/nutrient-format.js";
+} from "../../core/utils/nutrient-format.js";
 
 /** The fields of an open edit. Without them, the fields start empty and the form reads them when it is sent. */
 interface ControlledNutrients {
