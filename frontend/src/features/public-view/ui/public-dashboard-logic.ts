@@ -41,6 +41,13 @@ interface PublicDashboardState {
   weightKg: number | null;
   /** `null` when the owner has no protein goal for the day. */
   proteinTargetG: number | null;
+  showCalendar: boolean;
+  /** The month that the calendar showed when it opened: the month of the day in view. */
+  calendarMonth: string | null;
+  /** The entry whose photo shows large, or `null`. */
+  previewEntry: PublicEntryView | null;
+  /** Photos that did not load. An entry with one shows no thumbnail. */
+  failedPhotoIds: string[];
 }
 
 /** The read-only dashboard that a visitor with no session opens. */
@@ -67,6 +74,10 @@ export class PublicDashboardLogic extends Logic<
         entries: [],
         weightKg: null,
         proteinTargetG: null,
+        showCalendar: false,
+        calendarMonth: null,
+        previewEntry: null,
+        failedPhotoIds: [],
       },
     });
   }
@@ -88,7 +99,7 @@ export class PublicDashboardLogic extends Logic<
         throw new Error("Unexpected public response");
       }
       const summary = await response.json();
-      if (summary.view !== "daily") {
+      if (!("view" in summary) || summary.view !== "daily") {
         throw new Error("Unexpected public response");
       }
       this.setState({
@@ -135,6 +146,53 @@ export class PublicDashboardLogic extends Logic<
     await this.loadDay();
   }
 
+  /** Open a day from the calendar and close the calendar. */
+  async selectCalendarDate({ date }: { date: string }): Promise<void> {
+    this.closeCalendar();
+    await this.selectDate({ date });
+  }
+
+  toggleCalendar(): void {
+    const { showCalendar, selectedDate } = this.state;
+    this.setState({
+      showCalendar: !showCalendar,
+      calendarMonth: showCalendar ? null : (selectedDate?.slice(0, 7) ?? null),
+    });
+  }
+
+  closeCalendar(): void {
+    this.setState({ showCalendar: false, calendarMonth: null });
+  }
+
+  /**
+   * The address of the public photo of an entry, or `null` when the entry has
+   * none or the photo is known to fail. The route is on the origin of the API
+   * and takes the entry ID, so the private bucket key never reaches the page.
+   */
+  shownPhotoUrl({ entry }: { entry: PublicEntryView }): string | null {
+    if (!entry.hasPhoto || this.state.failedPhotoIds.includes(entry.id)) {
+      return null;
+    }
+    const { origin } = this.deps.api.public.summary.$url();
+    return `${origin}/meal-photos/${encodeURIComponent(entry.id)}`;
+  }
+
+  openPhoto({ entry }: { entry: PublicEntryView }): void {
+    this.setState({ previewEntry: entry });
+  }
+
+  closePhoto(): void {
+    this.setState({ previewEntry: null });
+  }
+
+  markPhotoFailed({ entry }: { entry: PublicEntryView }): void {
+    if (!this.state.failedPhotoIds.includes(entry.id)) {
+      this.setState({
+        failedPhotoIds: [...this.state.failedPhotoIds, entry.id],
+      });
+    }
+  }
+
   async goToPreviousDay(): Promise<void> {
     const { selectedDate } = this.state;
     if (selectedDate) {
@@ -167,7 +225,7 @@ export class PublicDashboardLogic extends Logic<
         throw new Error("Unexpected public response");
       }
       const day = await response.json();
-      if (day.view !== "day") {
+      if (!("view" in day) || day.view !== "day") {
         throw new Error("Unexpected public response");
       }
       if (signal.aborted) {

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 import { Link, Navigate } from "react-router";
 import { cx } from "../../core/utils/class-names.js";
 import {
@@ -11,7 +11,9 @@ import {
 import { useLogic } from "../../core/logic/use-logic.js";
 import { useFrontendApp } from "../../core/ui/frontend-app-context.js";
 import { PublicDashboardLogic } from "./public-dashboard-logic.js";
+import type { CalendarSlotProps } from "../../entries/types.js";
 import { PublicEntryRow } from "./public-entry-row.js";
+import { PublicPhotoPreview } from "./public-photo-preview.js";
 
 function Topbar() {
   return (
@@ -43,7 +45,12 @@ function Topbar() {
  * The log that the owner shares, at `/`. A visitor has no session, so the page
  * reads only the public JSON, and it has no control that changes data.
  */
-export function PublicDashboardPage() {
+export function PublicDashboardPage({
+  renderCalendar,
+}: {
+  /** The calendar of the history feature, which `routes.tsx` gives the page. */
+  renderCalendar: (props: CalendarSlotProps) => ReactNode;
+}) {
   const app = useFrontendApp();
   const deps = useMemo(
     () => ({ storage: {}, services: {}, api: { public: app.api.public } }),
@@ -56,6 +63,7 @@ export function PublicDashboardPage() {
   if (state.off) {
     return <Navigate to="/owner" replace />;
   }
+  const { previewEntry } = state;
   const selected = state.selectedDate ?? "";
   const calories = state.entries.reduce(
     (sum, entry) => sum + entry.calories,
@@ -141,8 +149,50 @@ export function PublicDashboardPage() {
               >
                 ›
               </button>
+              <button
+                className={cx(
+                  "date-arrow calendar-toggle",
+                  state.showCalendar && "active",
+                )}
+                type="button"
+                aria-label={
+                  state.showCalendar ? "Close calendar" : "Open calendar"
+                }
+                aria-expanded={state.showCalendar}
+                aria-controls="history-calendar"
+                onClick={() => logic.toggleCalendar()}
+              >
+                <svg
+                  viewBox="0 0 16 16"
+                  width="16"
+                  height="16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <rect x="2" y="3.5" width="12" height="10.5" rx="2" />
+                  <path d="M2 7h12M5.5 2v3M10.5 2v3" />
+                </svg>
+              </button>
             </div>
           </section>
+          {state.showCalendar &&
+            state.today !== null &&
+            state.calendarMonth !== null &&
+            renderCalendar({
+              today: state.today,
+              initialMonth: state.calendarMonth,
+              selectedDate: selected,
+              // The public data does not change under the visitor.
+              reloadKey: 0,
+              disabled: state.loadDayState === "running",
+              onSelectDate: (date) => void logic.selectCalendarDate({ date }),
+              onClose: () => logic.closeCalendar(),
+              source: "public",
+            })}
           <section
             className="summary-grid"
             aria-label="Daily calorie and protein summary"
@@ -194,7 +244,13 @@ export function PublicDashboardPage() {
                 {state.entries.length > 0 ? (
                   <div className="meal-list">
                     {state.entries.map((entry) => (
-                      <PublicEntryRow key={entry.id} entry={entry} />
+                      <PublicEntryRow
+                        key={entry.id}
+                        entry={entry}
+                        photoUrl={logic.shownPhotoUrl({ entry })}
+                        onOpenPhoto={() => logic.openPhoto({ entry })}
+                        onPhotoFailed={() => logic.markPhotoFailed({ entry })}
+                      />
                     ))}
                   </div>
                 ) : (
@@ -208,6 +264,14 @@ export function PublicDashboardPage() {
             </section>
           </div>
         </>
+      )}
+      {previewEntry && (
+        <PublicPhotoPreview
+          entry={previewEntry}
+          url={logic.shownPhotoUrl({ entry: previewEntry })}
+          onClose={() => logic.closePhoto()}
+          onFailed={() => logic.markPhotoFailed({ entry: previewEntry })}
+        />
       )}
       <footer className="app-footer">
         <span>Public read-only view</span>

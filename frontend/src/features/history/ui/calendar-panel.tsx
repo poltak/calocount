@@ -20,6 +20,8 @@ interface CalendarPanelProps {
   disabled: boolean;
   onSelectDate: (date: string) => void;
   onClose: () => void;
+  /** Whose days to read. The default is the owner's. */
+  source?: "owner" | "public";
 }
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -36,16 +38,18 @@ export function CalendarPanel({
   disabled,
   onSelectDate,
   onClose,
+  source = "owner",
 }: CalendarPanelProps) {
   const app = useFrontendApp();
   const deps = useMemo(
     () => ({
       storage: {},
       services: { clock: app.services.clock },
-      api: { days: app.api.days },
+      api: { days: app.api.days, public: app.api.public },
       initialMonth,
+      source,
     }),
-    [app, initialMonth],
+    [app, initialMonth, source],
   );
   const { logic, state } = useLogic({ LogicClass: CalendarLogic, deps });
   useEffect(() => {

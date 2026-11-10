@@ -4,6 +4,7 @@ import {
   NUTRIENT_META,
 } from "@app/common/features/entries/utils/nutrients";
 import type { ExternalMealRequest } from "../../entries/types.js";
+import { photoRefOf } from "./photo-ref.js";
 import { hasOnlyKeys, isObject, type JsonObject } from "./json-object.js";
 import {
   MAX_BATCH_MEALS,
@@ -147,7 +148,15 @@ export function parseRequestId(value: unknown): string {
   return requestId.toLowerCase();
 }
 
-function parseMeal(body: JsonObject): ExternalMealRequest {
+function parseMeal({
+  body,
+  photo,
+  allowLocalHttp,
+}: {
+  body: JsonObject;
+  photo: PhotoValue | undefined;
+  allowLocalHttp: boolean;
+}): ExternalMealRequest {
   if (Object.hasOwn(body, "openaiFileIdRefs")) {
     throw new McpToolError(
       "invalid_field",
@@ -178,20 +187,30 @@ function parseMeal(body: JsonObject): ExternalMealRequest {
     carbs: requiredNumber(body, "carbs", MAX_MACRO),
     fat: requiredNumber(body, "fat", MAX_MACRO),
     consumedAt: parseIsoDatetime(eatenAt),
+    ...(photo ? { photo: photoRefOf({ photo, allowLocalHttp }) } : {}),
     ...(nutrients === undefined ? {} : { nutrients }),
   };
 }
 
+/** A photo of the agent, checked, and the meal that gets it. */
+interface PhotoValue {
+  downloadUrl: string;
+  mimeType: unknown;
+}
+
 /**
- * Check the photo values that the agent sends with the meals. Photos need
- * the photo storage of a later phase, so a call with a photo is refused after
- * the check, and an empty list is the same as no list.
+ * Check the photo values that the agent sends with the meals, and say which
+ * meal gets which photo. An empty list is the same as no list.
  */
-function checkPhotos(args: JsonObject, mealCount: number): void {
+function checkPhotos(
+  args: JsonObject,
+  mealCount: number,
+): Map<number, PhotoValue> {
+  const byMeal = new Map<number, PhotoValue>();
   const hasPhotos = Object.hasOwn(args, "photos");
   const hasIndices = Object.hasOwn(args, "photo_meal_indices");
   if (!hasPhotos && !hasIndices) {
-    return;
+    return byMeal;
   }
   if (!hasPhotos || !hasIndices) {
     invalidField("photos and photo_meal_indices", "must be provided together");
@@ -245,6 +264,15 @@ function checkPhotos(args: JsonObject, mealCount: number): void {
       );
     }
     const mimeType = photo["mime_type"];
+    for (const field of ["mime_type", "file_name"]) {
+      const value = photo[field];
+      if (value !== undefined && (typeof value !== "string" || !value.trim())) {
+        invalidField(
+          `photos[${photoIndex}]`,
+          "must be a file object with download_url and file_id. Bare local paths and bare file IDs cannot be resolved",
+        );
+      }
+    }
     if (
       typeof mimeType === "string" &&
       !SUPPORTED_PHOTO_TYPES.includes(
@@ -256,17 +284,23 @@ function checkPhotos(args: JsonObject, mealCount: number): void {
         "This photo type is not supported. Use JPEG, PNG, WebP, or HEIC.",
       );
     }
+    byMeal.set(mealIndex, {
+      downloadUrl: photo["download_url"],
+      mimeType,
+    });
   }
-  if (photos.length > 0) {
-    throw new McpToolError(
-      "photos_unavailable",
-      "Meal photos are not available yet. Log the meals without photos.",
-    );
-  }
+  return byMeal;
 }
 
 /** The meals of an `add_meals` call. Nothing is saved when one field is wrong. */
-export function parseAddMeals(args: JsonObject): ExternalMealRequest[] {
+export function parseAddMeals({
+  args,
+  allowLocalHttp,
+}: {
+  args: JsonObject;
+  /** Only a black-box test Worker fetches a photo from a local server. */
+  allowLocalHttp: boolean;
+}): ExternalMealRequest[] {
   if (Object.hasOwn(args, "openaiFileIdRefs")) {
     throw new McpToolError(
       "invalid_field",
@@ -286,13 +320,17 @@ export function parseAddMeals(args: JsonObject): ExternalMealRequest[] {
   if (meals.length > MAX_BATCH_MEALS) {
     invalidField("meals", `must contain at most ${MAX_BATCH_MEALS} meals`);
   }
-  checkPhotos(args, meals.length);
+  const photos = checkPhotos(args, meals.length);
   const requestIds = new Set<string>();
   return meals.map((meal: unknown, index) => {
     if (!isObject(meal)) {
       invalidField(`meals[${index}]`, "must be an object");
     }
-    const request = parseMeal(meal);
+    const request = parseMeal({
+      body: meal,
+      photo: photos.get(index),
+      allowLocalHttp,
+    });
     if (requestIds.has(request.requestId)) {
       invalidField(
         `meals[${index}].request_id`,

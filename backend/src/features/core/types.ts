@@ -22,7 +22,11 @@ import type { SettingsStorage } from "../settings/storage/settings-storage.js";
 import type { WeightsLogic } from "../weights/logic/weights-logic.js";
 import type { WeightsStorage } from "../weights/storage/weights-storage.js";
 import type { RunAtomic } from "./logic/types.js";
-import type { ClockServiceInterface } from "./services/types.js";
+import type {
+  ClockServiceInterface,
+  ImagesServiceInterface,
+  PhotoDownloadServiceInterface,
+} from "./services/types.js";
 
 export interface BackendStorage {
   auth: AuthStorage;
@@ -46,6 +50,8 @@ interface BackendCoreServices {
 
 export interface BackendServices extends BackendCoreServices {
   passkeys: PasskeyServiceInterface;
+  images: ImagesServiceInterface;
+  photoDownload: PhotoDownloadServiceInterface;
 }
 
 export interface BackendLogic {

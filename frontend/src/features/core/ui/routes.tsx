@@ -130,7 +130,14 @@ function Shell() {
       <Routes>
         <Route path="/login" element={<SignInPage />} />
         <Route element={<PublicLayout />}>
-          <Route path="/" element={<PublicDashboardPage />} />
+          <Route
+            path="/"
+            element={
+              <PublicDashboardPage
+                renderCalendar={(props) => <CalendarPanel {...props} />}
+              />
+            }
+          />
           <Route path="/privacy" element={<PrivacyPage />} />
         </Route>
         <Route element={<SessionGate />}>

@@ -17,12 +17,17 @@ JSON. This file contains no live data.
   since tracking began, with calories, macros, entry count and weight. About
   100 bytes for each day and at most 366 days. Use it for weight progress,
   trends, averages and goal adherence.
+- [Dashboard view](/api/public/summary): the last 30 days with every food item
+  and 24 nutrients. It can be several hundred kilobytes. Use it only when you
+  need food items, nutrient amounts or meal times. Save it to a file and query
+  the file; do not read it whole.
 - [Month view](/api/public/summary?view=month&month=2026-09): the calories,
   protein and entry count of each day of one month. Use it to find the days
   that have entries.
 - [Day view](/api/public/summary?view=day&date=2026-09-12): every entry of one
   day with its food items and 24 nutrients. A few kilobytes. Use it for the
-  food of any date.
+  food of any date, including dates older than the 30 days of the dashboard
+  view.
 
 ## Daily view
 
@@ -65,6 +70,48 @@ JSON. This file contains no live data.
 Goals before the first \`goalChanges\` row are not known. If the first row is on
 or before the first day you study and no later row falls in your period, the
 goals were constant over it.
+
+## Dashboard view
+
+\`GET /api/public/summary\`
+
+- \`date\`: today in the owner's timezone.
+- \`timezone\`: the IANA timezone that sets the day boundaries of every date.
+- \`targets.calories\`: the current daily calorie goal, or \`null\`.
+- \`targets.proteinG\`: the current daily protein goal in grams, or \`null\`.
+- \`targets.nutrients\`: for each nutrient, a goal \`value\` and whether it is a
+  \`minimum\` or a \`maximum\`.
+- \`proteinGoal.mode\`: \`grams\` or \`gramsPerKg\`.
+- \`proteinGoal.byDate[]\`: the protein goal of each of the last 31 days. In
+  \`gramsPerKg\` mode each day uses the weight of that day or the latest earlier
+  weight.
+- \`today\`: totals for today: \`calories\`, \`proteinG\`, \`carbsG\`, \`fatG\` and
+  \`mealCount\`.
+- \`sevenDay\`: totals and averages for the last seven days. The averages leave
+  out today until 21:00 in the owner's timezone.
+- \`sevenDay.trend[]\`: one row of totals for each of those seven days.
+- \`trend.byDate[]\`: one row for each of the last 30 days, with totals and
+  \`nutrients\`.
+- \`trend.weights[]\`: the weights of the last 30 days, newest first. Each has
+  \`logicalDate\`, \`weightKg\` and \`recordedAt\`.
+- \`nutrition.today\`: today's amount of each nutrient.
+- \`nutrition.sevenDay\`: the seven-day amount of each nutrient.
+- \`nutrition.byDate[]\`: the amount of each nutrient on each of the last seven
+  days.
+- \`insights.fromDate\`: the first date covered by \`insights.entries\`.
+- \`insights.toDate\`: the last date covered, equal to \`date\`.
+- \`insights.entries[]\`: every entry of today and the 30 days before it. Each
+  has \`id\`, \`date\`, \`consumedAt\`, \`calories\`, \`proteinG\` and \`items\`. Each item
+  has \`name\`, \`quantity\`, \`unit\`, \`calories\`, \`proteinG\` and \`nutrients\`.
+- \`recentMeals[]\`: the entries of the last seven days, newest first, with
+  \`id\`, \`consumedAt\`, \`mealType\`, \`hasPhoto\`, \`totalCalories\`, \`totalProteinG\`,
+  \`totalCarbsG\`, \`totalFatG\` and \`items\`.
+- \`recentWeights[]\`: the weights of the last seven days, newest first.
+
+A nutrient amount is an object with \`amount\`, \`knownItemCount\`,
+\`totalItemCount\` and \`complete\`. \`complete\` is true only when every logged item
+has a value for that nutrient. The nutrient names carry their unit, such as
+\`fiberG\`, \`sodiumMg\` and \`vitaminDMcg\`.
 
 ## Month view
 
@@ -116,7 +163,7 @@ Replace \`2026-09-12\` with the date you need, written as \`YYYY-MM-DD\`.
 
 ## Photos
 
-When an entry in the day view has \`hasPhoto: true\`, its image is at
+When an entry in \`recentMeals\` or in the day view has \`hasPhoto: true\`, its image is at
 \`/meal-photos/{id}\`, using that entry's \`id\`. Photos are public only for
 entries of the last seven days. The day view gives \`hasPhoto: false\` for an
 older entry.

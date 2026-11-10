@@ -10,9 +10,15 @@ import { LatestRequest } from "../../core/logic/latest-request.js";
 import type { FrontendLogicProps } from "../../core/logic/types.js";
 import type { MonthRead } from "../utils/api-types.js";
 
-type CalendarProps = FrontendLogicProps<never, "clock", "days"> & {
+type CalendarProps = FrontendLogicProps<never, "clock", "days" | "public"> & {
   /** The month to show first: the month of the day in view. */
   initialMonth: string;
+  /**
+   * Whose days the calendar reads. The owner reads the days in the timezone of
+   * the device. A visitor reads the public month view, in the owner's saved
+   * timezone. The default is the owner.
+   */
+  source?: "owner" | "public";
 };
 
 interface LoadedMonth extends MonthRead {
@@ -94,17 +100,7 @@ export class CalendarLogic extends Logic<CalendarProps, CalendarState> {
     const signal = this.monthReads.start();
     this.setState({ loadMonthState: "running", loadMonthError: null });
     try {
-      const response = await this.deps.api.days.$get(
-        {
-          query: { month, timezone: this.deps.services.clock.timeZone() },
-        },
-        { init: { signal } },
-      );
-      await requireApiSuccess(response);
-      if (response.status !== 200) {
-        throw new Error("Unexpected month response");
-      }
-      const read = await response.json();
+      const read = await this.readMonth({ month, signal });
       if (signal.aborted) {
         return;
       }
@@ -120,6 +116,41 @@ export class CalendarLogic extends Logic<CalendarProps, CalendarState> {
         });
       }
     }
+  }
+
+  private async readMonth({
+    month,
+    signal,
+  }: {
+    month: string;
+    signal: AbortSignal;
+  }): Promise<MonthRead> {
+    const { api, services, source } = this.deps;
+    if (source === "public") {
+      const response = await api.public.summary.$get(
+        { query: { view: "month", month } },
+        { init: { signal } },
+      );
+      await requireApiSuccess(response);
+      if (response.status !== 200) {
+        throw new Error("Unexpected month response");
+      }
+      const read = await response.json();
+      if (!("view" in read) || read.view !== "month") {
+        throw new Error("Unexpected month response");
+      }
+      const { view: _view, ...rest } = read;
+      return rest;
+    }
+    const response = await api.days.$get(
+      { query: { month, timezone: services.clock.timeZone() } },
+      { init: { signal } },
+    );
+    await requireApiSuccess(response);
+    if (response.status !== 200) {
+      throw new Error("Unexpected month response");
+    }
+    return response.json();
   }
 
   private async showMonth({ month }: { month: string }): Promise<void> {

@@ -49,6 +49,43 @@ export interface EntryPatch extends EntryInput {
   revisionSource?: string | undefined;
 }
 
+const EXTERNAL_PHOTO_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+] as const;
+
+/** The type of an agent's photo when Calocount can take it, else `null`. */
+export function externalPhotoType(
+  value: string | null | undefined,
+): (typeof EXTERNAL_PHOTO_TYPES)[number] | null {
+  const type = value?.split(";", 1)[0]?.trim().toLowerCase() ?? "";
+  return EXTERNAL_PHOTO_TYPES.find((allowed) => allowed === type) ?? null;
+}
+
+/**
+ * A photo that an agent sent could not be used. The code and the message go to
+ * the agent as they are. Only `image_download_failed` leaves the meal saved
+ * without its photo.
+ */
+export class ExternalPhotoError extends Error {
+  constructor(
+    readonly code: string,
+    message: string,
+    cause?: unknown,
+  ) {
+    super(message, { cause });
+    this.name = "ExternalPhotoError";
+  }
+}
+
+/** The photo of a meal that an agent logs: where to download it, and the type that the agent declared. */
+export interface ExternalPhotoRef {
+  downloadUrl: string;
+  declaredType?: (typeof EXTERNAL_PHOTO_TYPES)[number];
+}
+
 /** A meal that an agent logs through MCP. The totals are those of its one item. */
 export interface ExternalMealRequest {
   /** A UUID that the agent made. The same ID again is a retry. */
@@ -59,6 +96,7 @@ export interface ExternalMealRequest {
   carbs: number;
   fat: number;
   consumedAt: number;
+  photo?: ExternalPhotoRef;
   nutrients?: Partial<
     Record<NutrientKey | NutrientUpperLimitKey, number | null>
   >;

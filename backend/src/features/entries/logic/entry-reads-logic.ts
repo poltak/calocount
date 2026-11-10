@@ -279,7 +279,33 @@ export class EntryReadsLogic extends Logic<
       trendDays,
       averageCalories:
         sum(averaged.map((day) => day.calories)) / averaged.length,
+      averageProteinG:
+        sum(averaged.map((day) => day.proteinG)) / averaged.length,
     };
+  }
+
+  /**
+   * Every entry from the first moment of the day `daysBefore` days ago to the
+   * end of today, with the logical date of today. The public dashboard reads
+   * its recent entries and its insights from this one list.
+   */
+  async lastDays({
+    ownerKey,
+    timeZone,
+    daysBefore,
+  }: {
+    ownerKey: string;
+    timeZone: string | undefined;
+    daysBefore: number;
+  }): Promise<{ date: string; entries: MealWithItems[] }> {
+    const calendar = zonedCalendar(resolveTimeZone(timeZone));
+    const date = calendar.dateKey(this.deps.services.clock.now());
+    const entries = await this.deps.storage.entries.listEntriesInRange({
+      ownerKey,
+      from: calendar.firstInstant(shiftDateKey(date, -daysBefore)),
+      to: calendar.firstInstant(shiftDateKey(date, 1)),
+    });
+    return { date, entries };
   }
 
   /**

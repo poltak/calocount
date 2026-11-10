@@ -1,7 +1,11 @@
 import { Hono, type Context } from "hono";
 import { routeBodyLimit } from "../../core/handlers/body-limit.js";
 import type { RequestEnvironment } from "../../core/handlers/types.js";
-import type { BackendLogic, BackendServices } from "../../core/types.js";
+import type {
+  AppConfig,
+  BackendLogic,
+  BackendServices,
+} from "../../core/types.js";
 import { isObject } from "../utils/json-object.js";
 import { SUPPORTED_PROTOCOL_VERSIONS } from "../utils/tool-definitions.js";
 import { answerBody } from "./mcp-protocol.js";
@@ -15,6 +19,7 @@ interface McpHandlerProps {
     "authOAuthToken" | "entries" | "entryReads" | "settings" | "weights"
   >;
   services: Pick<BackendServices, "logger">;
+  config: Pick<AppConfig, "blackBox">;
 }
 
 type McpContext = Context<RequestEnvironment>;
@@ -127,8 +132,12 @@ function versionError({
  * sessions. Every call needs the access token of a connected app. A call
  * without one gets the challenge that starts the OAuth sign-in.
  */
-export function createMcpHandlers({ logic, services }: McpHandlerProps) {
-  const tools = createToolCaller({ logic, services });
+export function createMcpHandlers({
+  logic,
+  services,
+  config,
+}: McpHandlerProps) {
+  const tools = createToolCaller({ logic, services, config });
 
   /** The account of the token, or the response that sends the client to sign in. */
   async function authorize(

@@ -5,20 +5,26 @@ import type {
   BackendLogicProps,
 } from "../../core/logic/types.js";
 import type { MealWithItems, PhotoObject } from "../storage/types.js";
-import type { EntryInput, EntryPatch, ExternalMealRequest } from "../types.js";
+import {
+  ExternalPhotoError,
+  type EntryInput,
+  type EntryPatch,
+  type ExternalMealRequest,
+} from "../types.js";
 import {
   buildEntryRows,
   buildItemRows,
   snapshotOf,
   totalsOf,
 } from "../utils/entry-rows.js";
+import { downloadExternalPhoto } from "../utils/external-photo.js";
 import { buildExternalEntryRows } from "../utils/external-entry-rows.js";
 import { newId } from "../utils/ids.js";
 import { newPhotoKey, type PhotoUpload } from "../utils/meal-photo.js";
 
 type EntriesProps = BackendLogicProps<
   "entries" | "entriesPhotos",
-  "clock" | "logger"
+  "clock" | "logger" | "images" | "photoDownload"
 > &
   BackendAtomicProps;
 
@@ -28,6 +34,11 @@ interface StoredPhoto {
   photoMimeType: string;
   photoSizeBytes: number;
 }
+
+const PHOTO_NOT_FOUND = {
+  code: "NOT_FOUND",
+  message: "Photo not found.",
+} as const;
 
 const NOT_FOUND = {
   code: "NOT_FOUND",
@@ -202,8 +213,10 @@ export class EntriesLogic extends Logic<EntriesProps, Record<string, never>> {
 
   /**
    * Save the meals that an agent logs, in one batch. A meal with a request ID
-   * that the owner already has is not saved again, so the agent can retry.
-   * Each result says whether this call saved the meal.
+   * that the owner already has is not saved again, so the agent can retry, and
+   * its photo is not downloaded again. Each result says whether this call saved
+   * the meal. A photo that cannot be downloaded leaves the meal without it and
+   * says so in `photoStatus`. Any other photo problem saves nothing.
    */
   async createExternal({
     ownerKey,
@@ -211,12 +224,99 @@ export class EntriesLogic extends Logic<EntriesProps, Record<string, never>> {
   }: {
     ownerKey: string;
     requests: ExternalMealRequest[];
-  }): Promise<Array<{ created: boolean; entry: MealWithItems }>> {
-    const { storage, atomic, services } = this.deps;
+  }): Promise<
+    Array<{
+      created: boolean;
+      entry: MealWithItems;
+      photoStatus?: "download_failed";
+    }>
+  > {
+    const { storage, services } = this.deps;
     const timestamp = services.clock.now();
-    const rows = requests.map((request) =>
-      buildExternalEntryRows({ ownerKey, request, timestamp }),
+    const known = new Set(
+      requests.some(({ photo }) => photo)
+        ? (
+            await storage.entries.listEntriesByRequestIds({
+              ownerKey,
+              requestIds: requests.map(({ requestId }) => requestId),
+            })
+          ).map(({ meal }) => meal.externalRequestId)
+        : [],
     );
+    const stored = new Map<string, StoredPhoto>();
+    const downloadFailed = new Set<string>();
+    try {
+      for (const request of requests) {
+        if (!request.photo || known.has(request.requestId)) {
+          continue;
+        }
+        try {
+          const photo = await downloadExternalPhoto({
+            ref: request.photo,
+            photoDownload: services.photoDownload,
+            images: services.images,
+          });
+          stored.set(
+            request.requestId,
+            await this.storePhoto({
+              ownerKey,
+              mealId: `meal_external_${request.requestId}`,
+              photo,
+            }),
+          );
+        } catch (error) {
+          if (
+            !(error instanceof ExternalPhotoError) ||
+            error.code !== "image_download_failed"
+          ) {
+            throw error;
+          }
+          services.logger.warn("An agent's photo could not be downloaded", {
+            code: error.code,
+            reason: error.message,
+            cause: error.cause,
+          });
+          downloadFailed.add(request.requestId);
+        }
+      }
+      return await this.saveExternal({
+        ownerKey,
+        requests,
+        timestamp,
+        stored,
+        downloadFailed,
+      });
+    } catch (error) {
+      for (const { photoKey } of stored.values()) {
+        await this.discardPhoto(photoKey);
+      }
+      throw error;
+    }
+  }
+
+  private async saveExternal({
+    ownerKey,
+    requests,
+    timestamp,
+    stored,
+    downloadFailed,
+  }: {
+    ownerKey: string;
+    requests: ExternalMealRequest[];
+    timestamp: number;
+    stored: Map<string, StoredPhoto>;
+    downloadFailed: Set<string>;
+  }) {
+    const { storage, atomic } = this.deps;
+    const rows = requests.map((request) => {
+      const photo = stored.get(request.requestId);
+      return buildExternalEntryRows({
+        ownerKey,
+        request,
+        timestamp,
+        ...(photo ? { photo } : {}),
+      });
+    });
     const results = await atomic((planning) =>
       rows.flatMap((row) => planning.entries.planInsertExternalEntry(row)),
     );
@@ -233,7 +333,8 @@ export class EntriesLogic extends Logic<EntriesProps, Record<string, never>> {
     const byRequestId = new Map(
       entries.map((entry) => [entry.meal.externalRequestId, entry]),
     );
-    return requests.map(({ requestId }, index) => {
+    const outcomes = [];
+    for (const [index, { requestId }] of requests.entries()) {
       const entry = byRequestId.get(requestId);
       if (!entry) {
         throw new AppError({
@@ -241,8 +342,22 @@ export class EntriesLogic extends Logic<EntriesProps, Record<string, never>> {
           message: "The entry was not saved.",
         });
       }
-      return { created: created[index] ?? false, entry };
-    });
+      const saved = created[index] ?? false;
+      const photo = stored.get(requestId);
+      if (photo && !saved) {
+        // Another call saved the meal first, so this object has no entry.
+        await this.discardPhoto(photo.photoKey);
+      }
+      stored.delete(requestId);
+      outcomes.push({
+        created: saved,
+        entry,
+        ...(downloadFailed.has(requestId) && !entry.meal.photoKey
+          ? { photoStatus: "download_failed" as const }
+          : {}),
+      });
+    }
+    return outcomes;
   }
 
   /**
@@ -289,18 +404,53 @@ export class EntriesLogic extends Logic<EntriesProps, Record<string, never>> {
     | { type: "photo"; object: PhotoObject }
   > {
     const { storage } = this.deps;
-    const notFound = new AppError({
-      code: "NOT_FOUND",
-      message: "Photo not found.",
-    });
     if (!(await storage.entries.hasPhotoReference({ ownerKey, photoKey }))) {
-      throw notFound;
+      throw new AppError(PHOTO_NOT_FOUND);
     }
+    return this.readPhotoObject({ photoKey, ifNoneMatch });
+  }
+
+  /**
+   * The photo of one entry of the owner, as the fields that decide whether a
+   * visitor may see it. A caller that serves the photo checks them first, and
+   * then reads the object with `readPhotoObject`.
+   */
+  async photoOfEntry({
+    ownerKey,
+    id,
+  }: {
+    ownerKey: string;
+    id: string;
+  }): Promise<
+    | {
+        status: string;
+        consumedAt: number;
+        photoKey: string | null;
+        photoMimeType: string | null;
+      }
+    | undefined
+  > {
+    const entry = await this.deps.storage.entries.findEntry({ ownerKey, id });
+    return entry?.meal;
+  }
+
+  /** The object for a key that the caller has already matched to an entry it may serve. */
+  async readPhotoObject({
+    photoKey,
+    ifNoneMatch,
+  }: {
+    photoKey: string;
+    ifNoneMatch: string | null;
+  }): Promise<
+    | { type: "notModified"; etag: string }
+    | { type: "photo"; object: PhotoObject }
+  > {
+    const { storage } = this.deps;
     if (ifNoneMatch) {
       // A revalidation that still matches needs only the tag.
       const head = await storage.entriesPhotos.head(photoKey);
       if (!head) {
-        throw notFound;
+        throw new AppError(PHOTO_NOT_FOUND);
       }
       if (head.httpEtag === ifNoneMatch) {
         return { type: "notModified", etag: head.httpEtag };
@@ -308,7 +458,7 @@ export class EntriesLogic extends Logic<EntriesProps, Record<string, never>> {
     }
     const object = await storage.entriesPhotos.get(photoKey);
     if (!object) {
-      throw notFound;
+      throw new AppError(PHOTO_NOT_FOUND);
     }
     return { type: "photo", object };
   }

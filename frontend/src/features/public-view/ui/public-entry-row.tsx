@@ -24,12 +24,41 @@ function Stat({
   );
 }
 
-/** One entry of the day, with its values and no buttons. */
-export function PublicEntryRow({ entry }: { entry: PublicEntryView }) {
+/** One entry of the day, with its values and a photo to view. It has no buttons that change data. */
+export function PublicEntryRow({
+  entry,
+  photoUrl,
+  onOpenPhoto,
+  onPhotoFailed,
+}: {
+  entry: PublicEntryView;
+  /** The address of the photo, or `null` when the entry has none. */
+  photoUrl: string | null;
+  onOpenPhoto: () => void;
+  onPhotoFailed: () => void;
+}) {
+  const withoutPhoto = photoUrl === null ? " without-photo" : "";
   return (
     <article className="meal-group" aria-label={entry.name}>
-      <div className="meal-row without-photo">
-        <div className="meal-row-content without-photo">
+      <div className={`meal-row${withoutPhoto}`}>
+        <div className={`meal-row-content${withoutPhoto}`}>
+          {photoUrl !== null && (
+            <button
+              className="meal-photo-button"
+              type="button"
+              aria-label={`View photo of ${entry.name}`}
+              onClick={onOpenPhoto}
+            >
+              <img
+                className="meal-photo"
+                src={photoUrl}
+                alt={entry.name}
+                loading="lazy"
+                decoding="async"
+                onError={onPhotoFailed}
+              />
+            </button>
+          )}
           <div className="meal-info">
             <div className="meal-name-line">
               <strong>{entry.name}</strong>
