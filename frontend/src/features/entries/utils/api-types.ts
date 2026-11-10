@@ -20,3 +20,6 @@ export type SummaryTargets = DashboardSummary["targets"];
 type DayRead = ApiResponseBody<BackendApi["days"][":date"]["$get"], 200>;
 export type DayWeightRow = NonNullable<DayRead["weight"]>;
 export type ProteinGoalOfDay = DayRead["proteinGoal"];
+export type ProteinTargetOfDay =
+  DashboardSummary["trend"]["proteinTargets"][number];
+export type TrendWeight = DashboardSummary["trend"]["weights"][number];

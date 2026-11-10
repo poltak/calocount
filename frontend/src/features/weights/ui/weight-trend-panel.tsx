@@ -1,21 +1,33 @@
+import { TrendRangeSelect } from "../../core/ui/trend-range-select.js";
 import { cx } from "../../core/utils/class-names.js";
+import type { TrendRange } from "../../core/utils/trend-range.js";
 import {
   showTrendDateLabel,
   trendDateLabel,
 } from "../../core/utils/dashboard-format.js";
-import {
-  buildWeightChart,
-  formatWeight,
-  type WeightSlotData,
-} from "../utils/weight-chart.js";
+import { buildWeightChart, formatWeight } from "../utils/weight-chart.js";
 
-/** The weight of each recent day, with the 7-day average. A day without a weight is a gap. */
+interface WeightTrendPanelProps {
+  /** The days of the trend range, oldest first. */
+  trendDates: string[];
+  trendWeights: { logicalDate: string; weightKg: number }[];
+  trendRange: TrendRange;
+  onTrendRangeChange: (range: TrendRange) => void;
+  selectedDate: string | null;
+}
+
+/** The weight of each day in the trend range, with the 7-day average. A day without a weight is a gap. */
 export function WeightTrendPanel({
-  dates,
-  weights,
+  trendDates,
+  trendWeights,
+  trendRange,
+  onTrendRangeChange,
   selectedDate,
-}: WeightSlotData) {
-  const chart = buildWeightChart({ dates, weights });
+}: WeightTrendPanelProps) {
+  const chart = buildWeightChart({
+    dates: trendDates,
+    weights: trendWeights,
+  });
   const { days, ticks, rawSegments, averageLine, weeklyChange } = chart;
   return (
     <section
@@ -27,6 +39,11 @@ export function WeightTrendPanel({
           <p className="eyebrow">A quick view</p>
           <h2 id="weight-trend-title">Weight trend</h2>
         </div>
+        <TrendRangeSelect
+          value={trendRange}
+          onChange={onTrendRangeChange}
+          label="Weight trend"
+        />
       </div>
       {chart.hasData ? (
         <>
@@ -44,7 +61,10 @@ export function WeightTrendPanel({
             )}
           </div>
           <div
-            className="bar-chart weight-chart"
+            className={cx(
+              "bar-chart weight-chart",
+              trendRange === 30 && "is-month",
+            )}
             // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- A fieldset would bring its own box into the chart grid.
             role="group"
             aria-label={`Recorded weight for the past ${days.length} days in kilograms; missing days are shown as gaps`}
@@ -142,7 +162,7 @@ export function WeightTrendPanel({
         </>
       ) : (
         <output className="chart-empty">
-          <strong>No weight records for the past 7 days</strong>
+          <strong>{`No weight records for the past ${trendRange} days`}</strong>
           <span>Record a daily weight to see your trend.</span>
         </output>
       )}

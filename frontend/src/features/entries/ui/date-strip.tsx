@@ -58,6 +58,32 @@ export function DateStrip() {
         >
           ›
         </button>
+        <button
+          className={cx(
+            "date-arrow calendar-toggle",
+            state.showCalendar && "active",
+          )}
+          type="button"
+          aria-label={state.showCalendar ? "Close calendar" : "Open calendar"}
+          aria-expanded={state.showCalendar}
+          aria-controls="history-calendar"
+          onClick={() => logic.toggleCalendar()}
+        >
+          <svg
+            viewBox="0 0 16 16"
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <rect x="2" y="3.5" width="12" height="10.5" rx="2" />
+            <path d="M2 7h12M5.5 2v3M10.5 2v3" />
+          </svg>
+        </button>
       </div>
     </section>
   );

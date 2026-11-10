@@ -15,16 +15,18 @@ import {
   nutrientLabel,
   nutrientUnit,
 } from "../../core/utils/nutrient-format.js";
+import { TrendRangeSelect } from "../../core/ui/trend-range-select.js";
 import { useDashboard } from "./dashboard-context.js";
 
 function oneDecimal(value: number): string {
   return value.toLocaleString("en-US", { maximumFractionDigits: 1 });
 }
 
-/** One nutrient over the last seven days. A day without a value is a gap, not a zero. */
+/** One nutrient over the trend range. A day without a value is a gap, not a zero. */
 export function NutrientTrendPanel() {
   const { dashboard } = useDashboard();
-  const { days, selectedDate, trendNutrient, targets } = dashboard.state;
+  const { selectedDate, trendNutrient, targets, trendRange } = dashboard.state;
+  const days = dashboard.logic.visibleTrendDays;
   const goal = targets.nutrients[trendNutrient];
   const goalValue = goal.value;
   const goalWord = goalKindWord(nutrientGoalKind(trendNutrient, goal));
@@ -53,6 +55,11 @@ export function NutrientTrendPanel() {
           <p className="eyebrow">One nutrient at a time</p>
           <h2 id="nutrient-trend-title">Nutrient trend</h2>
         </div>
+        <TrendRangeSelect
+          value={trendRange}
+          onChange={(range) => dashboard.logic.setTrendRange({ range })}
+          label="Nutrient trend"
+        />
       </div>
       <div className="nutrient-trend-controls">
         <label htmlFor="nutrient-trend-selector">Show</label>
@@ -109,7 +116,10 @@ export function NutrientTrendPanel() {
             </span>
           </div>
           <div
-            className="nutrient-trend-chart"
+            className={cx(
+              "nutrient-trend-chart",
+              trendRange === 30 && "is-month",
+            )}
             // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- A fieldset would bring its own box into the chart grid.
             role="group"
             aria-label={`${label} for the past ${points.length} days; missing days are shown as gaps`}
@@ -179,7 +189,7 @@ export function NutrientTrendPanel() {
         </>
       ) : (
         <output className="chart-empty">
-          <strong>No nutrient records for the past 7 days</strong>
+          <strong>{`No nutrient records for the past ${trendRange} days`}</strong>
           <span>Add nutrient estimates to see a trend.</span>
         </output>
       )}

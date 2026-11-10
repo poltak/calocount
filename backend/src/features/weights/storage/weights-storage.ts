@@ -37,6 +37,22 @@ export class WeightsStorage {
       .executeTakeFirst();
   }
 
+  /** The earliest day with a weight. */
+  async findFirstDate({
+    ownerKey,
+  }: {
+    ownerKey: string;
+  }): Promise<string | undefined> {
+    const row = await this.deps.db
+      .selectFrom("dailyWeights")
+      .select("logicalDate")
+      .where("ownerKey", "=", ownerKey)
+      .orderBy("logicalDate")
+      .limit(1)
+      .executeTakeFirst();
+    return row?.logicalDate;
+  }
+
   /** The weights from `from` to `to`, both included, oldest first. */
   listRange({
     ownerKey,

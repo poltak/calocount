@@ -2,6 +2,7 @@ import { Logic } from "@app/common/features/core/logic/logic";
 import {
   resolveTimeZone,
   shiftDateKey,
+  shiftMonthKey,
   zonedCalendar,
 } from "@app/common/features/core/utils/logical-date";
 import { aggregateNutrients } from "@app/common/features/entries/utils/nutrients";
@@ -10,8 +11,10 @@ import type { MealWithItems } from "../storage/types.js";
 
 type EntryReadsProps = BackendLogicProps<"entries", "clock">;
 
-/** The recent days show in the date strip and in the trend charts. */
+/** The recent days show in the date strip and the summary cards. */
 const RECENT_DAY_COUNT = 7;
+/** The trend charts show 7 or 30 days. */
+const TREND_DAY_COUNT = 30;
 /** Before this hour, the average leaves out today, which is not finished. */
 const AVERAGE_INCLUDES_TODAY_FROM_HOUR = 21;
 
@@ -43,7 +46,10 @@ export class EntryReadsLogic extends Logic<
     return { date, timeZone: calendar.timeZone, entries };
   }
 
-  /** The totals of each of the last seven days. Only complete entries count. */
+  /**
+   * The totals of each of the last 30 days, and the last seven of them as the
+   * recent days. Only complete entries count.
+   */
   async summary({
     ownerKey,
     timeZone,
@@ -54,7 +60,7 @@ export class EntryReadsLogic extends Logic<
     const calendar = zonedCalendar(resolveTimeZone(timeZone));
     const now = this.deps.services.clock.now();
     const date = calendar.dateKey(now);
-    const firstDate = shiftDateKey(date, 1 - RECENT_DAY_COUNT);
+    const firstDate = shiftDateKey(date, 1 - TREND_DAY_COUNT);
     const entries = await this.deps.storage.entries.listEntriesInRange({
       ownerKey,
       from: calendar.firstInstant(firstDate),
@@ -68,7 +74,7 @@ export class EntryReadsLogic extends Logic<
       const key = calendar.dateKey(entry.meal.consumedAt);
       byDate.set(key, [...(byDate.get(key) ?? []), entry]);
     }
-    const days = Array.from({ length: RECENT_DAY_COUNT }, (_, index) => {
+    const trendDays = Array.from({ length: TREND_DAY_COUNT }, (_, index) => {
       const dayDate = shiftDateKey(firstDate, index);
       const dayEntries = byDate.get(dayDate) ?? [];
       return {
@@ -81,14 +87,69 @@ export class EntryReadsLogic extends Logic<
         nutrients: aggregateNutrients(dayEntries.flatMap(({ items }) => items)),
       };
     });
+    const days = trendDays.slice(-RECENT_DAY_COUNT);
     const includeToday = calendar.hour(now) >= AVERAGE_INCLUDES_TODAY_FROM_HOUR;
     const averaged = includeToday ? days : days.slice(0, -1);
     return {
       date,
       timeZone: calendar.timeZone,
       days,
+      trendDays,
       averageCalories:
         sum(averaged.map((day) => day.calories)) / averaged.length,
+    };
+  }
+
+  /**
+   * The calories and protein of each day with complete entries in a month,
+   * with the days counted in the given timezone.
+   */
+  async month({
+    ownerKey,
+    month,
+    timeZone,
+  }: {
+    ownerKey: string;
+    month: string;
+    timeZone: string | undefined;
+  }) {
+    const calendar = zonedCalendar(resolveTimeZone(timeZone));
+    const [entries, firstEntryAt] = await Promise.all([
+      this.deps.storage.entries.listEntriesInRange({
+        ownerKey,
+        from: calendar.firstInstant(`${month}-01`),
+        to: calendar.firstInstant(`${shiftMonthKey(month, 1)}-01`),
+      }),
+      this.deps.storage.entries.findFirstCompleteConsumedAt({ ownerKey }),
+    ]);
+    const totals = new Map<
+      string,
+      { calories: number; proteinG: number; mealCount: number }
+    >();
+    for (const { meal } of entries) {
+      if (meal.status !== "complete") {
+        continue;
+      }
+      const date = calendar.dateKey(meal.consumedAt);
+      const day = totals.get(date) ?? {
+        calories: 0,
+        proteinG: 0,
+        mealCount: 0,
+      };
+      totals.set(date, {
+        calories: day.calories + meal.totalCalories,
+        proteinG: day.proteinG + meal.totalProteinG,
+        mealCount: day.mealCount + 1,
+      });
+    }
+    return {
+      month,
+      timeZone: calendar.timeZone,
+      firstEntryDate:
+        firstEntryAt === undefined ? null : calendar.dateKey(firstEntryAt),
+      days: [...totals]
+        .map(([date, day]) => ({ date, ...day }))
+        .toSorted((left, right) => left.date.localeCompare(right.date)),
     };
   }
 }

@@ -1,4 +1,5 @@
 import type { EventEmitter } from "@app/common/features/core/events/event-emitter";
+import type { TrendRange } from "../core/utils/trend-range.js";
 
 /**
  * Sent after the owner changed the entries or the saved entries, so that the
@@ -24,4 +25,27 @@ export interface WeightSlotProps {
   timeZone: string;
   /** True while a change or a read runs. */
   busy: boolean;
+  /** The days of the weight trend, oldest first: the last 7 or 30 days. */
+  trendDates: string[];
+  trendWeights: { logicalDate: string; weightKg: number }[];
+  trendRange: TrendRange;
+  onTrendRangeChange: (range: TrendRange) => void;
+}
+
+/**
+ * What the dashboard gives the calendar of the history feature: the day in
+ * view, and a key that changes when the entries may have changed.
+ */
+export interface CalendarSlotProps {
+  /** Today, in the timezone of the device. */
+  today: string;
+  /** The month to show first. It stays the same while the calendar is open. */
+  initialMonth: string;
+  selectedDate: string;
+  /** Changes when entries can be different, so the calendar reads its month again. */
+  reloadKey: number;
+  /** True while a change or a read runs. */
+  disabled: boolean;
+  onSelectDate: (date: string) => void;
+  onClose: () => void;
 }

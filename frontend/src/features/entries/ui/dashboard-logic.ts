@@ -8,15 +8,18 @@ import { resolveNutrientGoals } from "@app/common/features/entries/utils/nutrien
 import type { SettingsEvents } from "../../settings/types.js";
 import type { WeightEvents } from "../../weights/types.js";
 import { requireApiSuccess } from "../../api/client/api-client.js";
+import type { TrendRange } from "../../core/utils/trend-range.js";
 import { LatestRequest } from "../../core/logic/latest-request.js";
 import type { FrontendLogicProps } from "../../core/logic/types.js";
 import type { EntryEvent, EntryEvents } from "../types.js";
 import type {
   DayWeightRow,
   ProteinGoalOfDay,
+  ProteinTargetOfDay,
   SavedEntry,
   SummaryDay,
   SummaryTargets,
+  TrendWeight,
 } from "../utils/api-types.js";
 import { entryViewOf, type EntryView } from "../utils/entry-view.js";
 import { failureMessage } from "../../core/logic/failure-message.js";
@@ -57,6 +60,17 @@ interface DashboardState {
   days: SummaryDay[];
   /** The weights of those days. A day without a weight is not in the list. */
   recentWeights: DayWeightRow[];
+  /** The last 30 days, oldest first. The trend charts show the last 7 or all 30. */
+  trendDays: SummaryDay[];
+  trendWeights: TrendWeight[];
+  /** The protein target of each of the 30 days. `null` for a day without a target. */
+  proteinTargets: ProteinTargetOfDay[];
+  trendRange: TrendRange;
+  showCalendar: boolean;
+  /** The month that the calendar showed when it opened: the month of the day in view. */
+  calendarMonth: string | null;
+  /** Changes with each read of the dashboard, so the calendar reads its month again. */
+  reloadKey: number;
   /** The weight of `selectedDate`, if the owner saved one. */
   weight: DayWeightRow | null;
   /** The protein target of `selectedDate`. `null` until the day is read. */
@@ -101,6 +115,13 @@ export class DashboardLogic extends Logic<
         },
         days: [],
         recentWeights: [],
+        trendDays: [],
+        trendWeights: [],
+        proteinTargets: [],
+        trendRange: 7,
+        showCalendar: false,
+        calendarMonth: null,
+        reloadKey: 0,
         weight: null,
         proteinGoal: null,
         averageCalories: 0,
@@ -168,6 +189,33 @@ export class DashboardLogic extends Logic<
       statusMessage: null,
     });
     await this.loadDay();
+  }
+
+  /** Open a day from the calendar and close the calendar. */
+  async selectCalendarDate({ date }: { date: string }): Promise<void> {
+    this.closeCalendar();
+    await this.selectDate({ date });
+  }
+
+  toggleCalendar(): void {
+    const { showCalendar, selectedDate } = this.state;
+    this.setState({
+      showCalendar: !showCalendar,
+      calendarMonth: showCalendar ? null : (selectedDate?.slice(0, 7) ?? null),
+    });
+  }
+
+  closeCalendar(): void {
+    this.setState({ showCalendar: false, calendarMonth: null });
+  }
+
+  setTrendRange({ range }: { range: TrendRange }): void {
+    this.setState({ trendRange: range });
+  }
+
+  /** The days that the trend charts show: the last 7 or 30. */
+  get visibleTrendDays(): SummaryDay[] {
+    return this.state.trendDays.slice(-this.state.trendRange);
   }
 
   async goToPreviousDay(): Promise<void> {
@@ -275,6 +323,10 @@ export class DashboardLogic extends Logic<
       days: summary.days,
       averageCalories: summary.averageCalories,
       recentWeights: summary.recentWeights,
+      trendDays: summary.trend.days,
+      trendWeights: summary.trend.weights,
+      proteinTargets: summary.trend.proteinTargets,
+      reloadKey: this.state.reloadKey + 1,
       savedEntries,
       selectedDate: keepsSelection ? selectedDate : summary.date,
     });

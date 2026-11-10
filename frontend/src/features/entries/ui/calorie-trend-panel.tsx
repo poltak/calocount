@@ -5,16 +5,18 @@ import {
   showTrendDateLabel,
   trendDateLabel,
 } from "../../core/utils/dashboard-format.js";
+import { TrendRangeSelect } from "../../core/ui/trend-range-select.js";
 import { useDashboard } from "./dashboard-context.js";
 
 function formatChartTick(value: number): string {
   return value === 0 ? "0" : `${(value / 1000).toFixed(1)}k`;
 }
 
-/** The calories of each of the last seven days against the goal. */
+/** The calories of each day in the trend range against the goal. */
 export function CalorieTrendPanel() {
   const { dashboard } = useDashboard();
-  const { days, selectedDate, targets } = dashboard.state;
+  const { selectedDate, targets, trendRange } = dashboard.state;
+  const days = dashboard.logic.visibleTrendDays;
   const goal = targets.calories;
   const scale = calculateCalorieChartScale(
     days.map((day) => day.calories),
@@ -31,6 +33,11 @@ export function CalorieTrendPanel() {
           <p className="eyebrow">A quick view</p>
           <h2 id="trend-title">Calorie trend</h2>
         </div>
+        <TrendRangeSelect
+          value={trendRange}
+          onChange={(range) => dashboard.logic.setTrendRange({ range })}
+          label="Calorie trend"
+        />
       </div>
       <div className="chart-legend">
         <span>
@@ -42,7 +49,7 @@ export function CalorieTrendPanel() {
         </span>
       </div>
       <div
-        className="bar-chart"
+        className={cx("bar-chart", trendRange === 30 && "is-month")}
         // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- A fieldset would bring its own box into the chart grid.
         role="group"
         aria-label={`Calorie intake for the past ${days.length} days compared with a ${goal} calorie target`}

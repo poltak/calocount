@@ -36,6 +36,10 @@
       "types": "./dist/features/core/utils/log-level.d.ts",
       "default": "./dist/features/core/utils/log-level.js"
     },
+    "./features/history/utils/calendar-grid": {
+      "types": "./dist/features/history/utils/calendar-grid.d.ts",
+      "default": "./dist/features/history/utils/calendar-grid.js"
+    },
     "./features/core/utils/logical-date": {
       "types": "./dist/features/core/utils/logical-date.d.ts",
       "default": "./dist/features/core/utils/logical-date.js"

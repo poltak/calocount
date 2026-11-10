@@ -13,6 +13,7 @@ import { AuthProvider, useAuth } from "../../auth/ui/auth-context.js";
 import { SessionGate } from "../../auth/ui/session-gate.js";
 import { SignInPage } from "../../auth/ui/sign-in-page.js";
 import { DashboardPage } from "../../entries/ui/dashboard-page.js";
+import { CalendarPanel } from "../../history/ui/calendar-panel.js";
 import { SettingsButton } from "../../settings/ui/settings-button.js";
 import { SettingsForm } from "../../settings/ui/settings-form.js";
 import { SettingsDialog } from "../../settings/ui/settings-dialog.js";
@@ -92,6 +93,7 @@ function OwnerDashboard() {
       settingsEvents={settings.logic.events}
       weightEvents={weights.logic.events}
       weightBusy={weights.logic.busy}
+      renderCalendar={(props) => <CalendarPanel {...props} />}
       renderWeightTrend={(props) => <WeightTrendPanel {...props} />}
       renderWeightPanel={({ selectedDate, weights: dayWeights, ...props }) => (
         <WeightPanel

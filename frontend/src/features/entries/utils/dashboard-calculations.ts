@@ -33,6 +33,25 @@ export function calculateMacroPercentages({
   };
 }
 
+/** The macro split of each day. A day without macro calories has no data and is a gap in the chart. */
+export function calculateMacroTrend(
+  days: readonly {
+    date: string;
+    carbsG: number;
+    proteinG: number;
+    fatG: number;
+  }[],
+) {
+  return days.map((day) => {
+    const percentages = calculateMacroPercentages(day);
+    return {
+      date: day.date,
+      percentages,
+      hasData: percentages.carbs + percentages.protein + percentages.fat > 0,
+    };
+  });
+}
+
 export function calculateTargetPercent(value: number, target: number): number {
   const safeTarget = nonNegativeFinite(target);
   if (safeTarget <= 0) {

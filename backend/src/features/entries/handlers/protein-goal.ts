@@ -36,3 +36,33 @@ export async function proteinGoalOfDay({
       : null,
   });
 }
+
+/**
+ * The protein target of each of some days, oldest first. A goal per kilogram
+ * uses, for each day, the latest weight on or before it. `weights` holds the
+ * weights from the first day on, oldest first, and `weightBefore` the latest
+ * weight before the first day.
+ */
+export function proteinTargetsOfDays({
+  dates,
+  goals,
+  weights,
+  weightBefore,
+}: {
+  dates: readonly string[];
+  goals: Goals;
+  weights: readonly { weightKg: number; logicalDate: string }[];
+  weightBefore: { weightKg: number; logicalDate: string } | undefined;
+}): { date: string; targetG: number | null }[] {
+  const known = weightBefore ? [weightBefore, ...weights] : [...weights];
+  return dates.map((date) => {
+    const weight = known.findLast((entry) => entry.logicalDate <= date);
+    const { targetG } = proteinGoalForDay({
+      mode: goals.proteinMode,
+      fixedTargetG: goals.fixedProteinG,
+      gramsPerKg: goals.proteinGramsPerKg,
+      weight: weight ?? null,
+    });
+    return { date, targetG };
+  });
+}

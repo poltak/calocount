@@ -2,15 +2,17 @@ import { useEffect, type ReactNode } from "react";
 import { useLocation } from "react-router";
 import type { SettingsEvents } from "../../settings/types.js";
 import type { WeightEvents } from "../../weights/types.js";
-import type { WeightSlotProps } from "../types.js";
+import type { CalendarSlotProps, WeightSlotProps } from "../types.js";
 import { cx } from "../../core/utils/class-names.js";
 import { CalorieTrendPanel } from "./calorie-trend-panel.js";
 import { DashboardProvider, useDashboard } from "./dashboard-context.js";
 import { DashboardTopbar } from "./dashboard-topbar.js";
 import { DateStrip } from "./date-strip.js";
 import { MacroPanel } from "./macro-panel.js";
+import { MacroTrendPanel } from "./macro-trend-panel.js";
 import { MealsPanel } from "./meals-panel.js";
 import { NutritionOverview } from "./nutrition-overview.js";
+import { ProteinTargetPanel } from "./protein-target-panel.js";
 import { SavedEntriesPanel } from "./saved-entries-panel.js";
 import { SectionTabs } from "./section-tabs.js";
 import { SummaryGrid } from "./summary-grid.js";
@@ -79,6 +81,7 @@ interface DashboardPageProps {
   weightBusy: boolean;
   renderWeightTrend: (props: WeightSlotProps) => ReactNode;
   renderWeightPanel: (props: WeightSlotProps) => ReactNode;
+  renderCalendar: (props: CalendarSlotProps) => ReactNode;
 }
 
 function DashboardView({
@@ -86,9 +89,14 @@ function DashboardView({
   belowTopbar,
   renderWeightTrend,
   renderWeightPanel,
+  renderCalendar,
 }: Pick<
   DashboardPageProps,
-  "topbarActions" | "belowTopbar" | "renderWeightTrend" | "renderWeightPanel"
+  | "topbarActions"
+  | "belowTopbar"
+  | "renderWeightTrend"
+  | "renderWeightPanel"
+  | "renderCalendar"
 >) {
   const { dashboard, busy } = useDashboard();
   const { logic, state } = dashboard;
@@ -100,6 +108,10 @@ function DashboardView({
     weight: state.weight,
     timeZone: state.timeZone,
     busy,
+    trendDates: logic.visibleTrendDays.map((day) => day.date),
+    trendWeights: state.trendWeights,
+    trendRange: state.trendRange,
+    onTrendRangeChange: (range) => logic.setTrendRange({ range }),
   };
   useEffect(() => {
     logic.setActiveSection({ hash });
@@ -113,12 +125,27 @@ function DashboardView({
       {state.loaded ? (
         <>
           <DateStrip />
+          {state.showCalendar &&
+            state.selectedDate !== null &&
+            state.today !== null &&
+            state.calendarMonth !== null &&
+            renderCalendar({
+              today: state.today,
+              initialMonth: state.calendarMonth,
+              selectedDate: state.selectedDate,
+              reloadKey: state.reloadKey,
+              disabled: busy,
+              onSelectDate: (date) => void logic.selectCalendarDate({ date }),
+              onClose: () => logic.closeCalendar(),
+            })}
           <SectionTabs />
           <SummaryGrid />
           <div className="content-grid">
             <section className="primary-column">
               <CalorieTrendPanel />
+              <ProteinTargetPanel />
               {renderWeightTrend(weightSlot)}
+              <MacroTrendPanel />
               <NutritionOverview />
               {renderWeightPanel(weightSlot)}
               <MacroPanel />

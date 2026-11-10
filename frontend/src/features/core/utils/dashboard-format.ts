@@ -15,6 +15,12 @@ const trendDateFormatter = new Intl.DateTimeFormat("en-US", {
   timeZone: "UTC",
 });
 
+const monthFormatter = new Intl.DateTimeFormat("en-US", {
+  month: "long",
+  year: "numeric",
+  timeZone: "UTC",
+});
+
 export function formatNumber(value: number): string {
   return numberFormatter.format(value);
 }
@@ -26,6 +32,11 @@ function noon(date: string): Date {
 
 export function weekdayOf(date: string): string {
   return weekdayFormatter.format(noon(date));
+}
+
+/** A month such as "August 2026", from `YYYY-MM`. */
+export function monthLabel(month: string): string {
+  return monthFormatter.format(noon(`${month}-01`));
 }
 
 /** A day such as "August 20, 2026". */

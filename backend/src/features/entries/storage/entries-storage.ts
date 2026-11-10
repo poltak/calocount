@@ -96,6 +96,23 @@ export class EntriesStorage {
     }));
   }
 
+  /** When the owner's earliest complete entry was eaten, or `undefined` for an owner without one. */
+  async findFirstCompleteConsumedAt({
+    ownerKey,
+  }: {
+    ownerKey: string;
+  }): Promise<number | undefined> {
+    const row = await this.deps.db
+      .selectFrom("mealLogs")
+      .select("consumedAt")
+      .where("ownerKey", "=", ownerKey)
+      .where("status", "=", "complete")
+      .orderBy("consumedAt")
+      .limit(1)
+      .executeTakeFirst();
+    return row?.consumedAt;
+  }
+
   /** One statement for the entry and one for each item. D1 limits the values of a statement, so a multi-row insert of items does not fit. */
   planInsertEntry({
     meal,
