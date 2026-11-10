@@ -194,6 +194,41 @@ export class EntriesStorage {
     }));
   }
 
+  /** The totals of the complete entries from `from` up to, not including, `to`, without their items. */
+  listCompleteTotalsInRange({
+    ownerKey,
+    from,
+    to,
+  }: {
+    ownerKey: string;
+    from: number;
+    to: number;
+  }): Promise<
+    Pick<
+      MealWithItems["meal"],
+      | "consumedAt"
+      | "totalCalories"
+      | "totalProteinG"
+      | "totalCarbsG"
+      | "totalFatG"
+    >[]
+  > {
+    return this.deps.db
+      .selectFrom("mealLogs")
+      .select([
+        "consumedAt",
+        "totalCalories",
+        "totalProteinG",
+        "totalCarbsG",
+        "totalFatG",
+      ])
+      .where("ownerKey", "=", ownerKey)
+      .where("status", "=", "complete")
+      .where("consumedAt", ">=", from)
+      .where("consumedAt", "<", to)
+      .execute();
+  }
+
   /** When the owner's earliest complete entry was eaten, or `undefined` for an owner without one. */
   async findFirstCompleteConsumedAt({
     ownerKey,

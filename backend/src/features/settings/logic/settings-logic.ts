@@ -1,4 +1,5 @@
 import { Logic } from "@app/common/features/core/logic/logic";
+import { resolveTimeZone } from "@app/common/features/core/utils/logical-date";
 import {
   DEFAULT_CALORIE_TARGET,
   DEFAULT_PROTEIN_TARGET_G,
@@ -101,6 +102,22 @@ export class SettingsLogic extends Logic<SettingsProps, Record<string, never>> {
       nutrients: resolveNutrientGoals(
         parseNutrientGoalOverridesJson(row?.nutrientTargetsJson),
       ),
+    };
+  }
+
+  /**
+   * Whether visitors may read the log, and the timezone that sets its days.
+   * A missing timezone, or one that no longer exists, is UTC.
+   */
+  async publicView({
+    ownerKey,
+  }: {
+    ownerKey: string;
+  }): Promise<{ enabled: boolean; timeZone: string }> {
+    const row = await this.read({ ownerKey });
+    return {
+      enabled: row?.publicViewEnabled === 1,
+      timeZone: resolveTimeZone(row?.timezone),
     };
   }
 
