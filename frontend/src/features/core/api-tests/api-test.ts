@@ -49,7 +49,10 @@ export const test = blackBoxTest.extend<ApiFixtures>({
     await provide(request);
     await request.dispose();
   },
-  anonymousRequest: async ({ playwright }, provide) => {
+  anonymousRequest: async ({ page, playwright }, provide) => {
+    // `page` first, so that a test with no page also starts with an emptied
+    // backend.
+    void page;
     const request = await playwright.request.newContext();
     await provide(request);
     await request.dispose();
