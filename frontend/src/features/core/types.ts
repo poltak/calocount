@@ -1,4 +1,5 @@
 import type { LoggerServiceInterface } from "@app/common/features/core/services/types";
+import type { Profile } from "@app/common/features/core/utils/profile";
 import type { BackendApi } from "../api/client/api-client.js";
 import type { ApiAccessEvents } from "../api/client/access-events.js";
 import type { ClockServiceInterface } from "../clock/services/types.js";
@@ -31,7 +32,11 @@ export interface FrontendServices extends FrontendCoreServices {
 }
 
 export interface App {
+  /** The requests of `api` name this log. */
+  profile: Profile;
   api: BackendApi;
+  /** The same backend, with each request naming the partner log. */
+  partnerApi: BackendApi;
   apiAccessEvents: ApiAccessEvents;
   storage: FrontendStorage;
   services: FrontendServices;

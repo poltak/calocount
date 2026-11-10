@@ -85,6 +85,8 @@ interface DashboardPageProps {
   renderWeightPanel: (props: WeightSlotProps) => ReactNode;
   renderCalendar: (props: CalendarSlotProps) => ReactNode;
   renderInsights: (props: InsightsSlotProps) => ReactNode;
+  /** The switch between the logs. It shows when the owner keeps a partner log. */
+  renderProfileSwitch: (props: { partnerProfileEnabled: boolean }) => ReactNode;
 }
 
 function DashboardView({
@@ -96,6 +98,7 @@ function DashboardView({
   renderWeightPanel,
   renderCalendar,
   renderInsights,
+  renderProfileSwitch,
 }: Omit<DashboardPageProps, "weightBusy">) {
   const { dashboard, form, actions, busy } = useDashboard();
   const { logic, state } = dashboard;
@@ -126,7 +129,12 @@ function DashboardView({
 
   return (
     <>
-      <DashboardTopbar actions={topbarActions} />
+      <DashboardTopbar
+        actions={topbarActions}
+        profileSwitch={renderProfileSwitch({
+          partnerProfileEnabled: state.partnerProfileEnabled,
+        })}
+      />
       {belowTopbar}
       <Feedback />
       {state.loaded ? (

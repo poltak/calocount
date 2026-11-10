@@ -8,6 +8,7 @@ import {
   normaliseProteinGoalMode,
   type ProteinGoalMode,
 } from "@app/common/features/goals/utils/daily-targets";
+import type { Profile } from "@app/common/features/core/utils/profile";
 import {
   NUTRIENT_GOAL_DEFINITIONS,
   resolveNutrientGoals,
@@ -31,6 +32,7 @@ export interface SettingsDraft {
   vitaminB6UsFnbAdultUlEnabled: boolean;
   usFnbAdultUlEnabled: boolean;
   publicViewEnabled: boolean;
+  partnerProfileEnabled: boolean;
   timezone: string;
 }
 
@@ -44,6 +46,7 @@ export interface SavedSettings {
   vitaminB6UsFnbAdultUlEnabled: boolean;
   usFnbAdultUlEnabled: boolean;
   publicViewEnabled: boolean;
+  partnerProfileEnabled: boolean;
   nutrientTargets: NutrientGoalMap;
 }
 
@@ -98,14 +101,19 @@ export function settingsDraftOf({
     usFnbAdultUlEnabled: saved?.usFnbAdultUlEnabled ?? false,
     // A new owner starts private.
     publicViewEnabled: saved?.publicViewEnabled ?? false,
+    partnerProfileEnabled: saved?.partnerProfileEnabled ?? false,
     timezone: saved?.timezone ?? deviceTimeZone,
   };
 }
 
 /** The request body of a save, or the message that tells the owner which field to fix. */
-export function patchOfDraft(
-  draft: SettingsDraft,
-): { patch: SettingsPatchBody } | { error: string } {
+export function patchOfDraft({
+  draft,
+  profile,
+}: {
+  draft: SettingsDraft;
+  profile: Profile;
+}): { patch: SettingsPatchBody } | { error: string } {
   const calories = Number(draft.calories);
   const proteinG = Number(draft.proteinG);
   const proteinPerKg = Number(draft.proteinPerKg);
@@ -151,7 +159,13 @@ export function patchOfDraft(
       nutrientTargets: overridesFromDraft(draft.nutrients),
       vitaminB6UsFnbAdultUlEnabled: draft.vitaminB6UsFnbAdultUlEnabled,
       usFnbAdultUlEnabled: draft.usFnbAdultUlEnabled,
-      publicViewEnabled: draft.publicViewEnabled,
+      // The public view and the partner switch belong to the owner's log.
+      ...(profile === "owner"
+        ? {
+            publicViewEnabled: draft.publicViewEnabled,
+            partnerProfileEnabled: draft.partnerProfileEnabled,
+          }
+        : {}),
     },
   };
 }
@@ -165,7 +179,8 @@ export interface SettingsPatchBody {
   nutrientTargets: NutrientGoalOverrides;
   vitaminB6UsFnbAdultUlEnabled: boolean;
   usFnbAdultUlEnabled: boolean;
-  publicViewEnabled: boolean;
+  publicViewEnabled?: boolean;
+  partnerProfileEnabled?: boolean;
 }
 
 /** Every timezone the browser knows, plus the given ones in case it does not list them. */

@@ -20,6 +20,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       storage: {},
       services: { clock: app.services.clock },
       api: { settings: app.api.settings },
+      profile: app.profile,
     }),
     [app],
   );

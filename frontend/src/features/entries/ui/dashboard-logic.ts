@@ -76,6 +76,8 @@ interface DashboardState {
   /** The protein target of `selectedDate`. `null` until the day is read. */
   proteinGoal: ProteinGoalOfDay | null;
   averageCalories: number;
+  /** True when the owner keeps a partner log. The profile switch shows then. */
+  partnerProfileEnabled: boolean;
   selectedDate: string | null;
   /** The entries of `selectedDate`. */
   entries: EntryView[];
@@ -125,6 +127,7 @@ export class DashboardLogic extends Logic<
         weight: null,
         proteinGoal: null,
         averageCalories: 0,
+        partnerProfileEnabled: false,
         selectedDate: null,
         entries: [],
         savedEntries: [],
@@ -322,6 +325,7 @@ export class DashboardLogic extends Logic<
       targets: summary.targets,
       days: summary.days,
       averageCalories: summary.averageCalories,
+      partnerProfileEnabled: summary.partnerProfileEnabled,
       recentWeights: summary.recentWeights,
       trendDays: summary.trend.days,
       trendWeights: summary.trend.weights,

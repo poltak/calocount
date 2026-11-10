@@ -1,7 +1,13 @@
 import type { ReactNode } from "react";
 
 /** The top bar. The pages that compose the dashboard give it the settings button. */
-export function DashboardTopbar({ actions }: { actions: ReactNode }) {
+export function DashboardTopbar({
+  actions,
+  profileSwitch,
+}: {
+  actions: ReactNode;
+  profileSwitch: ReactNode;
+}) {
   return (
     <header className="topbar">
       <a className="brand" href="#today" aria-label="Calocount home">
@@ -12,6 +18,7 @@ export function DashboardTopbar({ actions }: { actions: ReactNode }) {
         </span>
         <span>calocount</span>
       </a>
+      {profileSwitch}
       <div className="topbar-actions">
         <span className="sync-status">
           <span className="status-dot" aria-hidden="true" /> Live data
