@@ -11,6 +11,8 @@ import type { EntriesLogic } from "../entries/logic/entries-logic.js";
 import type { EntryReadsLogic } from "../entries/logic/entry-reads-logic.js";
 import type { SavedEntriesLogic } from "../entries/logic/saved-entries-logic.js";
 import type { EntriesStorage } from "../entries/storage/entries-storage.js";
+import type { PhotosStorage } from "../entries/storage/photos-storage.js";
+import type { PhotoCleanupLogic } from "../entries/logic/photo-cleanup-logic.js";
 import type { BlackBoxLogic } from "../black-box/logic/black-box-logic.js";
 import type { BlackBoxStorage } from "../black-box/storage/black-box-storage.js";
 import type { HealthLogic } from "../health/logic/health-logic.js";
@@ -27,6 +29,7 @@ export interface BackendStorage {
   blackBox: BlackBoxStorage;
   entries: EntriesStorage;
   health: HealthStorage;
+  entriesPhotos: PhotosStorage;
   settings: SettingsStorage;
   weights: WeightsStorage;
 }
@@ -56,6 +59,7 @@ export interface BackendLogic {
   entries: EntriesLogic;
   entryReads: EntryReadsLogic;
   health: HealthLogic;
+  photoCleanup: PhotoCleanupLogic;
   savedEntries: SavedEntriesLogic;
   settings: SettingsLogic;
   weights: WeightsLogic;

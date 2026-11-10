@@ -23,6 +23,7 @@ const VALUES: NewEntryValues = {
   fat: "7.75",
   nutrients: {},
   origins: {},
+  photo: null,
 };
 
 function setupTest(params: LogicTestParams = {}) {

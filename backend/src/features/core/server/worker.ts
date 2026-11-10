@@ -28,7 +28,7 @@ export default {
   fetch(request: Request, env: WorkerEnvironment, context: ExecutionContext) {
     return httpApp.fetch(request, env, context);
   },
-  /** The hourly cron trigger removes expired sessions, challenges, codes and tokens. */
+  /** The hourly cron trigger of `wrangler.jsonc`. It removes expired sign-in data and photos that no entry uses. */
   async scheduled() {
     try {
       await app.logic.authConnections.cleanupExpired();
@@ -37,5 +37,6 @@ export default {
         error,
       });
     }
+    await app.logic.photoCleanup.runScheduled();
   },
 };

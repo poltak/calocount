@@ -51,9 +51,13 @@ export class EntryActionsLogic extends Logic<
         { init: { signal: this.signal } },
       );
       await requireApiSuccess(response);
+      const photoDeleted =
+        response.status === 200 ? (await response.json()).photoDeleted : true;
       this.events.emitDetached({
         type: "entriesChanged",
-        message: "Entry deleted.",
+        message: photoDeleted
+          ? "Entry deleted."
+          : "Entry deleted. Its photo could not be removed.",
       });
     });
   }

@@ -369,6 +369,45 @@ export class EntriesStorage {
     }));
   }
 
+  // ---------- Photos ----------
+
+  /** True when an entry of the owner still points at the photo. A copy shares the photo of its source. */
+  async hasPhotoReference({
+    ownerKey,
+    photoKey,
+  }: {
+    ownerKey: string;
+    photoKey: string;
+  }): Promise<boolean> {
+    const row = await this.deps.db
+      .selectFrom("mealLogs")
+      .select("id")
+      .where("ownerKey", "=", ownerKey)
+      .where("photoKey", "=", photoKey)
+      .limit(1)
+      .executeTakeFirst();
+    return row !== undefined;
+  }
+
+  /** Which of the keys an entry of any owner points at. */
+  async listLinkedPhotoKeys({
+    keys,
+  }: {
+    keys: string[];
+  }): Promise<Set<string>> {
+    if (keys.length === 0) {
+      return new Set();
+    }
+    const rows = await this.deps.db
+      .selectFrom("mealLogs")
+      .select("photoKey")
+      .where("photoKey", "in", keys)
+      .execute();
+    return new Set(
+      rows.flatMap(({ photoKey }) => (photoKey ? [photoKey] : [])),
+    );
+  }
+
   // ---------- Saved entries ----------
 
   listSavedEntries({

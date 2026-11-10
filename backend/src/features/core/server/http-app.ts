@@ -5,6 +5,7 @@ import { secureHeaders } from "hono/secure-headers";
 import { createBlackBoxHandlers } from "../../black-box/handlers/black-box-handlers.js";
 import { createDashboardHandlers } from "../../entries/handlers/dashboard-handlers.js";
 import { createEntryHandlers } from "../../entries/handlers/entry-handlers.js";
+import { createPhotoHandlers } from "../../entries/handlers/photo-handlers.js";
 import { createSavedEntryHandlers } from "../../entries/handlers/saved-entry-handlers.js";
 import { createAuthHandlers } from "../../auth/handlers/auth-handlers.js";
 import { requireTrustedOrigin } from "../../auth/handlers/require-trusted-origin.js";
@@ -46,6 +47,7 @@ function createBusinessHttpApp({ app }: ApiHttpAppProps) {
     .route("/", createDashboardHandlers({ logic: app.logic }))
     .route("/export", createExportHandlers({ logic: app.logic }))
     .route("/meals", createEntryHandlers({ logic: app.logic }))
+    .route("/photos", createPhotoHandlers({ logic: app.logic }))
     .route("/saved-entries", createSavedEntryHandlers({ logic: app.logic }))
     .route("/settings", createSettingsHandlers({ logic: app.logic }))
     .route("/weights", createWeightHandlers({ logic: app.logic }));

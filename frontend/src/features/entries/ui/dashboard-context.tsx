@@ -6,11 +6,13 @@ import { useFrontendApp } from "../../core/ui/frontend-app-context.js";
 import { DashboardLogic } from "./dashboard-logic.js";
 import { EntryActionsLogic } from "./entry-actions-logic.js";
 import { EntryFormLogic } from "./entry-form-logic.js";
+import { PhotoPreviewLogic } from "./photo-preview-logic.js";
 
 interface DashboardContextValue {
   dashboard: { logic: DashboardLogic; state: DashboardLogic["state"] };
   form: { logic: EntryFormLogic; state: EntryFormLogic["state"] };
   actions: { logic: EntryActionsLogic; state: EntryActionsLogic["state"] };
+  photos: { logic: PhotoPreviewLogic; state: PhotoPreviewLogic["state"] };
   /** True while a change or a read runs, so the buttons that start another wait. */
   busy: boolean;
 }
@@ -47,6 +49,11 @@ export function DashboardProvider({
     }),
     [app],
   );
+  const photoDeps = useMemo(
+    () => ({ storage: {}, services: {}, api: { photos: app.api.photos } }),
+    [app],
+  );
+  const photos = useLogic({ LogicClass: PhotoPreviewLogic, deps: photoDeps });
   const form = useLogic({ LogicClass: EntryFormLogic, deps: formDeps });
   const actions = useLogic({ LogicClass: EntryActionsLogic, deps: actionDeps });
   const dashboardDeps = useMemo(
@@ -75,6 +82,7 @@ export function DashboardProvider({
     dashboard,
     form,
     actions,
+    photos,
     busy:
       form.logic.busy ||
       actions.logic.busy ||

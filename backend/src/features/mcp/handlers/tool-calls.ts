@@ -142,10 +142,13 @@ export function createToolCaller({ logic, services }: ToolCallProps): {
         "A completed meal with this request_id was not found.",
       );
     }
-    const { meal, items } = await logic.entries.update({
+    const {
+      entry: { meal, items },
+    } = await logic.entries.update({
       ownerKey,
       id: existing.meal.id,
       patch: entryPatchOf({ existing, correction: correction.patch }),
+      photo: null,
     });
     return textResult({
       text: "Updated the saved meal. See the structured data for its current values.",

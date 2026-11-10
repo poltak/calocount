@@ -1,4 +1,5 @@
 import type { FullApplication } from "../../core/tests/full-application.js";
+import { photoUpload } from "../utils/entry-form.js";
 import { entryViewOf, type EntryView } from "../utils/entry-view.js";
 
 export const DAY_MS = 86_400_000;
@@ -39,6 +40,17 @@ export interface SeedEntry {
   mealType?: string;
   status?: "complete" | "pending";
   items?: SeedItem[];
+  photo?: File;
+}
+
+const PNG_BASE64 =
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+
+/** A one pixel PNG. */
+export function pngFile(name = "snack.png"): File {
+  return new File([Buffer.from(PNG_BASE64, "base64")], name, {
+    type: "image/png",
+  });
 }
 
 /** Log an entry through the API, as the owner's page does, and return its ID. */
@@ -46,23 +58,25 @@ export async function seedEntry(
   { frontend }: Pick<FullApplication, "frontend">,
   entry: SeedEntry = {},
 ): Promise<string> {
-  const response = await frontend.api.meals.$post({
-    json: {
-      ...(entry.consumedAt === undefined
-        ? {}
-        : { consumedAt: entry.consumedAt }),
-      caption: entry.caption ?? "",
-      ...(entry.mealType === undefined ? {} : { mealType: entry.mealType }),
-      ...(entry.status === undefined ? {} : { status: entry.status }),
-      items: entry.items ?? [
-        {
-          name: entry.name ?? "Oats",
-          calories: entry.calories ?? 300,
-          proteinG: entry.proteinG ?? 10,
-        },
-      ],
-    },
-  });
+  const json = {
+    ...(entry.consumedAt === undefined ? {} : { consumedAt: entry.consumedAt }),
+    caption: entry.caption ?? "",
+    ...(entry.mealType === undefined ? {} : { mealType: entry.mealType }),
+    ...(entry.status === undefined ? {} : { status: entry.status }),
+    items: entry.items ?? [
+      {
+        name: entry.name ?? "Oats",
+        calories: entry.calories ?? 300,
+        proteinG: entry.proteinG ?? 10,
+      },
+    ],
+  };
+  const response = await frontend.api.meals.$post(
+    { json },
+    entry.photo
+      ? { init: photoUpload({ entry: json, photo: entry.photo }) }
+      : undefined,
+  );
   if (response.status !== 201) {
     throw new Error(`The seed entry was refused: ${response.status}`);
   }

@@ -12,6 +12,7 @@ import { FakeClockService } from "../services/fake-clock-service.js";
 import type { App, AppConfig, BackendServices } from "../types.js";
 import { randomToken, sha256Base64Url, sha256Hex } from "../utils/crypto.js";
 import { SESSION_IDLE_TTL_MS } from "../../auth/utils/session-times.js";
+import { MemoryPhotoBucket } from "./memory-photo-bucket.js";
 import { NodeSqliteD1, openDatabase } from "./node-sqlite-d1.js";
 import { createSoftPasskeyData, type SoftPasskeyData } from "./soft-passkey.js";
 
@@ -81,6 +82,8 @@ export interface TestApp extends App {
     logger: MemoryLoggerService;
     clock: FakeClockService;
   };
+  /** The bucket of the entry photos, in memory. A test reads it, ages an object, or makes it fail. */
+  photoBucket: MemoryPhotoBucket;
   /** For the test of the schema. */
   schemaTools: {
     findStandardColumnProblems: typeof findStandardColumnProblems;
@@ -128,9 +131,11 @@ export function createApp({
     clock: new FakeClockService(),
     passkeys: new SimpleWebAuthnService(),
   };
+  const photoBucket = new MemoryPhotoBucket();
   const app = composeApp({
     binding: bindingOf(db),
     db,
+    photoBucket,
     services,
     config: {
       ...readLiveConfig({ CALOCOUNT_SETUP_CODE: TEST_SETUP_CODE }),
@@ -142,6 +147,7 @@ export function createApp({
     ...app,
     db,
     services,
+    photoBucket,
     schemaTools: { findStandardColumnProblems },
   };
 }
