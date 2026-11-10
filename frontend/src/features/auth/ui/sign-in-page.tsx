@@ -14,6 +14,31 @@ function safeReturnTo(value: unknown): string {
     : "/";
 }
 
+/**
+ * The consent page of a connecting app is a page of the server, not of the
+ * router, so the way back to it is a link and a new page load. The server
+ * sends a visitor without a session here with its address in `returnTo`.
+ */
+function consentReturnTo(search: string): string | null {
+  const value = new URLSearchParams(search).get("returnTo");
+  return value?.startsWith("/oauth/authorize?") && safeReturnTo(value) === value
+    ? value
+    : null;
+}
+
+function ContinueToConsent({ target }: { target: string }) {
+  return (
+    <section className="login-panel auth-panel">
+      <h1>You are signed in</h1>
+      <p>
+        <a className="primary-button" href={target}>
+          Continue connecting the app
+        </a>
+      </p>
+    </section>
+  );
+}
+
 const WAITING = "Waiting for your device…";
 
 /**
@@ -33,7 +58,12 @@ export function SignInPage() {
   );
 
   if (state.isSignedIn) {
-    return <Navigate to={safeReturnTo(location.state?.returnTo)} replace />;
+    const consent = consentReturnTo(location.search);
+    return consent ? (
+      <ContinueToConsent target={consent} />
+    ) : (
+      <Navigate to={safeReturnTo(location.state?.returnTo)} replace />
+    );
   }
   if (!logic.canUsePasskeys) {
     return (

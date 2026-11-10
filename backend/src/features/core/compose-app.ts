@@ -1,3 +1,6 @@
+import { AuthConnectionsLogic } from "../auth/logic/auth-connections-logic.js";
+import { AuthOAuthLogic } from "../auth/logic/auth-oauth-logic.js";
+import { AuthOAuthTokenLogic } from "../auth/logic/auth-oauth-token-logic.js";
 import { AuthPasskeyLogic } from "../auth/logic/auth-passkey-logic.js";
 import { AuthPasskeyManageLogic } from "../auth/logic/auth-passkey-manage-logic.js";
 import { AuthSessionLogic } from "../auth/logic/auth-session-logic.js";
@@ -6,6 +9,9 @@ import { EntriesLogic } from "../entries/logic/entries-logic.js";
 import { EntryReadsLogic } from "../entries/logic/entry-reads-logic.js";
 import { SavedEntriesLogic } from "../entries/logic/saved-entries-logic.js";
 import { EntriesStorage } from "../entries/storage/entries-storage.js";
+import { PhotoCleanupLogic } from "../entries/logic/photo-cleanup-logic.js";
+import { PhotosStorage } from "../entries/storage/photos-storage.js";
+import type { PhotoBucket } from "../entries/storage/types.js";
 import { BlackBoxLogic } from "../black-box/logic/black-box-logic.js";
 import { BlackBoxStorage } from "../black-box/storage/black-box-storage.js";
 import { HealthLogic } from "../health/logic/health-logic.js";
@@ -29,17 +35,23 @@ import type {
 interface ComposeAppProps {
   binding: D1Binding;
   db: Database;
+  /** The bucket of the entry photos: R2 in the Worker, memory in a test. */
+  photoBucket: PhotoBucket;
   services: BackendServices;
   config: AppConfig;
 }
 
 /** Every Storage class around one database. */
-function createStorage(db: Database): BackendStorage {
+function createStorage({
+  db,
+  photoBucket,
+}: Pick<ComposeAppProps, "db" | "photoBucket">): BackendStorage {
   return {
     auth: new AuthStorage({ db }),
     blackBox: new BlackBoxStorage({ db }),
     entries: new EntriesStorage({ db }),
     health: new HealthStorage({ db }),
+    entriesPhotos: new PhotosStorage({ bucket: photoBucket }),
     settings: new SettingsStorage({ db }),
     weights: new WeightsStorage({ db }),
   };
@@ -52,13 +64,22 @@ function createStorage(db: Database): BackendStorage {
 export function composeApp({
   binding,
   db,
+  photoBucket,
   services,
   config,
 }: ComposeAppProps): App {
-  const storage = createStorage(db);
+  const storage = createStorage({ db, photoBucket });
   const atomic = createRunAtomic({ binding, storage });
 
   const logic: BackendLogic = {
+    authConnections: new AuthConnectionsLogic({ storage, services, atomic }),
+    authOAuth: new AuthOAuthLogic({ storage, services, atomic, config }),
+    authOAuthToken: new AuthOAuthTokenLogic({
+      storage,
+      services,
+      atomic,
+      config,
+    }),
     authPasskey: new AuthPasskeyLogic({ storage, services, atomic, config }),
     authPasskeyManage: new AuthPasskeyManageLogic({
       storage,
@@ -71,6 +92,7 @@ export function composeApp({
     entries: new EntriesLogic({ storage, services, atomic }),
     entryReads: new EntryReadsLogic({ storage, services }),
     health: new HealthLogic({ storage, services }),
+    photoCleanup: new PhotoCleanupLogic({ storage, services }),
     savedEntries: new SavedEntriesLogic({ storage, services, atomic }),
     settings: new SettingsLogic({ storage, services, atomic }),
     weights: new WeightsLogic({ storage, services }),

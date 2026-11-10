@@ -54,6 +54,8 @@ export interface EntryView {
   carbs: number;
   fat: number;
   savedEntryId: string | null;
+  /** The key of the photo in the bucket, or `null`. */
+  photoKey: string | null;
   items: ItemView[];
 }
 
@@ -119,6 +121,7 @@ export function entryViewOf({
     carbs: entry.totalCarbsG,
     fat: entry.totalFatG,
     savedEntryId: entry.savedEntryId,
+    photoKey: entry.photoKey,
     items: entry.items.map(itemViewOf),
   };
 }

@@ -11,6 +11,8 @@
 @import "./styles/calocount-6.css";
 @import "./styles/calocount-7.css";
 @import "./styles/calocount-8.css";
+@import "./styles/calocount-agent-routes.css";
+@import "./styles/entry-photos.css";
 
 /* The header of a page that has no top bar of its own, such as "Page not found". */
 header:not(.topbar) {

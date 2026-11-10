@@ -1,4 +1,7 @@
 import type { LoggerServiceInterface } from "@app/common/features/core/services/types";
+import type { AuthConnectionsLogic } from "../auth/logic/auth-connections-logic.js";
+import type { AuthOAuthLogic } from "../auth/logic/auth-oauth-logic.js";
+import type { AuthOAuthTokenLogic } from "../auth/logic/auth-oauth-token-logic.js";
 import type { AuthPasskeyLogic } from "../auth/logic/auth-passkey-logic.js";
 import type { AuthPasskeyManageLogic } from "../auth/logic/auth-passkey-manage-logic.js";
 import type { AuthSessionLogic } from "../auth/logic/auth-session-logic.js";
@@ -8,6 +11,8 @@ import type { EntriesLogic } from "../entries/logic/entries-logic.js";
 import type { EntryReadsLogic } from "../entries/logic/entry-reads-logic.js";
 import type { SavedEntriesLogic } from "../entries/logic/saved-entries-logic.js";
 import type { EntriesStorage } from "../entries/storage/entries-storage.js";
+import type { PhotosStorage } from "../entries/storage/photos-storage.js";
+import type { PhotoCleanupLogic } from "../entries/logic/photo-cleanup-logic.js";
 import type { BlackBoxLogic } from "../black-box/logic/black-box-logic.js";
 import type { BlackBoxStorage } from "../black-box/storage/black-box-storage.js";
 import type { HealthLogic } from "../health/logic/health-logic.js";
@@ -24,6 +29,7 @@ export interface BackendStorage {
   blackBox: BlackBoxStorage;
   entries: EntriesStorage;
   health: HealthStorage;
+  entriesPhotos: PhotosStorage;
   settings: SettingsStorage;
   weights: WeightsStorage;
 }
@@ -43,6 +49,9 @@ export interface BackendServices extends BackendCoreServices {
 }
 
 export interface BackendLogic {
+  authConnections: AuthConnectionsLogic;
+  authOAuth: AuthOAuthLogic;
+  authOAuthToken: AuthOAuthTokenLogic;
   authPasskey: AuthPasskeyLogic;
   authPasskeyManage: AuthPasskeyManageLogic;
   authSession: AuthSessionLogic;
@@ -50,6 +59,7 @@ export interface BackendLogic {
   entries: EntriesLogic;
   entryReads: EntryReadsLogic;
   health: HealthLogic;
+  photoCleanup: PhotoCleanupLogic;
   savedEntries: SavedEntriesLogic;
   settings: SettingsLogic;
   weights: WeightsLogic;

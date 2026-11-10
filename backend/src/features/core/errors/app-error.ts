@@ -7,6 +7,7 @@ export type AppErrorCode =
   | "ROUTE_NOT_FOUND"
   | "CONFLICT"
   | "PAYLOAD_TOO_LARGE"
+  | "UNSUPPORTED_MEDIA_TYPE"
   | "RATE_LIMITED"
   | "INTERNAL"
   | "UNAVAILABLE"

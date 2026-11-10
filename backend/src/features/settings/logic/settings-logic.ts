@@ -20,6 +20,8 @@ import type { SettingsPatch } from "../utils/settings-patch.js";
 type SettingsProps = BackendLogicProps<"settings", "clock"> &
   BackendAtomicProps;
 
+const MAX_GOAL_CHANGES = 50;
+
 /** The goals that apply to the dashboard, with the old defaults for a goal that the owner never set. */
 export interface DailyGoals {
   calories: number;
@@ -76,6 +78,17 @@ export class SettingsLogic extends Logic<SettingsProps, Record<string, never>> {
 
   read({ ownerKey }: { ownerKey: string }): Promise<SettingsRow | undefined> {
     return this.deps.storage.settings.findSettings({ ownerKey });
+  }
+
+  /** The latest recorded changes of the calorie and protein goals, oldest first. */
+  goalChanges({
+    ownerKey,
+    limit = MAX_GOAL_CHANGES,
+  }: {
+    ownerKey: string;
+    limit?: number;
+  }) {
+    return this.deps.storage.settings.listGoalChanges({ ownerKey, limit });
   }
 
   async dailyGoals({ ownerKey }: { ownerKey: string }): Promise<DailyGoals> {

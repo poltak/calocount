@@ -2,6 +2,7 @@ import {
   ENTRY_KINDS,
   entryKindLabels,
 } from "@app/common/features/entries/utils/entry-kind";
+import { MEAL_PHOTO_TYPES } from "@app/common/features/entries/utils/meal-photo";
 import type { TotalField } from "../utils/entry-form.js";
 import { useDashboard } from "./dashboard-context.js";
 import { NutrientFields } from "./nutrient-fields.js";
@@ -62,6 +63,29 @@ export function EntryEditor() {
           />
         </label>
       ))}
+      <label className="editor-photo-field">
+        {original.photoKey ? "Replace photo (optional)" : "Photo (optional)"}
+        <input
+          type="file"
+          accept={MEAL_PHOTO_TYPES.join(",")}
+          disabled={saving}
+          onChange={(event) => {
+            const problem = form.logic.changeDraftPhoto({
+              photo: event.target.files?.[0] ?? null,
+            });
+            if (problem) {
+              event.target.value = "";
+            }
+          }}
+        />
+        <small>
+          {draft.photo
+            ? draft.photo.name
+            : original.photoKey
+              ? "Current photo stays unless you select a replacement."
+              : "JPEG, PNG, or WebP · up to 10 MB"}
+        </small>
+      </label>
       <label className="editor-type-field">
         Type
         <select

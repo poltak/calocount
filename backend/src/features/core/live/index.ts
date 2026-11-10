@@ -1,3 +1,4 @@
+import type { PhotoBucket } from "../../entries/storage/types.js";
 import { SimpleWebAuthnService } from "../../auth/services/simple-webauthn-service.js";
 import { composeApp } from "../compose-app.js";
 import type { D1Binding } from "../database/d1-binding.js";
@@ -10,6 +11,8 @@ import { readLiveConfig, readLogLevel, type WorkerVars } from "./config.js";
 /** What the Worker receives from its config and its secrets. */
 export interface WorkerEnvironment extends WorkerVars {
   DB: D1Binding;
+  /** The R2 bucket of the entry photos. */
+  PHOTOS: PhotoBucket;
 }
 
 /**
@@ -29,6 +32,7 @@ export function createApp({
   return composeApp({
     binding,
     db: createDatabase({ binding }),
+    photoBucket: env.PHOTOS,
     config: readLiveConfig(env),
     services: {
       logger: new JsonLoggerService({

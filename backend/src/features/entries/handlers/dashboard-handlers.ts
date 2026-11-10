@@ -43,7 +43,7 @@ export function createDashboardHandlers({ logic }: DashboardHandlerProps) {
         logic.entryReads.month({ ownerKey, month, timeZone: timezone }),
         logic.weights.firstDate({ ownerKey }),
       ]);
-      const firstDates = [read.firstEntryDate, firstWeightDate ?? null].filter(
+      const firstDates = [read.firstEntryDate, firstWeightDate].filter(
         (date) => date !== null,
       );
       return context.json(

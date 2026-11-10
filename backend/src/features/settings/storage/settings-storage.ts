@@ -1,9 +1,15 @@
+import { sql } from "kysely";
 import {
   planWrite,
   type PlannedStatement,
 } from "../../core/database/planned-statement.js";
 import type { BackendStorageProps } from "../../core/storage/types.js";
-import type { NewGoalChange, NewSettings, SettingsRow } from "./types.js";
+import type {
+  GoalChangeRow,
+  NewGoalChange,
+  NewSettings,
+  SettingsRow,
+} from "./types.js";
 
 /** A second save leaves these as the first save made them. */
 const KEPT_COLUMNS: ReadonlySet<string> = new Set([
@@ -26,6 +32,26 @@ export class SettingsStorage {
       .selectAll()
       .where("ownerKey", "=", ownerKey)
       .executeTakeFirst();
+  }
+
+  /** The latest recorded goal changes, oldest first. */
+  async listGoalChanges({
+    ownerKey,
+    limit,
+  }: {
+    ownerKey: string;
+    limit: number;
+  }): Promise<GoalChangeRow[]> {
+    const rows = await this.deps.db
+      .selectFrom("goalChanges")
+      .selectAll()
+      .where("ownerKey", "=", ownerKey)
+      .orderBy("changedAt", "desc")
+      // Two saves in the same millisecond keep the order that they were written in.
+      .orderBy(sql`rowid`, "desc")
+      .limit(limit)
+      .execute();
+    return rows.toReversed();
   }
 
   /** The owner has one row. A second save changes the values and keeps the ID and the creation time. */

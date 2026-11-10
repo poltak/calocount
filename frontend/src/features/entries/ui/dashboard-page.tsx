@@ -12,6 +12,7 @@ import { MacroPanel } from "./macro-panel.js";
 import { MacroTrendPanel } from "./macro-trend-panel.js";
 import { MealsPanel } from "./meals-panel.js";
 import { NutritionOverview } from "./nutrition-overview.js";
+import { PhotoPreview } from "./photo-preview.js";
 import { ProteinTargetPanel } from "./protein-target-panel.js";
 import { SavedEntriesPanel } from "./saved-entries-panel.js";
 import { SectionTabs } from "./section-tabs.js";
@@ -157,6 +158,7 @@ function DashboardView({
       ) : (
         <LoadingState />
       )}
+      <PhotoPreview />
       <footer className="app-footer">
         <span>Private by default</span>
         <span className="footer-separator" aria-hidden="true">

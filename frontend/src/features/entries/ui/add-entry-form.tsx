@@ -2,6 +2,7 @@ import {
   ENTRY_KINDS,
   entryKindLabels,
 } from "@app/common/features/entries/utils/entry-kind";
+import { MEAL_PHOTO_TYPES } from "@app/common/features/entries/utils/meal-photo";
 import { readEntryForm } from "../utils/entry-form.js";
 import { useDashboard } from "./dashboard-context.js";
 import { NutrientFields } from "./nutrient-fields.js";
@@ -106,6 +107,11 @@ export function AddEntryForm() {
       <NumberField label="Protein (g)" name="protein" placeholder="30" />
       <NumberField label="Carbs (g)" name="carbs" placeholder="45" />
       <NumberField label="Fat (g)" name="fat" placeholder="15" />
+      <label className="meal-photo-field">
+        Photo (optional)
+        <input name="photo" type="file" accept={MEAL_PHOTO_TYPES.join(",")} />
+        <small>JPEG, PNG, or WebP · up to 10 MB</small>
+      </label>
       <NutrientFields idPrefix="nutrition-" />
       <button
         className="save-button"

@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useFrontendApp } from "../../core/ui/frontend-app-context.js";
 import { useLogic } from "../../core/logic/use-logic.js";
 import { useAuth } from "./auth-context.js";
+import { ConnectionsLogic } from "./connections-logic.js";
 import { PasskeysLogic } from "./passkeys-logic.js";
 
 function formatDate(value: number | null): string {
@@ -30,15 +31,30 @@ export function AccountSection() {
     [app],
   );
   const { logic, state } = useLogic({ LogicClass: PasskeysLogic, deps });
+  const connectionDeps = useMemo(
+    () => ({
+      storage: {},
+      services: { dialogs: app.services.dialogs },
+      api: { auth: app.api.auth },
+    }),
+    [app],
+  );
+  const { logic: connections, state: connectionState } = useLogic({
+    LogicClass: ConnectionsLogic,
+    deps: connectionDeps,
+  });
   const busy =
     state.addPasskeyState === "running" ||
     state.removePasskeyState === "running" ||
+    connectionState.removeConnectionState === "running" ||
     auth.state.signOutState === "running";
   const onlyPasskey = state.passkeys.length <= 1;
   const error =
     state.loadPasskeysError ??
     state.addPasskeyError ??
     state.removePasskeyError ??
+    connectionState.loadConnectionsError ??
+    connectionState.removeConnectionError ??
     auth.state.signOutError;
 
   return (
@@ -49,7 +65,7 @@ export function AccountSection() {
       <div className="settings-section-heading">
         <div>
           <strong id="account-title">Sign-in</strong>
-          <span>Your passkeys</span>
+          <span>Your passkeys and the apps that you connected</span>
         </div>
       </div>
       <h3 className="account-subheading">Passkeys</h3>
@@ -107,6 +123,36 @@ export function AccountSection() {
           Sign out
         </button>
       </div>
+      <h3 className="account-subheading">Connected apps</h3>
+      {connectionState.connections.length === 0 ? (
+        <p className="account-empty">
+          No apps are connected. ChatGPT shows here after you connect it.
+        </p>
+      ) : (
+        <ul className="account-list">
+          {connectionState.connections.map((connection) => (
+            <li key={connection.id}>
+              <div>
+                <strong>{connection.name}</strong>
+                <small>
+                  {`Connected ${formatDate(connection.createdAt)} · Last used ${formatDate(connection.lastUsedAt)}`}
+                </small>
+              </div>
+              <button
+                className="secondary-button"
+                type="button"
+                disabled={busy}
+                aria-label={`Disconnect ${connection.name}`}
+                onClick={() =>
+                  void connections.removeConnection({ id: connection.id })
+                }
+              >
+                Disconnect
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
       {error && (
         <p className="account-feedback error" role="alert">
           {error}
