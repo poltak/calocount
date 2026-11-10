@@ -44,6 +44,10 @@
       "types": "./dist/features/entries/utils/entry-kind.d.ts",
       "default": "./dist/features/entries/utils/entry-kind.js"
     },
+    "./features/entries/utils/meal-photo": {
+      "types": "./dist/features/entries/utils/meal-photo.d.ts",
+      "default": "./dist/features/entries/utils/meal-photo.js"
+    },
     "./features/entries/utils/nutrient-goals": {
       "types": "./dist/features/entries/utils/nutrient-goals.d.ts",
       "default": "./dist/features/entries/utils/nutrient-goals.js"

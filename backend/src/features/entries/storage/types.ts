@@ -116,3 +116,43 @@ export interface MealWithItems {
   meal: MealLogRow;
   items: MealItemRow[];
 }
+
+/** The object of a photo, as the bucket gives it. */
+export interface PhotoObject {
+  body: ReadableStream<Uint8Array>;
+  httpEtag: string;
+  size: number;
+  httpMetadata?:
+    | {
+        contentType?: string | undefined;
+        contentLanguage?: string | undefined;
+        contentDisposition?: string | undefined;
+      }
+    | undefined;
+}
+
+export interface PhotoListing {
+  objects: { key: string; uploaded: Date }[];
+  truncated: boolean;
+  cursor?: string | undefined;
+}
+
+/**
+ * The part of an R2 bucket that the photos use. The live root gives the
+ * `PHOTOS` binding, and the test root gives a bucket in memory.
+ */
+export interface PhotoBucket {
+  put(
+    key: string,
+    value: ArrayBuffer | string,
+    options?: { httpMetadata?: { contentType?: string } },
+  ): Promise<{ size: number } | null>;
+  get(key: string): Promise<(PhotoObject & { text(): Promise<string> }) | null>;
+  head(key: string): Promise<{ httpEtag: string } | null>;
+  delete(keys: string | string[]): Promise<void>;
+  list(options: {
+    prefix: string;
+    limit: number;
+    cursor?: string;
+  }): Promise<PhotoListing>;
+}

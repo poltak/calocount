@@ -121,3 +121,37 @@ The project's own choices, with their reasons. Read this file when you read
   check reads it, and the project takes it over in beads issue
   `calocount-bcx.7.1`. `backend/tsconfig.json` leaves out the two files that no
   longer compile, and `knip.jsonc` lists the unused ones.
+
+## Entry photos
+
+- **A photo is an R2 object, and the entry points at its key.** `PhotosStorage`
+  wraps the `PHOTOS` bucket. The live root gives it the binding, and the test
+  root gives `MemoryPhotoBucket`, so a test reads the bucket and can make one
+  operation fail. Its storage key is `entriesPhotos`, because a Logic class may
+  use only Storage whose key starts with its feature.
+- **`POST /api/meals` and `PATCH /api/meals/:id` take JSON or multipart.** A
+  multipart form has the entry as JSON in `payload` (or as single fields) and
+  the file in `photo`. The reader counts the bytes as it reads, so a body that
+  lies about its length stops at 11 MiB (the photo limit of 10 MiB, and a margin).
+  A JSON body keeps the limit of 100 kB. The form cannot set `photoKey`: a
+  caller sends a new file or leaves the photo as it is. The types JPEG, PNG and
+  WebP are checked against the first bytes of the file. HEIC conversion with the
+  `IMAGES` binding belongs to the MCP photos, and the dashboard does not take
+  HEIC.
+- **The file goes to the bucket before the entry is saved,** because the entry
+  needs the key. A failed save deletes the new object. A replaced or deleted
+  photo is deleted after the save, and only when no other entry uses the key:
+  a copy shares the key of its source, so the object lives until the last
+  reference goes.
+- **`GET /api/photos/<key>` sends the photo to the owner whose entry uses the
+  key.** A key that no entry of the owner uses is a 404, so a key of another
+  owner gives nothing. The key has one encoded segment at a time; a control
+  character or `..` is a 400.
+- **The hourly `scheduled` handler runs `PhotoCleanupLogic`.** It lists the
+  `meals/` prefix in bounded runs (100 objects a page, 10 pages), deletes objects
+  that are older than 24 hours and that no entry uses, and keeps its place in
+  `__calocount/photo-cleanup-cursor.json` in the same bucket. A damaged or stale
+  place sends the next run back to the start, which is safe.
+- **A client types the multipart request as JSON.** The Hono client types the
+  `json` argument of the route. A photo upload gives the same entry there, and
+  replaces the body with the form in `init` (`photoUpload` in `entry-form.ts`).

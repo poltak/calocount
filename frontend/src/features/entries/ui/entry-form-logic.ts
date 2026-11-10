@@ -5,6 +5,7 @@ import {
   entryKindForTime,
   type EntryKind,
 } from "@app/common/features/entries/utils/entry-kind";
+import { mealPhotoError } from "@app/common/features/entries/utils/meal-photo";
 import type { NutrientKey } from "@app/common/features/entries/utils/nutrients";
 import { requireApiSuccess } from "../../api/client/api-client.js";
 import type { FrontendLogicProps } from "../../core/logic/types.js";
@@ -13,6 +14,7 @@ import { clockTime } from "../../core/utils/dashboard-format.js";
 import {
   editBody,
   newEntryBody,
+  photoUpload,
   startDraft,
   type EditDraft,
   type NewEntryValues,
@@ -107,10 +109,22 @@ export class EntryFormLogic extends Logic<
       if (consumedAt === null) {
         throw new Error("Enter a valid entry time.");
       }
+      const photoProblem = values.photo ? mealPhotoError(values.photo) : null;
+      if (photoProblem) {
+        throw new Error(photoProblem);
+      }
       try {
+        const json = newEntryBody({ values, consumedAt });
         const response = await this.deps.api.meals.$post(
-          { json: newEntryBody({ values, consumedAt }) },
-          { init: { signal: this.signal } },
+          { json },
+          {
+            init: {
+              signal: this.signal,
+              ...(values.photo
+                ? photoUpload({ entry: json, photo: values.photo })
+                : {}),
+            },
+          },
         );
         await requireApiSuccess(response);
       } catch (error) {
@@ -153,6 +167,23 @@ export class EntryFormLogic extends Logic<
         },
       });
     }
+  }
+
+  /**
+   * Choose the photo that replaces the saved one. It returns why the file is
+   * refused, or `null`. A refused file is not kept.
+   */
+  changeDraftPhoto({ photo }: { photo: File | null }): string | null {
+    const { draft } = this.state;
+    if (!draft) {
+      return null;
+    }
+    const problem = photo ? mealPhotoError(photo) : null;
+    this.setState({
+      draft: { ...draft, photo: problem ? null : photo },
+      saveEntryError: problem,
+    });
+    return problem;
   }
 
   /** A typed value counts as entered by hand. A blank value has no origin. */
@@ -206,9 +237,17 @@ export class EntryFormLogic extends Logic<
         return;
       }
       try {
+        const json = editBody(draft);
         const response = await this.deps.api.meals[":id"].$patch(
-          { param: { id: draft.original.id }, json: editBody(draft) },
-          { init: { signal: this.signal } },
+          { param: { id: draft.original.id }, json },
+          {
+            init: {
+              signal: this.signal,
+              ...(draft.photo
+                ? photoUpload({ entry: json, photo: draft.photo })
+                : {}),
+            },
+          },
         );
         await requireApiSuccess(response);
       } catch (error) {

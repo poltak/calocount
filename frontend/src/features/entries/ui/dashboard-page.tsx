@@ -11,6 +11,7 @@ import { DateStrip } from "./date-strip.js";
 import { MacroPanel } from "./macro-panel.js";
 import { MealsPanel } from "./meals-panel.js";
 import { NutritionOverview } from "./nutrition-overview.js";
+import { PhotoPreview } from "./photo-preview.js";
 import { SavedEntriesPanel } from "./saved-entries-panel.js";
 import { SectionTabs } from "./section-tabs.js";
 import { SummaryGrid } from "./summary-grid.js";
@@ -130,6 +131,7 @@ function DashboardView({
       ) : (
         <LoadingState />
       )}
+      <PhotoPreview />
       <footer className="app-footer">
         <span>Private by default</span>
         <span className="footer-separator" aria-hidden="true">

@@ -34,6 +34,8 @@ export interface NewEntryValues {
   nutrients: NutrientTexts;
   /** The origin that the owner chose for each nutrient. An empty text is no origin. */
   origins: NutrientTexts;
+  /** The chosen photo, or `null`. */
+  photo: File | null;
 }
 
 export type TotalField = "calories" | "protein" | "carbs" | "fat";
@@ -46,11 +48,18 @@ export interface EditDraft {
   kind: EntryKind | null;
   totals: Record<TotalField, string>;
   items: { nutrients: NutrientTexts; origins: NutrientTexts }[];
+  /** The photo that replaces the saved one, or `null`. */
+  photo: File | null;
 }
 
 function textOf(form: FormData, name: string): string {
   const value = form.get(name);
   return typeof value === "string" ? value : "";
+}
+
+function fileOf(form: FormData, name: string): File | null {
+  const value = form.get(name);
+  return value instanceof File && value.size > 0 ? value : null;
 }
 
 /** Read the fields of the form for a new entry. */
@@ -73,6 +82,7 @@ export function readEntryForm(form: HTMLFormElement): NewEntryValues {
     fat: textOf(data, "fat"),
     nutrients,
     origins,
+    photo: fileOf(data, "photo"),
   };
 }
 
@@ -163,6 +173,7 @@ export function startDraft(entry: EntryView): EditDraft {
       fat: String(entry.fat),
     },
     items: entry.items.map(texts),
+    photo: null,
   };
 }
 
@@ -244,4 +255,23 @@ export function editBody(draft: EditDraft) {
       };
     }),
   };
+}
+
+/**
+ * How to send an entry with a photo. The entry goes in the `json` argument for
+ * its type, and this replaces the body with a multipart form that holds the
+ * same entry and the photo. With no headers of its own, the browser sets the
+ * type of the form with its boundary.
+ */
+export function photoUpload({
+  entry,
+  photo,
+}: {
+  entry: unknown;
+  photo: File;
+}): { body: FormData; headers: Record<string, string> } {
+  const form = new FormData();
+  form.set("payload", JSON.stringify(entry));
+  form.set("photo", photo, photo.name);
+  return { body: form, headers: {} };
 }

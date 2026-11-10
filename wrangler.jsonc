@@ -33,18 +33,18 @@
       "migrations_dir": "backend/migrations",
     },
   ],
-  // Not used yet. Later phases store meal photos here.
+  // The meal photos. The hourly cron deletes the ones that no entry uses.
   "r2_buckets": [
     {
       "binding": "PHOTOS",
       "bucket_name": "calocount-meals",
     },
   ],
-  // Not used yet.
+  // Not used yet. The MCP photos convert HEIC with it.
   "images": {
     "binding": "IMAGES",
   },
-  // Not used yet. Hourly cleanup of meal photos that no meal links to.
+  // Hourly cleanup of meal photos that no entry links to.
   "triggers": {
     "crons": ["0 * * * *"],
   },

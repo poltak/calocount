@@ -4,6 +4,7 @@ import type { EntryView } from "../utils/entry-view.js";
 import { useDashboard } from "./dashboard-context.js";
 import { EntryEditor } from "./entry-editor.js";
 import { EntryNutritionDetails } from "./entry-nutrition-details.js";
+import { PhotoThumbnail } from "./photo-thumbnail.js";
 
 function Stat({
   className,
@@ -29,7 +30,7 @@ function Stat({
 
 /** One entry of the day: its values, the nutrition details, the buttons, and its editor. */
 export function EntryRow({ entry }: { entry: EntryView }) {
-  const { dashboard, form, actions, busy } = useDashboard();
+  const { dashboard, form, actions, photos, busy } = useDashboard();
   const { savedEntries, today, selectedDate, openDetailIds } = dashboard.state;
   const saved = savedEntries.some(
     (candidate) =>
@@ -38,10 +39,15 @@ export function EntryRow({ entry }: { entry: EntryView }) {
   );
   const editing = form.state.draft?.original.id === entry.id;
   const detailsOpen = openDetailIds.includes(entry.id);
+  const photoUrl = photos.logic.shownPhotoUrl({ entry });
+  const withoutPhoto = photoUrl === null ? " without-photo" : "";
   return (
     <article className="meal-group" aria-label={entry.name}>
-      <div className="meal-row without-photo">
-        <div className="meal-row-content without-photo">
+      <div className={`meal-row${withoutPhoto}`}>
+        <div className={`meal-row-content${withoutPhoto}`}>
+          {photoUrl !== null && (
+            <PhotoThumbnail entry={entry} photoUrl={photoUrl} />
+          )}
           <div className="meal-info">
             <div className="meal-name-line">
               <strong>{entry.name}</strong>
