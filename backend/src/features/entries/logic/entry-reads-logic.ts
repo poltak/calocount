@@ -4,9 +4,11 @@ import {
   shiftDateKey,
   zonedCalendar,
 } from "@app/common/features/core/utils/logical-date";
+import type { InsightHistory } from "@app/common/features/entries/utils/insights/insight-types";
 import { aggregateNutrients } from "@app/common/features/entries/utils/nutrients";
 import type { BackendLogicProps } from "../../core/logic/types.js";
 import type { MealWithItems } from "../storage/types.js";
+import { insightEntryOf } from "../utils/insight-entry.js";
 
 type EntryReadsProps = BackendLogicProps<"entries", "clock">;
 
@@ -14,6 +16,8 @@ type EntryReadsProps = BackendLogicProps<"entries", "clock">;
 const RECENT_DAY_COUNT = 7;
 /** Before this hour, the average leaves out today, which is not finished. */
 const AVERAGE_INCLUDES_TODAY_FROM_HOUR = 21;
+/** The insights look back over this many finished days. */
+const INSIGHT_DAY_COUNT = 30;
 
 /** What the dashboard reads: one day of entries, and the totals of the recent days. */
 export class EntryReadsLogic extends Logic<
@@ -89,6 +93,41 @@ export class EntryReadsLogic extends Logic<
       days,
       averageCalories:
         sum(averaged.map((day) => day.calories)) / averaged.length,
+    };
+  }
+
+  /**
+   * The complete entries of the last `INSIGHT_DAY_COUNT` finished days and of
+   * today, counted in the given timezone. An entry that is still pending has
+   * no final values, so the insights leave it out.
+   */
+  async insightHistory({
+    ownerKey,
+    timeZone,
+  }: {
+    ownerKey: string;
+    timeZone: string | undefined;
+  }): Promise<InsightHistory & { timeZone: string }> {
+    const calendar = zonedCalendar(resolveTimeZone(timeZone));
+    const toDate = calendar.dateKey(this.deps.services.clock.now());
+    const fromDate = shiftDateKey(toDate, -INSIGHT_DAY_COUNT);
+    const entries = await this.deps.storage.entries.listEntriesInRange({
+      ownerKey,
+      from: calendar.firstInstant(fromDate),
+      to: calendar.firstInstant(shiftDateKey(toDate, 1)),
+    });
+    return {
+      timeZone: calendar.timeZone,
+      fromDate,
+      toDate,
+      entries: entries
+        .filter(({ meal }) => meal.status === "complete")
+        .map((entry) =>
+          insightEntryOf({
+            entry,
+            date: calendar.dateKey(entry.meal.consumedAt),
+          }),
+        ),
     };
   }
 }

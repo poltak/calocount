@@ -49,7 +49,7 @@ function itemNutrients(
   return nutrients;
 }
 
-function storedProvenance(item: MealItemRow): NutrientProvenanceMap {
+export function storedProvenance(item: MealItemRow): NutrientProvenanceMap {
   return parseNutrientProvenance(
     parseJson(item.nutrientProvenanceJson, null),
     item,

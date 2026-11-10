@@ -44,6 +44,46 @@
       "types": "./dist/features/entries/utils/entry-kind.d.ts",
       "default": "./dist/features/entries/utils/entry-kind.js"
     },
+    "./features/entries/utils/insights/days-worth-repeating": {
+      "types": "./dist/features/entries/utils/insights/days-worth-repeating.d.ts",
+      "default": "./dist/features/entries/utils/insights/days-worth-repeating.js"
+    },
+    "./features/entries/utils/insights/frequency-portion": {
+      "types": "./dist/features/entries/utils/insights/frequency-portion.d.ts",
+      "default": "./dist/features/entries/utils/insights/frequency-portion.js"
+    },
+    "./features/entries/utils/insights/insight-days": {
+      "types": "./dist/features/entries/utils/insights/insight-days.d.ts",
+      "default": "./dist/features/entries/utils/insights/insight-days.js"
+    },
+    "./features/entries/utils/insights/insight-types": {
+      "types": "./dist/features/entries/utils/insights/insight-types.d.ts",
+      "default": "./dist/features/entries/utils/insights/insight-types.js"
+    },
+    "./features/entries/utils/insights/nutrient-food-scenario": {
+      "types": "./dist/features/entries/utils/insights/nutrient-food-scenario.d.ts",
+      "default": "./dist/features/entries/utils/insights/nutrient-food-scenario.js"
+    },
+    "./features/entries/utils/insights/nutrient-references": {
+      "types": "./dist/features/entries/utils/insights/nutrient-references.d.ts",
+      "default": "./dist/features/entries/utils/insights/nutrient-references.js"
+    },
+    "./features/entries/utils/insights/nutrient-sources": {
+      "types": "./dist/features/entries/utils/insights/nutrient-sources.d.ts",
+      "default": "./dist/features/entries/utils/insights/nutrient-sources.js"
+    },
+    "./features/entries/utils/insights/nutrition-attention": {
+      "types": "./dist/features/entries/utils/insights/nutrition-attention.d.ts",
+      "default": "./dist/features/entries/utils/insights/nutrition-attention.js"
+    },
+    "./features/entries/utils/insights/nutrition-attention-types": {
+      "types": "./dist/features/entries/utils/insights/nutrition-attention-types.d.ts",
+      "default": "./dist/features/entries/utils/insights/nutrition-attention-types.js"
+    },
+    "./features/entries/utils/insights/weekly-changes": {
+      "types": "./dist/features/entries/utils/insights/weekly-changes.d.ts",
+      "default": "./dist/features/entries/utils/insights/weekly-changes.js"
+    },
     "./features/entries/utils/nutrient-goals": {
       "types": "./dist/features/entries/utils/nutrient-goals.d.ts",
       "default": "./dist/features/entries/utils/nutrient-goals.js"

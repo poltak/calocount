@@ -3,6 +3,10 @@
  * with the class names unchanged. The parts are in order, because later rules
  * override earlier ones.
  */
+@import "./styles/insights-1.css";
+@import "./styles/insights-2.css";
+@import "./styles/insights-3.css";
+@import "./styles/insights-4.css";
 @import "./styles/calocount-1.css";
 @import "./styles/calocount-2.css";
 @import "./styles/calocount-3.css";

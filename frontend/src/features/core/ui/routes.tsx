@@ -13,6 +13,7 @@ import { AuthProvider, useAuth } from "../../auth/ui/auth-context.js";
 import { SessionGate } from "../../auth/ui/session-gate.js";
 import { SignInPage } from "../../auth/ui/sign-in-page.js";
 import { DashboardPage } from "../../entries/ui/dashboard-page.js";
+import { InsightsSection } from "../../insights/ui/insights-section.js";
 import { SettingsButton } from "../../settings/ui/settings-button.js";
 import { SettingsForm } from "../../settings/ui/settings-form.js";
 import { SettingsDialog } from "../../settings/ui/settings-dialog.js";
@@ -100,6 +101,7 @@ function OwnerDashboard() {
           {...props}
         />
       )}
+      renderInsights={(props) => <InsightsSection {...props} />}
     />
   );
 }

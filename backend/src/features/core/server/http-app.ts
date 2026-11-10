@@ -20,6 +20,7 @@ import {
 import { logRequests } from "../handlers/request-log.js";
 import type { RequestEnvironment } from "../handlers/types.js";
 import { createHealthHandlers } from "../../health/handlers/health-handlers.js";
+import { createInsightsHandlers } from "../../insights/handlers/insights-handlers.js";
 import { createSettingsHandlers } from "../../settings/handlers/settings-handlers.js";
 import { createWeightHandlers } from "../../weights/handlers/weight-handlers.js";
 import type { App } from "../types.js";
@@ -43,6 +44,7 @@ function createBusinessHttpApp({ app }: ApiHttpAppProps) {
     .route("/", createDashboardHandlers({ logic: app.logic }))
     .route("/meals", createEntryHandlers({ logic: app.logic }))
     .route("/saved-entries", createSavedEntryHandlers({ logic: app.logic }))
+    .route("/insights", createInsightsHandlers({ logic: app.logic }))
     .route("/settings", createSettingsHandlers({ logic: app.logic }))
     .route("/weights", createWeightHandlers({ logic: app.logic }));
 }
