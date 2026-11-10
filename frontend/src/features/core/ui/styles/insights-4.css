@@ -1,0 +1,281 @@
+.nutrient-food-scenarios__exclude:hover {
+  background: var(--button-secondary-hover-background);
+  color: var(--foreground);
+}
+
+.nutrient-food-scenarios__source-detail {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px 16px;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--detail-card-background);
+}
+
+.nutrient-food-scenarios__source-detail .eyebrow {
+  margin: 0 0 4px;
+}
+
+.nutrient-food-scenarios__source-detail h4 {
+  font-size: 12px;
+}
+
+.nutrient-food-scenarios__source-detail h5 {
+  grid-column: 1 / -1;
+  font-size: 10px;
+}
+
+.nutrient-food-scenarios__source-detail p:not(.eyebrow) {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.nutrient-food-scenarios__source-stats {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.nutrient-food-scenarios__source-stats span {
+  display: grid;
+  gap: 3px;
+  min-width: 70px;
+}
+
+.nutrient-food-scenarios__source-stats small {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.nutrient-food-scenarios__source-stats strong {
+  color: var(--foreground);
+  font-size: 11px;
+}
+
+.nutrient-food-scenarios__source-entries {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 4px;
+  max-height: 150px;
+  overflow: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.nutrient-food-scenarios__source-entries li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 5px;
+  border-top: 1px solid var(--line-soft);
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.nutrient-food-scenarios__source-entries li > span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.nutrient-food-scenarios__source-entries li > span strong {
+  overflow: hidden;
+  color: var(--muted-strong);
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nutrient-food-scenarios__source-entries li > span small {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.nutrient-food-scenarios__source-entries strong {
+  color: var(--muted-strong);
+  font-weight: 650;
+  text-align: right;
+}
+
+.nutrient-food-scenarios__empty {
+  margin-top: 14px;
+  padding: 22px 12px;
+  border: 1px dashed var(--chart-empty-border);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 10px;
+  text-align: center;
+}
+
+.source-color-0 {
+  background: var(--chart-blue);
+}
+.source-color-1 {
+  background: var(--chart-orange);
+}
+.source-color-2 {
+  background: var(--chart-green);
+}
+.source-color-3 {
+  background: var(--purple);
+}
+.source-color-4 {
+  background: var(--blue);
+}
+.source-color-5 {
+  background: var(--chart-gap);
+}
+
+@media (max-width: 560px) {
+  .nutrient-food-scenarios {
+    padding: 16px;
+  }
+
+  .nutrient-food-scenarios__panel {
+    padding: 13px;
+  }
+
+  .nutrient-food-scenarios__table-wrap {
+    max-height: none;
+    overflow: visible;
+    border: 0;
+  }
+
+  .nutrient-food-scenarios__scenario-table {
+    min-width: 0;
+    display: block;
+  }
+
+  .nutrient-food-scenarios__scenario-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .nutrient-food-scenarios__scenario-table tbody {
+    display: grid;
+    gap: 6px;
+  }
+
+  .nutrient-food-scenarios__scenario-table tbody tr {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: stretch;
+    border: 1px solid var(--line-soft);
+    border-radius: 7px;
+    background: var(--surface-soft);
+  }
+
+  .nutrient-food-scenarios__scenario-table tbody th,
+  .nutrient-food-scenarios__scenario-table tbody td {
+    display: flex;
+    min-width: 0;
+    justify-content: center;
+    padding: 8px 6px;
+    border-bottom: 0;
+    overflow-wrap: anywhere;
+    white-space: normal;
+  }
+
+  .nutrient-food-scenarios__scenario-table tbody th {
+    grid-column: 1 / -1;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+    text-align: left;
+  }
+
+  .nutrient-food-scenarios__scenario-table tbody td {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    padding-top: 2px;
+    font-size: 10px;
+    text-align: left;
+  }
+
+  .nutrient-food-scenarios__scenario-table tbody td::before {
+    color: var(--muted);
+    content: attr(data-label);
+    font-size: 9px;
+    font-weight: 650;
+    letter-spacing: 0.02em;
+    text-align: left;
+  }
+
+  .nutrient-food-scenarios__scenario-table tbody th small {
+    font-size: 9px;
+    line-height: 1.25;
+  }
+
+  .nutrient-food-scenarios__unavailable {
+    margin-top: 8px;
+    border: 1px solid var(--line-soft);
+    border-radius: 7px;
+  }
+
+  .nutrient-food-scenarios__unavailable-table {
+    padding: 7px;
+    overflow: visible;
+  }
+
+  .nutrient-food-scenarios__heading {
+    display: block;
+  }
+
+  .nutrient-food-scenarios__heading .nutrient-food-scenarios__range {
+    width: max-content;
+    margin-top: 10px;
+  }
+
+  .nutrient-food-scenarios__scenario-controls,
+  .nutrient-food-scenarios__source-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .nutrient-food-scenarios__source-coverage {
+    text-align: left;
+  }
+
+  .nutrient-food-scenarios__source-summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+    padding: 8px;
+  }
+
+  .nutrient-food-scenarios__source-summary strong {
+    font-size: 10px;
+  }
+
+  .nutrient-food-scenarios__source-detail {
+    grid-template-columns: 1fr;
+  }
+
+  .nutrient-food-scenarios__source-stats {
+    justify-content: flex-start;
+  }
+
+  .nutrient-food-scenarios__source-entries li {
+    display: grid;
+    gap: 2px;
+  }
+
+  .nutrient-food-scenarios__source-entries strong {
+    text-align: left;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nutrient-food-scenarios * {
+    scroll-behavior: auto;
+  }
+}

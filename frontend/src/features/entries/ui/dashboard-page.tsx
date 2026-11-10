@@ -1,5 +1,6 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useMemo, type ReactNode } from "react";
 import { useLocation } from "react-router";
+import type { InsightsSlotProps } from "../../insights/types.js";
 import type { SettingsEvents } from "../../settings/types.js";
 import type { WeightEvents } from "../../weights/types.js";
 import type { CalendarSlotProps, WeightSlotProps } from "../types.js";
@@ -83,23 +84,20 @@ interface DashboardPageProps {
   renderWeightTrend: (props: WeightSlotProps) => ReactNode;
   renderWeightPanel: (props: WeightSlotProps) => ReactNode;
   renderCalendar: (props: CalendarSlotProps) => ReactNode;
+  renderInsights: (props: InsightsSlotProps) => ReactNode;
 }
 
 function DashboardView({
   topbarActions,
   belowTopbar,
+  settingsEvents,
+  weightEvents,
   renderWeightTrend,
   renderWeightPanel,
   renderCalendar,
-}: Pick<
-  DashboardPageProps,
-  | "topbarActions"
-  | "belowTopbar"
-  | "renderWeightTrend"
-  | "renderWeightPanel"
-  | "renderCalendar"
->) {
-  const { dashboard, busy } = useDashboard();
+  renderInsights,
+}: Omit<DashboardPageProps, "weightBusy">) {
+  const { dashboard, form, actions, busy } = useDashboard();
   const { logic, state } = dashboard;
   const { hash } = useLocation();
   const weightSlot: WeightSlotProps = {
@@ -117,6 +115,14 @@ function DashboardView({
   useEffect(() => {
     logic.setActiveSection({ hash });
   }, [logic, hash]);
+  const insightsSlot = useMemo<InsightsSlotProps>(
+    () => ({
+      entryEvents: [form.logic.events, actions.logic.events],
+      settingsEvents: [settingsEvents],
+      weightEvents: [weightEvents],
+    }),
+    [form.logic, actions.logic, settingsEvents, weightEvents],
+  );
 
   return (
     <>
@@ -154,6 +160,7 @@ function DashboardView({
               <MealsPanel />
             </section>
           </div>
+          {renderInsights(insightsSlot)}
         </>
       ) : (
         <LoadingState />
@@ -174,12 +181,8 @@ function DashboardView({
  * The owner dashboard at `/owner`. Other features own the settings button and
  * the dialog that it opens, so the route gives them in.
  */
-export function DashboardPage({
-  settingsEvents,
-  weightEvents,
-  weightBusy,
-  ...slots
-}: DashboardPageProps) {
+export function DashboardPage({ weightBusy, ...slots }: DashboardPageProps) {
+  const { settingsEvents, weightEvents } = slots;
   return (
     <DashboardProvider
       settingsEvents={settingsEvents}

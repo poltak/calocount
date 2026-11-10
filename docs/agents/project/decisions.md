@@ -176,3 +176,20 @@ The project's own choices, with their reasons. Read this file when you read
   page loaded it. The new page needs only the daily and day views, so a request
   with no `view` gets 400 `invalid_query`, and `/llms.txt` does not describe
   that view. Add it again only for a reader that needs it.
+
+## Insights
+
+- **The insight panels read one route, `GET /api/insights`.** It returns the
+  complete entries of the last 30 finished days and of today, counted in the
+  timezone of the device, with the goals that the panels compare them with
+  (the calorie target, the nutrient goals, the protein target of each date and
+  the reference confirmations). Each read replaces the entries as a whole, so
+  an edit or a delete cannot leave an old entry behind. The Logic reads again
+  after an entry, settings or weight event, and when the window gets the focus.
+- **The calculations are pure code in `common/features/entries/utils/insights/`.**
+  They sit in `entries` because they use its nutrient code, and a feature may
+  not import the private files of another. The public view and the MCP tools
+  can use them later.
+- **The panels have no "Inspect entry" action yet.** The old app opened the
+  entry in the dashboard editor or in an editor for older entries. The new
+  panels only list the entries.

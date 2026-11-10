@@ -24,6 +24,7 @@ import { createOAuthHandlers } from "../../auth/handlers/oauth-handlers.js";
 import { createExportHandlers } from "../../export/handlers/export-handlers.js";
 import { createMcpHandlers } from "../../mcp/handlers/mcp-handlers.js";
 import { createHealthHandlers } from "../../health/handlers/health-handlers.js";
+import { createInsightsHandlers } from "../../insights/handlers/insights-handlers.js";
 import { createLlmsHandlers } from "../../public-view/handlers/llms-handlers.js";
 import { createPublicSummaryHandlers } from "../../public-view/handlers/public-summary-handlers.js";
 import { createSettingsHandlers } from "../../settings/handlers/settings-handlers.js";
@@ -51,6 +52,7 @@ function createBusinessHttpApp({ app }: ApiHttpAppProps) {
     .route("/meals", createEntryHandlers({ logic: app.logic }))
     .route("/photos", createPhotoHandlers({ logic: app.logic }))
     .route("/saved-entries", createSavedEntryHandlers({ logic: app.logic }))
+    .route("/insights", createInsightsHandlers({ logic: app.logic }))
     .route("/settings", createSettingsHandlers({ logic: app.logic }))
     .route("/weights", createWeightHandlers({ logic: app.logic }));
 }
