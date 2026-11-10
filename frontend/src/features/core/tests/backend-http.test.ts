@@ -374,4 +374,18 @@ describe("backend HTTP app", () => {
     });
     expect(failure?.fields?.error).toBeInstanceOf(Error);
   });
+
+  it("should send the session cookie again when a session renews, and not before", async () => {
+    const { backend, transport } = await createFullApplication();
+    const listPasskeys = () => transport.fetch(`${ORIGIN}/api/auth/passkeys`);
+
+    const sameDay = await listPasskeys();
+    backend.services.clock.advance(2 * 24 * 60 * 60 * 1000);
+    const renewed = await listPasskeys();
+
+    expect(sameDay.headers.get("set-cookie")).toBeNull();
+    expect(renewed.headers.get("set-cookie")).toMatch(
+      /^calocount_session=[A-Za-z0-9_-]{20,200}; Path=\/; HttpOnly; SameSite=Lax; Max-Age=34560000$/,
+    );
+  });
 });

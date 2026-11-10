@@ -1,7 +1,7 @@
 import { createMiddleware } from "hono/factory";
 import { AppError } from "../../core/errors/app-error.js";
 import type { BackendLogic, BackendServices } from "../../core/types.js";
-import { readSessionToken } from "./session-cookies.js";
+import { readSessionToken, sessionCookie } from "./session-cookies.js";
 import type { AuthEnvironment } from "./types.js";
 
 /**
@@ -38,5 +38,15 @@ export function resolveSession({
     }
     context.set("session", session);
     await next();
+    // The browser keeps the cookie for 400 days. Without a new cookie at each
+    // renewal, the owner is signed out 400 days after sign-in, however often
+    // they use the app. The old app did this too.
+    if (session?.renewed && token) {
+      context.header(
+        "set-cookie",
+        sessionCookie({ url: new URL(context.req.url), token }),
+        { append: true },
+      );
+    }
   });
 }

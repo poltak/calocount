@@ -34,6 +34,7 @@ describe("full application fixture", () => {
     expect(await restarted.logic.authSession.authenticate({ token })).toEqual({
       ownerKey: owner.ownerKey,
       passkeyId: owner.passkey.id,
+      renewed: false,
     });
   });
 });

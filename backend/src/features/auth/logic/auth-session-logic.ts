@@ -41,14 +41,19 @@ export class AuthSessionLogic extends Logic<
     if (!session) {
       return null;
     }
-    if (now - session.lastSeenAt > SESSION_RENEW_AFTER_MS) {
+    const renewed = now - session.lastSeenAt > SESSION_RENEW_AFTER_MS;
+    if (renewed) {
       await storage.auth.renewSession({
         id,
         now,
         expiresAt: now + SESSION_IDLE_TTL_MS,
       });
     }
-    return { ownerKey: session.ownerKey, passkeyId: session.passkeyId };
+    return {
+      ownerKey: session.ownerKey,
+      passkeyId: session.passkeyId,
+      renewed,
+    };
   }
 
   async endSession({ token }: { token: string }): Promise<void> {
