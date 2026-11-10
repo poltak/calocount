@@ -1,13 +1,6 @@
 import { APP_NAME } from "@app/common/features/core/utils/app-name";
 import { useMemo } from "react";
-import {
-  Link,
-  Navigate,
-  Outlet,
-  Route,
-  Routes,
-  useLocation,
-} from "react-router";
+import { Link, Outlet, Route, Routes, useLocation } from "react-router";
 import { AccountSection } from "../../auth/ui/account-section.js";
 import { AuthProvider, useAuth } from "../../auth/ui/auth-context.js";
 import { SessionGate } from "../../auth/ui/session-gate.js";
@@ -20,6 +13,8 @@ import {
   SettingsProvider,
   useSettings,
 } from "../../settings/ui/settings-context.js";
+import { PrivacyPage } from "../../public-view/ui/privacy-page.js";
+import { PublicDashboardPage } from "../../public-view/ui/public-dashboard-page.js";
 import { useWeights, WeightProvider } from "../../weights/ui/weight-context.js";
 import { WeightPanel } from "../../weights/ui/weight-panel.js";
 import { WeightTrendPanel } from "../../weights/ui/weight-trend-panel.js";
@@ -39,7 +34,7 @@ function ProtectedLayout() {
   return (
     <>
       <header>
-        <Link className="brand" to="/">
+        <Link className="brand" to="/owner">
           {APP_NAME}
         </Link>
         <div className="session-actions">
@@ -104,18 +99,40 @@ function OwnerDashboard() {
   );
 }
 
+/** The public pages need no session. The settings provider applies the theme of this device. */
+function PublicLayout() {
+  const location = useLocation();
+  return (
+    <SettingsProvider>
+      <ErrorBoundary resetKey={location.key} Fallback={PageErrorFallback}>
+        <Outlet />
+      </ErrorBoundary>
+    </SettingsProvider>
+  );
+}
+
+function viewOf(pathname: string) {
+  if (pathname === "/login") {
+    return "sign-in";
+  }
+  return pathname === "/" || pathname === "/privacy" ? "public" : "owner";
+}
+
 function Shell() {
-  const onSignIn = useLocation().pathname === "/login";
+  const view = viewOf(useLocation().pathname);
   return (
     <div
-      className={onSignIn ? "app-shell auth-shell" : "app-shell"}
-      data-view={onSignIn ? "sign-in" : "owner"}
+      className={view === "sign-in" ? "app-shell auth-shell" : "app-shell"}
+      data-view={view}
     >
       <Routes>
         <Route path="/login" element={<SignInPage />} />
+        <Route element={<PublicLayout />}>
+          <Route path="/" element={<PublicDashboardPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
+        </Route>
         <Route element={<SessionGate />}>
           <Route element={<OwnerLayout />}>
-            <Route path="/" element={<Navigate to="/owner" replace />} />
             <Route path="/owner" element={<OwnerDashboard />} />
           </Route>
           <Route element={<ProtectedLayout />}>
@@ -124,7 +141,7 @@ function Shell() {
               element={
                 <section>
                   <h1>Page not found</h1>
-                  <Link to="/">Go to the start page</Link>
+                  <Link to="/owner">Go to the start page</Link>
                 </section>
               }
             />

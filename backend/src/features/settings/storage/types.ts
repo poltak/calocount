@@ -43,5 +43,6 @@ export interface SettingsTables {
 }
 
 export type SettingsRow = Selectable<SettingsTable>;
+export type GoalChangeRow = Selectable<GoalChangeTable>;
 export type NewSettings = SettingsTable;
 export type NewGoalChange = GoalChangeTable;

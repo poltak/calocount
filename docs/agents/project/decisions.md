@@ -121,3 +121,24 @@ The project's own choices, with their reasons. Read this file when you read
   check reads it, and the project takes it over in beads issue
   `calocount-bcx.7.1`. `backend/tsconfig.json` leaves out the two files that no
   longer compile, and `knip.jsonc` lists the unused ones.
+
+## The public view
+
+- **`/` is the public page, and `/owner` is the owner dashboard.** The public
+  page needs no session. It reads only `GET /api/public/summary` (the views
+  `daily`, `month` and `day`), and it has no control that changes data. While
+  the owner keeps the public view off, the routes answer 404 with the code
+  `public_view_off`, and the page opens `/owner`, which asks for the sign-in.
+  `/llms.txt` follows the same switch. A new owner starts with the view off,
+  and an owner who had it on keeps it on.
+- **The public routes read through the Logic classes** of `entries`, `settings`
+  and `weights`, in `backend/src/features/public-view/handlers/`. They never
+  read the Storage of those features. `utils/public-projection.ts` lists each
+  public field by name, so a new private column cannot reach a visitor.
+- **Days count in the saved timezone of the owner,** and in UTC when it is
+  missing or invalid. The daily view keeps the latest 366 days.
+- **The old `dashboard` view is gone.** The old app answered a request with no
+  `view` with a 30-day projection of food items and nutrients, and the public
+  page loaded it. The new page needs only the daily and day views, so a request
+  with no `view` gets 400 `invalid_query`, and `/llms.txt` does not describe
+  that view. Add it again only for a reader that needs it.

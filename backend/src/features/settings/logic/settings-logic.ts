@@ -1,4 +1,5 @@
 import { Logic } from "@app/common/features/core/logic/logic";
+import { resolveTimeZone } from "@app/common/features/core/utils/logical-date";
 import {
   DEFAULT_CALORIE_TARGET,
   DEFAULT_PROTEIN_TARGET_G,
@@ -29,6 +30,9 @@ export interface DailyGoals {
   proteinGramsPerKg: number | null;
   nutrients: NutrientGoalMap;
 }
+
+/** The record of goal changes keeps this many of the latest rows in a read. */
+const MAX_GOAL_CHANGES = 50;
 
 interface GoalValues {
   dailyCalorieTarget: number | null;
@@ -89,6 +93,34 @@ export class SettingsLogic extends Logic<SettingsProps, Record<string, never>> {
         parseNutrientGoalOverridesJson(row?.nutrientTargetsJson),
       ),
     };
+  }
+
+  /**
+   * Whether visitors may read the log, and the timezone that sets its days.
+   * A missing timezone, or one that no longer exists, is UTC.
+   */
+  async publicView({
+    ownerKey,
+  }: {
+    ownerKey: string;
+  }): Promise<{ enabled: boolean; timeZone: string }> {
+    const row = await this.read({ ownerKey });
+    return {
+      enabled: row?.publicViewEnabled === 1,
+      timeZone: resolveTimeZone(row?.timezone),
+    };
+  }
+
+  /** The latest goal changes, oldest first, with the goal of the unused protein mode left empty. */
+  async goalChanges({ ownerKey }: { ownerKey: string }) {
+    const rows = await this.deps.storage.settings.listGoalChanges({
+      ownerKey,
+      limit: MAX_GOAL_CHANGES,
+    });
+    return rows.map((row) => ({
+      changedAt: row.changedAt,
+      ...effectiveGoals(row),
+    }));
   }
 
   /**

@@ -11,7 +11,7 @@ import { useAuth } from "./auth-context.js";
 function safeReturnTo(value: unknown): string {
   return typeof value === "string" && /^\/(?![/\\])[^\s\\]*$/.test(value)
     ? value
-    : "/";
+    : "/owner";
 }
 
 const WAITING = "Waiting for your device…";

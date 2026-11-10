@@ -96,6 +96,56 @@ export class EntriesStorage {
     }));
   }
 
+  /** The totals of the complete entries from `from` up to, not including, `to`, without their items. */
+  listCompleteTotalsInRange({
+    ownerKey,
+    from,
+    to,
+  }: {
+    ownerKey: string;
+    from: number;
+    to: number;
+  }): Promise<
+    Pick<
+      MealWithItems["meal"],
+      | "consumedAt"
+      | "totalCalories"
+      | "totalProteinG"
+      | "totalCarbsG"
+      | "totalFatG"
+    >[]
+  > {
+    return this.deps.db
+      .selectFrom("mealLogs")
+      .select([
+        "consumedAt",
+        "totalCalories",
+        "totalProteinG",
+        "totalCarbsG",
+        "totalFatG",
+      ])
+      .where("ownerKey", "=", ownerKey)
+      .where("status", "=", "complete")
+      .where("consumedAt", ">=", from)
+      .where("consumedAt", "<", to)
+      .execute();
+  }
+
+  /** The time of the oldest complete entry, or `undefined` when the owner has none. */
+  async findFirstCompleteConsumedAt({
+    ownerKey,
+  }: {
+    ownerKey: string;
+  }): Promise<number | undefined> {
+    const row = await this.deps.db
+      .selectFrom("mealLogs")
+      .select((builder) => builder.fn.min("consumedAt").as("first"))
+      .where("ownerKey", "=", ownerKey)
+      .where("status", "=", "complete")
+      .executeTakeFirst();
+    return row?.first ?? undefined;
+  }
+
   /** One statement for the entry and one for each item. D1 limits the values of a statement, so a multi-row insert of items does not fit. */
   planInsertEntry({
     meal,

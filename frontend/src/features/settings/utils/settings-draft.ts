@@ -30,6 +30,7 @@ export interface SettingsDraft {
   nutrients: NutrientGoalDraft;
   vitaminB6UsFnbAdultUlEnabled: boolean;
   usFnbAdultUlEnabled: boolean;
+  publicViewEnabled: boolean;
   timezone: string;
 }
 
@@ -42,6 +43,7 @@ export interface SavedSettings {
   dailyProteinTargetPerKg: number | null;
   vitaminB6UsFnbAdultUlEnabled: boolean;
   usFnbAdultUlEnabled: boolean;
+  publicViewEnabled: boolean;
   nutrientTargets: NutrientGoalMap;
 }
 
@@ -94,6 +96,8 @@ export function settingsDraftOf({
     nutrients: nutrientGoalDraftFromMap(saved?.nutrientTargets),
     vitaminB6UsFnbAdultUlEnabled: saved?.vitaminB6UsFnbAdultUlEnabled ?? false,
     usFnbAdultUlEnabled: saved?.usFnbAdultUlEnabled ?? false,
+    // A new owner starts private.
+    publicViewEnabled: saved?.publicViewEnabled ?? false,
     timezone: saved?.timezone ?? deviceTimeZone,
   };
 }
@@ -147,6 +151,7 @@ export function patchOfDraft(
       nutrientTargets: overridesFromDraft(draft.nutrients),
       vitaminB6UsFnbAdultUlEnabled: draft.vitaminB6UsFnbAdultUlEnabled,
       usFnbAdultUlEnabled: draft.usFnbAdultUlEnabled,
+      publicViewEnabled: draft.publicViewEnabled,
     },
   };
 }
@@ -160,6 +165,7 @@ export interface SettingsPatchBody {
   nutrientTargets: NutrientGoalOverrides;
   vitaminB6UsFnbAdultUlEnabled: boolean;
   usFnbAdultUlEnabled: boolean;
+  publicViewEnabled: boolean;
 }
 
 /** Every timezone the browser knows, plus the given ones in case it does not list them. */

@@ -12,12 +12,14 @@ import { createFullApplication } from "./full-application.js";
 const PUBLIC_ROUTES = [
   "GET /health",
   "GET /health/ready",
+  "GET /llms.txt",
   "GET /api/auth/status",
   "POST /api/auth/register/options",
   "POST /api/auth/register/verify",
   "POST /api/auth/login/options",
   "POST /api/auth/login/verify",
   "POST /api/auth/logout",
+  "GET /api/public/summary",
 ];
 
 const ORIGIN = "http://app.test";

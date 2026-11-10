@@ -265,6 +265,25 @@ export function SettingsForm() {
         </section>
 
         <section
+          className="settings-section public-view-settings"
+          aria-labelledby="public-view-title"
+        >
+          <SectionHeading
+            id="public-view-title"
+            title="Public dashboard"
+            detail="Who can see your log"
+          />
+          <ReferenceSetting
+            id="public-view-enabled"
+            label="Show my log to anyone who opens the site address"
+            detail="Visitors see your entries, food items, nutrients, weights and the photos of the last seven days. They cannot make changes. Notes and captions stay private. When this is off, the site address opens your own dashboard after you sign in."
+            checked={draft.publicViewEnabled}
+            disabled={disabled}
+            onChange={(checked) => change({ publicViewEnabled: checked })}
+          />
+        </section>
+
+        <section
           className="settings-section appearance-settings"
           aria-labelledby="appearance-title"
         >

@@ -93,6 +93,24 @@ export function isDateKey(value: unknown): value is string {
   );
 }
 
+/** True for a month written as YYYY-MM. */
+export function isMonthKey(value: unknown): value is string {
+  return typeof value === "string" && /^\d{4}-(?:0[1-9]|1[0-2])$/.test(value);
+}
+
+/** Shift a YYYY-MM month by whole months. */
+export function shiftMonthKey(month: string, months: number): string {
+  const [year = 0, monthNumber = 1] = month.split("-").map(Number);
+  const shifted = new Date(
+    utcTimestamp({ year, month: monthNumber + months, day: 1 }),
+  );
+  return dateKeyFromParts({
+    year: shifted.getUTCFullYear(),
+    month: shifted.getUTCMonth() + 1,
+    day: 1,
+  }).slice(0, 7);
+}
+
 export function isValidTimeZone(value: unknown): value is string {
   if (typeof value !== "string" || value.length === 0 || value.length > 100) {
     return false;

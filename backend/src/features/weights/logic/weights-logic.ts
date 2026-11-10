@@ -44,6 +44,13 @@ export class WeightsLogic extends Logic<WeightsProps, Record<string, never>> {
     return row && serialiseWeight(row);
   }
 
+  /** The date of the first weight that the owner saved, or `null`. */
+  async firstDate({ ownerKey }: { ownerKey: string }): Promise<string | null> {
+    return (
+      (await this.deps.storage.weights.findFirstDate({ ownerKey })) ?? null
+    );
+  }
+
   /** The weight that a goal per kilogram uses on this day: its own, or the latest one before it. */
   async latestOnOrBefore({
     ownerKey,

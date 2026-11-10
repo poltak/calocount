@@ -20,6 +20,8 @@ import {
 import { logRequests } from "../handlers/request-log.js";
 import type { RequestEnvironment } from "../handlers/types.js";
 import { createHealthHandlers } from "../../health/handlers/health-handlers.js";
+import { createLlmsHandlers } from "../../public-view/handlers/llms-handlers.js";
+import { createPublicSummaryHandlers } from "../../public-view/handlers/public-summary-handlers.js";
 import { createSettingsHandlers } from "../../settings/handlers/settings-handlers.js";
 import { createWeightHandlers } from "../../weights/handlers/weight-handlers.js";
 import type { App } from "../types.js";
@@ -57,6 +59,10 @@ export function createApiHttpApp({ app }: ApiHttpAppProps) {
     .use("*", requireTrustedOrigin({ config: app.config }))
     .use("*", resolveSession({ services: app.services, logic: app.logic }))
     .route("/auth", createAuthHandlers({ logic: app.logic }))
+    .route(
+      "/public",
+      createPublicSummaryHandlers({ logic: app.logic, config: app.config }),
+    )
     .route("/", createBusinessHttpApp({ app }));
 }
 
@@ -94,6 +100,10 @@ export function createHttpApp({ app, clientAddressHeader }: HttpAppProps) {
       .use("*", logRequests({ services: app.services }))
       .use("*", defaultBodyLimit(MAX_REQUEST_BODY_BYTES))
       .use("*", resolveClientAddress({ header: clientAddressHeader }))
+      .route(
+        "/llms.txt",
+        createLlmsHandlers({ logic: app.logic, config: app.config }),
+      )
       .route("/api", createApiHttpApp({ app }))
       .onError(createErrorHandler({ services: app.services }))
       .notFound(handleNotFound)

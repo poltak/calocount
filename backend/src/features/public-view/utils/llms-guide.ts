@@ -1,0 +1,153 @@
+/**
+ * The text of `/llms.txt`, which tells an agent how to read the public views.
+ * It names no live data, so it is a constant. Keep it in step with the routes
+ * of `public-summary-handlers.ts` and with the tools of the MCP endpoint.
+ */
+export const LLMS_GUIDE = `# Calocount
+
+> One person's nutrition and weight log. The data is public and read-only as
+> JSON. You need no sign-in and no API key.
+
+All paths are on this host. Every public view is a \`GET\` request that returns
+JSON. This file contains no live data.
+
+## Start here
+
+- [Daily view](/api/public/summary?view=daily): one small row for each day
+  since tracking began, with calories, macros, entry count and weight. About
+  100 bytes for each day and at most 366 days. Use it for weight progress,
+  trends, averages and goal adherence.
+- [Month view](/api/public/summary?view=month&month=2026-09): the calories,
+  protein and entry count of each day of one month. Use it to find the days
+  that have entries.
+- [Day view](/api/public/summary?view=day&date=2026-09-12): every entry of one
+  day with its food items and 24 nutrients. A few kilobytes. Use it for the
+  food of any date.
+
+## Daily view
+
+\`GET /api/public/summary?view=daily\`
+
+- \`view\`: always \`daily\`.
+- \`date\`: today in the owner's timezone. It is the last row of \`days\` and is
+  still in progress.
+- \`timezone\`: the IANA timezone that sets the day boundaries of every date.
+- \`units\`: the unit of each amount. Calories are kcal, macros are grams and
+  weight is kilograms.
+- \`firstEntryDate\`: the date of the owner's first food entry, or \`null\`.
+- \`firstWeightDate\`: the date of the owner's first weight, or \`null\`.
+- \`fromDate\`: the first date in \`days\`. It is the earlier of the two dates
+  above. When that is more than 366 days ago, \`fromDate\` is later than it and
+  the older days are not returned.
+- \`toDate\`: the last date in \`days\`, equal to \`date\`.
+- \`targets.calories\`: the current daily calorie goal, or \`null\`.
+- \`targets.proteinG\`: the current daily protein goal in grams, or \`null\`.
+- \`goalChanges[].date\`: the date a goal changed. Each row gives the goals in
+  effect from that date until the next row. Rows are oldest first.
+- \`goalChanges[].changedAt\`: the moment of the change in Unix milliseconds.
+- \`goalChanges[].calories\`: the daily calorie goal from that date, or \`null\`.
+- \`goalChanges[].proteinMode\`: \`grams\` for a fixed protein goal, or
+  \`gramsPerKg\` for a goal that follows body weight.
+- \`goalChanges[].proteinG\`: the fixed protein goal in grams. \`null\` in
+  \`gramsPerKg\` mode.
+- \`goalChanges[].proteinGramsPerKg\`: grams of protein for each kilogram of body
+  weight. \`null\` in \`grams\` mode.
+- \`days[].date\`: the calendar date. Every date from \`fromDate\` to \`toDate\` has
+  a row, oldest first.
+- \`days[].calories\`: kcal eaten that day.
+- \`days[].proteinG\`: grams of protein.
+- \`days[].carbsG\`: grams of carbohydrate.
+- \`days[].fatG\`: grams of fat.
+- \`days[].mealCount\`: the number of entries logged. Each meal, snack or drink
+  is one entry. \`0\` means nothing was logged, not that nothing was eaten.
+- \`days[].weightKg\`: the weight recorded that day in kilograms, or \`null\`.
+
+Goals before the first \`goalChanges\` row are not known. If the first row is on
+or before the first day you study and no later row falls in your period, the
+goals were constant over it.
+
+## Month view
+
+\`GET /api/public/summary?view=month&month=2026-09\`
+
+Replace \`2026-09\` with the month you need, written as \`YYYY-MM\`.
+
+- \`view\`: always \`month\`.
+- \`month\`: the month you asked for.
+- \`timezone\`: the IANA timezone that sets the day boundaries of every date.
+- \`firstDate\`: the date of the owner's first entry or weight, or \`null\`. No
+  earlier month has data.
+- \`days[].date\`: a date of the month that has one entry or more. A date with
+  no entries has no row. Rows are oldest first.
+- \`days[].calories\`: kcal eaten that day.
+- \`days[].proteinG\`: grams of protein.
+- \`days[].mealCount\`: the number of entries logged.
+
+## Day view
+
+\`GET /api/public/summary?view=day&date=2026-09-12\`
+
+Replace \`2026-09-12\` with the date you need, written as \`YYYY-MM-DD\`.
+
+- \`view\`: always \`day\`.
+- \`date\`: the date you asked for.
+- \`timezone\`: the IANA timezone that sets the day boundaries of the date.
+- \`meals[]\`: the entries of that day, newest first, each with \`id\`, \`consumedAt\`,
+  \`mealType\`, \`hasPhoto\`, \`totalCalories\`, \`totalProteinG\`, \`totalCarbsG\`,
+  \`totalFatG\` and \`items\`. Each item has \`name\`, \`quantity\`, \`unit\`,
+  \`calories\`, \`proteinG\`, \`carbsG\`, \`fatG\` and \`nutrients\`. A nutrient amount
+  is a number, or \`null\` when it is unknown. The nutrient names carry
+  their unit, such as \`fiberG\`, \`sodiumMg\` and \`vitaminDMcg\`. The list is
+  empty when nothing was logged.
+- \`weight\`: the weight recorded that day, with \`logicalDate\`, \`weightKg\` and
+  \`recordedAt\`, or \`null\`.
+- \`proteinGoal\`: the protein goal of that day by the current settings, with
+  \`date\`, \`targetG\`, \`weightKg\` and \`weightDate\`.
+
+## Reading the data
+
+- Dates are calendar dates in \`timezone\`. The timezone is \`UTC\` until the owner
+  saves one, so check it before you compare a date with a local day.
+- \`consumedAt\`, \`recordedAt\` and \`changedAt\` are Unix milliseconds.
+- Amounts are rounded to three decimal places.
+- \`null\` means unknown. A known zero is \`0\`.
+- A day with entries is not proof that everything eaten was logged.
+- Today is in progress, so leave it out of averages.
+
+## Photos
+
+When an entry in the day view has \`hasPhoto: true\`, its image is at
+\`/meal-photos/{id}\`, using that entry's \`id\`. Photos are public only for
+entries of the last seven days. The day view gives \`hasPhoto: false\` for an
+older entry.
+
+## Not public
+
+Captions, notes, assumptions, confidence, photo storage details, private
+settings, exports and credentials are not in any view. Every other path
+under \`/api/\` needs the owner's sign-in.
+
+## Private MCP endpoint
+
+\`/mcp\` is an MCP server over Streamable HTTP for the owner's own assistant. It
+is not public. An MCP client signs in as the owner with OAuth, and the server
+checks the token on every request. Without that sign-in a request gets a login
+redirect or \`401\`. If you are not connected as the owner, use the public views
+above. Do not ask anyone for credentials.
+
+Tools:
+
+- \`get_nutrition_summary\`: daily totals, entry counts, nutrient coverage, the
+  current goals and the recorded goal changes for a date range.
+- \`get_nutrition_history\`: the meals and food items of a date range, in pages.
+  Continue with \`next_cursor\` and the same dates and \`page_size\`.
+- \`get_weight_history\`: the weights of a date range in kilograms, oldest first,
+  and the date of the first weight.
+- \`add_meals\`: logs new meals. It writes data.
+- \`update_meal\`: corrects a saved meal. It writes data.
+
+The read tools take inclusive \`start_date\` and \`end_date\` values in
+\`YYYY-MM-DD\` format, covering at most 366 days. The dates are days in the
+owner's saved timezone, the same as in the public views, and each nutrition
+result returns that \`timezone\`.
+`;
