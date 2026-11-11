@@ -221,7 +221,7 @@ text that no conflict showed. So `finish` compares each file in
 `templateOwned` with the template at the commit that the sync reached. It
 stops and names each file that differs, that the template has and the project
 does not, or that the project has and the template does not. It skips a path
-in `ownPaths`, and a file that the project is without, such as a file of the
+in `ownPaths`, and a file that `apply` leaves out, such as a file of the
 removed example. To go on, take the template's file with
 `git checkout <commit> -- <path>` and commit it. When the project must keep
 its file, ask the person to run `pnpm run template:sync own <path> "<reason>"`.

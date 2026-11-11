@@ -127,8 +127,9 @@ the project, its data, or a secret in the issue.
   get the template's updates of indirect dependencies.
 - It writes the list of migrations again when a commit adds a migration.
 - `finish` stops when a file in `templateOwned` is not the same as the
-  template at the commit that the sync reached. It skips a path in `ownPaths`
-  and a file that the project is without.
+  template at the commit that the sync reached. A file that the project does
+  not have is a difference. It skips a path in `ownPaths`, and a file that
+  `apply` leaves out, such as a file of the removed example.
 - `finish` names each file that stopped `apply` in the message of its commit.
   `git log --grep="^- Conflict at"` lists the stops of past syncs. A file that
   appears often is a reason to report a gap to the template.
