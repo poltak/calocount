@@ -80,6 +80,7 @@
     "scripts/sync-template-finish.test.mjs",
     "scripts/sync-template-left-out.test.mjs",
     "scripts/sync-template-own-paths.test.mjs",
+    "scripts/sync-template-owned-files.test.mjs",
     "scripts/sync-template-package.test.mjs",
     "scripts/sync-template.mjs",
     "scripts/sync-template.test.mjs",
