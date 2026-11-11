@@ -63,7 +63,7 @@ test("stops finish at an owned file that differs from the template, and goes on 
 
   assert.equal(result.status, 1);
   assert.match(result.output, new RegExp(`at ${short(tip)}`));
-  assert.match(result.output, /docs\/agents\/guide\.md \(the text differs\)/);
+  assert.match(result.output, /docs\/agents\/guide\.md \(the file differs\)/);
   assert.match(result.output, new RegExp(`git diff ${short(tip)} -- <path>`));
   assert.match(result.output, /template:sync own <path>/);
   assert.equal((await readVersion(project)).commit, before);

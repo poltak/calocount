@@ -909,33 +909,34 @@ function verify(name) {
 function differingOwnedFiles({ plan }) {
   const owned =
     JSON.parse(read("show", `HEAD:${PATHS_FILE}`)).templateOwned ?? [];
-  const filesOf = (commit) => list("ls-tree", "-r", "--name-only", commit);
-  const projectFiles = new Set(filesOf("HEAD"));
-  const templateFiles = new Set(filesOf(plan.tip));
-  const blob = (commit, file) =>
-    git({
-      root,
-      args: ["rev-parse", "--verify", "--quiet", `${commit}:${file}`],
-      allowFailure: true,
-    }).stdout;
-  return [...new Set([...projectFiles, ...templateFiles])]
-    .filter(
-      (file) =>
-        owned.some((entry) => matchesPath({ entry, file })) &&
-        !plan.leftOut(file),
-    )
-    .map((file) => ({
-      file,
-      problem: !templateFiles.has(file)
-        ? "the template does not have it"
-        : !projectFiles.has(file)
-          ? "the project does not have it"
-          : blob("HEAD", file) === blob(plan.tip, file)
-            ? undefined
-            : "the text differs",
-    }))
-    .filter(({ problem }) => problem !== undefined)
-    .sort((left, right) => (left.file < right.file ? -1 : 1));
+  // With no path after `--`, `git diff` compares every file.
+  if (owned.length === 0) {
+    return [];
+  }
+  // HEAD is the old side of the diff, so `A` is a file that only the template
+  // has. `--no-renames` gives a moved file as a `D` and an `A`, which the
+  // messages below need.
+  const problems = {
+    A: "the project does not have it",
+    D: "the template does not have it",
+  };
+  const fields = list(
+    "diff",
+    "--name-status",
+    "--no-renames",
+    "HEAD",
+    plan.tip,
+    "--",
+    ...owned,
+  );
+  const differing = [];
+  for (let index = 0; index < fields.length; index += 2) {
+    const [status, file] = fields.slice(index, index + 2);
+    if (!plan.leftOut(file)) {
+      differing.push({ file, problem: problems[status] ?? "the file differs" });
+    }
+  }
+  return differing;
 }
 
 async function finish() {
