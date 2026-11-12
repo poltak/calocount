@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { CardDescription, CardHeader } from "../shadcn/card.js";
+import { CardHeader } from "../shadcn/card.js";
 
 export function PageHeader({
   title,
@@ -17,9 +17,7 @@ export function PageHeader({
           <h1 className="text-2xl leading-(--leading-page-title) font-semibold text-balance">
             {title}
           </h1>
-          {subtitle && (
-            <CardDescription className="mt-1">{subtitle}</CardDescription>
-          )}
+          {subtitle && <p className="mt-1 text-muted-foreground">{subtitle}</p>}
         </div>
         {actions && (
           <div className="flex flex-wrap items-center gap-2">{actions}</div>

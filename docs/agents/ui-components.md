@@ -77,10 +77,14 @@ the preset palette into `worldbrain.css` to compensate for a missing class.
   use the same title size, weight, content edge, and equivalent gaps.
   Use theme utilities on native text, not to restyle generated controls.
 - Do not set font size or line height on an imported shadcn part. This also
-  applies in core compositions. `PageHeader` leaves its subtitle typography
-  to `CardDescription`. The `stack/shadcn-typography` lint rule checks static
+  applies in core compositions. `PageHeader` uses native page text for its
+  subtitle, which inherits the document font size and line height. It does
+  not restyle a card description. The `stack/shadcn-typography` lint rule checks static
   JSX classes, including conditional classes and templates. The native page
   heading and page layout keep the WorldBrain page pattern.
+- When a task requires an unchanged base style, preserve its existing
+  typography and layout. If generated component defaults differ, obtain
+  approval before changing the appearance.
 - Do not put a card in a card. Use item parts, headings, space, or a line
   inside it. Wrap a named card in `section aria-label="…"` for a region.
   Use a semantic heading inside `CardTitle`.
