@@ -83,8 +83,11 @@ code, documents, or skills. This review reports what the author must fix.
    set of spacing tokens in the shared pattern. Flag unexplained one-off
    gaps. Read `headings` in visual order. Do not skip a level, such as `h1`
    followed by `h3`. Use `leftEdges` and the PNG to check one main content
-   edge. Allow named card insets and action columns, not unexplained extra
-   edges. Each empty list needs a visible empty state. At 390 px,
+   edge. A new distinct value in `leftEdges`, compared with base in the same
+   card or column, is a finding unless the request names it. A named card
+   inset alone does not justify a new edge. A block that grows more than 10%
+   in height with the same content is a finding unless the request explains
+   it. Each empty list needs a visible empty state. At 390 px,
    `horizontalOverflow` must be false and `document.width` must not exceed
    `viewport.width`. Inspect text, controls, borders, and focus indicators
    where visible in both themes for readability. JSON does not measure
