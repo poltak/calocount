@@ -1,10 +1,12 @@
+import { ChevronDownIcon, PencilIcon, PlusIcon } from "lucide-react";
+import { Button } from "../../core/ui/shadcn/button.js";
+import { Badge } from "../../core/ui/shadcn/badge.js";
 import {
-  Button,
-  IconButton,
-  LinkButton,
-} from "../../core/ui/components/button.js";
-import { Badge } from "../../core/ui/components/badge.js";
-import { ButtonGroup } from "../../core/ui/components/button-group.js";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../../core/ui/shadcn/dropdown-menu.js";
 import {
   Card,
   DataTable,
@@ -26,14 +28,12 @@ import {
 import { Form, FormActions, FormRow } from "../../core/ui/components/form.js";
 import { ICONS, Icon, type IconName } from "../../core/ui/components/icon.js";
 import {
-  Actions,
   Columns,
   Page,
   Stack,
   Toolbar,
 } from "../../core/ui/components/layout.js";
 import { Loading } from "../../core/ui/components/loading.js";
-import { Menu } from "../../core/ui/components/menu.js";
 import {
   PageHeader,
   SectionHeader,
@@ -42,7 +42,6 @@ import {
   SettingGroup,
   SettingRow,
 } from "../../core/ui/components/setting-list.js";
-import { NavTabs, Tabs } from "../../core/ui/components/tabs.js";
 import {
   EmptyState,
   Highlight,
@@ -50,11 +49,14 @@ import {
   Text,
 } from "../../core/ui/components/text.js";
 import { useLogic } from "../../core/logic/use-logic.js";
-import { InfoTip } from "../../core/ui/components/info-tip.js";
+import {
+  BadgeExamples,
+  ButtonExamples,
+  TabsExamples,
+} from "./control-examples.js";
 import {
   ComponentLibraryLogic,
   type ExampleChannel,
-  type ExampleFilter,
   type ExamplePlan,
 } from "./component-library-logic.js";
 
@@ -84,51 +86,11 @@ export function ComponentLibraryPage() {
         subtitle="The shared components of the app. A page composes these, and has no styles of its own."
       />
 
-      <Card label="Button, LinkButton, IconButton, ButtonGroup" stack>
-        <SectionHeader
-          title="Button, LinkButton, IconButton, ButtonGroup"
-          description="One primary action for each form, dialog, or page."
-        />
-        <Actions>
-          <Button variant="primary">Primary</Button>
-          <Button>Secondary</Button>
-          <Button variant="danger">Danger</Button>
-          <Button variant="danger-solid">Danger solid</Button>
-          <Button variant="ghost">Ghost</Button>
-          <Button size="sm">Small</Button>
-          <Button icon="plus">With icon</Button>
-          <Button busy busyLabel="Saving…">
-            Save
-          </Button>
-          <Button disabled>Disabled</Button>
-        </Actions>
-        <Actions>
-          <LinkButton to="/components">Link to a page</LinkButton>
-          <LinkButton href="https://example.com" newTab>
-            Link to a site
-          </LinkButton>
-          <IconButton icon="edit" label="Edit" />
-          <IconButton icon="trash" label="Remove" shortcut="Del" />
-          <InfoTip text="A short help text, on hover and on focus." />
-        </Actions>
-        <ButtonGroup label="Zoom">
-          <Button>Zoom out</Button>
-          <Button>Zoom in</Button>
-        </ButtonGroup>
-      </Card>
+      <ButtonExamples />
 
       <Card label="Badge, Notice, EmptyState, Loading, Text" stack>
         <SectionHeader title="Badge, Notice, EmptyState, Loading, Text" />
-        <Actions>
-          <Badge>Neutral</Badge>
-          <Badge tone="info" dot>
-            Draft
-          </Badge>
-          <Badge tone="success">Paid</Badge>
-          <Badge tone="warning">Expires soon</Badge>
-          <Badge tone="danger">Overdue</Badge>
-          <Badge loading>Syncing</Badge>
-        </Actions>
+        <BadgeExamples />
         <Notice title="Info">A fact the person should know.</Notice>
         <Notice tone="warning">A fact that can change what they do.</Notice>
         <Notice tone="success">An action finished.</Notice>
@@ -141,35 +103,10 @@ export function ComponentLibraryPage() {
         <Text variant="label">Recent notes</Text>
       </Card>
 
-      <Card label="Tabs, NavTabs" stack>
-        <SectionHeader title="Tabs, NavTabs" />
-        <Tabs
-          label="Example filter"
-          variant="segmented"
-          value={state.filter}
-          onChange={(filter: ExampleFilter) => logic.chooseFilter(filter)}
-          items={[
-            { value: "open", label: "Open", count: 3 },
-            { value: "closed", label: "Closed", count: 1 },
-          ]}
-        />
-        <Tabs
-          label="Example parts"
-          variant="page"
-          value={state.filter}
-          onChange={(filter: ExampleFilter) => logic.chooseFilter(filter)}
-          items={[
-            { value: "open", label: "Open" },
-            { value: "closed", label: "Closed" },
-          ]}
-        />
-        <NavTabs
-          label="Example links"
-          items={[
-            { to: "/components", label: "Components", icon: "components" },
-          ]}
-        />
-      </Card>
+      <TabsExamples
+        filter={state.filter}
+        onFilterChange={(filter) => logic.chooseFilter(filter)}
+      />
 
       <Card
         label="TextInput, TextArea, SearchInput, Select, Checkbox, RadioGroup"
@@ -264,7 +201,8 @@ export function ComponentLibraryPage() {
           title="Card, List, KeyValueList, DataTable"
           count={INVOICES.length}
           actions={
-            <Button size="sm" icon="plus">
+            <Button size="sm" variant="outline">
+              <PlusIcon />
               Add
             </Button>
           }
@@ -272,17 +210,24 @@ export function ComponentLibraryPage() {
         <List label="Example list">
           <ListItem
             title="Invoice 1042"
-            badges={<Badge tone="success">Paid</Badge>}
+            badges={<Badge variant="outline">Paid</Badge>}
             aside="3 Nov"
             actions={
-              <IconButton icon="edit" label="Edit invoice 1042" size="sm" />
+              <Button
+                variant="outline"
+                size="icon-sm"
+                aria-label="Edit invoice 1042"
+                title="Edit invoice 1042"
+              >
+                <PencilIcon />
+              </Button>
             }
           >
             <Text variant="meta">Sent to Ada Lovelace</Text>
           </ListItem>
           <ListItem
             title="Invoice 1043"
-            badges={<Badge tone="danger">Overdue</Badge>}
+            badges={<Badge variant="destructive">Overdue</Badge>}
             aside="25 Oct"
           />
         </List>
@@ -310,29 +255,34 @@ export function ComponentLibraryPage() {
         />
       </Card>
 
-      <Card label="Menu, Disclosure, Dialog, Toolbar" stack>
-        <SectionHeader title="Menu, Disclosure, Dialog, Toolbar" />
+      <Card label="DropdownMenu, Disclosure, Dialog, Toolbar" stack>
+        <SectionHeader title="DropdownMenu, Disclosure, Dialog, Toolbar" />
         <Toolbar
           start={
-            <Menu
-              label="Actions"
-              items={[
-                {
-                  key: "duplicate",
-                  label: "Duplicate",
-                  onSelect: () => logic.chooseMenuAction("Duplicate"),
-                },
-                {
-                  key: "remove",
-                  label: "Remove",
-                  danger: true,
-                  onSelect: () => logic.chooseMenuAction("Remove"),
-                },
-              ]}
-            />
+            <DropdownMenu modal={false}>
+              <DropdownMenuTrigger render={<Button variant="outline" />}>
+                Actions
+                <ChevronDownIcon />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" aria-label="Actions">
+                <DropdownMenuItem
+                  onClick={() => logic.chooseMenuAction("Duplicate")}
+                >
+                  Duplicate
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  variant="destructive"
+                  onClick={() => logic.chooseMenuAction("Remove")}
+                >
+                  Remove
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           }
           end={
-            <Button onClick={() => logic.openDialog()}>Discard changes</Button>
+            <Button variant="outline" onClick={() => logic.openDialog()}>
+              Discard changes
+            </Button>
           }
         />
         {state.lastMenuAction && (
@@ -352,11 +302,10 @@ export function ComponentLibraryPage() {
           title="Discard the changes?"
           actions={
             <>
-              <Button onClick={() => logic.closeDialog()}>Keep editing</Button>
-              <Button
-                variant="danger-solid"
-                onClick={() => logic.closeDialog()}
-              >
+              <Button variant="outline" onClick={() => logic.closeDialog()}>
+                Keep editing
+              </Button>
+              <Button variant="destructive" onClick={() => logic.closeDialog()}>
                 Discard
               </Button>
             </>
@@ -374,9 +323,12 @@ export function ComponentLibraryPage() {
           <SettingRow
             title="Email summary"
             description="One email each week."
-            control={<Badge tone="success">On</Badge>}
+            control={<Badge variant="outline">On</Badge>}
           />
-          <SettingRow title="Text messages" control={<Badge>Off</Badge>} />
+          <SettingRow
+            title="Text messages"
+            control={<Badge variant="secondary">Off</Badge>}
+          />
         </SettingGroup>
       </Card>
 

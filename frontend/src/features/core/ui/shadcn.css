@@ -108,7 +108,7 @@
     );
     --destructive: light-dark(
       oklch(57.7% 0.245 27.325),
-      oklch(0.458704 0.169677 3.815)
+      oklch(0.704 0.191 22.216)
     );
     --border: color-mix(
       in srgb,

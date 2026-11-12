@@ -6,8 +6,8 @@ card, list, notice, or loading text with a class of your own.
 
 Read [shadcn foundation](ui-shadcn.md) for new UI work. Its Base UI `base-mira`
 layers and page rules take priority over the old component API below. The
-foundation is installed but no page uses it yet. The component table describes
-the old controls until the page migration replaces them.
+buttons, badges, button groups, menus, and tabs use the generated shadcn parts.
+The other parts in the component table still use the old component API.
 
 The page `/components` in the app shows each component with its variants. The
 page is available without sign-in. Its black box tests are in
@@ -24,7 +24,8 @@ theme, with a magenta accent. A project that wants another palette changes the
 values in `shadcn.css` and `worldbrain.css`, and no component.
 
 Depth comes from small steps of background and thin soft lines, not from large
-shadows. A card, a block, and a control have the faint `--shadow-soft` edge.
+shadows. A card and a block have the faint `--shadow-soft` edge. Generated
+controls keep the base-mira look without size or color overrides.
 Only a popover and a dialog have a large shadow. A popover is translucent glass
 over a blur, with `--popover-glass` and `--blur-popover`.
 
@@ -34,14 +35,14 @@ The shared controls use Base UI, Tailwind CSS 4, and `class-variance-authority`.
 Base UI supplies control behavior and accessibility. Tailwind CSS 4 supplies
 the utilities for `cva` variants. Lucide supplies the icons. These packages give
 a project a complete accessible component set and light and dark themes.
-Components keep their own props. A page imports from the shared component
-files, not directly from these packages.
+Pages use the shadcn props directly. Import a generated part from its file in
+`core/ui/shadcn/`. Product parts in `core/ui/components/` keep their own props.
 
 | To find or change                    | Look in                               |
 | ------------------------------------ | ------------------------------------- |
 | Theme files and their token map      | [shadcn foundation](ui-shadcn.md)     |
-| The look of a shared component       | `core/ui/components/components-*.css` |
-| The variants of a shared component   | The `cva` call in its `.tsx` file     |
+| A generated control and its variants | `core/ui/shadcn/`, read only          |
+| The look of an old shared component  | `core/ui/components/components-*.css` |
 | The live result of each component    | The `/components` page                |
 | Base element styles and page layouts | `core/ui/app.css`                     |
 
@@ -64,28 +65,28 @@ so that the last Tailwind class wins.
 
 Each color has a role. Choose the token by its role, not by how it looks.
 
-| Role                                    | Token                                                                                                |
-| --------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| The page                                | `background`, `foreground`                                                                           |
-| A standard panel                        | `card`, `card-foreground`                                                                            |
-| A recessed area                         | `inset`                                                                                              |
-| A raised area                           | `raised`                                                                                             |
-| A menu, a list of options, or a tooltip | `popover`, `popover-foreground`                                                                      |
-| Secondary text                          | `muted-foreground`                                                                                   |
-| The sidebar and its rows                | `sidebar`, `sidebar-row-foreground`, `sidebar-row-icon`, `sidebar-row-hover`, `sidebar-row-selected` |
-| A line between parts                    | `border`                                                                                             |
-| The edge of a card or a block           | `border-soft`                                                                                        |
-| The edge of a control                   | `input`                                                                                              |
-| The fill of a button or a field         | `control`, `control-hover`                                                                           |
-| The chosen item of a list               | `selected-fill`                                                                                      |
-| A group of settings                     | `setting-group`                                                                                      |
-| The edge of a popover                   | `border-popover`                                                                                     |
-| A hover fill or a selected fill         | `accent`, `accent-foreground`                                                                        |
-| A quiet fill                            | `muted`, `secondary`                                                                                 |
-| The primary action                      | `primary`, `primary-foreground`                                                                      |
-| Focus                                   | `ring`                                                                                               |
-| A status                                | `success`, `warning`, `destructive`                                                                  |
-| A search match                          | `color-search-hit`                                                                                   |
+| Role                                    | Token                               |
+| --------------------------------------- | ----------------------------------- |
+| The page                                | `background`, `foreground`          |
+| A standard panel                        | `card`, `card-foreground`           |
+| A recessed area                         | `inset`                             |
+| A raised area                           | `raised`                            |
+| A menu, a list of options, or a tooltip | `popover`, `popover-foreground`     |
+| Secondary text                          | `muted-foreground`                  |
+| The sidebar                             | `sidebar`                           |
+| A line between parts                    | `border`                            |
+| The edge of a card or a block           | `border-soft`                       |
+| The edge of a control                   | `input`                             |
+| The fill of an old field                | `control`, `control-hover`          |
+| The chosen item of a list               | `selected-fill`                     |
+| A group of settings                     | `setting-group`                     |
+| The edge of a popover                   | `border-popover`                    |
+| A hover fill or a selected fill         | `accent`, `accent-foreground`       |
+| A quiet fill                            | `muted`, `secondary`                |
+| The primary action                      | `primary`, `primary-foreground`     |
+| Focus                                   | `ring`                              |
+| A status                                | `success`, `warning`, `destructive` |
+| A search match                          | `color-search-hit`                  |
 
 In Tailwind, these are `bg-card`, `text-muted-foreground`, `border-input`, and
 so on. In CSS, they are `var(--card)`. The `--color-*` variables at the end of
@@ -121,20 +122,19 @@ a thicker top border.
 
 ## Rules
 
-- Import each component from its file in
-  `frontend/src/features/core/ui/components/`. There is no index file.
-- When no component fits, first look for a prop or a variant that makes one
-  fit. When none does, add the component or the variant in that folder, show it
-  on the `/components` page, and add it to the table below in the same change.
+- Import each component from its defining file. There is no index file.
+- Find parts and choose their layer in the order in `ui-shadcn.md`. Show a new
+  product part on `/components` and add it to the table in the same change.
 - The components show state. A component gets its values and callbacks from the
   page, and the page gets them from its UI Logic.
 - No component uses `useState`. All state goes in a UI Logic. A reusable
-  component gets a small Logic of its own with `useLogic`, as `Tabs` does.
+  component with product state gets a small Logic of its own with `useLogic`.
 - The frontend has no React Compiler, so `useLogic` needs a `deps` object that
   stays the same between renders. A page makes it with `useMemo`. A component
   with no changing input uses a constant at module level.
-- Pass a Logic task's state to the component: `busy={state.saveState ===
-"running"}`, and the task's `<name>FieldErrors` to the `error` of each field.
+- A busy shadcn `Button` uses `disabled`, `aria-busy`, and a `Spinner` child.
+  Use the task's busy label when it has one. `FormActions` composes these parts
+  for form submission. Pass `<name>FieldErrors` to the `error` of each field.
 - Use the tokens of `core/ui/theme.css` for each color, size, space, radius, and
   shadow. Do not write a literal value. When a value is missing, add a token.
   Define a new color for both themes.
@@ -146,33 +146,46 @@ a thicker top border.
 
 ## Components
 
-| Component                                        | Use it for                                                                                     |
-| ------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
-| `Button`, `LinkButton`, `IconButton`             | An action. `busy` shows a spinner and stops a second click. `LinkButton` opens a page or file. |
-| `ButtonGroup`                                    | Related buttons that touch. It needs a label.                                                  |
-| `Menu`                                           | A list of actions behind one button.                                                           |
-| `Dialog`                                         | A modal question or a short form. The owner keeps `open` in its Logic.                         |
-| `Tabs`, `NavTabs`                                | One choice of several, or links to pages. Variants: `page`, `segmented`, `pills`, `sidebar`.   |
-| `AppLayout`                                      | The frame of each signed-in page: the sidebar and the page beside it.                          |
-| `Page`, `Columns`, `Stack`, `Actions`, `Toolbar` | Layout: the parts of a page, two columns, spaced parts, a row of buttons, a row of controls.   |
-| `PageHeader`, `SectionHeader`                    | The one `h1` of a page, and the title of each section with its tools.                          |
-| `Card`, `List`, `ListItem`                       | A surface, and a list of records with a title, badges, actions, and details.                   |
-| `KeyValueList`, `DataTable`                      | Facts as pairs, and rows with the same columns.                                                |
-| `Disclosure`                                     | A part that opens and closes.                                                                  |
-| `SettingGroup`, `SettingRow`                     | A settings screen: groups of rows with a name, a meaning, and a control.                       |
-| `Form`, `FormRow`, `FormActions`                 | A form with its rows and its submit and cancel buttons.                                        |
-| `TextInput`, `TextArea`, `SearchInput`           | Text fields with a label, a hint, and an error.                                                |
-| `Select`, `Checkbox`, `RadioGroup`, `FieldGroup` | A choice from a short list, a yes-or-no choice, one of a few options, and a group of fields.   |
-| `Badge`, `Count`                                 | A short label for a state or a kind, and a number of items.                                    |
-| `Notice`, `EmptyState`, `Loading`                | A message in the flow, what a list shows when it is empty, and what shows while data loads.    |
-| `Text`, `Highlight`                              | Text with a role of the type scale, and the matches of a search in a mark.                     |
-| `InfoTip`                                        | An "i" icon with a short help text on hover and on focus.                                      |
-| `Icon`                                           | A line icon by name. `ICONS` in `icon.tsx` gives each name its one meaning.                    |
+| Component                                            | Use it for                                                                                                                           |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `Button` from `shadcn/button`                        | An action. Use `variant="outline"` for a framed secondary action, `destructive` to remove something, and `ghost` for a quiet action. |
+| `ButtonGroup` from `shadcn/button-group`             | Related buttons that touch. Give the group an `aria-label`.                                                                          |
+| `DropdownMenu` parts from `shadcn/dropdown-menu`     | A list of actions behind a `DropdownMenuTrigger` that renders a `Button`.                                                            |
+| `Dialog`                                             | A modal question or a short form. The owner keeps `open` in its Logic.                                                               |
+| `Tabs`, `TabsList`, `TabsTrigger` from `shadcn/tabs` | One choice of several. `TabsList` has `default` and `line` variants. Use `orientation="vertical"` for sidebar tabs.                  |
+| `AppLayout`                                          | The frame of each signed-in page: the sidebar and the page beside it.                                                                |
+| `Page`, `Columns`, `Stack`, `Actions`, `Toolbar`     | Layout: the parts of a page, two columns, spaced parts, a row of buttons, a row of controls.                                         |
+| `PageHeader`, `SectionHeader`                        | The one `h1` of a page, and the title of each section with its tools.                                                                |
+| `Card`, `List`, `ListItem`                           | A surface, and a list of records with a title, badges, actions, and details.                                                         |
+| `KeyValueList`, `DataTable`                          | Facts as pairs, and rows with the same columns.                                                                                      |
+| `Disclosure`                                         | A part that opens and closes.                                                                                                        |
+| `SettingGroup`, `SettingRow`                         | A settings screen: groups of rows with a name, a meaning, and a control.                                                             |
+| `Form`, `FormRow`, `FormActions`                     | A form with its rows and its submit and cancel buttons.                                                                              |
+| `TextInput`, `TextArea`, `SearchInput`               | Text fields with a label, a hint, and an error.                                                                                      |
+| `Select`, `Checkbox`, `RadioGroup`, `FieldGroup`     | A choice from a short list, a yes-or-no choice, one of a few options, and a group of fields.                                         |
+| `Badge` from `shadcn/badge`                          | A short label or an item count. Use `default`, `secondary`, `outline`, or `destructive`.                                             |
+| `Notice`, `EmptyState`, `Loading`                    | A message in the flow, what a list shows when it is empty, and what shows while data loads.                                          |
+| `Text`, `Highlight`                                  | Text with a role of the type scale, and the matches of a search in a mark.                                                           |
+| `InfoTip`                                            | An "i" icon with a short help text on hover and on focus.                                                                            |
+| `Icon`                                               | A line icon by name. `ICONS` in `icon.tsx` gives each name its one meaning.                                                          |
 
-`Badge` tones: `neutral` for a kind, `info` for a state that waits, `success`
-for a good state, `warning` for a state that needs a look, `danger` for a bad
-state. `Notice` tones: `info`, `warning`, `error` (announced at once), and
-`success`.
+Use `Button` with `nativeButton={false}` and its `render` callback for
+a router link that looks like a button. The callback drops the generated
+button role and returns `<Link {...props} to="…" />`, so the anchor keeps its
+link role. Use an anchor in `render` for a site
+or file. An icon-only button uses `size="icon"`, `icon-sm`, or `icon-xs`, an
+`aria-label`, and a Lucide icon child. Do not add an icon-name prop.
+
+Navigation links render router links in `TabsTrigger` with `nativeButton={false}`
+and `aria-selected={undefined}`. Its render callback drops the generated tab
+role, as for button links. Their `TabsList` uses
+`role="presentation"`; the surrounding `nav` supplies the accessible name.
+This keeps link semantics while shadcn supplies the look. The router controls
+the selected value and `aria-current`.
+`AppLayout` takes composed navigation children, not an item list.
+
+`Notice` tones are `info`, `warning`, `error`, and `success`. An error is
+announced at once.
 
 Do not put a card in a card. Inside a card, use a `List` or a `SectionHeader`
 with `level={3}`.
@@ -185,8 +198,8 @@ until the page migration. Do not extend them.
 
 ## Choices
 
-- Base UI gives the behavior and the accessibility of each control. The
-  components keep their own props, so a page does not depend on Base UI.
+- Base UI gives the behavior and accessibility through the generated shadcn
+  parts. A page never imports Base UI directly.
 - Tailwind CSS 4 gives the utilities in `cva` variants. The CSS of a component
   that variants cannot say is in `components.css`, in the components layer.
 - The theme follows the device color scheme. The template has no theme switch.
@@ -194,7 +207,8 @@ until the page migration. Do not extend them.
   a Storage class.
 
 `components.css` imports the rules in their cascade order.
-`components-base.css` holds icons, buttons, tabs, badges, headers, text, and notices.
+`components-base.css` holds old icons, loading states, headers, text, and notices.
 `components-forms.css` holds fields, forms, page layouts, the app shell, and settings.
-`components-layout.css` holds cards, lists, tables, disclosures, menus, and dialogs.
-Change button and badge colors in the `cva` variants of `button.tsx` and `badge.tsx`.
+`components-layout.css` holds cards, lists, tables, disclosures, and dialogs.
+Never edit a generated control to change its look. Use `ui-shadcn.md` to
+choose between composition, a theme token, and a registry fork.

@@ -1,7 +1,8 @@
 import { Dialog as BaseDialog } from "@base-ui/react/dialog";
 import type { ReactNode, RefObject } from "react";
 import "./components.css";
-import { IconButton } from "./button.js";
+import { XIcon } from "lucide-react";
+import { Button } from "../shadcn/button.js";
 
 /**
  * The owner keeps `open` in its Logic. Escape, Close, and a click outside
@@ -54,12 +55,15 @@ export function Dialog({
               <BaseDialog.Title data-slot="dialog-title">
                 {title}
               </BaseDialog.Title>
-              <IconButton
-                icon="close"
-                label="Close"
-                size="sm"
+              <Button
+                variant="outline"
+                aria-label="Close"
+                title="Close"
+                size="icon-sm"
                 onClick={onClose}
-              />
+              >
+                <XIcon />
+              </Button>
             </div>
             <div className="ui-dialog-body" data-slot="dialog-body">
               {children}

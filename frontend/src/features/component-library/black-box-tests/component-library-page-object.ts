@@ -35,6 +35,70 @@ export class ComponentLibraryPageObject {
     return this.page.getByRole("button", { name: "Disabled", exact: true });
   }
 
+  get busyButton(): Locator {
+    return this.page.getByRole("button", { name: "Saving…", exact: true });
+  }
+
+  get pageLink(): Locator {
+    return this.page.getByRole("link", { name: "Link to a page", exact: true });
+  }
+
+  get siteLink(): Locator {
+    return this.page.getByRole("link", { name: "Link to a site", exact: true });
+  }
+
+  get zoomGroup(): Locator {
+    return this.page.getByRole("group", { name: "Zoom", exact: true });
+  }
+
+  get editButton(): Locator {
+    return this.page.getByRole("button", { name: "Edit", exact: true });
+  }
+
+  get removeButton(): Locator {
+    return this.section("Button, ButtonGroup").getByRole("button", {
+      name: "Remove",
+      exact: true,
+    });
+  }
+
+  filterTab(name: "Open" | "Closed"): Locator {
+    return this.page
+      .getByRole("tablist", { name: "Example filter", exact: true })
+      .getByRole("tab", {
+        name: `${name} ${name === "Open" ? 3 : 1}`,
+        exact: true,
+      });
+  }
+
+  partsTab(name: "Open" | "Closed"): Locator {
+    return this.page
+      .getByRole("tablist", { name: "Example parts", exact: true })
+      .getByRole("tab", { name, exact: true });
+  }
+
+  get navigationLink(): Locator {
+    return this.page
+      .getByRole("navigation", { name: "Example links", exact: true })
+      .getByRole("link", { name: "Components", exact: true });
+  }
+
+  get actionsTrigger(): Locator {
+    return this.page.getByRole("button", { name: "Actions", exact: true });
+  }
+
+  get actionsMenu(): Locator {
+    return this.page.getByRole("menu", { name: "Actions", exact: true });
+  }
+
+  async chooseMenuAction(name: string): Promise<void> {
+    await this.actionsMenu.getByRole("menuitem", { name, exact: true }).click();
+  }
+
+  lastMenuAction(name: string): Locator {
+    return this.page.getByText(`Last menu action: ${name}`, { exact: true });
+  }
+
   get formSection(): Locator {
     return this.section("Form, FormRow, FormActions, FieldGroup");
   }
@@ -58,7 +122,7 @@ export class ComponentLibraryPageObject {
   }
 
   get discardTrigger(): Locator {
-    return this.section("Menu, Disclosure, Dialog, Toolbar").getByRole(
+    return this.section("DropdownMenu, Disclosure, Dialog, Toolbar").getByRole(
       "button",
       { name: "Discard changes", exact: true },
     );

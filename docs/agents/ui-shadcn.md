@@ -14,8 +14,7 @@ All paths below start at `frontend/src/features/core/ui/`.
   `linguist-generated` attribute. The size hook skips generated files, and
   Prettier leaves their bytes unchanged. `pnpm run check:shadcn` generates
   each installed part again with the pinned CLI and compares every file.
-- `core/` has WorldBrain parts that each project gets. It is empty until
-  the page migration.
+- `core/` is for WorldBrain parts that each project gets. It is empty at present.
 - `registry/` has forks and new Base UI controls in shadcn registry format.
 - `components/` is the project layer. The old template controls remain there
   until the page migration. Do not add another old-style control.
@@ -61,23 +60,28 @@ The sidebar's internal `7.5` and `18` are not page spacing values. Use `flex`
 and `gap-*` for page layout. Do not add Stack, Actions, Columns, Toolbar,
 or PageTop wrappers.
 
-`lint/ui-legacy.mjs` permits only the current Base UI imports and bracket
-classes in `badge.tsx`, `button.tsx`, `dialog.tsx`, `disclosure.tsx`,
-`field.tsx`, `menu.tsx`, and `tabs.tsx` in the old `components/` directory.
-The page migration removes these exceptions. Generated files alone are
+`lint/ui-legacy.mjs` permits only the current Base UI imports in `dialog.tsx`,
+`disclosure.tsx`, and `field.tsx` in the old `components/` directory. Buttons,
+badges, button groups, dropdown menus, and tabs use shadcn directly and have
+no legacy exceptions. Generated files alone are
 exempt from local-state, browser-global, and conflicting markup lint rules.
 The byte comparison, not a hand edit, controls that directory.
 
 ## Theme token map
 
 All names in this section start with `--`. No color token was renamed.
-The following tokens moved from `theme.css` to `shadcn.css`, with their
-current light and dark values unchanged:
+The following tokens moved from `theme.css` to `shadcn.css`:
 
 `background`, `foreground`, `card`, `card-foreground`, `popover`,
 `popover-foreground`, `primary`, `primary-foreground`, `secondary`,
 `secondary-foreground`, `muted`, `muted-foreground`, `accent`,
 `accent-foreground`, `destructive`, `border`, `input`, `ring`, and `sidebar`.
+
+They keep their old light and dark values, except for dark `destructive`.
+It uses shadcn's neutral value, `oklch(0.704 0.191 22.216)`. Base-mira uses
+this token for destructive text as well as fills. The old dark red was a
+fill color and made the new button and badge labels hard to read. The legacy
+alert text and fill tokens in `worldbrain.css` stay unchanged.
 
 `radius` also moved. Its base-mira value is `0.625rem`, not the old `0.5rem`.
 The `radius-sm`, `radius-md`, `radius-lg`, and `radius-xl` utilities now use
@@ -93,15 +97,16 @@ The matching `color-*` utility mappings are new too.
 
 All remaining tokens moved unchanged to `worldbrain.css`. They are the
 contrast helpers, `foreground-base`, `setting-group`, `selected-fill`,
-`raised`, `inset`, `destructive-foreground`, `border-soft`, the five
-`sidebar-row-*` tokens, `control`, `control-hover`, the three `segmented*`
-tokens, `popover-glass`, `border-popover`, `success`, `warning`, the existing
-`color-*` aliases, `text-*`, `space-*`, `radius-full`, `control-sm`,
+`raised`, `inset`, `destructive-foreground`, `border-soft`, `sidebar-row-inset`,
+`control`, `control-hover`, `popover-glass`, `border-popover`, `success`,
+`warning`, the existing `color-*` aliases, `text-*`, `space-*`, `control-sm`,
 `control-md`, `block-min-width`, `shadow-*`, `blur-popover`, `z-*`, `width-*`,
-and `radius-sidebar-row`. Their utility mappings and the existing
+and their utility mappings. The existing
 `font-sans` and `font-mono` mappings moved there too. The old duplicate
 `radius-sm` through `radius-xl` declarations were removed so they cannot
-override the style sizes.
+override the style sizes. The controls migration removed the old button
+shadows, segmented fills and shadow, badge radius, sidebar row colors, and
+sidebar row radius. No remaining component uses those tokens.
 
 ## Commands
 
@@ -122,5 +127,4 @@ The check uses the live registry. Its tests use a local generator and need no
 network. `pnpm run check` and CI's `pnpm run ci:checks` both run it.
 After `apply`, check both themes and widths with `pnpm run ui:screens`.
 Keep the device theme and `data-theme` overrides working. Review with the
-`ui-review` skill before delivery. Phase 1 adds no component to a page or
-to the component gallery.
+`ui-review` skill before delivery.

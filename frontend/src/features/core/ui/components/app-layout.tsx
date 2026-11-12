@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 import "./components.css";
-import { Button } from "./button.js";
-import { NavTabs, type NavTabItem } from "./tabs.js";
+import { Button } from "../shadcn/button.js";
+import { Spinner } from "../shadcn/spinner.js";
 import { Text } from "./text.js";
 
 /**
@@ -24,8 +24,8 @@ export function AppLayout({
   home: string;
   brand: string;
   navLabel: string;
-  nav: readonly NavTabItem[];
-  accountNav?: readonly NavTabItem[] | undefined;
+  nav: ReactNode;
+  accountNav?: ReactNode;
   userName: string | null | undefined;
   signingOut: boolean;
   onSignOut: () => void;
@@ -39,11 +39,9 @@ export function AppLayout({
         <Link className="ui-sidebar-brand" to={home}>
           {brand}
         </Link>
-        <NavTabs label={navLabel} variant="sidebar" items={nav} />
+        <nav aria-label={navLabel}>{nav}</nav>
         <div className="ui-sidebar-foot">
-          {accountNav && (
-            <NavTabs label="Account" variant="sidebar" items={accountNav} />
-          )}
+          {accountNav && <nav aria-label="Account">{accountNav}</nav>}
           <div className="ui-sidebar-user">
             <Text as="span" variant="meta">
               {userName}
@@ -51,9 +49,11 @@ export function AppLayout({
             <Button
               size="sm"
               variant="ghost"
-              busy={signingOut}
+              disabled={signingOut}
+              aria-busy={signingOut || undefined}
               onClick={onSignOut}
             >
+              {signingOut && <Spinner aria-hidden="true" />}
               Sign out
             </Button>
           </div>

@@ -1,4 +1,11 @@
-import { IconButton } from "./button.js";
+import { InfoIcon } from "lucide-react";
+import { Button } from "../shadcn/button.js";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "../shadcn/tooltip.js";
 
 /**
  * An "i" icon that shows a short text on hover and on keyboard focus. The
@@ -16,5 +23,16 @@ export function InfoTip({
    */
   align?: "start" | "end";
 }) {
-  return <IconButton icon="info" label={text} size="inline" tip={align} />;
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger
+          render={<Button variant="ghost" size="icon-xs" aria-label={text} />}
+        >
+          <InfoIcon />
+        </TooltipTrigger>
+        <TooltipContent align={align}>{text}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
 }

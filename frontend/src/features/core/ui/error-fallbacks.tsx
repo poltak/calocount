@@ -1,4 +1,4 @@
-import { Button } from "./components/button.js";
+import { Button } from "./shadcn/button.js";
 import { Page } from "./components/layout.js";
 import { PageHeader } from "./components/page-header.js";
 import { Notice } from "./components/text.js";
@@ -8,7 +8,14 @@ export function PageErrorFallback({ reset }: ErrorFallbackProps) {
   return (
     <Page>
       <PageHeader title="This page failed to load" />
-      <Notice tone="error" actions={<Button onClick={reset}>Try again</Button>}>
+      <Notice
+        tone="error"
+        actions={
+          <Button variant="outline" onClick={reset}>
+            Try again
+          </Button>
+        }
+      >
         An unexpected error occurred on this page.
       </Notice>
     </Page>
@@ -22,7 +29,11 @@ export function AppErrorFallback({ reset }: ErrorFallbackProps) {
         <PageHeader title="Something went wrong" />
         <Notice
           tone="error"
-          actions={<Button onClick={reset}>Try again</Button>}
+          actions={
+            <Button variant="outline" onClick={reset}>
+              Try again
+            </Button>
+          }
         >
           An unexpected error occurred.
         </Notice>

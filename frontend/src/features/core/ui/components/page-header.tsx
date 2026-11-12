@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import "./components.css";
-import { Count } from "./badge.js";
+import { Badge } from "../shadcn/badge.js";
 
 /**
  * The top of each page: the one `h1`, a line under it, and the page's
@@ -84,7 +84,7 @@ export function SectionHeader({
       <div className="ui-section-header-title">
         {leading}
         <Heading>{title}</Heading>
-        {count !== undefined && <Count value={count} />}
+        {count !== undefined && <Badge variant="secondary">{count}</Badge>}
         {trailing}
       </div>
       {actions && <div className="ui-actions">{actions}</div>}

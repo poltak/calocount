@@ -1,5 +1,5 @@
 import { Navigate, Outlet, useLocation } from "react-router";
-import { Button } from "../../core/ui/components/button.js";
+import { Button } from "../../core/ui/shadcn/button.js";
 import { Page } from "../../core/ui/components/layout.js";
 import { Loading } from "../../core/ui/components/loading.js";
 import { PageHeader } from "../../core/ui/components/page-header.js";
@@ -24,7 +24,9 @@ export function SessionGate() {
         <Notice
           tone="error"
           actions={
-            <Button onClick={() => void logic.refresh()}>Try again</Button>
+            <Button variant="outline" onClick={() => void logic.refresh()}>
+              Try again
+            </Button>
           }
         >
           {state.loadSessionError}

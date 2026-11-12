@@ -108,13 +108,13 @@ test("a CSS selector is not a Tailwind arbitrary value", async (context) => {
   );
 });
 
-test("legacy exceptions permit only the listed import and class", async (context) => {
-  const legacy = "frontend/src/features/core/ui/components/button.tsx";
+test("legacy exceptions permit only the listed import", async (context) => {
+  const legacy = "frontend/src/features/core/ui/components/dialog.tsx";
   assert.deepEqual(
     onlyUi(
       await lint(context, {
         [legacy]:
-          'import { Button } from "@base-ui/react/button"; export const classes = "transition-[color,background-color,border-color,box-shadow]";',
+          'import { Dialog } from "@base-ui/react/dialog"; export { Dialog };',
       }),
     ),
     [],
@@ -123,11 +123,21 @@ test("legacy exceptions permit only the listed import and class", async (context
     onlyUi(
       await lint(context, {
         [legacy]:
-          'import { Dialog } from "@base-ui/react/dialog"; export const classes = "w-[13px]";',
+          'import { Button } from "@base-ui/react/button"; export const classes = "w-[13px]";',
       }),
     ).length,
     2,
   );
+});
+
+test("migrated controls have no legacy import or class exceptions", async (context) => {
+  const files = Object.fromEntries(
+    ["button", "badge", "menu", "tabs"].map((name) => [
+      `frontend/src/features/core/ui/components/${name}.tsx`,
+      `import { Control } from "@base-ui/react/${name === "badge" ? "use-render" : name}"; export const classes = "w-[13px]";`,
+    ]),
+  );
+  assert.equal(onlyUi(await lint(context, files)).length, 8);
 });
 
 test("the frontend alias keeps feature and layer boundaries", async (context) => {

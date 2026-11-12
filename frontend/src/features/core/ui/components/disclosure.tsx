@@ -1,7 +1,7 @@
 import { Collapsible } from "@base-ui/react/collapsible";
 import type { ReactNode } from "react";
 import "./components.css";
-import { Count } from "./badge.js";
+import { Badge } from "../shadcn/badge.js";
 import { Icon } from "./icon.js";
 
 /**
@@ -44,7 +44,7 @@ export function Disclosure({
       >
         <Icon name="chevron-right" />
         {summary}
-        {count !== undefined && <Count value={count} />}
+        {count !== undefined && <Badge variant="secondary">{count}</Badge>}
       </Collapsible.Trigger>
       <Collapsible.Panel
         className="ui-disclosure-body"

@@ -1,6 +1,7 @@
 import type { FormEvent, ReactNode } from "react";
 import "./components.css";
-import { Button } from "./button.js";
+import { Button } from "../shadcn/button.js";
+import { Spinner } from "../shadcn/spinner.js";
 
 /**
  * A form. `panel` sets it apart from the page, as an add or edit form inside
@@ -54,7 +55,7 @@ export function FormActions({
   submitLabel,
   busyLabel,
   busy = false,
-  submitVariant = "primary",
+  submitVariant = "default",
   onCancel,
   cancelLabel = "Cancel",
   disabled = false,
@@ -64,8 +65,7 @@ export function FormActions({
   /** Such as "Saving…". */
   busyLabel?: string | undefined;
   busy?: boolean | undefined;
-  /** `danger-solid` for a form that removes something. */
-  submitVariant?: "primary" | "danger-solid" | undefined;
+  submitVariant?: "default" | "destructive" | undefined;
   onCancel?: (() => void) | undefined;
   cancelLabel?: string | undefined;
   disabled?: boolean | undefined;
@@ -77,14 +77,14 @@ export function FormActions({
       <Button
         type="submit"
         variant={submitVariant}
-        busy={busy}
-        busyLabel={busyLabel}
-        disabled={disabled}
+        aria-busy={busy || undefined}
+        disabled={disabled || busy}
       >
-        {submitLabel}
+        {busy && <Spinner aria-hidden="true" />}
+        {busy && busyLabel ? busyLabel : submitLabel}
       </Button>
       {onCancel && (
-        <Button onClick={onCancel} disabled={busy}>
+        <Button variant="outline" onClick={onCancel} disabled={busy}>
           {cancelLabel}
         </Button>
       )}
