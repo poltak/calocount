@@ -45,6 +45,10 @@ The capture waits for that part to have a stable position before it takes
 the picture. Visibility alone can still include an entrance transition.
 A step can set `width` to `phone` or `desktop` when its control exists at
 only that width. The sidebar capture waits for its dialog only on a phone.
+Use `offlineBeforeSteps` for connection failures. The capture loads the page
+online, disconnects before the steps, and reconnects after each picture.
+The shell captures a sign-out failure on the not-found route, which makes no
+page-data request that could produce a second error.
 
 Gallery captures include the open Actions menu, the open Discard changes
 dialog, the open History panel, the open Invoice details popover, and help

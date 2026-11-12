@@ -127,7 +127,9 @@ Import these parts from their defining files in `core/ui/core/`.
 - `Page` (type D) owns the page width, padding, and block gap. Signed-in pages
   use the sidebar inset width and phone padding. Signed-out pages use the
   standalone width. Auth routes wrap their panel in `Page`; do not add a
-  second `Page` inside the panel. Use flex and gap utilities for inner layout.
+  second `Page` inside the panel. `variant="notice"` keeps the horizontal
+  inset without page-bottom padding for a shell notice. Use flex and gap
+  utilities for inner layout.
 - `PageHeader` (type A) composes `CardHeader` and `CardDescription` with the
   page's one `h1`. Use `title`, optional `subtitle`, and optional `actions`.
   No caller used its old `leading` or `search` props, so they are gone. The

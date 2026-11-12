@@ -29,3 +29,26 @@ test("not-found page", async ({ page }) => {
     { route: "*", url: "/no-such-page", contentRoot: ".ui-app-content" },
   ]);
 });
+
+test("sign-out failure", async ({ page }) => {
+  await captureScreens(page, [
+    {
+      route: "*",
+      url: "/no-such-page",
+      state: "sign-out-error",
+      contentRoot: ".ui-app-content",
+      offlineBeforeSteps: true,
+      steps: [
+        {
+          role: "button",
+          name: "Toggle Sidebar",
+          action: "click",
+          width: "phone",
+        },
+        { role: "dialog", name: "Sidebar", action: "waitFor", width: "phone" },
+        { role: "button", name: "Sign out", action: "click" },
+        { role: "alert", name: "", action: "waitFor" },
+      ],
+    },
+  ]);
+});

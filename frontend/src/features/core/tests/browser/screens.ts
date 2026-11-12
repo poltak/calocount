@@ -14,6 +14,7 @@ export interface Screen {
   contentRoot?: string;
   /** Tells two screens of one route apart, such as `empty`. */
   state?: string | undefined;
+  offlineBeforeSteps?: boolean;
   steps?: readonly {
     role?: Parameters<Page["getByRole"]>[0];
     name: string;
@@ -99,6 +100,9 @@ export async function captureScreens(
         await page.goto(screen.url);
         await page.waitForLoadState("networkidle");
         await page.evaluate(() => document.fonts.ready);
+        if (screen.offlineBeforeSteps) {
+          await page.context().setOffline(true);
+        }
         for (const step of screen.steps ?? []) {
           if (step.width && step.width !== size.name) {
             continue;
@@ -129,6 +133,9 @@ export async function captureScreens(
           width: size.name,
           measurements: await page.evaluate(measurePage, screen.contentRoot),
         });
+        if (screen.offlineBeforeSteps) {
+          await page.context().setOffline(false);
+        }
       }
     }
     await writeFile(

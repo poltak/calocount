@@ -104,7 +104,7 @@ function AppFrame({
           <span className="text-sm text-muted-foreground">{brand}</span>
         </div>
         <div className="ui-app-content flex flex-col gap-4">
-          {notice && <Page>{notice}</Page>}
+          {notice && <Page variant="notice">{notice}</Page>}
           {children}
         </div>
       </SidebarInset>
