@@ -30,6 +30,8 @@
     );
     --selected-fill: color-mix(in srgb, var(--foreground) 8%, transparent);
 
+    --raised: light-dark(#ffffff, oklch(0.279864 0.021572 309.532));
+
     /* #5c5c64 with the boost gives #424248, the secondary text of T3 Code. */
 
     --destructive-foreground: light-dark(
@@ -59,6 +61,7 @@
     --color-border: var(--border);
     --color-muted: var(--muted-foreground);
     --color-surface: var(--card);
+    --color-surface-raised: var(--raised);
     --color-control-border: var(--input);
     --color-link: light-dark(
       oklch(48.8% 0.243 264.376),

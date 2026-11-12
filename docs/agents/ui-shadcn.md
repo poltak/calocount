@@ -109,9 +109,10 @@ shadows, segmented fills and shadow, badge radius, sidebar row colors, and
 sidebar row radius. No remaining component uses those tokens.
 The form migration also removed `control`, `control-hover`, their utility
 mappings, and `control-md`. Only the deleted form styles used them.
-The container migration removed `raised`, `inset`, their utility mappings,
-`color-surface-raised`, `block-min-width`, `shadow-dialog`, and `z-dialog`.
-No remaining caller needs a raised, inset, or nested-block variant.
+The container migration removed `inset`, the `color-inset` and `color-raised`
+utility mappings, `block-min-width`, `shadow-dialog`, and `z-dialog`.
+No remaining container needs a raised, inset, or nested-block variant.
+Skeleton keeps `raised` and its `color-surface-raised` alias for its shimmer.
 
 ## Commands
 

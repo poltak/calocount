@@ -98,7 +98,8 @@ each surface.
 Use one card surface for a section. Inside it, use `ItemGroup`, a heading,
 space, or `ItemSeparator`, not another card. The old inset settings example
 needs no separate recessed surface; it now uses the standard card. There are
-no raised or nested-block callers, so those variants and their tokens are gone.
+no raised or nested-block container callers, so those variants are gone.
+Skeleton still uses `--raised` through `--color-surface-raised` for its shimmer.
 
 Check a surface change in the light theme and in the dark theme. The dark
 surfaces are close to each other, so a border must keep the parts apart.
