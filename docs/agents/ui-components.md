@@ -54,11 +54,11 @@ The imported rules are in the components layer, and Tailwind utilities can
 override that layer. Tailwind Preflight loads in the base layer before the
 WorldBrain base rules. Keep the layer order in `theme.css`.
 
-A page composes components. It does not use Tailwind utilities for color,
-border, or type, and it does not use the `ui-*` classes of a component to
-change its look. A style that a page needs goes into a prop or a variant of the
-shared component. Merge class names with `cn` from the `cn` package, so that
-the last Tailwind class wins.
+Pages may use theme typography and text-color utilities on native text
+elements. Do not use utilities or internal component classes to restyle
+generated controls. Use their props or a registry fork for a different
+appearance. Merge class names with `cn` from the `cn` package, so that the
+last Tailwind class wins.
 
 ## Colors and surfaces
 
