@@ -452,8 +452,8 @@ project that uses it, and how to turn it on in a new project.
 
 ## Production
 
-The repository has no deployment files yet. These facts hold on the default
-host, a long-lived Node process. [Hosting](hosting.md) has the rules for each
+The template has no deployment files. These facts hold on the default host,
+a long-lived Node process. [Hosting](hosting.md) has the rules for each
 other host.
 
 - Build with `pnpm run build`. Start the backend with
