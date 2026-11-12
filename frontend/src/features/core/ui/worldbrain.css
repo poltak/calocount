@@ -43,6 +43,10 @@
       #ffffff,
       oklch(0.901233 0.057189 343.694)
     );
+    --legacy-destructive: light-dark(
+      oklch(57.7% 0.245 27.325),
+      oklch(0.458704 0.169677 3.815)
+    );
 
     --border-soft: light-dark(
       rgb(24 24 27 / 9%),

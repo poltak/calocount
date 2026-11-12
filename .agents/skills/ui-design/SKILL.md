@@ -47,6 +47,9 @@ Check each of these against the diff:
   padding use only the small scale in `ui-shadcn.md`.
 - Each new color works in the light theme and in the dark theme. Look at the
   change in both when a surface, a border, or a fill changed.
+- Before changing a shared theme token, inspect every consumer and state.
+  During a partial migration, preserve the appearance of controls outside
+  the requested group.
 - Each new interactive part works with the keyboard, shows the focus ring, and
   has a name that a screen reader can read.
 - When replacing navigation, preserve router matching. Check a child path,
@@ -68,6 +71,10 @@ Then run the checks that `AGENTS.md` names for the change. Run
 the component library has black box tests.
 
 ## Last step: independent UI review
+
+Before replacing an existing interactive control, establish its open and
+focused screen states on the review base. If the fixed base lacks those
+states, report the missing pairs as a coverage finding. Do not rewrite the base.
 
 Run typecheck before handoff. Commit the UI change before review, so the diff
 and captures match. Start a fresh subagent with the `ui-review` skill.

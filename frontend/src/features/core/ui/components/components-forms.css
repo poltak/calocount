@@ -158,7 +158,7 @@
     @apply -mr-1 size-3.5 text-muted-foreground opacity-70;
   }
   .ui-select-trigger[aria-invalid="true"] {
-    @apply border-destructive;
+    border-color: var(--legacy-destructive);
   }
   .ui-select-positioner {
     z-index: var(--z-popover);

@@ -11,6 +11,7 @@ import { BACKEND_ORIGIN } from "./origins.js";
 export interface Screen {
   route: string;
   url: string;
+  contentRoot?: string;
   /** Tells two screens of one route apart, such as `empty`. */
   state?: string | undefined;
   steps?: readonly {
@@ -119,7 +120,7 @@ export async function captureScreens(
           file,
           theme,
           width: size.name,
-          measurements: await page.evaluate(measurePage),
+          measurements: await page.evaluate(measurePage, screen.contentRoot),
         });
       }
     }
@@ -135,7 +136,7 @@ export async function captureScreens(
  * with its sibling pages: heading sizes, the gaps between blocks, the content
  * width, and the left edges.
  */
-function measurePage() {
+function measurePage(contentRoot?: string) {
   // oxlint-disable-next-line unicorn/consistent-function-scoping -- Playwright sends only the source of measurePage to the page, so a helper outside it does not exist there.
   const box = (element: Element) => {
     const rect = element.getBoundingClientRect();
@@ -157,7 +158,10 @@ function measurePage() {
       style.display !== "none"
     );
   };
-  const root = document.querySelector("main") ?? document.body;
+  const root = document.querySelector(contentRoot ?? "main");
+  if (!root) {
+    throw new Error("A screen without main must set contentRoot.");
+  }
   // The content column is the first element under `main` that has more than
   // one child. Its children are the blocks of the page.
   let column: Element = root;

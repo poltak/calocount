@@ -1,12 +1,17 @@
 import { test } from "../../core/black-box-tests/black-box-test.js";
 import { captureScreens } from "../../core/tests/browser/screens.js";
 
+const GALLERY = {
+  route: "/components",
+  url: "/components",
+  contentRoot: "#root",
+};
+
 test("component gallery", async ({ page }) => {
   await captureScreens(page, [
-    { route: "/components", url: "/components" },
+    GALLERY,
     {
-      route: "/components",
-      url: "/components",
+      ...GALLERY,
       state: "menu-open",
       steps: [
         { role: "button", name: "Actions", action: "click" },
@@ -14,8 +19,7 @@ test("component gallery", async ({ page }) => {
       ],
     },
     {
-      route: "/components",
-      url: "/components",
+      ...GALLERY,
       state: "dialog-open",
       steps: [
         { role: "button", name: "Discard changes", action: "click" },
@@ -23,8 +27,7 @@ test("component gallery", async ({ page }) => {
       ],
     },
     {
-      route: "/components",
-      url: "/components",
+      ...GALLERY,
       state: "help-focused",
       steps: [
         {

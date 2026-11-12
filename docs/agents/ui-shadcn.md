@@ -82,6 +82,8 @@ It uses shadcn's neutral value, `oklch(0.704 0.191 22.216)`. Base-mira uses
 this token for destructive text as well as fills. The old dark red was a
 fill color and made the new button and badge labels hard to read. The legacy
 alert text and fill tokens in `worldbrain.css` stay unchanged.
+The temporary `legacy-destructive` token keeps the old values for the invalid
+Select border. That form control has not moved to shadcn yet.
 
 `radius` also moved. Its base-mira value is `0.625rem`, not the old `0.5rem`.
 The `radius-sm`, `radius-md`, `radius-lg`, and `radius-xl` utilities now use
