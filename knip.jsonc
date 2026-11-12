@@ -46,6 +46,10 @@
       "entry": [
         "src/features/core/live/index.ts",
         "src/features/core/tests/index.ts",
+        // `pnpm run ui:screens` runs this config, and it runs each
+        // `*.screens.ts` file. knip reads only `playwright.config.ts`.
+        "playwright.screens.config.ts",
+        "src/features/**/*.screens.ts",
       ],
       // The page registers it by its address, so no code imports it.
       "ignore": ["public/sw.js"],

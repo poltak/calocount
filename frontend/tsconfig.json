@@ -12,7 +12,8 @@
     "src/**/*.ts",
     "src/**/*.tsx",
     "vite.config.ts",
-    "playwright.config.ts"
+    "playwright.config.ts",
+    "playwright.screens.config.ts"
   ],
   // An editor reads the source of these projects, not their build output, so
   // it shows correct types before any build. `tsc` still reads the output.

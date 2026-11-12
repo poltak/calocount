@@ -23,6 +23,7 @@
     "db:migration:create": "node scripts/create-migration.mjs",
     "template:sync": "node scripts/sync-template.mjs",
     "issues:init": "node scripts/issues-init.mjs",
+    "ui:screens": "node scripts/ui-screens.mjs",
     "lint": "oxlint --deny-warnings backend frontend common",
     "unused:check": "knip",
     "typecheck": "pnpm --filter @app/common build && pnpm -r --if-present run typecheck",

@@ -71,11 +71,16 @@ const INSIDE_METHODS = [
 
 /**
  * A `*.spec.ts` file is a black box test, unless the options exempt it. A
- * `*-page-object.ts` file is a page object.
+ * `*-page-object.ts` file is a page object. A `*.screens.ts` file takes the
+ * screenshots of the UI review. It checks nothing, so it may seed rows through
+ * the API, but only with the screens helper.
  */
 function blackBoxKind(file) {
   if (/\.spec\.[cm]?[jt]sx?$/.test(file.file)) {
     return "test";
+  }
+  if (/\.screens\.[cm]?[jt]sx?$/.test(file.file)) {
+    return "screens";
   }
   if (file.base.endsWith("-page-object")) {
     return "pageObject";
@@ -233,7 +238,7 @@ const blackBoxTests = {
         BLACK_BOX_DOC +
         ".",
       folder:
-        "A black-box-tests/ directory holds only black box tests (*.spec.ts) and page objects (*-page-object.ts). Put another test beside the file that it tests. " +
+        "A black-box-tests/ directory holds only black box tests (*.spec.ts), page objects (*-page-object.ts), and screens (*.screens.ts). Put another test beside the file that it tests. " +
         BLACK_BOX_DOC +
         ".",
       fixture:
@@ -275,6 +280,7 @@ const blackBoxTests = {
     const filename = context.filename ?? context.getFilename();
     const file = describeFile(filename);
     const fixture = options.fixtureFile ?? "";
+    const screensHelper = options.screensFile ?? "";
     if (
       !file ||
       isListed(file, options.exemptFiles ?? []) ||
@@ -303,7 +309,7 @@ const blackBoxTests = {
       },
       ...importVisitors((node, source, names) => {
         if (source === "@playwright/test") {
-          if (kind === "test" && (names ?? []).includes("test")) {
+          if (kind !== "pageObject" && (names ?? []).includes("test")) {
             context.report({ node, messageId: "fixture", data: { fixture } });
             reportedFixture = true;
           }
@@ -323,6 +329,13 @@ const blackBoxTests = {
         if (described && blackBoxKind(described) === "pageObject") {
           return;
         }
+        if (
+          kind === "screens" &&
+          described &&
+          isListed(described, [screensHelper])
+        ) {
+          return;
+        }
         context.report({ node, messageId: "import", data: { source } });
       }),
       CallExpression(node) {
@@ -335,7 +348,7 @@ const blackBoxTests = {
           context.report({ node, messageId: "wait" });
         } else if (INSIDE_METHODS.includes(name)) {
           context.report({ node, messageId: "inside", data: { name } });
-        } else if (kind === "test" && LOCATOR_METHODS.includes(name)) {
+        } else if (kind !== "pageObject" && LOCATOR_METHODS.includes(name)) {
           context.report({ node, messageId: "pageObject", data: { name } });
         } else if (MARKUP_LOCATOR_METHODS.includes(name)) {
           context.report({ node, messageId: "markup", data: { name } });
@@ -357,7 +370,7 @@ const blackBoxTests = {
         }
       },
       "Program:exit"(node) {
-        if (kind === "test" && !usesFixture && !reportedFixture) {
+        if (kind !== "pageObject" && !usesFixture && !reportedFixture) {
           context.report({ node, messageId: "fixture", data: { fixture } });
         }
       },

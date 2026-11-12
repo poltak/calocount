@@ -243,6 +243,7 @@
       "error",
       {
         "fixtureFile": "features/core/black-box-tests/black-box-test.ts",
+        "screensFile": "features/core/tests/browser/screens.ts",
         "exemptFiles": ["features/core/tests/browser/"]
       }
     ],
@@ -408,7 +409,8 @@
         "frontend/src/features/api/**",
         "frontend/src/main.tsx",
         "frontend/src/**/*.test.ts",
-        "frontend/src/**/*.test.tsx"
+        "frontend/src/**/*.test.tsx",
+        "frontend/src/features/core/tests/browser/screens.ts"
       ],
       "rules": {
         "no-restricted-globals": "off"

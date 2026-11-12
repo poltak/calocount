@@ -14,6 +14,8 @@ instructions.
   before writing or changing a test.
 - [UI components](ui-components.md): the shared components, the theme, and the
   rules for UI. Read before writing or changing UI in `frontend`.
+- [UI screens](ui-screens.md): the screenshots and measurements of each page
+  on fake data. Read before adding a route, or before a UI review.
 - [Decisions](decisions.md): the choices of the template and their reasons.
   Read before changing a framework, authentication, the API transport, or test
   setup.
