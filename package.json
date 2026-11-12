@@ -16,6 +16,7 @@
     "check:scripts": "pnpm run test:scripts",
     "check:secrets": "node scripts/check-staged-secrets.mjs --branch",
     "check:unused": "pnpm run unused:check",
+    "check:shadcn": "node scripts/check-shadcn.mjs",
     "node-version:check": "node scripts/check-node-version.mjs",
     "build": "pnpm --filter backend... run build && VITE_API_BASE_URL= pnpm --filter frontend run build",
     "dev": "pnpm --filter backend... run build && node scripts/dev.mjs",

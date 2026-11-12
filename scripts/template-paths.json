@@ -32,7 +32,9 @@
     "README.md",
     ".agents/review/project-rules.md",
     "backend/src/features/core/database/pglite-extensions.ts",
-    "docs/agents/project/"
+    "docs/agents/project/",
+    "frontend/src/features/core/ui/components/",
+    "frontend/src/features/core/ui/project.css"
   ],
   "personOnly": ["docs/agents/project/reversals.md", "lint.project.json"],
   "templateOwned": [
@@ -91,6 +93,18 @@
     "backend/src/features/core/tests/api.ts",
     "backend/src/features/core/tests/browser-transport.ts",
     "frontend/src/features/core/tests/full-application.ts",
-    "frontend/src/features/core/tests/global-setup.ts"
+    "frontend/src/features/core/tests/global-setup.ts",
+    "frontend/components.json",
+    "frontend/src/features/core/ui/shadcn/",
+    "frontend/src/features/core/ui/core/",
+    "frontend/src/features/core/ui/registry/",
+    "frontend/src/features/core/ui/theme.css",
+    "frontend/src/features/core/ui/shadcn.css",
+    "frontend/src/features/core/ui/worldbrain.css",
+    "docs/agents/ui-shadcn.md",
+    "scripts/check-shadcn.mjs",
+    "scripts/check-shadcn.test.mjs",
+    "scripts/shadcn-components.json",
+    "workflows/workflow-check-shadcn.yaml"
   ]
 }
