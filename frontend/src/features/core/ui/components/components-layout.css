@@ -1,0 +1,633 @@
+@reference "../theme.css";
+
+@layer components {
+  /* Card */
+
+  .ui-card {
+    @apply m-0 block rounded-xl text-card-foreground;
+    border: 1px solid var(--border-soft);
+    box-shadow: var(--shadow-soft);
+  }
+  .ui-card[data-stack] {
+    display: grid;
+    gap: var(--space-3);
+  }
+  .ui-card {
+    --nested-block-background: var(--background);
+  }
+  .ui-card[data-tone="inset"] {
+    --nested-block-background: var(--card);
+  }
+  .ui-card[data-stack] > .ui-section-header {
+    margin-bottom: 0;
+  }
+  .ui-card[data-padding="md"] {
+    padding: var(--space-5);
+  }
+  .ui-card[data-padding="sm"] {
+    padding: var(--space-3) var(--space-4);
+  }
+  .ui-card[data-padding="none"] {
+    padding: 0;
+    overflow: hidden;
+  }
+
+  /* List */
+
+  .ui-list {
+    @apply m-0 grid list-none p-0;
+  }
+  .ui-list-item {
+    @apply grid gap-1 py-3;
+  }
+  .ui-list-item + .ui-list-item {
+    border-top: 1px solid var(--color-border);
+  }
+  .ui-list-item:first-child {
+    padding-top: 0;
+  }
+  .ui-list-item:last-child {
+    padding-bottom: 0;
+  }
+  .ui-list-item-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+  }
+  .ui-list-item-title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    min-width: 0;
+    margin-right: auto;
+    font-weight: 600;
+  }
+  /* The wrapper adds no box, so each part of a rich title keeps the gap of the
+   row. A record with revealed actions gives it a box to cut the text. */
+  .ui-list-item-name {
+    display: contents;
+  }
+  /* The button covers the whole record, so a click anywhere opens it. It
+   looks like a record with `stretchLink`. */
+  .ui-list-item[data-selectable] {
+    position: relative;
+  }
+  .ui-list-item[data-selectable]:hover {
+    background: var(--color-accent);
+  }
+  .ui-list-item-select {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .ui-list-item-select::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+  }
+  .ui-list-item-select:focus-visible {
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+  }
+  .ui-list-item-select:focus-visible::after {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+  .ui-list-item[data-muted] .ui-list-item-title,
+  .ui-list-item[data-muted] .ui-list-item-body {
+    color: var(--color-muted);
+  }
+  .ui-list-item[aria-current="true"] {
+    box-shadow: inset 3px 0 0 var(--color-primary);
+    padding-left: var(--space-3);
+  }
+  .ui-list:is([data-variant="blocks"], [data-variant="tinted"]) {
+    gap: var(--space-2);
+  }
+  .ui-list[data-grid] {
+    grid-template-columns: repeat(
+      auto-fill,
+      minmax(min(100%, var(--block-min-width)), 1fr)
+    );
+  }
+  /* A form needs more width than one block has. */
+  .ui-list[data-grid] > .ui-list-item:has(.ui-form) {
+    grid-column: 1 / -1;
+  }
+  .ui-list:is([data-variant="blocks"], [data-variant="tinted"])
+    > .ui-list-item {
+    gap: 0;
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-surface);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-soft);
+  }
+  .ui-list[data-variant="tinted"] > .ui-list-item {
+    padding: var(--space-2) var(--space-3);
+    background: var(--color-background);
+    border-radius: var(--radius-lg);
+    box-shadow: none;
+  }
+  .ui-list[data-variant="blocks"] > .ui-list-item[data-variant="plain"] {
+    gap: var(--space-2);
+  }
+  /* A block in a card or in another block. */
+  :is(.ui-card, .ui-list-item) .ui-list[data-variant="blocks"] > .ui-list-item {
+    background: var(--nested-block-background, var(--background));
+    border-radius: var(--radius-lg);
+    box-shadow: none;
+  }
+  .ui-list-item-side {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+  .ui-list-item-primary {
+    display: flex;
+    flex: none;
+    gap: var(--space-2);
+  }
+  .ui-list-item-head:has(> .ui-list-item-primary) > .ui-list-item-side {
+    margin-left: auto;
+  }
+  /* A short fact, such as a date or a state, stays in the top right corner.
+   A long title wraps beside it. */
+  .ui-list-item-head:has(> .ui-list-item-side > .ui-list-item-aside) {
+    flex-wrap: nowrap;
+    align-items: flex-start;
+  }
+  .ui-list-item-head:has(> .ui-list-item-side > .ui-list-item-aside)
+    > .ui-list-item-side {
+    flex: none;
+  }
+  .ui-list-item-aside {
+    font-size: var(--text-sm);
+    color: var(--color-muted);
+    white-space: nowrap;
+  }
+  /* Hidden actions leave the flow, so they do not wrap the title. The title
+   stays on one line on hover too: a change of height under the pointer can
+   end the hover and start it again. */
+  @media (hover: hover) {
+    .ui-list-item[data-reveal-actions]:not([data-variant="plain"])
+      > .ui-list-item-head:has(> .ui-list-item-side > .ui-actions) {
+      position: relative;
+      flex-wrap: nowrap;
+      min-width: 0;
+      min-height: var(--control-sm);
+    }
+    .ui-list-item[data-reveal-actions]:not([data-variant="plain"])
+      > .ui-list-item-head:has(> .ui-list-item-side > .ui-actions)
+      > .ui-list-item-title {
+      flex-wrap: nowrap;
+    }
+    .ui-list-item[data-reveal-actions]:not([data-variant="plain"])
+      > .ui-list-item-head:has(> .ui-list-item-side > .ui-actions)
+      .ui-list-item-select {
+      overflow: hidden;
+      min-width: 0;
+    }
+    .ui-list-item[data-reveal-actions]:not([data-variant="plain"])
+      > .ui-list-item-head:has(> .ui-list-item-side > .ui-actions)
+      .ui-list-item-name {
+      display: block;
+      overflow: hidden;
+      min-width: 0;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .ui-list-item[data-reveal-actions]:not([data-variant="plain"])
+      > .ui-list-item-head:has(> .ui-list-item-side > .ui-actions)
+      .ui-badge {
+      flex: none;
+    }
+    .ui-list-item[data-reveal-actions]:not([data-variant="plain"])
+      > .ui-list-item-head
+      > .ui-list-item-side {
+      flex: none;
+    }
+    .ui-list-item[data-reveal-actions]:not([data-variant="plain"])
+      > .ui-list-item-head
+      > .ui-list-item-side
+      > .ui-actions {
+      position: absolute;
+      top: 0;
+      right: 0;
+      flex-wrap: nowrap;
+    }
+    .ui-list-item[data-reveal-actions]:not([data-variant="plain"]):is(
+        :hover,
+        :has(:focus-visible)
+      )
+      > .ui-list-item-head
+      > .ui-list-item-side
+      > .ui-actions {
+      position: static;
+    }
+    .ui-list-item[data-reveal-actions]
+      > .ui-list-item-head
+      > .ui-list-item-side {
+      display: grid;
+      justify-items: end;
+    }
+    .ui-list-item[data-reveal-actions]
+      > .ui-list-item-head
+      > .ui-list-item-side
+      > * {
+      grid-area: 1 / 1;
+      transition: opacity 120ms ease;
+    }
+    .ui-list-item[data-reveal-actions]
+      > .ui-list-item-head
+      > .ui-list-item-side
+      > .ui-actions,
+    .ui-list-item[data-reveal-actions]:is(:hover, :has(:focus-visible))
+      > .ui-list-item-head
+      > .ui-list-item-side
+      > .ui-list-item-aside {
+      opacity: 0;
+    }
+    .ui-list-item[data-reveal-actions]:is(:hover, :has(:focus-visible))
+      > .ui-list-item-head
+      > .ui-list-item-side
+      > .ui-actions {
+      opacity: 1;
+    }
+    /* The hidden aside is drawn above the actions, because its opacity makes a
+     stacking context. Without this, it takes the clicks on the buttons
+     under it. */
+    .ui-list-item[data-reveal-actions]:is(:hover, :has(:focus-visible))
+      > .ui-list-item-head
+      > .ui-list-item-side
+      > .ui-list-item-aside {
+      pointer-events: none;
+    }
+  }
+  /* A screen with no hover keeps the actions in the row, because nothing would
+   move them off the text. */
+  @media (hover: hover) {
+    .ui-list-item[data-overlay-actions] {
+      position: relative;
+    }
+    .ui-list-item[data-overlay-actions] > .ui-list-item-head {
+      background: inherit;
+    }
+    /* The background hides the text in the gap between the buttons. */
+    .ui-list-item[data-overlay-actions]
+      > .ui-list-item-head
+      > .ui-list-item-side {
+      position: absolute;
+      top: var(--space-1);
+      right: var(--space-1);
+      padding: var(--space-1);
+      background: inherit;
+      border-radius: var(--radius-md);
+      opacity: 0;
+      transition: opacity 120ms ease;
+    }
+    .ui-list-item[data-overlay-actions]:is(:hover, :has(:focus-visible))
+      > .ui-list-item-head
+      > .ui-list-item-side {
+      opacity: 1;
+    }
+  }
+  @media (hover: hover) {
+    .ui-card[data-reveal-actions] > .ui-section-header > .ui-actions {
+      opacity: 0;
+      transition: opacity 120ms ease;
+    }
+    .ui-card[data-reveal-actions]:is(:hover, :has(:focus-visible))
+      > .ui-section-header
+      > .ui-actions {
+      opacity: 1;
+    }
+  }
+  .ui-list-item[data-stretch-link] {
+    position: relative;
+  }
+  .ui-list-item[data-stretch-link]:hover {
+    background: var(--color-accent);
+  }
+  .ui-list-item[data-stretch-link] .ui-list-item-title a {
+    color: inherit;
+    text-decoration: none;
+  }
+  .ui-list-item[data-stretch-link] .ui-list-item-title a::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+  }
+  .ui-list-item[data-stretch-link] .ui-list-item-title a:focus-visible {
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+  }
+  .ui-list-item[data-stretch-link] .ui-list-item-title a:focus-visible::after {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+  /* Above the stretched link, so that a click on a button is the button's. */
+  .ui-list-item[data-stretch-link] .ui-actions,
+  .ui-list-item[data-selectable] .ui-actions,
+  .ui-list-item[data-selectable] > .ui-list-item-body {
+    position: relative;
+    z-index: 1;
+  }
+  .ui-list-item[data-variant="plain"] .ui-list-item-title {
+    font-weight: 400;
+  }
+  .ui-list-item-badges {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+  }
+  .ui-list-item-body {
+    display: grid;
+    gap: var(--space-1);
+    font-size: var(--text-md);
+    line-height: 1.5;
+  }
+
+  /* KeyValueList */
+
+  .ui-key-values {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: 6px var(--space-4);
+    margin: 0;
+    font-size: var(--text-md);
+  }
+  .ui-key-values > div {
+    display: contents;
+  }
+  .ui-key-values dt {
+    color: var(--color-muted);
+  }
+  .ui-key-values dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+
+  /* DataTable */
+
+  .ui-table-wrap {
+    overflow-x: auto;
+  }
+  .ui-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-md);
+  }
+  .ui-table th {
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--text-sm);
+    font-weight: 400;
+    text-align: left;
+    color: var(--color-muted);
+    border-bottom: 1px solid var(--color-border);
+  }
+  .ui-table td {
+    padding: 10px var(--space-3);
+    vertical-align: top;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .ui-table tr:last-child td {
+    border-bottom: 0;
+  }
+  .ui-table tr[data-expanded] td {
+    border-bottom: 0;
+  }
+  .ui-table-expansion > td {
+    padding-top: 0;
+  }
+  .ui-table [data-align="end"] {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  .ui-table td[data-align="end"] .ui-actions {
+    justify-content: flex-end;
+  }
+  .ui-table td[data-emphasis] {
+    font-weight: 600;
+  }
+  .ui-table tr[data-tone="danger"] td[data-emphasis] {
+    color: var(--color-danger);
+    font-weight: 600;
+  }
+  @media (hover: hover) {
+    .ui-table td[data-reveal] > * {
+      opacity: 0;
+      transition: opacity 120ms ease;
+    }
+    .ui-table tr:is(:hover, :has(:focus-visible)) td[data-reveal] > * {
+      opacity: 1;
+    }
+  }
+
+  /* Disclosure */
+
+  .ui-disclosure {
+    margin: 0;
+  }
+  .ui-disclosure > .ui-disclosure-trigger {
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+    @apply w-full border-0 bg-transparent text-left text-foreground;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-1) 0;
+    font-size: var(--text-md);
+    font-weight: 600;
+    list-style: none;
+    cursor: pointer;
+  }
+  .ui-disclosure > .ui-disclosure-trigger:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+  .ui-disclosure > .ui-disclosure-trigger > .ui-icon {
+    color: var(--color-muted);
+    transition: transform 0.15s;
+  }
+  .ui-disclosure[data-open] > .ui-disclosure-trigger > .ui-icon {
+    transform: rotate(90deg);
+  }
+  .ui-disclosure-body {
+    padding: var(--space-2) 0 0 calc(1em + var(--space-2));
+  }
+  .ui-disclosure .ui-disclosure-body[hidden],
+  .ui-disclosure .ui-disclosure-body[data-closed] {
+    display: none;
+  }
+  /* The fields in the fold of a form keep the form's space between them. */
+  .ui-form .ui-disclosure-body {
+    display: grid;
+    gap: var(--space-3);
+  }
+  .ui-disclosure-frame {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .ui-disclosure-frame > .ui-disclosure {
+    grid-area: 1 / 1 / 2 / 3;
+  }
+  /* The buttons sit over the trigger, so a long title wraps before them. */
+  .ui-disclosure-frame > .ui-disclosure > .ui-disclosure-trigger {
+    padding-right: 4.5rem;
+  }
+  .ui-disclosure-frame > .ui-actions {
+    grid-area: 1 / 2;
+    align-self: start;
+  }
+  @media (hover: hover) {
+    .ui-disclosure-frame[data-reveal-actions] > .ui-actions {
+      opacity: 0;
+      transition: opacity 120ms ease;
+    }
+    .ui-disclosure-frame[data-reveal-actions]:has(
+        > .ui-disclosure > .ui-disclosure-trigger:hover
+      )
+      > .ui-actions,
+    .ui-disclosure-frame[data-reveal-actions]
+      > .ui-actions:is(:hover, :has(:focus-visible)) {
+      opacity: 1;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ui-disclosure > .ui-disclosure-trigger > .ui-icon {
+      transition: none;
+    }
+  }
+
+  /* Menu */
+
+  .ui-menu-items {
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+    @apply m-0 min-w-44 rounded-lg p-1 text-popover-foreground;
+    background: var(--popover-glass);
+    border: 1px solid var(--border-popover);
+    box-shadow: var(--shadow-popover);
+    backdrop-filter: var(--blur-popover);
+    z-index: var(--z-popover);
+  }
+  .ui-menu-group {
+    @apply m-0 border-0 bg-transparent p-0;
+  }
+  .ui-menu-item {
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+    @apply m-0 flex min-h-7 w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1 transition-colors;
+    font: inherit;
+    font-size: var(--text-sm);
+    text-align: left;
+    color: inherit;
+    text-decoration: none;
+    background: none;
+    border: 0;
+  }
+  .ui-menu-item:hover,
+  .ui-menu-item:focus-visible,
+  .ui-menu-item[data-active],
+  .ui-menu-item[data-highlighted] {
+    background: var(--color-accent-soft);
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+  }
+  .ui-menu-item[role="menuitemradio"] .ui-icon {
+    visibility: hidden;
+  }
+  .ui-menu-item[aria-checked="true"] .ui-icon {
+    visibility: visible;
+  }
+  .ui-menu-item[data-danger] {
+    color: var(--color-danger);
+  }
+  .ui-menu-item:disabled {
+    opacity: 0.64;
+    cursor: not-allowed;
+  }
+  .ui-menu-item[data-disabled] {
+    @apply pointer-events-none opacity-64;
+  }
+
+  /* Dialog */
+
+  .ui-dialog {
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+    @apply box-border rounded-xl border border-border bg-popover text-popover-foreground;
+    width: min(calc(100vw - 32px), var(--ui-dialog-width));
+    max-height: calc(100vh - 32px);
+    padding: 0;
+    box-shadow: var(--shadow-dialog);
+    overflow: auto;
+  }
+  .ui-dialog-backdrop {
+    @apply fixed inset-0;
+    background: color-mix(in srgb, var(--background) 60%, transparent);
+    backdrop-filter: blur(4px);
+    z-index: var(--z-dialog);
+  }
+  .ui-dialog-viewport {
+    @apply pointer-events-none fixed inset-0 grid place-items-center overflow-y-auto p-4;
+    z-index: var(--z-dialog);
+  }
+  .ui-dialog-viewport > .ui-dialog {
+    pointer-events: auto;
+  }
+  .ui-dialog[data-size="sm"] {
+    --ui-dialog-width: 420px;
+  }
+  .ui-dialog[data-size="md"] {
+    --ui-dialog-width: 640px;
+  }
+  .ui-dialog[data-size="lg"] {
+    --ui-dialog-width: 960px;
+  }
+  .ui-dialog-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-3) var(--space-3) var(--space-5);
+    border-bottom: 1px solid var(--color-border);
+  }
+  .ui-dialog-head h2 {
+    margin: 0;
+    font-size: var(--text-lg);
+    font-weight: 600;
+  }
+  .ui-dialog-body {
+    display: grid;
+    gap: var(--space-3);
+    padding: var(--space-5);
+    font-size: var(--text-md);
+    line-height: 1.5;
+  }
+  .ui-dialog-foot {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-5);
+    border-top: 1px solid var(--color-border);
+  }
+  @media (max-width: 640px) {
+    .ui-input,
+    .ui-select-trigger {
+      font-size: var(--text-base);
+    }
+  }
+}

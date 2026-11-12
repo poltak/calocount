@@ -5,7 +5,7 @@ components. Use them. Do not write a new button, tab, header, field, badge,
 card, list, notice, or loading text with a class of your own.
 
 The page `/components` in the app shows each component with its variants. The
-sidebar links to it. Its black box tests are in
+page is available without sign-in. Its black box tests are in
 `frontend/src/features/component-library/black-box-tests/`.
 
 ## Design direction
@@ -26,23 +26,26 @@ over a blur, with `--popover-glass` and `--blur-popover`.
 ## Component system
 
 The shared controls use Base UI, Tailwind CSS 4, and `class-variance-authority`.
-Lucide supplies the icons. A page imports from the shared component files, not
-directly from Base UI or Lucide.
+Base UI supplies control behavior and accessibility. Tailwind CSS 4 supplies
+the utilities for `cva` variants. Lucide supplies the icons. These packages give
+a project a complete accessible component set and light and dark themes.
+Components keep their own props. A page imports from the shared component
+files, not directly from these packages.
 
-| To find or change                         | Look in                             |
-| ----------------------------------------- | ----------------------------------- |
-| Colors, sizes, spaces, radii, and shadows | `core/ui/theme.css`                 |
-| The look of a shared component            | `core/ui/components/components.css` |
-| The variants of a shared component        | The `cva` call in its `.tsx` file   |
-| The live result of each component         | The `/components` page              |
-| Base element styles and page layouts      | `core/ui/app.css`                   |
+| To find or change                         | Look in                               |
+| ----------------------------------------- | ------------------------------------- |
+| Colors, sizes, spaces, radii, and shadows | `core/ui/theme.css`                   |
+| The look of a shared component            | `core/ui/components/components-*.css` |
+| The variants of a shared component        | The `cva` call in its `.tsx` file     |
+| The live result of each component         | The `/components` page                |
+| Base element styles and page layouts      | `core/ui/app.css`                     |
 
 `main.tsx` imports `app.css` first, because `theme.css` declares the order of
 the CSS layers there. When `components.css` loads first, the base layer
 overrides each component. `theme.css` uses the device color scheme unless
 `data-theme` on `html` selects `light` or `dark`. It defines each color once
 with `light-dark()`, so a component needs no dark variant for a token.
-`components.css` is in the components layer, and Tailwind utilities can
+The imported rules are in the components layer, and Tailwind utilities can
 override that layer. Preflight is not loaded.
 
 A page composes components. It does not use Tailwind utilities for color,
@@ -182,3 +185,9 @@ meaning there. The `/components` page lists them all.
 - The theme follows the device color scheme. The template has no theme switch.
   A project that wants one sets `data-theme` on `html`, and keeps the choice in
   a Storage class.
+
+`components.css` imports the rules in their cascade order.
+`components-base.css` holds icons, buttons, tabs, badges, headers, text, and notices.
+`components-forms.css` holds fields, forms, page layouts, the app shell, and settings.
+`components-layout.css` holds cards, lists, tables, disclosures, menus, and dialogs.
+Change button and badge colors in the `cva` variants of `button.tsx` and `badge.tsx`.
