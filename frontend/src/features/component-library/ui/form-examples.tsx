@@ -1,4 +1,5 @@
-import { SearchIcon } from "lucide-react";
+import { Alert, AlertDescription } from "../../core/ui/shadcn/alert.js";
+import { CircleCheckIcon, SearchIcon } from "lucide-react";
 import { useLogicInstance } from "../../core/logic/use-logic.js";
 import {
   Card,
@@ -6,8 +7,6 @@ import {
   CardHeader,
   CardTitle,
 } from "../../core/ui/shadcn/card.js";
-import { Columns, Stack } from "../../core/ui/components/layout.js";
-import { Highlight, Notice, Text } from "../../core/ui/components/text.js";
 import { Button } from "../../core/ui/shadcn/button.js";
 import { Checkbox } from "../../core/ui/shadcn/checkbox.js";
 import {
@@ -58,6 +57,13 @@ const CHANNELS = [
 
 export function FieldExamples({ logic }: { logic: ComponentLibraryLogic }) {
   const state = useLogicInstance(logic);
+  const query = state.search.trim();
+  const example = "Invoice 1043 is overdue by nine days.";
+  const matches = query
+    ? example.split(
+        new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi"),
+      )
+    : [example];
   return (
     <section aria-label="Input, Textarea, InputGroup, Select, Checkbox, RadioGroup">
       <Card>
@@ -67,8 +73,8 @@ export function FieldExamples({ logic }: { logic: ComponentLibraryLogic }) {
           </CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
-          <Columns layout="even">
-            <Stack>
+          <div className="grid items-start gap-4 md:grid-cols-2">
+            <div className="flex min-w-0 flex-col gap-4">
               <Field>
                 <FieldLabel htmlFor="example-name">Name</FieldLabel>
                 <Input
@@ -111,14 +117,22 @@ export function FieldExamples({ logic }: { logic: ComponentLibraryLogic }) {
                   </InputGroupAddon>
                 </InputGroup>
               </Field>
-              <Text variant="meta">
-                <Highlight
-                  text="Invoice 1043 is overdue by nine days."
-                  query={state.search}
-                />
-              </Text>
-            </Stack>
-            <Stack>
+              <p className="text-sm text-muted-foreground">
+                {matches.map((part, index) =>
+                  index % 2 === 1 ? (
+                    <mark
+                      key={index}
+                      className="rounded-sm bg-accent text-accent-foreground"
+                    >
+                      {part}
+                    </mark>
+                  ) : (
+                    part
+                  ),
+                )}
+              </p>
+            </div>
+            <div className="flex min-w-0 flex-col gap-4">
               <Field>
                 <FieldLabel htmlFor="example-plan">Plan</FieldLabel>
                 <Select<ExamplePlan>
@@ -200,8 +214,8 @@ export function FieldExamples({ logic }: { logic: ComponentLibraryLogic }) {
                   ))}
                 </RadioGroup>
               </FieldSet>
-            </Stack>
-          </Columns>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </section>
@@ -263,7 +277,14 @@ export function FormExamples({ logic }: { logic: ComponentLibraryLogic }) {
                   </Field>
                 </FieldGroup>
               </FieldSet>
-              {state.submitted && <Notice tone="success">Saved.</Notice>}
+              {state.submitted && (
+                <output>
+                  <Alert role="presentation">
+                    <CircleCheckIcon aria-hidden="true" />
+                    <AlertDescription>Saved.</AlertDescription>
+                  </Alert>
+                </output>
+              )}
               <Field orientation="horizontal">
                 <Button type="submit">Save contact</Button>
                 <Button

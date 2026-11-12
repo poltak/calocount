@@ -18,6 +18,7 @@ export interface Screen {
     role?: Parameters<Page["getByRole"]>[0];
     name: string;
     action: "click" | "focus" | "waitFor";
+    width?: "desktop" | "phone";
   }[];
 }
 
@@ -99,6 +100,9 @@ export async function captureScreens(
         await page.waitForLoadState("networkidle");
         await page.evaluate(() => document.fonts.ready);
         for (const step of screen.steps ?? []) {
+          if (step.width && step.width !== size.name) {
+            continue;
+          }
           const target = step.role
             ? page.getByRole(step.role, { name: step.name, exact: true })
             : page.getByText(step.name, { exact: true });
@@ -107,6 +111,9 @@ export async function captureScreens(
             await page.keyboard.press("Tab");
           } else {
             await target[step.action]();
+            if (step.action === "waitFor") {
+              await target.scrollIntoViewIfNeeded();
+            }
           }
         }
         const file = `${stem}.${size.name}.${theme}.png`;

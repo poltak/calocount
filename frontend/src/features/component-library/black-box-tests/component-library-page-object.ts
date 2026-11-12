@@ -19,6 +19,38 @@ export class ComponentLibraryPageObject {
     return this.page.getByRole("region", { name, exact: true });
   }
 
+  get feedbackSection(): Locator {
+    return this.section("Badge, Alert, Empty, Spinner, Skeleton, Typography");
+  }
+
+  get infoMessage(): Locator {
+    return this.feedbackSection
+      .getByRole("status")
+      .filter({ hasText: "A fact the person should know." });
+  }
+
+  get errorMessage(): Locator {
+    return this.feedbackSection.getByRole("alert");
+  }
+
+  get emptyMessage(): Locator {
+    return this.feedbackSection.getByText("No notes yet.", { exact: true });
+  }
+
+  get loadingSummary(): Locator {
+    return this.feedbackSection.getByRole("status", {
+      name: "Loading the summary",
+      exact: true,
+    });
+  }
+
+  get notifications(): Locator {
+    return this.section("Settings fields").getByRole("group", {
+      name: "Notifications",
+      exact: true,
+    });
+  }
+
   get nameInput(): Locator {
     return this.page.getByRole("textbox", { name: "Name", exact: true });
   }
@@ -168,9 +200,10 @@ export class ComponentLibraryPageObject {
   }
 
   get discardTrigger(): Locator {
-    return this.section(
-      "DropdownMenu, Collapsible, Dialog, Popover, Toolbar",
-    ).getByRole("button", { name: "Discard changes", exact: true });
+    return this.section("DropdownMenu, Collapsible, Dialog, Popover").getByRole(
+      "button",
+      { name: "Discard changes", exact: true },
+    );
   }
 
   get dialog(): Locator {

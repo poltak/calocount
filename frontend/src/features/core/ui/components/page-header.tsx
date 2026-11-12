@@ -33,7 +33,9 @@ export function PageHeader({
         </div>
         {search && <div className="ui-page-header-search">{search}</div>}
       </div>
-      {actions && <div className="ui-actions">{actions}</div>}
+      {actions && (
+        <div className="flex flex-wrap items-center gap-2">{actions}</div>
+      )}
     </header>
   );
 }
@@ -86,7 +88,9 @@ export function SectionHeader({
         {count !== undefined && <Badge variant="secondary">{count}</Badge>}
         {trailing}
       </div>
-      {actions && <div className="ui-actions">{actions}</div>}
+      {actions && (
+        <div className="flex flex-wrap items-center gap-2">{actions}</div>
+      )}
       {search && <div className="ui-section-header-search">{search}</div>}
       {description && (
         <p className="ui-section-header-description">{description}</p>

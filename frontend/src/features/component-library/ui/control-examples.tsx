@@ -8,7 +8,6 @@ import {
   Trash2Icon,
 } from "lucide-react";
 import { Link } from "react-router";
-import { Actions } from "../../core/ui/components/layout.js";
 import {
   Card,
   CardContent,
@@ -137,7 +136,7 @@ export function ButtonExamples() {
 
 export function BadgeExamples() {
   return (
-    <Actions>
+    <div className="flex flex-wrap items-center gap-2">
       <Badge variant="secondary">Neutral</Badge>
       <Badge>
         <CircleIcon fill="currentColor" aria-hidden="true" />
@@ -150,7 +149,7 @@ export function BadgeExamples() {
         <Spinner aria-hidden="true" />
         Syncing
       </Badge>
-    </Actions>
+    </div>
   );
 }
 

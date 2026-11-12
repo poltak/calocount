@@ -5,6 +5,22 @@ import { ComponentLibraryPageObject } from "./component-library-page-object.js";
 test.use({ authenticated: false });
 
 test.describe("component library", () => {
+  test("should keep message roles, loading labels, and settings names", async ({
+    page,
+  }) => {
+    const gallery = new ComponentLibraryPageObject(page);
+    await gallery.goto();
+
+    await expect(gallery.infoMessage).toContainText(
+      "A fact the person should know.",
+    );
+    await expect(gallery.errorMessage).toHaveText("An action failed.");
+    await expect(gallery.emptyMessage).toBeVisible();
+    await expect(gallery.loadingSummary).toBeVisible();
+    await expect(gallery.notifications).toContainText("Email summary");
+    await expect(gallery.notifications).toContainText("Text messages");
+  });
+
   test("should show each group of components", async ({ page }) => {
     const gallery = new ComponentLibraryPageObject(page);
     await gallery.goto();
@@ -16,7 +32,7 @@ test.describe("component library", () => {
       "Input, Textarea, InputGroup, Select, Checkbox, RadioGroup",
       "Field, FieldGroup, FieldSet",
       "Card, Item, Table",
-      "DropdownMenu, Collapsible, Dialog, Popover, Toolbar",
+      "DropdownMenu, Collapsible, Dialog, Popover",
       "Icons",
     ]) {
       await expect(gallery.section(name)).toBeVisible();

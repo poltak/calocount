@@ -21,27 +21,13 @@
     --contrast-target: light-dark(black, white);
     --foreground-base: light-dark(#18181b, oklch(0.980735 0.004092 301.426));
 
-    /* T3 Code draws a settings group at 40% of the surface over the canvas. At
-       the full surface, the color of a control border has no contrast. */
-
-    --setting-group: light-dark(
-      color-mix(in oklab, #ffffff 40%, #fcfcfc),
-      var(--card)
-    );
     --selected-fill: color-mix(in srgb, var(--foreground) 8%, transparent);
-
-    --raised: light-dark(#ffffff, oklch(0.279864 0.021572 309.532));
 
     /* #5c5c64 with the boost gives #424248, the secondary text of T3 Code. */
 
     --destructive-foreground: light-dark(
       #ffffff,
       oklch(0.901233 0.057189 343.694)
-    );
-
-    --border-soft: light-dark(
-      rgb(24 24 27 / 9%),
-      color-mix(in srgb, var(--border) 60%, transparent)
     );
 
     --popover-glass: color-mix(in srgb, var(--popover) 84%, transparent);
@@ -55,45 +41,13 @@
       oklch(55.5% 0.163 48.998),
       oklch(0.836861 0.164422 84.429)
     );
-    --color-text: var(--foreground);
     --color-background: var(--background);
     --color-primary: var(--primary);
     --color-border: var(--border);
     --color-muted: var(--muted-foreground);
     --color-surface: var(--card);
-    --color-surface-raised: var(--raised);
-    --color-control-border: var(--input);
-    --color-link: light-dark(
-      oklch(48.8% 0.243 264.376),
-      oklch(0.901233 0.057189 343.694)
-    );
-    --color-accent-soft: var(--accent);
     --color-primary-text: var(--primary-foreground);
-    /* The dark fill of T3 Chat is too dark for text, so text and lines of an
-       alert use the light tone of its pair. */
-    --color-alert: light-dark(
-      var(--destructive),
-      var(--destructive-foreground)
-    );
-    --color-notice-background: light-dark(
-      color-mix(in srgb, oklch(76.9% 0.188 70.08) 8%, transparent),
-      color-mix(in srgb, oklch(76.9% 0.188 70.08) 16%, transparent)
-    );
-    --color-notice-text: var(--warning);
-    --color-search-hit: light-dark(
-      color-mix(in srgb, oklch(76.9% 0.188 70.08) 40%, transparent),
-      color-mix(in srgb, oklch(76.9% 0.188 70.08) 36%, transparent)
-    );
-    --color-danger: var(--color-alert);
     --color-danger-text: var(--destructive-foreground);
-    --color-danger-soft: light-dark(
-      color-mix(in srgb, oklch(63.7% 0.237 25.331) 8%, transparent),
-      oklch(0.458704 0.169677 3.815 / 32%)
-    );
-    --color-success-soft: light-dark(
-      color-mix(in srgb, oklch(69.6% 0.17 162.48) 8%, transparent),
-      color-mix(in srgb, oklch(69.6% 0.17 162.48) 16%, transparent)
-    );
     --text-xs: 12px;
     --text-sm: 14px;
     --text-md: 14px;
@@ -105,14 +59,9 @@
     --space-2: 8px;
     --space-3: 12px;
     --space-4: 16px;
-    --space-5: 20px;
     --space-6: 24px;
     --space-8: 32px;
 
-    --control-sm: 28px;
-    --shadow-soft:
-      0 1px 2px rgb(0 0 0 / 5%),
-      inset 0 -1px 0 light-dark(rgb(0 0 0 / 4%), transparent);
     --shadow-popover: 0 16px 40px -18px
       light-dark(rgb(0 0 0 / 55%), rgb(0 0 0 / 80%));
     --blur-popover: blur(16px) saturate(1.14);
@@ -120,10 +69,6 @@
     --z-panel: 40;
     --z-sticky: 20;
     --width-panel: 416px;
-    --width-sidebar: 168px;
-    --width-setting-control: 220px;
-    --width-setting-note: 672px;
-    --sidebar-row-inset: 10px;
     --width-search: 350px;
     --width-section-search: 240px;
     --width-section-search-min: 160px;

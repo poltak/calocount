@@ -1,9 +1,10 @@
+import { Alert, AlertDescription } from "../../core/ui/shadcn/alert.js";
+import { CircleXIcon } from "lucide-react";
+import { Spinner } from "../../core/ui/shadcn/spinner.js";
 import { Navigate, Outlet, useLocation } from "react-router";
 import { Button } from "../../core/ui/shadcn/button.js";
 import { Page } from "../../core/ui/components/layout.js";
-import { Loading } from "../../core/ui/components/loading.js";
 import { PageHeader } from "../../core/ui/components/page-header.js";
-import { Notice } from "../../core/ui/components/text.js";
 import { useAuth } from "./auth-context.js";
 export function SessionGate() {
   const { logic, state } = useAuth();
@@ -15,22 +16,28 @@ export function SessionGate() {
     state.loadSessionState === "pristine" ||
     state.loadSessionState === "running"
   ) {
-    return <Loading label="Checking your session…" />;
+    return (
+      <output className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Spinner aria-hidden="true" />
+        {"Checking your session…"}
+      </output>
+    );
   }
   if (state.loadSessionState === "error") {
     return (
       <Page>
         <PageHeader title="Unable to check your session" />
-        <Notice
-          tone="error"
-          actions={
-            <Button variant="outline" onClick={() => void logic.refresh()}>
-              Try again
-            </Button>
-          }
-        >
-          {state.loadSessionError}
-        </Notice>
+        <Alert variant="destructive">
+          <CircleXIcon aria-hidden="true" />
+          <AlertDescription className="flex flex-col gap-2">
+            {state.loadSessionError}
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant="outline" onClick={() => void logic.refresh()}>
+                Try again
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
       </Page>
     );
   }

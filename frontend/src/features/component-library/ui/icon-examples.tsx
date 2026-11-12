@@ -195,7 +195,7 @@ export function IconExamples() {
               <ItemContent>
                 <ItemTitle>info</ItemTitle>
                 <ItemDescription className="line-clamp-none">
-                  A fact to know. The icon of an info Notice.
+                  A fact to know. The icon of an info Alert.
                 </ItemDescription>
               </ItemContent>
             </Item>
@@ -206,7 +206,7 @@ export function IconExamples() {
               <ItemContent>
                 <ItemTitle>warning</ItemTitle>
                 <ItemDescription className="line-clamp-none">
-                  Needs a look. The icon of a warning Notice.
+                  Needs a look. The icon of a warning Alert.
                 </ItemDescription>
               </ItemContent>
             </Item>
@@ -217,7 +217,7 @@ export function IconExamples() {
               <ItemContent>
                 <ItemTitle>error</ItemTitle>
                 <ItemDescription className="line-clamp-none">
-                  Failed. The icon of an error Notice and of a field error.
+                  Failed. The icon of an error Alert and of a field error.
                 </ItemDescription>
               </ItemContent>
             </Item>
@@ -228,7 +228,7 @@ export function IconExamples() {
               <ItemContent>
                 <ItemTitle>success</ItemTitle>
                 <ItemDescription className="line-clamp-none">
-                  Finished well. The icon of a success Notice.
+                  Finished well. The icon of a success Alert.
                 </ItemDescription>
               </ItemContent>
             </Item>

@@ -1,15 +1,45 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router";
-import "./components.css";
-import { Button } from "../shadcn/button.js";
+import { LogOutIcon } from "lucide-react";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarHeader,
+  SidebarInset,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarTrigger,
+  useSidebar,
+} from "../shadcn/sidebar.js";
 import { Spinner } from "../shadcn/spinner.js";
-import { Text } from "./text.js";
+import "./components.css";
 
-/**
- * The frame of each signed-in page: the sidebar, and the page beside it. The
- * sidebar is the `header` of the document, so it has the banner role.
- */
-export function AppLayout({
+interface AppLayoutProps {
+  home: string;
+  brand: string;
+  navLabel: string;
+  nav: ReactNode;
+  accountNav?: ReactNode;
+  userName: string | null | undefined;
+  signingOut: boolean;
+  onSignOut: () => void;
+  notice?: ReactNode;
+  children: ReactNode;
+}
+
+export function AppLayout(props: AppLayoutProps) {
+  return (
+    <SidebarProvider>
+      <AppFrame {...props} />
+    </SidebarProvider>
+  );
+}
+
+function AppFrame({
   home,
   brand,
   navLabel,
@@ -20,49 +50,64 @@ export function AppLayout({
   onSignOut,
   notice,
   children,
-}: {
-  home: string;
-  brand: string;
-  navLabel: string;
-  nav: ReactNode;
-  accountNav?: ReactNode;
-  userName: string | null | undefined;
-  signingOut: boolean;
-  onSignOut: () => void;
-  /** A message over the page, such as a failed sign-out. */
-  notice?: ReactNode;
-  children: ReactNode;
-}) {
+}: AppLayoutProps) {
+  const { setOpenMobile } = useSidebar();
   return (
-    <div className="ui-app">
-      <header className="ui-sidebar">
-        <Link className="ui-sidebar-brand" to={home}>
-          {brand}
-        </Link>
-        <nav aria-label={navLabel}>{nav}</nav>
-        <div className="ui-sidebar-foot">
-          {accountNav && <nav aria-label="Account">{accountNav}</nav>}
-          <div className="ui-sidebar-user">
-            <Text as="span" variant="meta">
-              {userName}
-            </Text>
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={signingOut}
-              aria-busy={signingOut || undefined}
-              onClick={onSignOut}
-            >
-              {signingOut && <Spinner aria-hidden="true" />}
-              Sign out
-            </Button>
-          </div>
+    <>
+      <Sidebar>
+        <header className="flex min-h-0 flex-1 flex-col">
+          <SidebarHeader>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  render={<Link to={home} />}
+                  onClick={() => setOpenMobile(false)}
+                >
+                  {brand}
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarHeader>
+          <SidebarContent>
+            <SidebarGroup>
+              <nav aria-label={navLabel}>{nav}</nav>
+            </SidebarGroup>
+          </SidebarContent>
+          <SidebarFooter>
+            {accountNav && <nav aria-label="Account">{accountNav}</nav>}
+            <p className="truncate text-sm text-muted-foreground">{userName}</p>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  disabled={signingOut}
+                  aria-busy={signingOut || undefined}
+                  onClick={() => {
+                    setOpenMobile(false);
+                    onSignOut();
+                  }}
+                >
+                  {signingOut ? (
+                    <Spinner aria-hidden="true" />
+                  ) : (
+                    <LogOutIcon aria-hidden="true" />
+                  )}
+                  Sign out
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarFooter>
+        </header>
+      </Sidebar>
+      <SidebarInset className="min-w-0">
+        <div className="flex items-center gap-2 p-3 md:px-8 md:pt-6">
+          <SidebarTrigger />
+          <span className="text-sm text-muted-foreground">{brand}</span>
         </div>
-      </header>
-      <main className="ui-app-main">
-        {notice}
-        {children}
-      </main>
-    </div>
+        <div className="ui-app-content flex flex-col gap-4">
+          {notice}
+          {children}
+        </div>
+      </SidebarInset>
+    </>
   );
 }

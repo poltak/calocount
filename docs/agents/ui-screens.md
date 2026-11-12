@@ -41,6 +41,10 @@ an accessible name, and an action: `click`, `focus`, or `waitFor`. Without a
 role, `name` is the exact visible text to find. The `focus`
 action moves keyboard focus to the control. Use `waitFor` for the open part,
 so its image does not depend on its opening delay.
+The capture waits for that part to have a stable position before it takes
+the picture. Visibility alone can still include an entrance transition.
+A step can set `width` to `phone` or `desktop` when its control exists at
+only that width. The sidebar capture waits for its dialog only on a phone.
 
 Gallery captures include the open Actions menu, the open Discard changes
 dialog, the open History panel, the open Invoice details popover, and help
@@ -52,6 +56,8 @@ Measure the page content root independently of portal elements. Routes without
 a `main` element must set `contentRoot` to an explicit CSS selector, such as
 `#root`. Opening a menu, dialog, or tooltip must not change which element
 supplies `column`, `blocks`, or `gaps`.
+Signed-in pages set `contentRoot` to `.ui-app-content`. The sidebar inset
+also has a trigger row, which is not part of the page content column.
 
 When you add a route, add its screen in the same change. Seed rows that fill
 the page as a person's data would: a long title, an empty field, and enough

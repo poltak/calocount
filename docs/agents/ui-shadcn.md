@@ -60,7 +60,7 @@ The sidebar's internal `7.5` and `18` are not page spacing values. Use `flex`
 and `gap-*` for page layout. Do not add Stack, Actions, Columns, Toolbar,
 or PageTop wrappers.
 
-The controls, form fields, and containers use shadcn directly. The last
+The controls, fields, containers, text feedback, and sidebar use shadcn directly. The last
 legacy lint exceptions and `lint/ui-legacy.mjs` are gone. Generated files alone are
 exempt from local-state, browser-global, and conflicting markup lint rules.
 The byte comparison, not a hand edit, controls that directory.
@@ -78,8 +78,8 @@ The following tokens moved from `theme.css` to `shadcn.css`:
 They keep their old light and dark values, except for dark `destructive`.
 It uses shadcn's neutral value, `oklch(0.704 0.191 22.216)`. Base-mira uses
 this token for destructive text as well as fills. The old dark red was a
-fill color and made the new button and badge labels hard to read. The legacy
-alert text and fill tokens in `worldbrain.css` stay unchanged.
+fill color and made the new button and badge labels hard to read. Alerts now use the generated default and destructive variants. Their old
+text and fill aliases are gone.
 The form migration removed the temporary `legacy-destructive` token with
 the old Select border styles. Generated form controls use `destructive`.
 
@@ -112,7 +112,20 @@ mappings, and `control-md`. Only the deleted form styles used them.
 The container migration removed `inset`, the `color-inset` and `color-raised`
 utility mappings, `block-min-width`, `shadow-dialog`, and `z-dialog`.
 No remaining container needs a raised, inset, or nested-block variant.
-Skeleton keeps `raised` and its `color-surface-raised` alias for its shimmer.
+The text and layout migration removed `raised`, `color-surface-raised`,
+`setting-group`, `border-soft`, the old notice and search-match colors,
+`control-sm`, `shadow-soft`, the old sidebar and settings width tokens,
+and `sidebar-row-inset`. No remaining part uses those tokens.
+`Skeleton` uses its generated muted fill. Native search marks use the
+accent tokens. Global heading, paragraph, link, and alert styles are gone.
+Each part sets its own type and colors.
+
+`Page` and the page and section headers remain in `components/` for group 5.
+The sidebar is a product composition of the installed generated parts, based
+on `sidebar-07`. It needs no avatar, breadcrumb, or new package. Its mobile
+sheet and keyboard behavior come from the generated sidebar. Router links
+close the sheet on activation. No mobile-header portal exists in this
+template revision. The retained PageHeader renders inside the inset.
 
 ## Commands
 

@@ -1,8 +1,6 @@
 import { useRef } from "react";
 import { ChevronDownIcon, ChevronRightIcon } from "lucide-react";
 import { useLogicInstance } from "../../core/logic/use-logic.js";
-import { Toolbar } from "../../core/ui/components/layout.js";
-import { Text } from "../../core/ui/components/text.js";
 import { Badge } from "../../core/ui/shadcn/badge.js";
 import { Button } from "../../core/ui/shadcn/button.js";
 import {
@@ -47,11 +45,11 @@ export function OverlayExamples({ logic }: { logic: ComponentLibraryLogic }) {
   const dialogContent = useRef<HTMLDivElement>(null);
 
   return (
-    <section aria-label="DropdownMenu, Collapsible, Dialog, Popover, Toolbar">
+    <section aria-label="DropdownMenu, Collapsible, Dialog, Popover">
       <Card>
         <CardHeader>
           <CardTitle>
-            <h2>DropdownMenu, Collapsible, Dialog, Popover, Toolbar</h2>
+            <h2>DropdownMenu, Collapsible, Dialog, Popover</h2>
           </CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
@@ -61,8 +59,8 @@ export function OverlayExamples({ logic }: { logic: ComponentLibraryLogic }) {
               open ? logic.openDialog() : logic.closeDialog()
             }
           >
-            <Toolbar
-              start={
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-2">
                 <DropdownMenu modal={false}>
                   <DropdownMenuTrigger render={<Button variant="outline" />}>
                     Actions <ChevronDownIcon />
@@ -81,13 +79,13 @@ export function OverlayExamples({ logic }: { logic: ComponentLibraryLogic }) {
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
-              }
-              end={
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
                 <DialogTrigger render={<Button variant="outline" />}>
                   Discard changes
                 </DialogTrigger>
-              }
-            />
+              </div>
+            </div>
             <DialogContent
               ref={dialogContent}
               initialFocus={() =>
@@ -113,7 +111,9 @@ export function OverlayExamples({ logic }: { logic: ComponentLibraryLogic }) {
             </DialogContent>
           </Dialog>
           {state.lastMenuAction && (
-            <Text variant="meta">Last menu action: {state.lastMenuAction}</Text>
+            <p className="text-sm text-muted-foreground">
+              Last menu action: {state.lastMenuAction}
+            </p>
           )}
           <Collapsible
             open={state.historyOpen}
@@ -124,7 +124,9 @@ export function OverlayExamples({ logic }: { logic: ComponentLibraryLogic }) {
               History <Badge variant="secondary">2</Badge>
             </CollapsibleTrigger>
             <CollapsibleContent keepMounted>
-              <Text>Created on 1 November. Edited on 3 November.</Text>
+              <p className="text-base leading-relaxed">
+                Created on 1 November. Edited on 3 November.
+              </p>
             </CollapsibleContent>
           </Collapsible>
           <Popover>
