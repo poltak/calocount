@@ -1,5 +1,6 @@
 import {
   CircleIcon,
+  ExternalLinkIcon,
   LayoutGridIcon,
   PencilIcon,
   PlusIcon,
@@ -69,6 +70,7 @@ export function ButtonExamples() {
           )}
         >
           Link to a site
+          <ExternalLinkIcon />
         </Button>
         <Button variant="outline" size="icon" aria-label="Edit" title="Edit">
           <PencilIcon />

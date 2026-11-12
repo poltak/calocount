@@ -51,6 +51,9 @@ Check each of these against the diff:
   has a name that a screen reader can read.
 - When replacing navigation, preserve router matching. Check a child path,
   a similar prefix, and letter case.
+- When replacing a link control, preserve its destination, target, rel,
+  download behavior, and icons that explain its action. A style migration
+  does not remove the new-tab indicator.
 - Compare each Button variant rendered as an anchor with the same variant
   rendered as a button. Remove conflicting global anchor styles.
 - After deleting a control, search every stylesheet for its old class names.

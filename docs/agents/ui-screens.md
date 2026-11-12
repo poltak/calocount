@@ -36,6 +36,17 @@ then calls `captureScreens()` from `core/tests/browser/screens.ts` with each
 route pattern of the route table and the address to open. A screen with a
 `state`, such as `empty`, is one more picture of the same route.
 
+Use `steps` to open or focus a control before capture. Each step names a role,
+an accessible name, and an action: `click`, `focus`, or `waitFor`. Without a
+role, `name` is the exact visible text to find. The `focus`
+action moves keyboard focus to the control. Use `waitFor` for the open part,
+so its image does not depend on its opening delay.
+
+Gallery captures include the open Actions menu, the open Discard changes
+dialog, and the InfoTip shown by keyboard focus. Capture each state at both
+widths and in both themes. A fixed base that predates these states has no
+paired images for them. Report this limit. Do not change the base's commits.
+
 When you add a route, add its screen in the same change. Seed rows that fill
 the page as a person's data would: a long title, an empty field, and enough
 rows to show the list.

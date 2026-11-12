@@ -13,6 +13,11 @@ export interface Screen {
   url: string;
   /** Tells two screens of one route apart, such as `empty`. */
   state?: string | undefined;
+  steps?: readonly {
+    role?: Parameters<Page["getByRole"]>[0];
+    name: string;
+    action: "click" | "focus" | "waitFor";
+  }[];
 }
 
 interface ScreensRequest {
@@ -92,6 +97,17 @@ export async function captureScreens(
         await page.goto(screen.url);
         await page.waitForLoadState("networkidle");
         await page.evaluate(() => document.fonts.ready);
+        for (const step of screen.steps ?? []) {
+          const target = step.role
+            ? page.getByRole(step.role, { name: step.name, exact: true })
+            : page.getByText(step.name, { exact: true });
+          if (step.action === "focus") {
+            await target.press("Shift+Tab");
+            await page.keyboard.press("Tab");
+          } else {
+            await target[step.action]();
+          }
+        }
         const file = `${stem}.${size.name}.${theme}.png`;
         await page.screenshot({
           path: path.join(request.outputDirectory, file),
