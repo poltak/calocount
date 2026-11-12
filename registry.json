@@ -1,0 +1,58 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry.json",
+  "name": "worldbrain",
+  "homepage": "https://github.com/WorldBrain/worldbrain-boilerplate",
+  "items": [
+    {
+      "name": "page",
+      "type": "registry:component",
+      "title": "Page",
+      "description": "The page width, inset, and block spacing.",
+      "dependencies": ["cn"],
+      "files": [
+        {
+          "path": "frontend/src/features/core/ui/core/page.tsx",
+          "type": "registry:component",
+          "target": "@components/core/page.tsx"
+        }
+      ],
+      "docs": "Use the WorldBrain theme files and components.json aliases. Page needs the width-page and width-content tokens in worldbrain.css."
+    },
+    {
+      "name": "page-header",
+      "type": "registry:component",
+      "title": "PageHeader",
+      "description": "The page title, optional subtitle, and actions.",
+      "registryDependencies": ["card"],
+      "files": [
+        {
+          "path": "frontend/src/features/core/ui/core/page-header.tsx",
+          "type": "registry:component",
+          "target": "@components/core/page-header.tsx"
+        }
+      ],
+      "docs": "Use the WorldBrain theme files and components.json aliases. PageHeader needs the leading-page-title token in worldbrain.css."
+    },
+    {
+      "name": "app-layout",
+      "type": "registry:block",
+      "title": "AppLayout",
+      "description": "The signed-in sidebar, account actions, and content frame.",
+      "dependencies": ["cn", "lucide-react", "react-router"],
+      "registryDependencies": ["sidebar", "spinner"],
+      "files": [
+        {
+          "path": "frontend/src/features/core/ui/core/app-layout.tsx",
+          "type": "registry:component",
+          "target": "@components/core/app-layout.tsx"
+        },
+        {
+          "path": "frontend/src/features/core/ui/core/page.tsx",
+          "type": "registry:component",
+          "target": "@components/core/page.tsx"
+        }
+      ],
+      "docs": "Use the WorldBrain theme files and components.json aliases. This block includes Page, so it needs no published WorldBrain registry URL."
+    }
+  ]
+}
