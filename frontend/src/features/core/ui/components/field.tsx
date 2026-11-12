@@ -219,7 +219,7 @@ export interface SelectOption<Value extends string> {
   disabled?: boolean | undefined;
 }
 
-/** A choice from a short, fixed list. For a long list that is searched, use `Combobox`. */
+/** A choice from a short, fixed list. */
 export function Select<Value extends string>({
   label,
   hint,

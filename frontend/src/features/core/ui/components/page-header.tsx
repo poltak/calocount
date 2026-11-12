@@ -70,7 +70,7 @@ export function SectionHeader({
   search?: ReactNode;
   /**
    * End a long title in an ellipsis, so the actions stay on its line, such
-   * as in the bar of an `Overlay`. On a narrow screen the actions go under it.
+   * as in a dialog header. On a narrow screen the actions go under it.
    */
   truncate?: boolean | undefined;
 }) {

@@ -12,7 +12,6 @@ import {
 export type MenuItem = {
   key: string;
   label: string;
-  disabled?: boolean | undefined;
   /** An item that removes or discards something. */
   danger?: boolean | undefined;
   /**
@@ -21,8 +20,16 @@ export type MenuItem = {
    */
   checked?: boolean | undefined;
 } & (
-  | { onSelect: () => void; newTabHref?: undefined }
-  | { newTabHref: string; onSelect?: undefined }
+  | {
+      onSelect: () => void;
+      newTabHref?: undefined;
+      disabled?: boolean | undefined;
+    }
+  | {
+      newTabHref: string;
+      onSelect?: undefined;
+      disabled?: undefined;
+    }
 );
 
 /**

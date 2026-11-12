@@ -39,8 +39,7 @@ const SCROLL_LOGIC_DEPS = { storage: {}, services: {}, api: {} };
 const ARROW_SCROLL_SHARE = 0.75;
 
 /**
- * One choice of several. The owner keeps the value: in the URL with
- * `useTabParam`, or in its Logic's state.
+ * One choice of several. The owner keeps the value: in the URL or in its Logic's state.
  */
 export function Tabs<Value extends string>({
   label,
@@ -75,12 +74,22 @@ export function Tabs<Value extends string>({
     const observer = new ResizeObserver(measure);
     observer.observe(list);
     // A count that arrives makes a tab wider, and the list keeps its width.
-    for (const tab of list.children) {
-      observer.observe(tab);
-    }
+    const observeTabs = () => {
+      for (const tab of list.children) {
+        observer.observe(tab);
+      }
+    };
+    observeTabs();
+    // A tab that arrives later does not resize the list, so it is not measured otherwise.
+    const tabsObserver = new MutationObserver(() => {
+      observeTabs();
+      measure();
+    });
+    tabsObserver.observe(list, { childList: true });
     list.addEventListener("scroll", measure, { passive: true });
     return () => {
       observer.disconnect();
+      tabsObserver.disconnect();
       list.removeEventListener("scroll", measure);
     };
   }, [logic, scrollable]);
