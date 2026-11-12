@@ -13,6 +13,21 @@ shows only fake rows, never a real database. Its options are in
 The files go to `frontend/.browser-test/screens/<name>/`, which Git ignores.
 `swamp workflow run ui-screens` runs the same command.
 
+## Review workflow
+
+The [UI design skill](../../.agents/skills/ui-design/SKILL.md) ends with a
+fresh subagent that runs the [UI review skill](../../.agents/skills/ui-review/SKILL.md).
+It receives only the person's verbatim request, a Git base ref, and changed
+route patterns. It reads the diff itself and takes the changed routes and
+their sibling pages with `--name current` and `--ref <base> --name base`.
+Repeat `--route` for each route. The base commit must have `ui:screens`.
+
+The reviewer reads each PNG and its JSON in both themes at both widths. It
+checks scope, component use, sibling pages, and visual craft, then reports
+findings without changing code. The author fixes them or reports why not.
+The person must agree before the author applies a proposed document or skill
+fix. These captures never use a real database or real user data.
+
 ## A screens file for each feature
 
 Each feature with a page has a `<feature>.screens.ts` file in its

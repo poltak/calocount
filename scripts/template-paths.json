@@ -53,6 +53,7 @@
     ".agents/skills/make-commits/",
     ".agents/skills/sync-template/",
     ".agents/skills/ui-design/",
+    ".agents/skills/ui-review/",
     ".agents/skills/unslop/",
     ".agents/skills/write-black-box-test/",
     ".agents/skills/write-integration-test/",
