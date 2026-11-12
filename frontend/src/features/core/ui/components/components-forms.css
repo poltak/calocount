@@ -160,8 +160,7 @@
   .ui-select-trigger[aria-invalid="true"] {
     @apply border-destructive;
   }
-  .ui-select-positioner,
-  .ui-menu-positioner {
+  .ui-select-positioner {
     z-index: var(--z-popover);
     outline: 2px solid transparent;
     outline-offset: 2px;
@@ -232,11 +231,6 @@
   }
   .ui-field-group[data-large] {
     margin-top: var(--space-3);
-  }
-  .ui-field-group > legend .ui-button {
-    min-height: 0;
-    padding: 2px var(--space-2);
-    font-size: var(--text-xs);
   }
   .ui-field-group[data-large] > legend {
     font-size: var(--text-base);
@@ -398,9 +392,6 @@
       align-items: center;
       margin-top: 0;
       margin-left: auto;
-    }
-    .ui-tabs[data-variant="sidebar"] {
-      grid-auto-flow: column;
     }
     .ui-app-main {
       padding: var(--space-4) var(--space-3) var(--space-8);

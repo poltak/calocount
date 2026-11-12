@@ -49,6 +49,14 @@ Check each of these against the diff:
   change in both when a surface, a border, or a fill changed.
 - Each new interactive part works with the keyboard, shows the focus ring, and
   has a name that a screen reader can read.
+- When replacing navigation, preserve router matching. Check a child path,
+  a similar prefix, and letter case.
+- Compare each Button variant rendered as an anchor with the same variant
+  rendered as a button. Remove conflicting global anchor styles.
+- After deleting a control, search every stylesheet for its old class names.
+  Remove unused selectors, including selectors in shared lists and media queries.
+- When a variant is removed, remove or rename its gallery example. Gallery
+  labels must describe the variants that remain.
 - A new component or variant is on `/components` and in the document.
 - A fact in the document that the change made wrong is correct again.
 

@@ -29,7 +29,6 @@ export function ButtonExamples() {
         <Button variant="outline">Secondary</Button>
         <Button variant="secondary">Secondary fill</Button>
         <Button variant="destructive">Danger</Button>
-        <Button variant="destructive">Danger solid</Button>
         <Button variant="ghost">Ghost</Button>
         <Button size="sm" variant="outline">
           Small
