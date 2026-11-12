@@ -66,7 +66,7 @@ export function SectionHeader({
   trailing?: ReactNode;
   /** Small buttons and filters, such as Add or Active / Resolved. */
   actions?: ReactNode;
-  /** A `SearchInput` at the right end. `Card revealActions` does not hide it. */
+  /** `Card revealActions` does not hide this search. */
   search?: ReactNode;
   /**
    * End a long title in an ellipsis, so the actions stay on its line, such

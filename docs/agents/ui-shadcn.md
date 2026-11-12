@@ -60,9 +60,9 @@ The sidebar's internal `7.5` and `18` are not page spacing values. Use `flex`
 and `gap-*` for page layout. Do not add Stack, Actions, Columns, Toolbar,
 or PageTop wrappers.
 
-`lint/ui-legacy.mjs` permits only the current Base UI imports in `dialog.tsx`,
-`disclosure.tsx`, and `field.tsx` in the old `components/` directory. Buttons,
-badges, button groups, dropdown menus, and tabs use shadcn directly and have
+`lint/ui-legacy.mjs` permits only the current Base UI imports in `dialog.tsx`
+and `disclosure.tsx` in the old `components/` directory. Buttons,
+badges, button groups, dropdown menus, tabs, and form fields use shadcn directly and have
 no legacy exceptions. Generated files alone are
 exempt from local-state, browser-global, and conflicting markup lint rules.
 The byte comparison, not a hand edit, controls that directory.
@@ -82,8 +82,8 @@ It uses shadcn's neutral value, `oklch(0.704 0.191 22.216)`. Base-mira uses
 this token for destructive text as well as fills. The old dark red was a
 fill color and made the new button and badge labels hard to read. The legacy
 alert text and fill tokens in `worldbrain.css` stay unchanged.
-The temporary `legacy-destructive` token keeps the old values for the invalid
-Select border. That form control has not moved to shadcn yet.
+The form migration removed the temporary `legacy-destructive` token with
+the old Select border styles. Generated form controls use `destructive`.
 
 `radius` also moved. Its base-mira value is `0.625rem`, not the old `0.5rem`.
 The `radius-sm`, `radius-md`, `radius-lg`, and `radius-xl` utilities now use
@@ -109,6 +109,8 @@ and their utility mappings. The existing
 override the style sizes. The controls migration removed the old button
 shadows, segmented fills and shadow, badge radius, sidebar row colors, and
 sidebar row radius. No remaining component uses those tokens.
+The form migration also removed `control`, `control-hover`, their utility
+mappings, and `control-md`. Only the deleted form styles used them.
 
 ## Commands
 

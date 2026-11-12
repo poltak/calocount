@@ -16,23 +16,8 @@ import {
 } from "../../core/ui/components/card.js";
 import { Dialog } from "../../core/ui/components/dialog.js";
 import { Disclosure } from "../../core/ui/components/disclosure.js";
-import {
-  Checkbox,
-  FieldGroup,
-  RadioGroup,
-  SearchInput,
-  Select,
-  TextArea,
-  TextInput,
-} from "../../core/ui/components/field.js";
-import { Form, FormActions, FormRow } from "../../core/ui/components/form.js";
 import { ICONS, Icon, type IconName } from "../../core/ui/components/icon.js";
-import {
-  Columns,
-  Page,
-  Stack,
-  Toolbar,
-} from "../../core/ui/components/layout.js";
+import { Page, Toolbar } from "../../core/ui/components/layout.js";
 import { Loading } from "../../core/ui/components/loading.js";
 import {
   PageHeader,
@@ -42,23 +27,15 @@ import {
   SettingGroup,
   SettingRow,
 } from "../../core/ui/components/setting-list.js";
-import {
-  EmptyState,
-  Highlight,
-  Notice,
-  Text,
-} from "../../core/ui/components/text.js";
+import { EmptyState, Notice, Text } from "../../core/ui/components/text.js";
 import { useLogic } from "../../core/logic/use-logic.js";
 import {
   BadgeExamples,
   ButtonExamples,
   TabsExamples,
 } from "./control-examples.js";
-import {
-  ComponentLibraryLogic,
-  type ExampleChannel,
-  type ExamplePlan,
-} from "./component-library-logic.js";
+import { ComponentLibraryLogic } from "./component-library-logic.js";
+import { FieldExamples, FormExamples } from "./form-examples.js";
 
 // A stable object: without React Compiler, a new object at each render would
 // make a new Logic at each render.
@@ -69,8 +46,6 @@ const INVOICES = [
   { id: "2", name: "Invoice 1043", amount: "$89.50", overdue: true },
   { id: "3", name: "Invoice 1044", amount: "$310.00", overdue: false },
 ] as const;
-
-const SEARCH_SAMPLE = "Invoice 1043 is overdue by nine days.";
 
 /** Each shared component with its variants, in the real theme. */
 export function ComponentLibraryPage() {
@@ -108,93 +83,8 @@ export function ComponentLibraryPage() {
         onFilterChange={(filter) => logic.chooseFilter(filter)}
       />
 
-      <Card
-        label="TextInput, TextArea, SearchInput, Select, Checkbox, RadioGroup"
-        stack
-      >
-        <SectionHeader title="TextInput, TextArea, SearchInput, Select, Checkbox, RadioGroup" />
-        <Columns layout="even">
-          <Stack>
-            <TextInput
-              label="Name"
-              hint="The name that others see."
-              value={state.name}
-              onChange={(name) => logic.changeName(name)}
-            />
-            <TextInput
-              label="Email"
-              type="email"
-              value=""
-              onChange={() => undefined}
-              error="Enter an email address"
-            />
-            <SearchInput
-              label="Search the example text"
-              value={state.search}
-              onChange={(search) => logic.changeSearch(search)}
-            />
-            <Text variant="meta">
-              <Highlight text={SEARCH_SAMPLE} query={state.search} />
-            </Text>
-          </Stack>
-          <Stack>
-            <Select<ExamplePlan>
-              label="Plan"
-              value={state.plan}
-              onChange={(plan) => logic.choosePlan(plan)}
-              options={[
-                { value: "free", label: "Free" },
-                { value: "team", label: "Team" },
-                { value: "business", label: "Business" },
-              ]}
-            />
-            <Checkbox
-              label="Include archived items"
-              hint="Archived items stay in the list."
-              checked={state.includeArchive}
-              onChange={(includeArchive) =>
-                logic.setIncludeArchive(includeArchive)
-              }
-            />
-            <RadioGroup<ExampleChannel>
-              label="Channel"
-              value={state.channel}
-              onChange={(channel) => logic.chooseChannel(channel)}
-              options={[
-                { value: "email", label: "Email" },
-                { value: "sms", label: "Text message" },
-                { value: "push", label: "Push", hint: "Needs the app." },
-              ]}
-            />
-          </Stack>
-        </Columns>
-      </Card>
-
-      <Card label="Form, FormRow, FormActions, FieldGroup" stack>
-        <SectionHeader title="Form, FormRow, FormActions, FieldGroup" />
-        <Form label="Example form" onSubmit={() => logic.submitForm()}>
-          <FormRow>
-            <TextInput
-              label="Contact name"
-              value={state.contactName}
-              onChange={(name) => logic.changeContactName(name)}
-              error={state.contactNameError}
-            />
-          </FormRow>
-          <FieldGroup legend="Details" note="Shown to your team.">
-            <TextArea
-              label="Note"
-              value={state.note}
-              onChange={(note) => logic.changeNote(note)}
-            />
-          </FieldGroup>
-          {state.submitted && <Notice tone="success">Saved.</Notice>}
-          <FormActions
-            submitLabel="Save contact"
-            onCancel={() => logic.cancelForm()}
-          />
-        </Form>
-      </Card>
+      <FieldExamples logic={logic} />
+      <FormExamples logic={logic} />
 
       <Card label="Card, List, KeyValueList, DataTable" stack>
         <SectionHeader

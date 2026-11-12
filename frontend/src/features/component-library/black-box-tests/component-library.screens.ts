@@ -8,8 +8,49 @@ const GALLERY = {
 };
 
 test("component gallery", async ({ page }) => {
+  test.setTimeout(90_000);
   await captureScreens(page, [
     GALLERY,
+    {
+      ...GALLERY,
+      state: "select-open",
+      steps: [
+        { role: "combobox", name: "Plan", action: "click" },
+        { role: "option", name: "Team", action: "waitFor" },
+      ],
+    },
+    {
+      ...GALLERY,
+      state: "name-focused",
+      steps: [{ role: "textbox", name: "Name", action: "focus" }],
+    },
+    {
+      ...GALLERY,
+      state: "search-focused",
+      steps: [
+        { role: "searchbox", name: "Search the example text", action: "focus" },
+      ],
+    },
+    {
+      ...GALLERY,
+      state: "checkbox-focused",
+      steps: [
+        { role: "checkbox", name: "Include archived items", action: "focus" },
+      ],
+    },
+    {
+      ...GALLERY,
+      state: "radio-focused",
+      steps: [{ role: "radio", name: "Email", action: "focus" }],
+    },
+    {
+      ...GALLERY,
+      state: "form-error",
+      steps: [
+        { role: "button", name: "Save contact", action: "click" },
+        { name: "Enter a name", action: "waitFor" },
+      ],
+    },
     {
       ...GALLERY,
       state: "menu-open",

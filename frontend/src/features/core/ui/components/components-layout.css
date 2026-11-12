@@ -117,10 +117,6 @@
       minmax(min(100%, var(--block-min-width)), 1fr)
     );
   }
-  /* A form needs more width than one block has. */
-  .ui-list[data-grid] > .ui-list-item:has(.ui-form) {
-    grid-column: 1 / -1;
-  }
   .ui-list:is([data-variant="blocks"], [data-variant="tinted"])
     > .ui-list-item {
     gap: 0;
@@ -470,11 +466,6 @@
   .ui-disclosure .ui-disclosure-body[data-closed] {
     display: none;
   }
-  /* The fields in the fold of a form keep the form's space between them. */
-  .ui-form .ui-disclosure-body {
-    display: grid;
-    gap: var(--space-3);
-  }
   .ui-disclosure-frame {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
@@ -571,11 +562,5 @@
     gap: var(--space-2);
     padding: var(--space-3) var(--space-5);
     border-top: 1px solid var(--color-border);
-  }
-  @media (max-width: 640px) {
-    .ui-input,
-    .ui-select-trigger {
-      font-size: var(--text-base);
-    }
   }
 }

@@ -9,8 +9,6 @@
   --color-warning: var(--warning);
   --color-inset: var(--inset);
   --color-raised: var(--raised);
-  --color-control: var(--control);
-  --color-control-hover: var(--control-hover);
 }
 
 @layer base {
@@ -43,24 +41,12 @@
       #ffffff,
       oklch(0.901233 0.057189 343.694)
     );
-    --legacy-destructive: light-dark(
-      oklch(57.7% 0.245 27.325),
-      oklch(0.458704 0.169677 3.815)
-    );
 
     --border-soft: light-dark(
       rgb(24 24 27 / 9%),
       color-mix(in srgb, var(--border) 60%, transparent)
     );
 
-    --control: light-dark(
-      #ffffff,
-      color-mix(in oklab, var(--input) 32%, transparent)
-    );
-    --control-hover: light-dark(
-      rgb(244 244 245 / 50%),
-      color-mix(in oklab, var(--input) 64%, transparent)
-    );
     --popover-glass: color-mix(in srgb, var(--popover) 84%, transparent);
     --border-popover: color-mix(in srgb, var(--foreground) 10%, transparent);
 
@@ -128,7 +114,6 @@
 
     --control-sm: 28px;
     --block-min-width: 240px;
-    --control-md: 32px;
     --shadow-soft:
       0 1px 2px rgb(0 0 0 / 5%),
       inset 0 -1px 0 light-dark(rgb(0 0 0 / 4%), transparent);

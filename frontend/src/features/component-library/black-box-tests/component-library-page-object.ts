@@ -27,6 +27,52 @@ export class ComponentLibraryPageObject {
     return this.formSection.getByLabel("Contact name", { exact: true });
   }
 
+  get planSelect(): Locator {
+    return this.page.getByRole("combobox", { name: "Plan", exact: true });
+  }
+
+  planOption(name: string): Locator {
+    return this.page.getByRole("option", { name, exact: true });
+  }
+
+  get archiveCheckbox(): Locator {
+    return this.page.getByRole("checkbox", {
+      name: "Include archived items",
+      exact: true,
+    });
+  }
+
+  channelOption(name: string): Locator {
+    return this.page
+      .getByRole("radiogroup", { name: "Channel", exact: true })
+      .getByRole("radio", { name, exact: true });
+  }
+
+  get searchInput(): Locator {
+    return this.page.getByRole("searchbox", {
+      name: "Search the example text",
+      exact: true,
+    });
+  }
+
+  get searchMatch(): Locator {
+    return this.page.getByText("overdue", { exact: true });
+  }
+
+  get emailInput(): Locator {
+    return this.page.getByRole("textbox", { name: "Email", exact: true });
+  }
+
+  get noteInput(): Locator {
+    return this.formSection.getByRole("textbox", { name: "Note", exact: true });
+  }
+
+  async cancelContact(): Promise<void> {
+    await this.formSection
+      .getByRole("button", { name: "Cancel", exact: true })
+      .click();
+  }
+
   async fillName(name: string): Promise<void> {
     await this.nameInput.fill(name);
   }
@@ -100,7 +146,7 @@ export class ComponentLibraryPageObject {
   }
 
   get formSection(): Locator {
-    return this.section("Form, FormRow, FormActions, FieldGroup");
+    return this.section("Field, FieldGroup, FieldSet");
   }
 
   async saveContact(): Promise<void> {

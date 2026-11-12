@@ -13,7 +13,8 @@ test.describe("component library", () => {
     for (const name of [
       "Button, ButtonGroup",
       "Tabs",
-      "Form, FormRow, FormActions, FieldGroup",
+      "Input, Textarea, InputGroup, Select, Checkbox, RadioGroup",
+      "Field, FieldGroup, FieldSet",
       "Card, List, KeyValueList, DataTable",
       "DropdownMenu, Disclosure, Dialog, Toolbar",
       "Icons",
@@ -104,6 +105,13 @@ test.describe("component library", () => {
     await gallery.saveContact();
 
     await expect(gallery.nameError).toHaveText("Enter a name");
+    await expect(gallery.contactNameInput).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+    await expect(gallery.contactNameInput).toHaveAccessibleDescription(
+      "Enter a name",
+    );
     await expect(gallery.saved).toBeHidden();
 
     await gallery.fillContactName("Ada Lovelace");
@@ -112,6 +120,88 @@ test.describe("component library", () => {
 
     await expect(gallery.nameError).toBeHidden();
     await expect(gallery.saved).toBeVisible();
+    await expect(gallery.contactNameInput).toHaveAttribute(
+      "aria-invalid",
+      "false",
+    );
+  });
+
+  test("should keep field names, descriptions, and search results", async ({
+    page,
+  }) => {
+    const gallery = new ComponentLibraryPageObject(page);
+    await gallery.goto();
+
+    await expect(gallery.nameInput).toHaveAccessibleDescription(
+      "The name that others see.",
+    );
+    await expect(gallery.emailInput).toHaveAttribute("aria-invalid", "true");
+    await expect(gallery.emailInput).toHaveAccessibleDescription(
+      "Enter an email address",
+    );
+    await gallery.searchInput.fill("overdue");
+    await expect(gallery.searchMatch).toHaveText("overdue");
+    await expect(gallery.searchInput).toHaveValue("overdue");
+  });
+
+  test("should change select, checkbox, and radio choices with the keyboard", async ({
+    page,
+  }) => {
+    const gallery = new ComponentLibraryPageObject(page);
+    await gallery.goto();
+
+    await expect(gallery.planSelect).toContainText("Free");
+    await gallery.planSelect.focus();
+    await page.keyboard.press("ArrowDown");
+    await expect(gallery.planOption("Team")).toBeVisible();
+    await gallery.planOption("Team").click();
+    await expect(gallery.planSelect).toContainText("Team");
+    await gallery.planSelect.focus();
+    await page.keyboard.press("ArrowDown");
+    await expect(gallery.planOption("Business")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(gallery.planSelect).toBeFocused();
+    await expect(gallery.planSelect).toContainText("Team");
+
+    await expect(gallery.archiveCheckbox).toBeChecked();
+    await expect(gallery.archiveCheckbox).toHaveAccessibleDescription(
+      "Archived items stay in the list.",
+    );
+    await gallery.archiveCheckbox.focus();
+    await page.keyboard.press("Space");
+    await expect(gallery.archiveCheckbox).not.toBeChecked();
+    await gallery.archiveCheckbox.click();
+    await expect(gallery.archiveCheckbox).toBeChecked();
+
+    await expect(gallery.channelOption("Email")).toBeChecked();
+    await gallery.channelOption("Email").focus();
+    await page.keyboard.press("ArrowDown");
+    await expect(gallery.channelOption("Text message")).toBeChecked();
+    await page.keyboard.press("ArrowDown");
+    await expect(gallery.channelOption("Push")).toBeChecked();
+    await expect(gallery.channelOption("Push")).toHaveAccessibleDescription(
+      "Needs the app.",
+    );
+  });
+
+  test("should clear the example form on Cancel without changing other fields", async ({
+    page,
+  }) => {
+    const gallery = new ComponentLibraryPageObject(page);
+    await gallery.goto();
+
+    await gallery.fillName("Separate name");
+    await gallery.fillContactName("Ada Lovelace");
+    await gallery.noteInput.fill("A note for the team.");
+    await gallery.saveContact();
+    await expect(gallery.saved).toBeVisible();
+    await gallery.cancelContact();
+
+    await expect(gallery.contactNameInput).toHaveValue("");
+    await expect(gallery.noteInput).toHaveValue("");
+    await expect(gallery.saved).toBeHidden();
+    await expect(gallery.nameError).toBeHidden();
+    await expect(gallery.nameInput).toHaveValue("Separate name");
   });
 
   test("should open the example dialog and close it with Escape", async ({
