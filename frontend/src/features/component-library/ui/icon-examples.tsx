@@ -53,7 +53,7 @@ export function IconExamples() {
         <CardContent>
           <ItemGroup
             aria-label="Icons"
-            className="grid grid-cols-1 md:grid-cols-3"
+            className="grid grid-cols-1 md:grid-cols-4"
           >
             <Item render={<li />} variant="muted">
               <ItemMedia variant="icon">

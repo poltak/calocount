@@ -205,11 +205,12 @@ the generated parts.
 
 Wrap a named card in a native `section aria-label="…"` to keep its region
 role. `Card` itself renders a `div`. Use a native `h2` inside `CardTitle`.
-The global heading rule excludes this child, so it inherits the generated
-title font and has no added margin. No generated size is copied to the page.
-Notes retain the complete title and body;
-their item title and description remove the default line clamp. This is a
-content requirement, not a size override.
+The global heading rule excludes this child and the generated `DialogTitle`
+and `PopoverTitle`. Generated title styles and header gaps control their
+appearance without added heading margins. No generated size is copied to the
+page. Notes retain the complete title and body; their item title and
+description remove the default line clamp. This is a content requirement,
+not a size override.
 
 The confirm example uses `Dialog`, because `alert-dialog` is not installed.
 It keeps the dialog role, its name, initial focus on Close, focus containment,
