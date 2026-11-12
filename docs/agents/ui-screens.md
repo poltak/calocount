@@ -43,7 +43,8 @@ action moves keyboard focus to the control. Use `waitFor` for the open part,
 so its image does not depend on its opening delay.
 
 Gallery captures include the open Actions menu, the open Discard changes
-dialog, and the InfoTip shown by keyboard focus. Capture each state at both
+dialog, the open History panel, the open Invoice details popover, and help
+shown by keyboard focus. Capture each state at both
 widths and in both themes. A fixed base that predates these states has no
 paired images for them. Report this limit. Do not change the base's commits.
 

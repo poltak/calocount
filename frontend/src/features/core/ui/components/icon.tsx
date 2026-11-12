@@ -32,7 +32,7 @@ import "./components.css";
  * that the same icon has one meaning everywhere. A new icon gets a name and
  * a meaning here, and a line in `docs/agents/ui-components.md`.
  */
-export const ICONS = {
+const ICONS = {
   notes: {
     meaning: "Goes to the notes.",
     component: StickyNote,

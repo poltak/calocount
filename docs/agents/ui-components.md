@@ -6,7 +6,8 @@ card, list, notice, or loading text with a class of your own.
 
 Read [shadcn foundation](ui-shadcn.md) for new UI work. Its Base UI `base-mira`
 layers and page rules take priority over the old component API below. The
-buttons, badges, button groups, menus, tabs, and form fields use the generated shadcn parts.
+buttons, badges, button groups, menus, tabs, form fields, and containers use
+the generated shadcn parts.
 The other parts in the component table still use the old component API.
 
 The page `/components` in the app shows each component with its variants. The
@@ -23,11 +24,9 @@ theme, with a blue accent. The dark theme uses the dark colors of the T3 Chat
 theme, with a magenta accent. A project that wants another palette changes the
 values in `shadcn.css` and `worldbrain.css`, and no component.
 
-Depth comes from small steps of background and thin soft lines, not from large
-shadows. A card and a block have the faint `--shadow-soft` edge. Generated
-controls keep the base-mira look without size or color overrides.
-Only a popover and a dialog have a large shadow. A popover is translucent glass
-over a blur, with `--popover-glass` and `--blur-popover`.
+Generated controls and containers keep the base-mira look without size or
+color overrides. Cards use the shadcn card surface. Dialogs, tooltips, and
+popovers use their generated surfaces, borders, and shadows.
 
 ## Component system
 
@@ -69,9 +68,8 @@ Each color has a role. Choose the token by its role, not by how it looks.
 | --------------------------------------- | ----------------------------------- |
 | The page                                | `background`, `foreground`          |
 | A standard panel                        | `card`, `card-foreground`           |
-| A recessed area                         | `inset`                             |
-| A raised area                           | `raised`                            |
-| A menu, a list of options, or a tooltip | `popover`, `popover-foreground`     |
+| A menu, a list of options, or a popover | `popover`, `popover-foreground`     |
+| A tooltip                               | `foreground`, `background`          |
 | Secondary text                          | `muted-foreground`                  |
 | The sidebar                             | `sidebar`                           |
 | A line between parts                    | `border`                            |
@@ -97,18 +95,10 @@ color, and `bg-muted` is a fill.
 Do not put fixed neutral colors into a page. A status color means the same on
 each surface.
 
-A nested structure uses the surface steps, not a new color for each level:
-
-- Use `Card tone="inset"` for a recessed area and `tone="raised"` for a raised
-  area. The default is the standard panel. A card has a border, so it stays
-  clear of the page in both themes.
-- `List variant="blocks"` inside a card takes `--nested-block-background`. Each
-  surface that can contain blocks sets that variable, so a block is always
-  different from its parent. A new surface of this kind sets it too.
-- Two levels of surface are enough. For one more level of structure, use space,
-  a `SectionHeader`, or a line. Choose its level from the page outline.
-  Do not make each DOM nesting level a
-  new color.
+Use one card surface for a section. Inside it, use `ItemGroup`, a heading,
+space, or `ItemSeparator`, not another card. The old inset settings example
+needs no separate recessed surface; it now uses the standard card. There are
+no raised or nested-block callers, so those variants and their tokens are gone.
 
 Check a surface change in the light theme and in the dark theme. The dark
 surfaces are close to each other, so a border must keep the parts apart.
@@ -160,31 +150,30 @@ a thicker top border.
 
 ## Components
 
-| Component                                                                                     | Use it for                                                                                                                           |
-| --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `Button` from `shadcn/button`                                                                 | An action. Use `variant="outline"` for a framed secondary action, `destructive` to remove something, and `ghost` for a quiet action. |
-| `ButtonGroup` from `shadcn/button-group`                                                      | Related buttons that touch. Give the group an `aria-label`.                                                                          |
-| `DropdownMenu` parts from `shadcn/dropdown-menu`                                              | A list of actions behind a `DropdownMenuTrigger` that renders a `Button`.                                                            |
-| `Dialog`                                                                                      | A modal question or a short form. The owner keeps `open` in its Logic.                                                               |
-| `Tabs`, `TabsList`, `TabsTrigger` from `shadcn/tabs`                                          | One choice of several. `TabsList` has `default` and `line` variants. Use `orientation="vertical"` for sidebar tabs.                  |
-| `AppLayout`                                                                                   | The frame of each signed-in page: the sidebar and the page beside it.                                                                |
-| `Page`, `Columns`, `Stack`, `Actions`, `Toolbar`                                              | Layout: the parts of a page, two columns, spaced parts, a row of buttons, a row of controls.                                         |
-| `PageHeader`, `SectionHeader`                                                                 | The one `h1` of a page, and the title of each section with its tools.                                                                |
-| `Card`, `List`, `ListItem`                                                                    | A surface, and a list of records with a title, badges, actions, and details.                                                         |
-| `KeyValueList`, `DataTable`                                                                   | Facts as pairs, and rows with the same columns.                                                                                      |
-| `Disclosure`                                                                                  | A part that opens and closes.                                                                                                        |
-| `SettingGroup`, `SettingRow`                                                                  | A settings screen: groups of rows with a name, a meaning, and a control.                                                             |
-| `Field`, `FieldLabel`, `FieldDescription`, `FieldError` from `shadcn/field`                   | A labeled control, its help text, and its validation message.                                                                        |
-| `FieldGroup`, `FieldSet`, `FieldLegend`, `FieldContent`, `FieldSeparator` from `shadcn/field` | A set of fields, a named group, text beside a control, and a separator.                                                              |
-| `Input`, `Textarea` from `shadcn/input` and `shadcn/textarea`                                 | Text controls. Use their native `onChange` event and compose them in a `Field`.                                                      |
-| `InputGroup`, `InputGroupInput`, `InputGroupAddon` from `shadcn/input-group`                  | A search field with a Lucide `SearchIcon` child in the addon.                                                                        |
-| `Select`, `SelectTrigger`, `SelectValue`, `SelectContent`, `SelectItem` from `shadcn/select`  | A choice from a short list. Pass `items`, `value`, and `onValueChange` to `Select`.                                                  |
-| `Checkbox`, `Switch`, `RadioGroup`, `RadioGroupItem` from their `shadcn/` files               | A yes-or-no choice or one of a few choices. Compose labels and descriptions with `Field` parts.                                      |
-| `Badge` from `shadcn/badge`                                                                   | A short label or an item count. Use `default`, `secondary`, `outline`, or `destructive`.                                             |
-| `Notice`, `EmptyState`, `Loading`                                                             | A message in the flow, what a list shows when it is empty, and what shows while data loads.                                          |
-| `Text`, `Highlight`                                                                           | Text with a role of the type scale, and the matches of a search in a mark.                                                           |
-| `InfoTip`                                                                                     | An "i" icon with a short help text on hover and on focus.                                                                            |
-| `Icon`                                                                                        | A line icon by name. `ICONS` in `icon.tsx` gives each name its one meaning.                                                          |
+| Component                                                                                                                                          | Use it for                                                                                                                           |
+| -------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `Button` from `shadcn/button`                                                                                                                      | An action. Use `variant="outline"` for a framed secondary action, `destructive` to remove something, and `ghost` for a quiet action. |
+| `ButtonGroup` from `shadcn/button-group`                                                                                                           | Related buttons that touch. Give the group an `aria-label`.                                                                          |
+| `DropdownMenu` parts from `shadcn/dropdown-menu`                                                                                                   | A list of actions behind a `DropdownMenuTrigger` that renders a `Button`.                                                            |
+| `Dialog`, `DialogTrigger`, `DialogContent`, `DialogHeader`, `DialogTitle`, `DialogDescription`, `DialogFooter`, `DialogClose` from `shadcn/dialog` | A modal question or short form. Keep `open` in its Logic and use `onOpenChange`.                                                     |
+| `Tabs`, `TabsList`, `TabsTrigger` from `shadcn/tabs`                                                                                               | One choice of several. `TabsList` has `default` and `line` variants. Use `orientation="vertical"` for sidebar tabs.                  |
+| `AppLayout`                                                                                                                                        | The frame of each signed-in page: the sidebar and the page beside it.                                                                |
+| `Page`, `Columns`, `Stack`, `Actions`, `Toolbar`                                                                                                   | Layout: the parts of a page, two columns, spaced parts, a row of buttons, a row of controls.                                         |
+| `PageHeader`, `SectionHeader`                                                                                                                      | The one `h1` of a page, and the title of each section with its tools.                                                                |
+| `Card`, `CardHeader`, `CardTitle`, `CardDescription`, `CardAction`, `CardContent`, `CardFooter` from `shadcn/card`                                 | A section surface. Use native headings inside `CardTitle`; a title part alone is not a heading.                                      |
+| `Collapsible`, `CollapsibleTrigger`, `CollapsibleContent` from `shadcn/collapsible`                                                                | A part that opens and closes. A trigger can render a `Button` with Lucide icon children.                                             |
+| `SettingGroup`, `SettingRow`                                                                                                                       | A settings screen: groups of rows with a name, a meaning, and a control.                                                             |
+| `Field`, `FieldLabel`, `FieldDescription`, `FieldError` from `shadcn/field`                                                                        | A labeled control, its help text, and its validation message.                                                                        |
+| `FieldGroup`, `FieldSet`, `FieldLegend`, `FieldContent`, `FieldSeparator` from `shadcn/field`                                                      | A set of fields, a named group, text beside a control, and a separator.                                                              |
+| `Input`, `Textarea` from `shadcn/input` and `shadcn/textarea`                                                                                      | Text controls. Use their native `onChange` event and compose them in a `Field`.                                                      |
+| `InputGroup`, `InputGroupInput`, `InputGroupAddon` from `shadcn/input-group`                                                                       | A search field with a Lucide `SearchIcon` child in the addon.                                                                        |
+| `Select`, `SelectTrigger`, `SelectValue`, `SelectContent`, `SelectItem` from `shadcn/select`                                                       | A choice from a short list. Pass `items`, `value`, and `onValueChange` to `Select`.                                                  |
+| `Checkbox`, `Switch`, `RadioGroup`, `RadioGroupItem` from their `shadcn/` files                                                                    | A yes-or-no choice or one of a few choices. Compose labels and descriptions with `Field` parts.                                      |
+| `Badge` from `shadcn/badge`                                                                                                                        | A short label or an item count. Use `default`, `secondary`, `outline`, or `destructive`.                                             |
+| `Notice`, `EmptyState`, `Loading`                                                                                                                  | A message in the flow, what a list shows when it is empty, and what shows while data loads.                                          |
+| `Text`, `Highlight`                                                                                                                                | Text with a role of the type scale, and the matches of a search in a mark.                                                           |
+| `TooltipProvider`, `Tooltip`, `TooltipTrigger`, `TooltipContent` from `shadcn/tooltip`                                                             | Short help on hover and keyboard focus. Render an icon-only `Button` in the trigger and name it.                                     |
+| `Icon`                                                                                                                                             | A line icon by name. `ICONS` in `icon.tsx` gives each name its one meaning.                                                          |
 
 Use `Button` with `nativeButton={false}` and its `render` callback for
 a router link that looks like a button. The callback drops the generated
@@ -204,16 +193,31 @@ the selected value and `aria-current`.
 `Notice` tones are `info`, `warning`, `error`, and `success`. An error is
 announced at once.
 
-Do not put a card in a card. Inside a card, use a `List` or a `SectionHeader`.
+Do not put a card in a card. Inside a card, use `ItemGroup` or a `SectionHeader`.
 Choose heading levels from the page outline, not from the card boundary.
 Use level 2 below the page title. Use level 3 only below a level 2 heading.
 Apply the same rule to form titles.
 
+Use `Popover`, `PopoverTrigger`, `PopoverContent`, `PopoverHeader`,
+`PopoverTitle`, and `PopoverDescription` from `shadcn/popover` for details
+beside a trigger. No old popover component has callers. The gallery shows
+the generated parts.
+
+Wrap a named card in a native `section aria-label="…"` to keep its region
+role. `Card` itself renders a `div`. Notes retain the complete title and body;
+their item title and description remove the default line clamp. This is a
+content requirement, not a size override.
+
+The confirm example uses `Dialog`, because `alert-dialog` is not installed.
+It keeps the dialog role, its name, initial focus on Close, focus containment,
+and return focus to its trigger. Its content ref selects the generated Close
+button for `initialFocus`; the generated file stays unchanged.
+
 ## Icons
 
 New UI imports Lucide icons directly, as `components.json` specifies. Pass
-them as children. The old `Icon` component and its `ICONS` map remain only
-until the page migration. Do not extend them.
+them as children. The gallery uses Lucide children. The old `Icon` component and its `ICONS`
+map remain only for `Notice` and `EmptyState` until the text migration. Do not extend them.
 
 ## Choices
 
@@ -228,6 +232,6 @@ until the page migration. Do not extend them.
 `components.css` imports the rules in their cascade order.
 `components-base.css` holds old icons, loading states, headers, text, and notices.
 `components-forms.css` holds page layouts, the app shell, and settings.
-`components-layout.css` holds cards, lists, tables, disclosures, and dialogs.
+The old container stylesheet and its lint exceptions are gone.
 Never edit a generated control to change its look. Use `ui-shadcn.md` to
 choose between composition, a theme token, and a registry fork.

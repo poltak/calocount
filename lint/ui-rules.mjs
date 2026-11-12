@@ -1,7 +1,6 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describeFile, importVisitors } from "./paths.mjs";
-import { legacyUi } from "./ui-legacy.mjs";
 
 const PARTS = /^features\/core\/ui\/(shadcn|core|registry)\//;
 const ICON_PACKAGES =
@@ -42,10 +41,7 @@ export const pageImports = {
       ).iconLibrary;
     } catch {}
     const visit = (node, source) => {
-      if (
-        /^@base-ui\/react(?:\/|$)/.test(source) &&
-        !legacyUi[file.inSrc]?.imports?.includes(source)
-      )
+      if (/^@base-ui\/react(?:\/|$)/.test(source))
         context.report({ node, messageId: "base", data: { source } });
       if (
         ICON_PACKAGES.test(source) &&
@@ -97,7 +93,6 @@ export const pageClasses = {
     const allowed = context.options[0]?.spacing ?? [];
     const check = (node, text) => {
       for (const token of text.split(/\s+/)) {
-        if (legacyUi[file.inSrc]?.classes?.includes(token)) continue;
         const utility = utilityClass(token);
         if (/^(?:-?[\w-]+-\[|\[[\w-]+:)/.test(utility))
           context.report({ node, messageId: "arbitrary", data: { token } });

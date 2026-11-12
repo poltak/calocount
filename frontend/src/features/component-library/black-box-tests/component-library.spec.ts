@@ -15,8 +15,8 @@ test.describe("component library", () => {
       "Tabs",
       "Input, Textarea, InputGroup, Select, Checkbox, RadioGroup",
       "Field, FieldGroup, FieldSet",
-      "Card, List, KeyValueList, DataTable",
-      "DropdownMenu, Disclosure, Dialog, Toolbar",
+      "Card, Item, Table",
+      "DropdownMenu, Collapsible, Dialog, Popover, Toolbar",
       "Icons",
     ]) {
       await expect(gallery.section(name)).toBeVisible();

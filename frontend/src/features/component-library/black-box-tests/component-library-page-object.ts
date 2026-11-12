@@ -168,13 +168,80 @@ export class ComponentLibraryPageObject {
   }
 
   get discardTrigger(): Locator {
-    return this.section("DropdownMenu, Disclosure, Dialog, Toolbar").getByRole(
-      "button",
-      { name: "Discard changes", exact: true },
-    );
+    return this.section(
+      "DropdownMenu, Collapsible, Dialog, Popover, Toolbar",
+    ).getByRole("button", { name: "Discard changes", exact: true });
   }
 
   get dialog(): Locator {
     return this.page.getByRole("dialog", { name: "Discard the changes?" });
+  }
+
+  dialogButton(name: string): Locator {
+    return this.dialog.getByRole("button", { name, exact: true });
+  }
+
+  async clickOutsideDialog(): Promise<void> {
+    await this.page.mouse.click(0, 0);
+  }
+
+  get historyTrigger(): Locator {
+    return this.page.getByRole("button", { name: "History 2", exact: true });
+  }
+
+  get history(): Locator {
+    return this.page.getByText("Created on 1 November. Edited on 3 November.", {
+      exact: true,
+    });
+  }
+
+  get helpTrigger(): Locator {
+    return this.page.getByRole("button", {
+      name: "A short help text, on hover and on focus.",
+      exact: true,
+    });
+  }
+
+  get help(): Locator {
+    return this.page.getByText("A short help text, on hover and on focus.", {
+      exact: true,
+    });
+  }
+
+  get popoverTrigger(): Locator {
+    return this.page.getByRole("button", {
+      name: "Invoice details",
+      exact: true,
+    });
+  }
+
+  get popover(): Locator {
+    return this.page.getByRole("dialog", {
+      name: "Invoice details",
+      exact: true,
+    });
+  }
+
+  get invoiceList(): Locator {
+    return this.page.getByRole("list", { name: "Example list", exact: true });
+  }
+
+  get invoiceItems(): Locator {
+    return this.invoiceList.getByRole("listitem");
+  }
+
+  get invoiceTable(): Locator {
+    return this.page.getByRole("table", {
+      name: "Example invoices",
+      exact: true,
+    });
+  }
+
+  invoiceAmount(name: string): Locator {
+    return this.invoiceTable.getByRole("row", { name, exact: true });
+  }
+
+  get invoiceDetails(): Locator {
+    return this.section("Card, Item, Table").getByRole("definition");
   }
 }

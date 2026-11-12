@@ -7,8 +7,6 @@
 
   --color-success: var(--success);
   --color-warning: var(--warning);
-  --color-inset: var(--inset);
-  --color-raised: var(--raised);
 }
 
 @layer base {
@@ -31,9 +29,6 @@
       var(--card)
     );
     --selected-fill: color-mix(in srgb, var(--foreground) 8%, transparent);
-
-    --raised: light-dark(#ffffff, oklch(0.279864 0.021572 309.532));
-    --inset: light-dark(#f4f4f5, oklch(0.22813 0.020366 307.469));
 
     /* #5c5c64 with the boost gives #424248, the secondary text of T3 Code. */
 
@@ -64,7 +59,6 @@
     --color-border: var(--border);
     --color-muted: var(--muted-foreground);
     --color-surface: var(--card);
-    --color-surface-raised: var(--raised);
     --color-control-border: var(--input);
     --color-link: light-dark(
       oklch(48.8% 0.243 264.376),
@@ -113,16 +107,13 @@
     --space-8: 32px;
 
     --control-sm: 28px;
-    --block-min-width: 240px;
     --shadow-soft:
       0 1px 2px rgb(0 0 0 / 5%),
       inset 0 -1px 0 light-dark(rgb(0 0 0 / 4%), transparent);
     --shadow-popover: 0 16px 40px -18px
       light-dark(rgb(0 0 0 / 55%), rgb(0 0 0 / 80%));
     --blur-popover: blur(16px) saturate(1.14);
-    --shadow-dialog: 0 24px 64px rgb(0 0 0 / 24%);
     --z-popover: 80;
-    --z-dialog: 60;
     --z-panel: 40;
     --z-sticky: 20;
     --width-panel: 416px;

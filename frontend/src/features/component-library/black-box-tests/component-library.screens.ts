@@ -69,6 +69,25 @@ test("component gallery", async ({ page }) => {
     },
     {
       ...GALLERY,
+      state: "history-open",
+      steps: [
+        { role: "button", name: "History 2", action: "click" },
+        {
+          name: "Created on 1 November. Edited on 3 November.",
+          action: "waitFor",
+        },
+      ],
+    },
+    {
+      ...GALLERY,
+      state: "popover-open",
+      steps: [
+        { role: "button", name: "Invoice details", action: "click" },
+        { role: "dialog", name: "Invoice details", action: "waitFor" },
+      ],
+    },
+    {
+      ...GALLERY,
       state: "help-focused",
       steps: [
         {

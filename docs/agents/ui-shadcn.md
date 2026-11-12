@@ -60,10 +60,8 @@ The sidebar's internal `7.5` and `18` are not page spacing values. Use `flex`
 and `gap-*` for page layout. Do not add Stack, Actions, Columns, Toolbar,
 or PageTop wrappers.
 
-`lint/ui-legacy.mjs` permits only the current Base UI imports in `dialog.tsx`
-and `disclosure.tsx` in the old `components/` directory. Buttons,
-badges, button groups, dropdown menus, tabs, and form fields use shadcn directly and have
-no legacy exceptions. Generated files alone are
+The controls, form fields, and containers use shadcn directly. The last
+legacy lint exceptions and `lint/ui-legacy.mjs` are gone. Generated files alone are
 exempt from local-state, browser-global, and conflicting markup lint rules.
 The byte comparison, not a hand edit, controls that directory.
 
@@ -99,10 +97,10 @@ The matching `color-*` utility mappings are new too.
 
 All remaining tokens moved unchanged to `worldbrain.css`. They are the
 contrast helpers, `foreground-base`, `setting-group`, `selected-fill`,
-`raised`, `inset`, `destructive-foreground`, `border-soft`, `sidebar-row-inset`,
-`control`, `control-hover`, `popover-glass`, `border-popover`, `success`,
+`destructive-foreground`, `border-soft`, `sidebar-row-inset`,
+`popover-glass`, `border-popover`, `success`,
 `warning`, the existing `color-*` aliases, `text-*`, `space-*`, `control-sm`,
-`control-md`, `block-min-width`, `shadow-*`, `blur-popover`, `z-*`, `width-*`,
+`shadow-*`, `blur-popover`, `z-*`, `width-*`,
 and their utility mappings. The existing
 `font-sans` and `font-mono` mappings moved there too. The old duplicate
 `radius-sm` through `radius-xl` declarations were removed so they cannot
@@ -111,6 +109,9 @@ shadows, segmented fills and shadow, badge radius, sidebar row colors, and
 sidebar row radius. No remaining component uses those tokens.
 The form migration also removed `control`, `control-hover`, their utility
 mappings, and `control-md`. Only the deleted form styles used them.
+The container migration removed `raised`, `inset`, their utility mappings,
+`color-surface-raised`, `block-min-width`, `shadow-dialog`, and `z-dialog`.
+No remaining caller needs a raised, inset, or nested-block variant.
 
 ## Commands
 

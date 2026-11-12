@@ -1,5 +1,6 @@
 import {
   CircleIcon,
+  InfoIcon,
   ExternalLinkIcon,
   LayoutGridIcon,
   PencilIcon,
@@ -8,9 +9,19 @@ import {
 } from "lucide-react";
 import { Link } from "react-router";
 import { Actions } from "../../core/ui/components/layout.js";
-import { Card } from "../../core/ui/components/card.js";
-import { InfoTip } from "../../core/ui/components/info-tip.js";
-import { SectionHeader } from "../../core/ui/components/page-header.js";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../../core/ui/shadcn/card.js";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "../../core/ui/shadcn/tooltip.js";
 import { Badge } from "../../core/ui/shadcn/badge.js";
 import { Button } from "../../core/ui/shadcn/button.js";
 import { ButtonGroup } from "../../core/ui/shadcn/button-group.js";
@@ -20,77 +31,107 @@ import type { ExampleFilter } from "./component-library-logic.js";
 
 export function ButtonExamples() {
   return (
-    <Card label="Button, ButtonGroup" stack>
-      <SectionHeader
-        title="Button, ButtonGroup"
-        description="One primary action for each form, dialog, or page."
-      />
-      <div className="flex flex-wrap items-center gap-2">
-        <Button>Primary</Button>
-        <Button variant="outline">Secondary</Button>
-        <Button variant="secondary">Secondary fill</Button>
-        <Button variant="destructive">Danger</Button>
-        <Button variant="ghost">Ghost</Button>
-        <Button size="sm" variant="outline">
-          Small
-        </Button>
-        <Button variant="outline">
-          <PlusIcon />
-          With icon
-        </Button>
-        <Button variant="outline" disabled aria-busy="true">
-          <Spinner aria-hidden="true" />
-          Saving…
-        </Button>
-        <Button variant="outline" disabled>
-          Disabled
-        </Button>
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <Button
-          variant="outline"
-          nativeButton={false}
-          render={({ role: _role, ...props }) => (
-            <Link {...props} to="/components" />
-          )}
-        >
-          Link to a page
-        </Button>
-        <Button
-          variant="outline"
-          nativeButton={false}
-          render={({ role: _role, ...props }) => (
-            <a
-              {...props}
-              aria-label="Link to a site"
-              href="https://example.com"
-              target="_blank"
-              rel="noreferrer"
-            />
-          )}
-        >
-          Link to a site
-          <ExternalLinkIcon />
-        </Button>
-        <Button variant="outline" size="icon" aria-label="Edit" title="Edit">
-          <PencilIcon />
-        </Button>
-        <Button
-          variant="outline"
-          size="icon"
-          aria-label="Remove"
-          aria-keyshortcuts="Del"
-          title="Remove (Del)"
-        >
-          <Trash2Icon />
-        </Button>
-        <InfoTip text="A short help text, on hover and on focus." />
-      </div>
-      <ButtonGroup aria-label="Zoom">
-        <Button variant="outline">Zoom out</Button>
-        <Button variant="outline">Zoom in</Button>
-      </ButtonGroup>
-    </Card>
+    <section aria-label="Button, ButtonGroup">
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            <h2>Button, ButtonGroup</h2>
+          </CardTitle>
+          <CardDescription>
+            One primary action for each form, dialog, or page.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button>Primary</Button>
+            <Button variant="outline">Secondary</Button>
+            <Button variant="secondary">Secondary fill</Button>
+            <Button variant="destructive">Danger</Button>
+            <Button variant="ghost">Ghost</Button>
+            <Button size="sm" variant="outline">
+              Small
+            </Button>
+            <Button variant="outline">
+              <PlusIcon />
+              With icon
+            </Button>
+            <Button variant="outline" disabled aria-busy="true">
+              <Spinner aria-hidden="true" />
+              Saving…
+            </Button>
+            <Button variant="outline" disabled>
+              Disabled
+            </Button>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              nativeButton={false}
+              render={({ role: _role, ...props }) => (
+                <Link {...props} to="/components" />
+              )}
+            >
+              Link to a page
+            </Button>
+            <Button
+              variant="outline"
+              nativeButton={false}
+              render={({ role: _role, ...props }) => (
+                <a
+                  {...props}
+                  aria-label="Link to a site"
+                  href="https://example.com"
+                  target="_blank"
+                  rel="noreferrer"
+                />
+              )}
+            >
+              Link to a site
+              <ExternalLinkIcon />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label="Edit"
+              title="Edit"
+            >
+              <PencilIcon />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label="Remove"
+              aria-keyshortcuts="Del"
+              title="Remove (Del)"
+            >
+              <Trash2Icon />
+            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
+                      aria-label="A short help text, on hover and on focus."
+                    />
+                  }
+                >
+                  <InfoIcon />
+                </TooltipTrigger>
+                <TooltipContent align="start">
+                  A short help text, on hover and on focus.
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+          <ButtonGroup aria-label="Zoom">
+            <Button variant="outline">Zoom out</Button>
+            <Button variant="outline">Zoom in</Button>
+          </ButtonGroup>
+        </CardContent>
+      </Card>
+    </section>
   );
 }
 
@@ -121,50 +162,58 @@ export function TabsExamples({
   onFilterChange: (filter: ExampleFilter) => void;
 }) {
   return (
-    <Card label="Tabs" stack>
-      <SectionHeader title="Tabs" />
-      <Tabs value={filter} onValueChange={onFilterChange}>
-        <TabsList aria-label="Example filter" activateOnFocus loopFocus>
-          <TabsTrigger value="open">
-            Open<Badge variant="secondary">3</Badge>
-          </TabsTrigger>
-          <TabsTrigger value="closed">
-            Closed<Badge variant="secondary">1</Badge>
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
-      <Tabs value={filter} onValueChange={onFilterChange}>
-        <TabsList
-          aria-label="Example parts"
-          variant="line"
-          activateOnFocus
-          loopFocus
-        >
-          <TabsTrigger value="open">Open</TabsTrigger>
-          <TabsTrigger value="closed">Closed</TabsTrigger>
-        </TabsList>
-      </Tabs>
-      <nav aria-label="Example links">
-        <Tabs value="/components">
-          <TabsList role="presentation">
-            <TabsTrigger
-              value="/components"
-              nativeButton={false}
-              aria-selected={undefined}
-              render={({ role: _role, ...props }, { active }) => (
-                <Link
-                  {...props}
-                  aria-current={active ? "page" : undefined}
-                  to="/components"
-                />
-              )}
+    <section aria-label="Tabs">
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            <h2>Tabs</h2>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          <Tabs value={filter} onValueChange={onFilterChange}>
+            <TabsList aria-label="Example filter" activateOnFocus loopFocus>
+              <TabsTrigger value="open">
+                Open<Badge variant="secondary">3</Badge>
+              </TabsTrigger>
+              <TabsTrigger value="closed">
+                Closed<Badge variant="secondary">1</Badge>
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+          <Tabs value={filter} onValueChange={onFilterChange}>
+            <TabsList
+              aria-label="Example parts"
+              variant="line"
+              activateOnFocus
+              loopFocus
             >
-              <LayoutGridIcon />
-              Components
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
-      </nav>
-    </Card>
+              <TabsTrigger value="open">Open</TabsTrigger>
+              <TabsTrigger value="closed">Closed</TabsTrigger>
+            </TabsList>
+          </Tabs>
+          <nav aria-label="Example links">
+            <Tabs value="/components">
+              <TabsList role="presentation">
+                <TabsTrigger
+                  value="/components"
+                  nativeButton={false}
+                  aria-selected={undefined}
+                  render={({ role: _role, ...props }, { active }) => (
+                    <Link
+                      {...props}
+                      aria-current={active ? "page" : undefined}
+                      to="/components"
+                    />
+                  )}
+                >
+                  <LayoutGridIcon />
+                  Components
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </nav>
+        </CardContent>
+      </Card>
+    </section>
   );
 }
