@@ -36,6 +36,13 @@ export function describeFile(filename) {
 
 /** Returns null for the import of a package. */
 export function resolveImport(filename, source) {
+  if (typeof source === "string" && source.startsWith("@/")) {
+    const workspace = filename
+      .split(path.sep)
+      .join("/")
+      .match(/^(.*\/frontend)\/src\//)?.[1];
+    return workspace ? path.resolve(workspace, "src", source.slice(2)) : null;
+  }
   if (typeof source !== "string" || !source.startsWith(".")) {
     return null;
   }

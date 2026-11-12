@@ -223,6 +223,25 @@
         "hooks": ["useState", "useReducer", "useActionState", "useOptimistic"]
       }
     ],
+    "stack/page-imports": "error",
+    "stack/page-classes": [
+      "error",
+      {
+        "spacing": [
+          "0",
+          "0.5",
+          "1",
+          "1.5",
+          "2",
+          "2.5",
+          "3",
+          "3.5",
+          "4",
+          "6",
+          "8"
+        ]
+      }
+    ],
     "testing/ui-logic-tested": "error",
     "testing/logic-tests": [
       "error",
@@ -255,6 +274,20 @@
     ]
   },
   "overrides": [
+    {
+      "files": ["frontend/src/features/core/ui/shadcn/**"],
+      "rules": {
+        "stack/no-component-state": "off",
+        "stack/vendor-imports": "off",
+        "no-restricted-globals": "off",
+        "react/set-state-in-effect": "off",
+        "no-shadow": "off",
+        "jsx-a11y/prefer-tag-over-role": "off",
+        "jsx-a11y/click-events-have-key-events": "off",
+        "jsx-a11y/no-noninteractive-element-interactions": "off",
+        "jsx-a11y/label-has-associated-control": "off"
+      }
+    },
     {
       "files": ["frontend/src/**", "common/src/**"],
       "rules": {
@@ -410,7 +443,8 @@
         "frontend/src/main.tsx",
         "frontend/src/**/*.test.ts",
         "frontend/src/**/*.test.tsx",
-        "frontend/src/features/core/tests/browser/screens.ts"
+        "frontend/src/features/core/tests/browser/screens.ts",
+        "frontend/src/features/core/ui/shadcn/**"
       ],
       "rules": {
         "no-restricted-globals": "off"

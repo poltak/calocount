@@ -1,0 +1,23 @@
+{
+  "$schema": "https://ui.shadcn.com/schema.json",
+  "style": "base-mira",
+  "rsc": false,
+  "tsx": true,
+  "tailwind": {
+    "config": "",
+    "css": "src/features/core/ui/shadcn.css",
+    "baseColor": "neutral",
+    "cssVariables": true,
+    "prefix": ""
+  },
+  "iconLibrary": "lucide",
+  "rtl": false,
+  "aliases": {
+    "components": "@/features/core/ui",
+    "utils": "@/features/core/utils/class-names",
+    "ui": "@/features/core/ui/shadcn",
+    "lib": "@/features/core/utils",
+    "hooks": "@/features/core/ui/shadcn"
+  },
+  "registries": {}
+}

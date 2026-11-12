@@ -14,11 +14,21 @@ async function projectRules() {
   const config = JSON.parse(
     await readFile(path.join(repoRoot, ".oxlintrc.json"), "utf8"),
   );
-  return Object.fromEntries(
-    Object.entries(config.rules).filter(([name]) =>
-      /^(?:architecture|stack|testing)\//.test(name),
-    ),
-  );
+  const select = (rules) =>
+    Object.fromEntries(
+      Object.entries(rules).filter(([name]) =>
+        /^(?:architecture|stack|testing)\//.test(name),
+      ),
+    );
+  return {
+    rules: select(config.rules),
+    overrides: config.overrides
+      .map((override) => ({
+        files: override.files.map((pattern) => `**/${pattern}`),
+        rules: select(override.rules),
+      }))
+      .filter((override) => Object.keys(override.rules).length),
+  };
 }
 
 /**
@@ -45,7 +55,7 @@ export async function lint(context, files, { plugins = lintDirectory } = {}) {
         path.join(plugins, "stack-plugin.mjs"),
         path.join(plugins, "testing-plugin.mjs"),
       ],
-      rules: await projectRules(),
+      ...(await projectRules()),
     }),
   );
 

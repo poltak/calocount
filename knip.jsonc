@@ -50,6 +50,8 @@
         // `*.screens.ts` file. knip reads only `playwright.config.ts`.
         "playwright.screens.config.ts",
         "src/features/**/*.screens.ts",
+        // Phase 2 moves the pages to these CLI files. Keep only this directory.
+        "src/features/core/ui/shadcn/*.{ts,tsx}",
       ],
       // The page registers it by its address, so no code imports it.
       "ignore": ["public/sw.js"],

@@ -17,3 +17,5 @@ docs/*.md
 docs/plugin/
 plugins/
 .agents/plugins/
+# The generation check compares these files with the CLI output, byte for byte.
+frontend/src/features/core/ui/shadcn/

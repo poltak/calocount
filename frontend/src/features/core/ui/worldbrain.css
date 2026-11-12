@@ -1,0 +1,223 @@
+@theme inline {
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font-mono: "SF Mono", Menlo, Consolas, monospace;
+
+  --color-destructive-foreground: var(--destructive-foreground);
+
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-inset: var(--inset);
+  --color-raised: var(--raised);
+  --color-control: var(--control);
+  --color-control-hover: var(--control-hover);
+}
+
+@layer base {
+  :root {
+    color-scheme: light dark;
+
+    /* T3 Code raises contrast from the palette, at a setting of 120%: text moves
+       20% to black or white, and a line moves 5% to the text color. The palette
+       of T3 Chat needs this: without it, a control has no visible edge. */
+    --contrast-boost: 20%;
+    --contrast-border-boost: 5%;
+    --contrast-target: light-dark(black, white);
+    --foreground-base: light-dark(#18181b, oklch(0.980735 0.004092 301.426));
+
+    /* T3 Code draws a settings group at 40% of the surface over the canvas. At
+       the full surface, the color of a control border has no contrast. */
+
+    --setting-group: light-dark(
+      color-mix(in oklab, #ffffff 40%, #fcfcfc),
+      var(--card)
+    );
+    --selected-fill: color-mix(in srgb, var(--foreground) 8%, transparent);
+
+    --raised: light-dark(#ffffff, oklch(0.279864 0.021572 309.532));
+    --inset: light-dark(#f4f4f5, oklch(0.22813 0.020366 307.469));
+
+    /* #5c5c64 with the boost gives #424248, the secondary text of T3 Code. */
+
+    --destructive-foreground: light-dark(
+      #ffffff,
+      oklch(0.901233 0.057189 343.694)
+    );
+
+    --border-soft: light-dark(
+      rgb(24 24 27 / 9%),
+      color-mix(in srgb, var(--border) 60%, transparent)
+    );
+
+    --sidebar-row-foreground: color-mix(
+      in srgb,
+      var(--muted-foreground) 79%,
+      transparent
+    );
+    --sidebar-row-icon: color-mix(
+      in srgb,
+      var(--muted-foreground) 85%,
+      transparent
+    );
+    --sidebar-row-hover: light-dark(#fcfcfc, oklch(0.23366 0.026081 338.196));
+    --sidebar-row-selected: light-dark(
+      #ffffff,
+      oklch(0.23366 0.026081 338.196)
+    );
+    --control: light-dark(
+      #ffffff,
+      color-mix(in oklab, var(--input) 32%, transparent)
+    );
+    --control-hover: light-dark(
+      rgb(244 244 245 / 50%),
+      color-mix(in oklab, var(--input) 64%, transparent)
+    );
+    --segmented: color-mix(in srgb, var(--input) 40%, transparent);
+    --segmented-hover: light-dark(
+      color-mix(in srgb, var(--background) 55%, transparent),
+      color-mix(in srgb, var(--input) 32%, transparent)
+    );
+    --segmented-selected: light-dark(
+      var(--background),
+      color-mix(in srgb, var(--input) 72%, transparent)
+    );
+    --popover-glass: color-mix(in srgb, var(--popover) 84%, transparent);
+    --border-popover: color-mix(in srgb, var(--foreground) 10%, transparent);
+
+    --success: light-dark(
+      oklch(50.8% 0.118 165.612),
+      oklch(76.5% 0.177 163.223)
+    );
+    --warning: light-dark(
+      oklch(55.5% 0.163 48.998),
+      oklch(0.836861 0.164422 84.429)
+    );
+    --color-text: var(--foreground);
+    --color-background: var(--background);
+    --color-primary: var(--primary);
+    --color-border: var(--border);
+    --color-muted: var(--muted-foreground);
+    --color-surface: var(--card);
+    --color-surface-raised: var(--raised);
+    --color-control-border: var(--input);
+    --color-link: light-dark(
+      oklch(48.8% 0.243 264.376),
+      oklch(0.901233 0.057189 343.694)
+    );
+    --color-accent-soft: var(--accent);
+    --color-primary-text: var(--primary-foreground);
+    /* The dark fill of T3 Chat is too dark for text, so text and lines of an
+       alert use the light tone of its pair. */
+    --color-alert: light-dark(
+      var(--destructive),
+      var(--destructive-foreground)
+    );
+    --color-notice-background: light-dark(
+      color-mix(in srgb, oklch(76.9% 0.188 70.08) 8%, transparent),
+      color-mix(in srgb, oklch(76.9% 0.188 70.08) 16%, transparent)
+    );
+    --color-notice-text: var(--warning);
+    --color-search-hit: light-dark(
+      color-mix(in srgb, oklch(76.9% 0.188 70.08) 40%, transparent),
+      color-mix(in srgb, oklch(76.9% 0.188 70.08) 36%, transparent)
+    );
+    --color-danger: var(--color-alert);
+    --color-danger-text: var(--destructive-foreground);
+    --color-danger-soft: light-dark(
+      color-mix(in srgb, oklch(63.7% 0.237 25.331) 8%, transparent),
+      oklch(0.458704 0.169677 3.815 / 32%)
+    );
+    --color-success-soft: light-dark(
+      color-mix(in srgb, oklch(69.6% 0.17 162.48) 8%, transparent),
+      color-mix(in srgb, oklch(69.6% 0.17 162.48) 16%, transparent)
+    );
+    --text-xs: 12px;
+    --text-sm: 14px;
+    --text-md: 14px;
+    --text-base: 16px;
+    --text-lg: 18px;
+    --text-xl: 20px;
+    --text-2xl: 24px;
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 20px;
+    --space-6: 24px;
+    --space-8: 32px;
+
+    --radius-full: 999px;
+    --control-sm: 28px;
+    --block-min-width: 240px;
+    --control-md: 32px;
+    --shadow-soft:
+      0 1px 2px rgb(0 0 0 / 5%),
+      inset 0 -1px 0 light-dark(rgb(0 0 0 / 4%), transparent);
+    --shadow-primary:
+      0 1px 2px color-mix(in srgb, var(--primary) 24%, transparent),
+      inset 0 1px 0 rgb(255 255 255 / 16%);
+    --shadow-danger:
+      0 1px 2px color-mix(in srgb, var(--destructive) 24%, transparent),
+      inset 0 1px 0 rgb(255 255 255 / 16%);
+    --shadow-popover: 0 16px 40px -18px
+      light-dark(rgb(0 0 0 / 55%), rgb(0 0 0 / 80%));
+    --shadow-segmented: 0 1px 2px rgb(0 0 0 / 10%);
+    --blur-popover: blur(16px) saturate(1.14);
+    --shadow-dialog: 0 24px 64px rgb(0 0 0 / 24%);
+    --z-popover: 80;
+    --z-dialog: 60;
+    --z-panel: 40;
+    --z-sticky: 20;
+    --width-panel: 416px;
+    --width-sidebar: 168px;
+    --width-setting-control: 220px;
+    --width-setting-note: 672px;
+    --sidebar-row-inset: 10px;
+    --radius-sidebar-row: 10px;
+    --width-search: 350px;
+    --width-section-search: 240px;
+    --width-section-search-min: 160px;
+    --width-content: 1440px;
+    --width-page: 1120px;
+    font-family: var(--font-sans);
+    color: var(--foreground);
+    background: var(--background);
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  :root[data-theme="light"] {
+    color-scheme: light;
+  }
+
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+  }
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  body {
+    font-size: var(--text-md);
+    line-height: 1.5;
+  }
+
+  ::selection {
+    color: var(--foreground);
+    background: color-mix(in srgb, var(--primary) 25%, var(--background));
+  }
+
+  input,
+  textarea {
+    caret-color: var(--primary);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}

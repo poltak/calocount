@@ -102,6 +102,9 @@ export default defineConfig(({ mode }) => {
   const backendOrigin = `http://127.0.0.1:${env.DEV_WORKER_PORT || "8787"}`;
 
   return {
+    resolve: {
+      alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
+    },
     plugins: [
       tailwindcss(),
       react(),

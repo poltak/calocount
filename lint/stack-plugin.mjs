@@ -5,6 +5,7 @@
  * plugin's configuration, not the architecture rules.
  */
 import { describeFile, importVisitors } from "./paths.mjs";
+import { pageClasses, pageImports } from "./ui-rules.mjs";
 
 const vendorImports = {
   meta: {
@@ -135,5 +136,7 @@ export default {
   rules: {
     "vendor-imports": vendorImports,
     "no-component-state": noComponentState,
+    "page-imports": pageImports,
+    "page-classes": pageClasses,
   },
 };
