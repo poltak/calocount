@@ -27,7 +27,7 @@ export const pageImports = {
     type: "problem",
     schema: [],
     messages: {
-      base: "Import a shadcn or core control, not '{{source}}'. See docs/agents/ui-shadcn.md.",
+      base: "Import a shadcn or core control, not '{{source}}'. See docs/agents/ui-components.md.",
       icon: "Import icons from the '{{library}}' iconLibrary in components.json. simple-icons is only for brand logos.",
     },
   },
@@ -82,9 +82,9 @@ export const pageClasses = {
     schema: [{ type: "object" }],
     messages: {
       arbitrary:
-        "Use a theme utility or a shared control, not '{{token}}'. No bracket values outside the UI layers. See docs/agents/ui-shadcn.md.",
+        "Use a theme utility or a shared control, not '{{token}}'. No bracket values outside the UI layers. See docs/agents/ui-components.md.",
       spacing:
-        "Use one of {{allowed}} for gap, space, and padding, not '{{token}}'. See docs/agents/ui-shadcn.md.",
+        "Use one of {{allowed}} for gap, space, and padding, not '{{token}}'. See docs/agents/ui-components.md.",
     },
   },
   create(context) {

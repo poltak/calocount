@@ -5,12 +5,9 @@ description: Follow the design system for each UI change in frontend. Use, with 
 
 # UI design
 
-`docs/agents/ui-components.md` has the design direction, the theme, the color
-and surface rules, and each shared component. Read it before you start. This
-skill is the order of work.
-
-Read `docs/agents/ui-shadcn.md` too. It owns the rules for generated files,
-the theme split, direct icon imports, page spacing, and custom controls.
+Read `docs/agents/ui-components.md` before you start. It owns the component
+layers, theme files, page rules, and shadcn references. This skill gives the
+work steps.
 
 ## Before you write markup
 
@@ -18,7 +15,7 @@ the theme split, direct icon imports, page spacing, and custom controls.
    part, a project part, and only then a feature-local part. Read the
    base-mira registry JSON and its package requirements before installation.
 2. When no component fits, look for a prop or a variant that makes one fit.
-3. When none fits, use the custom-control choices in `ui-shadcn.md`.
+3. When none fits, use the custom-control choices in `ui-components.md`.
    Never change CLI output by hand or copy its size classes. Show a new
    composed part on `/components` and document it in the same change.
 
@@ -27,29 +24,28 @@ the theme split, direct icon imports, page spacing, and custom controls.
 Use the first of these that does the job:
 
 1. The props and variants of a shared component.
-2. The `cva` variants of the shared component, for a new look that other pages
-   can use.
-3. A fork in `core/ui/registry/` for a different component look.
+2. Composition in `core/` or `components/` for product behavior.
+3. A fork in `core/ui/registry/` for a different component look. Never add a
+   variant to generated code by hand.
 4. A WorldBrain or project token for a role that shadcn does not supply.
    Define it for both themes. Keep it out of the CLI-owned variables file.
 
-Choose a color by its role. Use a nested surface as the document says: at most
-two steps of surface, then space, a header, or a line.
+Choose a color by its role. Inside a card, use space, a heading, or a line,
+not another card.
 
 ## Before you say that the work is done
 
 Check each of these against the diff:
 
-- A new page has no handmade button, tab, header, field, badge, card, list,
-  notice, empty state, or loading text.
+- A new page uses the fitting shadcn or core parts, not handmade controls.
 - A product page imports no Base UI package. Icons come from the configured
   library, currently Lucide. There are no bracket values. Gap, space, and
-  padding use only the small scale in `ui-shadcn.md`.
+  padding use only the small scale in `ui-components.md`.
 - Each new color works in the light theme and in the dark theme. Look at the
   change in both when a surface, a border, or a fill changed.
-- Before changing a shared theme token, inspect every consumer and state.
-  During a partial migration, preserve the appearance of controls outside
-  the requested group.
+- Before changing or deleting a shared theme token, inspect its consumers,
+  aliases, Tailwind mappings, and states. Preserve appearance outside the
+  requested change.
 - Each new interactive part works with the keyboard, shows the focus ring, and
   has a name that a screen reader can read.
 - When replacing navigation, preserve router matching. Check a child path,
@@ -63,7 +59,8 @@ Check each of these against the diff:
   Remove unused selectors, including selectors in shared lists and media queries.
 - When a variant is removed, remove or rename its gallery example. Gallery
   labels must describe the variants that remain.
-- A new component or variant is on `/components` and in the document.
+- A new product component or variant is on `/components` and in the document.
+  A new core part or registry control is in `registry.json`.
 - A fact in the document that the change made wrong is correct again.
 
 Then run the checks that `AGENTS.md` names for the change. Run
