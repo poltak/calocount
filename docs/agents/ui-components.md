@@ -4,6 +4,11 @@ Read this before you write or change UI in `frontend`. It lists the shared
 components. Use them. Do not write a new button, tab, header, field, badge,
 card, list, notice, or loading text with a class of your own.
 
+Read [shadcn foundation](ui-shadcn.md) for new UI work. Its Base UI `base-mira`
+layers and page rules take priority over the old component API below. The
+foundation is installed but no page uses it yet. The component table describes
+the old controls until the page migration replaces them.
+
 The page `/components` in the app shows each component with its variants. The
 page is available without sign-in. Its black box tests are in
 `frontend/src/features/component-library/black-box-tests/`.
@@ -16,7 +21,7 @@ links. Green, amber, and red are for status. The shell is a left sidebar with
 neutral text and quiet surfaces. The light theme uses the colors of the T3 Code
 theme, with a blue accent. The dark theme uses the dark colors of the T3 Chat
 theme, with a magenta accent. A project that wants another palette changes the
-values in `theme.css`, and no component.
+values in `shadcn.css` and `worldbrain.css`, and no component.
 
 Depth comes from small steps of background and thin soft lines, not from large
 shadows. A card, a block, and a control have the faint `--shadow-soft` edge.
@@ -32,21 +37,22 @@ a project a complete accessible component set and light and dark themes.
 Components keep their own props. A page imports from the shared component
 files, not directly from these packages.
 
-| To find or change                         | Look in                               |
-| ----------------------------------------- | ------------------------------------- |
-| Colors, sizes, spaces, radii, and shadows | `core/ui/theme.css`                   |
-| The look of a shared component            | `core/ui/components/components-*.css` |
-| The variants of a shared component        | The `cva` call in its `.tsx` file     |
-| The live result of each component         | The `/components` page                |
-| Base element styles and page layouts      | `core/ui/app.css`                     |
+| To find or change                    | Look in                               |
+| ------------------------------------ | ------------------------------------- |
+| Theme files and their token map      | [shadcn foundation](ui-shadcn.md)     |
+| The look of a shared component       | `core/ui/components/components-*.css` |
+| The variants of a shared component   | The `cva` call in its `.tsx` file     |
+| The live result of each component    | The `/components` page                |
+| Base element styles and page layouts | `core/ui/app.css`                     |
 
 `main.tsx` imports `app.css` first, because `theme.css` declares the order of
 the CSS layers there. When `components.css` loads first, the base layer
-overrides each component. `theme.css` uses the device color scheme unless
+overrides each component. The theme uses the device color scheme unless
 `data-theme` on `html` selects `light` or `dark`. It defines each color once
 with `light-dark()`, so a component needs no dark variant for a token.
 The imported rules are in the components layer, and Tailwind utilities can
-override that layer. Preflight is not loaded.
+override that layer. Tailwind Preflight loads in the base layer before the
+WorldBrain base rules. Keep the layer order in `theme.css`.
 
 A page composes components. It does not use Tailwind utilities for color,
 border, or type, and it does not use the `ui-*` classes of a component to
@@ -83,7 +89,7 @@ Each color has a role. Choose the token by its role, not by how it looks.
 
 In Tailwind, these are `bg-card`, `text-muted-foreground`, `border-input`, and
 so on. In CSS, they are `var(--card)`. The `--color-*` variables at the end of
-the color list in `theme.css` give the same roles a second name, such as
+the color list in `worldbrain.css` give the same roles a second name, such as
 `--color-alert` and `--color-danger-soft`. Note that `--color-muted` is a text
 color, and `bg-muted` is a fill.
 
@@ -105,7 +111,7 @@ A nested structure uses the surface steps, not a new color for each level:
 Check a surface change in the light theme and in the dark theme. The dark
 surfaces are close to each other, so a border must keep the parts apart.
 
-`theme.css` applies the Contrast setting of T3 Code at 120%, in both themes.
+The theme applies the Contrast setting of T3 Code at 120%, in both themes.
 Text moves 20% to black or white, and a line moves 5% to the text color. A
 palette color goes in through `--foreground-base`, `--border`, or `--input`, not
 around them. The dark `--card` is 40% of the T3 Chat surface over its canvas: at
@@ -173,8 +179,9 @@ with `level={3}`.
 
 ## Icons
 
-Each icon has a name and one meaning in `ICONS`. A new icon gets a name and a
-meaning there. The `/components` page lists them all.
+New UI imports Lucide icons directly, as `components.json` specifies. Pass
+them as children. The old `Icon` component and its `ICONS` map remain only
+until the page migration. Do not extend them.
 
 ## Choices
 

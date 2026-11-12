@@ -9,14 +9,18 @@ description: Follow the design system for each UI change in frontend. Use, with 
 and surface rules, and each shared component. Read it before you start. This
 skill is the order of work.
 
+Read `docs/agents/ui-shadcn.md` too. It owns the rules for generated files,
+the theme split, direct icon imports, page spacing, and custom controls.
+
 ## Before you write markup
 
-1. Open the page on `/components` or read the table in the document, and find
-   the component that does the job. Read its prop type before use.
+1. Find a fitting shadcn component, then a shadcn block, a WorldBrain core
+   part, a project part, and only then a feature-local part. Read the
+   base-mira registry JSON and its package requirements before installation.
 2. When no component fits, look for a prop or a variant that makes one fit.
-3. When none does, add the component or the variant in
-   `frontend/src/features/core/ui/components/`. Show it on the `/components`
-   page, and add it to the document in the same change.
+3. When none fits, use the custom-control choices in `ui-shadcn.md`.
+   Never change CLI output by hand or copy its size classes. Show a new
+   composed part on `/components` and document it in the same change.
 
 ## While you style
 
@@ -25,10 +29,9 @@ Use the first of these that does the job:
 1. The props and variants of a shared component.
 2. The `cva` variants of the shared component, for a new look that other pages
    can use.
-3. A rule in `components.css` that uses tokens, for a look that a variant
-   cannot give.
-4. A new role in `theme.css`, for a value that has no token. Define it for
-   both themes.
+3. A fork in `core/ui/registry/` for a different component look.
+4. A WorldBrain or project token for a role that shadcn does not supply.
+   Define it for both themes. Keep it out of the CLI-owned variables file.
 
 Choose a color by its role. Use a nested surface as the document says: at most
 two steps of surface, then space, a header, or a line.
@@ -39,8 +42,9 @@ Check each of these against the diff:
 
 - A new page has no handmade button, tab, header, field, badge, card, list,
   notice, empty state, or loading text.
-- A product page has no import from Base UI or Lucide, no fixed color, and no
-  literal size, space, radius, or shadow.
+- A product page imports no Base UI package. Icons come from the configured
+  library, currently Lucide. There are no bracket values. Gap, space, and
+  padding use only the small scale in `ui-shadcn.md`.
 - Each new color works in the light theme and in the dark theme. Look at the
   change in both when a surface, a border, or a fill changed.
 - Each new interactive part works with the keyboard, shows the focus ring, and
