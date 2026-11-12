@@ -19,6 +19,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
+import { checkScreenCoverage } from "./ui-screens-coverage.mjs";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const SCREENS = "frontend/.browser-test/screens";
@@ -82,6 +83,7 @@ await rm(outputDirectory, { recursive: true, force: true });
 
 try {
   await capture();
+  await checkScreenCoverage(outputDirectory, values.route);
 } catch (error) {
   console.error(error.message);
   process.exit(1);
