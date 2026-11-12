@@ -19,10 +19,6 @@ import {
 const GUIDE = "docs/agents/guide.md";
 const OWNED = [GUIDE, "docs/agents/tests/", "backend/src/features/notes/"];
 
-/**
- * A project that has finished a first sync. The template lists three owned
- * paths: a file, a directory, and a directory of the example.
- */
 async function createSyncedProject(context) {
   const created = await createProject(context);
   const { template, project } = created;
