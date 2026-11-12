@@ -23,7 +23,7 @@ export type ButtonSize = NonNullable<
 >;
 
 export const buttonVariants = cva(
-  "ui-button inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md border text-sm font-medium whitespace-nowrap transition-[color,background-color,border-color,box-shadow] outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background active:shadow-none disabled:pointer-events-none disabled:opacity-64 disabled:shadow-none aria-disabled:pointer-events-none aria-disabled:opacity-64 aria-disabled:shadow-none aria-busy:cursor-progress [&_svg]:pointer-events-none [&_svg]:shrink-0",
+  "ui-button inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md border text-sm font-medium whitespace-nowrap transition-[color,background-color,border-color,box-shadow] outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background active:shadow-none disabled:pointer-events-none disabled:opacity-64 disabled:shadow-none aria-disabled:pointer-events-none aria-disabled:opacity-64 aria-disabled:shadow-none aria-busy:cursor-progress [&_svg]:pointer-events-none [&_svg]:shrink-0",
   {
     variants: {
       variant: {
