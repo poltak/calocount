@@ -16,7 +16,7 @@ import {
   useSidebar,
 } from "../shadcn/sidebar.js";
 import { Spinner } from "../shadcn/spinner.js";
-import "./components.css";
+import { Page } from "./page.js";
 
 interface AppLayoutProps {
   home: string;
@@ -104,7 +104,7 @@ function AppFrame({
           <span className="text-sm text-muted-foreground">{brand}</span>
         </div>
         <div className="ui-app-content flex flex-col gap-4">
-          {notice}
+          {notice && <Page>{notice}</Page>}
           {children}
         </div>
       </SidebarInset>

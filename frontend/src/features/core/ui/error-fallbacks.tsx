@@ -1,8 +1,8 @@
 import { Alert, AlertDescription } from "./shadcn/alert.js";
 import { CircleXIcon } from "lucide-react";
 import { Button } from "./shadcn/button.js";
-import { Page } from "./components/layout.js";
-import { PageHeader } from "./components/page-header.js";
+import { Page } from "./core/page.js";
+import { PageHeader } from "./core/page-header.js";
 import type { ErrorFallbackProps } from "./error-boundary.js";
 
 export function PageErrorFallback({ reset }: ErrorFallbackProps) {

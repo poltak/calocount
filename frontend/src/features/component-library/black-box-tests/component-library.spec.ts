@@ -5,6 +5,20 @@ import { ComponentLibraryPageObject } from "./component-library-page-object.js";
 test.use({ authenticated: false });
 
 test.describe("component library", () => {
+  test("should show the core page parts with one page heading", async ({
+    page,
+  }) => {
+    const gallery = new ComponentLibraryPageObject(page);
+    await gallery.goto();
+
+    await expect(gallery.pageHeadings).toHaveCount(1);
+    await expect(gallery.heading).toBeVisible();
+    await expect(gallery.coreParts).toContainText(
+      "width, padding, and spacing",
+    );
+    await expect(gallery.coreParts).toContainText("heading and subtitle above");
+  });
+
   test("should keep message roles, loading labels, and settings names", async ({
     page,
   }) => {

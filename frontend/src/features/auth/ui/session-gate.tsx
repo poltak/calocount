@@ -3,8 +3,8 @@ import { CircleXIcon } from "lucide-react";
 import { Spinner } from "../../core/ui/shadcn/spinner.js";
 import { Navigate, Outlet, useLocation } from "react-router";
 import { Button } from "../../core/ui/shadcn/button.js";
-import { Page } from "../../core/ui/components/layout.js";
-import { PageHeader } from "../../core/ui/components/page-header.js";
+import { Page } from "../../core/ui/core/page.js";
+import { PageHeader } from "../../core/ui/core/page-header.js";
 import { useAuth } from "./auth-context.js";
 export function SessionGate() {
   const { logic, state } = useAuth();
@@ -17,10 +17,12 @@ export function SessionGate() {
     state.loadSessionState === "running"
   ) {
     return (
-      <output className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Spinner aria-hidden="true" />
-        {"Checking your session…"}
-      </output>
+      <Page>
+        <output className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Spinner aria-hidden="true" />
+          {"Checking your session…"}
+        </output>
+      </Page>
     );
   }
   if (state.loadSessionState === "error") {

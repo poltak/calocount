@@ -15,6 +15,14 @@ export class ComponentLibraryPageObject {
     });
   }
 
+  get pageHeadings(): Locator {
+    return this.page.getByRole("heading", { level: 1 });
+  }
+
+  get coreParts(): Locator {
+    return this.section("Page, PageHeader");
+  }
+
   section(name: string): Locator {
     return this.page.getByRole("region", { name, exact: true });
   }

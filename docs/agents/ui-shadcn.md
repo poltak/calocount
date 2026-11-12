@@ -14,17 +14,17 @@ All paths below start at `frontend/src/features/core/ui/`.
   `linguist-generated` attribute. The size hook skips generated files, and
   Prettier leaves their bytes unchanged. `pnpm run check:shadcn` generates
   each installed part again with the pinned CLI and compares every file.
-- `core/` is for WorldBrain parts that each project gets. It is empty at present.
+- `core/` has WorldBrain parts that each project gets: `Page`, `PageHeader`,
+  and `AppLayout`.
 - `registry/` has forks and new Base UI controls in shadcn registry format.
-- `components/` is the project layer. The old template controls remain there
-  until the page migration. Do not add another old-style control.
+- `components/` is the project layer. The template keeps only its README.
 - `shadcn.css` has the shadcn variables, Tailwind imports, and dark variant.
   `components.json` names it. `shadcn apply` may rewrite it.
 - `worldbrain.css` has only tokens and base rules that shadcn does not supply.
 - `project.css` is empty in the template. A template sync does not change it.
 - `theme.css` imports these files and fixes the order `theme, base,
 components, utilities`. Preflight is on in `base`. Keep `app.css` before
-  component CSS in `main.tsx`, so this order takes effect first.
+  feature imports in `main.tsx`, so this order takes effect first.
 
 The alias `@/` means `frontend/src/`. It lets the CLI write imports within
 the feature tree. Architecture lint resolves it with the same boundaries as
@@ -120,12 +120,35 @@ and `sidebar-row-inset`. No remaining part uses those tokens.
 accent tokens. Global heading, paragraph, link, and alert styles are gone.
 Each part sets its own type and colors.
 
-`Page` and the page and section headers remain in `components/` for group 5.
+## WorldBrain core parts
+
+Import these parts from their defining files in `core/ui/core/`.
+
+- `Page` (type D) owns the page width, padding, and block gap. Signed-in pages
+  use the sidebar inset width and phone padding. Signed-out pages use the
+  standalone width. Auth routes wrap their panel in `Page`; do not add a
+  second `Page` inside the panel. Use flex and gap utilities for inner layout.
+- `PageHeader` (type A) composes `CardHeader` and `CardDescription` with the
+  page's one `h1`. Use `title`, optional `subtitle`, and optional `actions`.
+  No caller used its old `leading` or `search` props, so they are gone. The
+  gallery search still uses `InputGroup` directly. Use card header parts or
+  an `h2` with theme utilities instead of the deleted `SectionHeader`.
+- `AppLayout` composes the generated sidebar parts for the signed-in frame.
+
+For compact notes, `Item size="xs"` sets the row density. `CardContent`
+supplies the inset; the Item removes only its duplicate horizontal inset and
+transparent border. Do not copy generated size values to a page.
+
+`Markdown` (type D) is blocked: the frontend has neither `react-markdown` nor
+`remark-gfm`. Do not add a substitute parser or packages without approval.
+When both packages are approved, add the core part with GFM, `skipHtml`,
+theme-styled elements, and links with `target="_blank" rel="noreferrer"`.
+
 The sidebar is a product composition of the installed generated parts, based
 on `sidebar-07`. It needs no avatar, breadcrumb, or new package. Its mobile
 sheet and keyboard behavior come from the generated sidebar. Router links
 close the sheet on activation. No mobile-header portal exists in this
-template revision. The retained PageHeader renders inside the inset.
+template revision. `PageHeader` renders inside the inset.
 
 ## Commands
 

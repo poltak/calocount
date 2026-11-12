@@ -18,8 +18,8 @@ import {
   CardHeader,
   CardTitle,
 } from "../../core/ui/shadcn/card.js";
-import { Page } from "../../core/ui/components/layout.js";
-import { PageHeader } from "../../core/ui/components/page-header.js";
+import { Page } from "../../core/ui/core/page.js";
+import { PageHeader } from "../../core/ui/core/page-header.js";
 import {
   Field,
   FieldContent,
@@ -63,6 +63,24 @@ export function ComponentLibraryPage() {
         title="Component library"
         subtitle="The shared components of the app. A page composes these, and has no styles of its own."
       />
+
+      <section aria-label="Page, PageHeader">
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              <h2>Page, PageHeader</h2>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            <p>
+              The Page core part sets this page's width, padding, and spacing.
+            </p>
+            <p>
+              The PageHeader core part supplies the heading and subtitle above.
+            </p>
+          </CardContent>
+        </Card>
+      </section>
 
       <ButtonExamples />
 

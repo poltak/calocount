@@ -7,8 +7,8 @@ card, list, notice, or loading text with a class of your own.
 Read [shadcn foundation](ui-shadcn.md) for new UI work. Its Base UI `base-mira`
 layers and page rules take priority over the old component API below. The
 controls, fields, containers, alerts, empty states, loading states, and app
-sidebar use the generated shadcn parts. `Page`, `PageHeader`, and
-`SectionHeader` remain in `components/` until the core-parts migration.
+sidebar use the generated shadcn parts. `Page`, `PageHeader`, and `AppLayout`
+are WorldBrain parts in `core/`. `components/` is for project-specific parts.
 
 The page `/components` in the app shows each component with its variants. The
 page is available without sign-in. Its black box tests are in
@@ -35,19 +35,20 @@ Base UI supplies control behavior and accessibility. Tailwind CSS 4 supplies
 the utilities for `cva` variants. Lucide supplies the icons. These packages give
 a project a complete accessible component set and light and dark themes.
 Pages use the shadcn props directly. Import a generated part from its file in
-`core/ui/shadcn/`. Product parts in `core/ui/components/` keep their own props.
+`core/ui/shadcn/`. WorldBrain parts in `core/ui/core/` and project parts in
+`core/ui/components/` keep only the props that callers need.
 
-| To find or change                    | Look in                               |
-| ------------------------------------ | ------------------------------------- |
-| Theme files and their token map      | [shadcn foundation](ui-shadcn.md)     |
-| A generated control and its variants | `core/ui/shadcn/`, read only          |
-| The look of an old shared component  | `core/ui/components/components-*.css` |
-| The live result of each component    | The `/components` page                |
-| Base element styles and page layouts | `core/ui/app.css`                     |
+| To find or change                    | Look in                           |
+| ------------------------------------ | --------------------------------- |
+| Theme files and their token map      | [shadcn foundation](ui-shadcn.md) |
+| A generated control and its variants | `core/ui/shadcn/`, read only      |
+| A WorldBrain page or app frame       | `core/ui/core/`                   |
+| A project-specific part              | `core/ui/components/`             |
+| The live result of each component    | The `/components` page            |
+| Base element styles and page layouts | `core/ui/app.css`                 |
 
 `main.tsx` imports `app.css` first, because `theme.css` declares the order of
-the CSS layers there. When `components.css` loads first, the base layer
-overrides each component. The theme uses the device color scheme unless
+the CSS layers there. The theme uses the device color scheme unless
 `data-theme` on `html` selects `light` or `dark`. It defines each color once
 with `light-dark()`, so a component needs no dark variant for a token.
 The imported rules are in the components layer, and Tailwind utilities can
@@ -137,13 +138,14 @@ the full surface, the color of a control border has no contrast.
   `htmlFor`, and use `aria-describedby` for its description and error.
   Pass each `<name>FieldErrors` message as the children of `FieldError`.
   Set `data-invalid` on the `Field` and `aria-invalid` on the control.
-  A form title follows the page outline. Below the page `h1`, use a
-  `SectionHeader` with its default `h2`, not a fixed `h3`.
+  A form title follows the page outline. Below the page `h1`, use an `h2`
+  with theme utilities or a `CardTitle` that contains an `h2`.
 - Use the tokens of `core/ui/theme.css` for each color, size, space, radius, and
   shadow. Do not write a literal value. When a value is missing, add a token.
   Define a new color for both themes.
 - Each page is built from these components. `app.css` keeps only the body base
-  styles and the layout of the signed-out shell. Each part sets its typography. Do not
+  styles and the sign-in panel position. `Page` owns the page width and padding.
+  Each part sets its typography. Do not
   add a class there for a pattern that a component covers.
 - Each interactive part works with the keyboard, shows the focus ring, and has
   a name that a screen reader can read.
@@ -159,7 +161,7 @@ the full surface, the color of a control border has no contrast.
 | `Tabs`, `TabsList`, `TabsTrigger` from `shadcn/tabs`                                                                                               | One choice of several. `TabsList` has `default` and `line` variants. Use `orientation="vertical"` for sidebar tabs.                       |
 | `AppLayout`                                                                                                                                        | The frame of each signed-in page: the sidebar and the page beside it.                                                                     |
 | `Page`                                                                                                                                             | The content column of a page. Use Tailwind flex or grid and allowed gap utilities inside it.                                              |
-| `PageHeader`, `SectionHeader`                                                                                                                      | The one `h1` of a page, and the title of each section with its tools.                                                                     |
+| `PageHeader` from `core/page-header`                                                                                                               | The one `h1` of a page, its optional subtitle, and its actions.                                                                           |
 | `Card`, `CardHeader`, `CardTitle`, `CardDescription`, `CardAction`, `CardContent`, `CardFooter` from `shadcn/card`                                 | A section surface. Use native headings inside `CardTitle`; a title part alone is not a heading.                                           |
 | `Collapsible`, `CollapsibleTrigger`, `CollapsibleContent` from `shadcn/collapsible`                                                                | A part that opens and closes. A trigger can render a `Button` with Lucide icon children.                                                  |
 | `FieldSet`, `FieldLegend`, `FieldDescription`, `Field`, `FieldContent`, `FieldLabel` from `shadcn/field`                                           | Settings groups and horizontal control rows. Use `FieldTitle` for a read-only value and `Item` for a link row.                            |
@@ -194,7 +196,8 @@ the selected value and `aria-current`.
 Read [text and page layout](ui-text-layout.md) for message roles, settings
 rows, and the app sidebar.
 
-Do not put a card in a card. Inside a card, use `ItemGroup` or a `SectionHeader`.
+Do not put a card in a card. Inside a card, use `ItemGroup`, card header parts,
+or a semantic heading with theme utilities.
 Choose heading levels from the page outline, not from the card boundary.
 Use level 2 below the page title. Use level 3 only below a level 2 heading.
 Apply the same rule to form titles.
@@ -227,16 +230,15 @@ its name map are gone. Do not add another icon-name API.
 
 - Base UI gives the behavior and accessibility through the generated shadcn
   parts. A page never imports Base UI directly.
-- Tailwind CSS 4 gives the utilities in `cva` variants. The CSS of a component
-  that variants cannot say is in `components.css`, in the components layer.
+- Tailwind CSS 4 gives the utilities in `cva` variants. Use theme utilities
+  for a composed part's layout.
 - The theme follows the device color scheme. The template has no theme switch.
   A project that wants one sets `data-theme` on `html`, and keeps the choice in
   a Storage class.
 
-`components.css` imports the rules in their cascade order.
-`components-base.css` holds only the retained page and section headers.
-`components-forms.css` holds the retained Page layout and app content width.
-Text, status, layout, and setting wrappers and their CSS are gone.
-The old container stylesheet and its lint exceptions are gone.
+The old component stylesheets and `SectionHeader` are gone. `components/`
+has only a README that reserves the project layer. `Page` and `PageHeader`
+set their layout with theme utilities. See [WorldBrain core parts](ui-shadcn.md#worldbrain-core-parts)
+for their use and the blocked Markdown part.
 Never edit a generated control to change its look. Use `ui-shadcn.md` to
 choose between composition, a theme token, and a registry fork.
