@@ -26,7 +26,7 @@ export function PageErrorFallback({ reset }: ErrorFallbackProps) {
 
 export function AppErrorFallback({ reset }: ErrorFallbackProps) {
   return (
-    <div className="app-shell">
+    <div>
       <Page>
         <PageHeader title="Something went wrong" />
         <Alert variant="destructive">
