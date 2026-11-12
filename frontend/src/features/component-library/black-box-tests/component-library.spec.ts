@@ -2,6 +2,8 @@ import { expect } from "@playwright/test";
 import { test } from "../../core/black-box-tests/black-box-test.js";
 import { ComponentLibraryPageObject } from "./component-library-page-object.js";
 
+test.use({ authenticated: false });
+
 test.describe("component library", () => {
   test("should show each group of components", async ({ page }) => {
     const gallery = new ComponentLibraryPageObject(page);
@@ -27,12 +29,15 @@ test.describe("component library", () => {
     const gallery = new ComponentLibraryPageObject(page);
     await gallery.goto();
 
+    await gallery.fillName("Separate name");
+    await expect(gallery.contactNameInput).toHaveValue("");
     await gallery.saveContact();
 
     await expect(gallery.nameError).toHaveText("Enter a name");
     await expect(gallery.saved).toBeHidden();
 
     await gallery.fillContactName("Ada Lovelace");
+    await expect(gallery.nameInput).toHaveValue("Separate name");
     await gallery.saveContact();
 
     await expect(gallery.nameError).toBeHidden();

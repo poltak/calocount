@@ -55,15 +55,17 @@ describe("ComponentLibraryLogic tests", () => {
   it("should refuse a form with no name, and clear the error when a name arrives", async () => {
     const { logic } = await setupTest();
 
+    logic.changeName("Independent name");
     logic.changeNote("A note");
     logic.submitForm();
 
-    expect(logic.state.nameError).toEqual("Enter a name");
+    expect(logic.state.contactNameError).toEqual("Enter a name");
     expect(logic.state.submitted).toEqual(false);
 
-    logic.changeName("Ada");
+    logic.changeContactName("Ada");
 
-    expect(logic.state.nameError).toEqual(null);
+    expect(logic.state.contactNameError).toEqual(null);
+    expect(logic.state.name).toEqual("Independent name");
 
     logic.submitForm();
 
@@ -76,13 +78,13 @@ describe("ComponentLibraryLogic tests", () => {
 
   it("should clear the form when the person cancels", async () => {
     const { logic } = await setupTest();
-    logic.changeName("Ada");
+    logic.changeContactName("Ada");
     logic.changeNote("A note");
     logic.submitForm();
 
     logic.cancelForm();
 
-    expect(logic.state.name).toEqual("");
+    expect(logic.state.contactName).toEqual("");
     expect(logic.state.note).toEqual("");
     expect(logic.state.submitted).toEqual(false);
   });

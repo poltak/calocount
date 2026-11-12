@@ -8,6 +8,7 @@ export type ExampleChannel = "email" | "sms" | "push";
 interface ComponentLibraryState {
   filter: ExampleFilter;
   name: string;
+  contactName: string;
   note: string;
   search: string;
   plan: ExamplePlan;
@@ -17,7 +18,7 @@ interface ComponentLibraryState {
   dialogOpen: boolean;
   lastMenuAction: string | null;
   /** The example form shows its error after a submit with no name. */
-  nameError: string | null;
+  contactNameError: string | null;
   submitted: boolean;
 }
 
@@ -32,6 +33,7 @@ export class ComponentLibraryLogic extends Logic<
       initialState: {
         filter: "open",
         name: "",
+        contactName: "",
         note: "",
         search: "",
         plan: "free",
@@ -40,7 +42,7 @@ export class ComponentLibraryLogic extends Logic<
         historyOpen: false,
         dialogOpen: false,
         lastMenuAction: null,
-        nameError: null,
+        contactNameError: null,
         submitted: false,
       },
     });
@@ -51,7 +53,11 @@ export class ComponentLibraryLogic extends Logic<
   }
 
   changeName(name: string): void {
-    this.setState({ name, nameError: null, submitted: false });
+    this.setState({ name });
+  }
+
+  changeContactName(contactName: string): void {
+    this.setState({ contactName, contactNameError: null, submitted: false });
   }
 
   changeNote(note: string): void {
@@ -91,14 +97,19 @@ export class ComponentLibraryLogic extends Logic<
   }
 
   submitForm(): void {
-    if (this.state.name.trim() === "") {
-      this.setState({ nameError: "Enter a name", submitted: false });
+    if (this.state.contactName.trim() === "") {
+      this.setState({ contactNameError: "Enter a name", submitted: false });
       return;
     }
-    this.setState({ nameError: null, submitted: true });
+    this.setState({ contactNameError: null, submitted: true });
   }
 
   cancelForm(): void {
-    this.setState({ name: "", note: "", nameError: null, submitted: false });
+    this.setState({
+      contactName: "",
+      note: "",
+      contactNameError: null,
+      submitted: false,
+    });
   }
 }

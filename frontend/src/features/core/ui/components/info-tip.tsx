@@ -1,4 +1,4 @@
-import { IconButton } from "./components/button.js";
+import { IconButton } from "./button.js";
 
 /**
  * An "i" icon that shows a short text on hover and on keyboard focus. The

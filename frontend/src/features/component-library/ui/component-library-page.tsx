@@ -50,7 +50,7 @@ import {
   Text,
 } from "../../core/ui/components/text.js";
 import { useLogic } from "../../core/logic/use-logic.js";
-import { InfoTip } from "../../core/ui/info-tip.js";
+import { InfoTip } from "../../core/ui/components/info-tip.js";
 import {
   ComponentLibraryLogic,
   type ExampleChannel,
@@ -103,7 +103,7 @@ export function ComponentLibraryPage() {
           <Button disabled>Disabled</Button>
         </Actions>
         <Actions>
-          <LinkButton to="/notes">Link to a page</LinkButton>
+          <LinkButton to="/components">Link to a page</LinkButton>
           <LinkButton href="https://example.com" newTab>
             Link to a site
           </LinkButton>
@@ -165,7 +165,9 @@ export function ComponentLibraryPage() {
         />
         <NavTabs
           label="Example links"
-          items={[{ to: "/notes", label: "Notes", icon: "notes" }]}
+          items={[
+            { to: "/components", label: "Components", icon: "components" },
+          ]}
         />
       </Card>
 
@@ -237,9 +239,9 @@ export function ComponentLibraryPage() {
           <FormRow>
             <TextInput
               label="Contact name"
-              value={state.name}
-              onChange={(name) => logic.changeName(name)}
-              error={state.nameError}
+              value={state.contactName}
+              onChange={(name) => logic.changeContactName(name)}
+              error={state.contactNameError}
             />
           </FormRow>
           <FieldGroup legend="Details" note="Shown to your team.">

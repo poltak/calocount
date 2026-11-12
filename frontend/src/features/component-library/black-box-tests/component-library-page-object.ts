@@ -19,6 +19,18 @@ export class ComponentLibraryPageObject {
     return this.page.getByRole("region", { name, exact: true });
   }
 
+  get nameInput(): Locator {
+    return this.page.getByRole("textbox", { name: "Name", exact: true });
+  }
+
+  get contactNameInput(): Locator {
+    return this.formSection.getByLabel("Contact name", { exact: true });
+  }
+
+  async fillName(name: string): Promise<void> {
+    await this.nameInput.fill(name);
+  }
+
   get disabledButton(): Locator {
     return this.page.getByRole("button", { name: "Disabled", exact: true });
   }
