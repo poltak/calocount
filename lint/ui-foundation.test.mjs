@@ -7,6 +7,38 @@ const part = (name) => `frontend/src/features/core/ui/${name}/example.tsx`;
 const onlyUi = (problems) =>
   problems.filter((problem) => /stack\(page-/.test(problem));
 
+test("preset typography reaches composed shadcn parts and aliased imports", async (context) => {
+  for (const location of [page, part("core"), part("components")]) {
+    for (const classes of [
+      '"mt-1 text-sm leading-normal"',
+      'cn("mt-1", compact ? "text-xs/relaxed" : "md:text-base")',
+      '`mt-1 ${compact ? "leading-tight" : "text-lg"}`',
+    ]) {
+      const problems = await lint(context, {
+        [location]: `import { CardDescription as Description } from "@/features/core/ui/shadcn/card"; export const View = () => <Description className={${classes}}>Details</Description>;`,
+      });
+      assert.ok(
+        problems.some((problem) =>
+          problem.endsWith("stack(shadcn-typography)"),
+        ),
+        `${location}: ${classes}`,
+      );
+    }
+  }
+});
+
+test("preset typography permits native text, layout, colors, alignment and forks", async (context) => {
+  const source =
+    'import { CardDescription } from "../shadcn/card"; export const View = () => <><CardDescription className="mt-1 text-muted-foreground text-right" /><h1 className="text-2xl leading-tight" /></>;';
+  const problems = await lint(context, {
+    [page]: source,
+    [part("core")]: source,
+    [part("registry")]:
+      'import { CardDescription } from "../shadcn/card"; export const View = () => <CardDescription className="text-lg leading-tight" />;',
+  });
+  assert.ok(!problems.some((problem) => problem.includes("shadcn-typography")));
+});
+
 test("pages cannot import or re-export Base UI through any import syntax", async (context) => {
   const files = {};
   for (const [name, source] of Object.entries({

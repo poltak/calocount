@@ -117,3 +117,73 @@ export const pageClasses = {
     };
   },
 };
+
+function classStrings(node) {
+  if (!node) return [];
+  if (node.type === "Literal")
+    return typeof node.value === "string" ? [node.value] : [];
+  if (node.type === "JSXExpressionContainer")
+    return classStrings(node.expression);
+  if (node.type === "TemplateLiteral")
+    return [
+      ...node.quasis.map((part) => part.value.raw),
+      ...node.expressions.flatMap(classStrings),
+    ];
+  if (node.type === "CallExpression")
+    return node.arguments.flatMap(classStrings);
+  if (node.type === "ConditionalExpression")
+    return [...classStrings(node.consequent), ...classStrings(node.alternate)];
+  if (node.type === "LogicalExpression")
+    return [...classStrings(node.left), ...classStrings(node.right)];
+  if (node.type === "ArrayExpression")
+    return node.elements.flatMap(classStrings);
+  return [];
+}
+
+export const shadcnTypography = {
+  meta: {
+    type: "problem",
+    schema: [],
+    messages: {
+      override:
+        "Let '{{component}}' use the preset typography, not '{{token}}'. Use its props or put text utilities on native text. See docs/agents/ui-components.md.",
+    },
+  },
+  create(context) {
+    const file = describeFile(context.filename ?? context.getFilename());
+    if (
+      !file?.workspace.endsWith("/frontend") ||
+      file.isTest ||
+      /^features\/core\/ui\/(shadcn|registry)\//.test(file.inSrc)
+    )
+      return {};
+    const components = new Set();
+    return {
+      ImportDeclaration(node) {
+        if (!/\/shadcn\//.test(node.source.value)) return;
+        for (const specifier of node.specifiers)
+          if (specifier.type === "ImportSpecifier")
+            components.add(specifier.local.name);
+      },
+      JSXAttribute(node) {
+        const component = node.parent?.name?.name;
+        if (node.name.name !== "className" || !components.has(component))
+          return;
+        for (const text of classStrings(node.value)) {
+          for (const token of text.split(/\s+/)) {
+            if (
+              /^(?:text-(?:xs|sm|base|lg|xl|\d+xl)(?:\/.*)?|leading-.+)$/.test(
+                utilityClass(token),
+              )
+            )
+              context.report({
+                node,
+                messageId: "override",
+                data: { component, token },
+              });
+          }
+        }
+      },
+    };
+  },
+};

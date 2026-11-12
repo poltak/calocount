@@ -59,6 +59,12 @@ shadcn variable. Add a new color in both themes only when no role fits.
 The theme follows the device scheme; `data-theme="light"` or `"dark"` on
 `html` overrides it. Keep both paths working.
 
+The live composition starts `BrowserColorSchemeService` before React renders.
+It keeps the `dark` class on `html` in step with the device preference and the
+`data-theme` override. A preset writes its dark variables under `.dark`.
+The Tailwind dark variant alone does not select those variables. Do not copy
+the preset palette into `worldbrain.css` to compensate for a missing class.
+
 ## Page rules
 
 - Use shadcn props directly. Pages do not import `@base-ui/react` or its
@@ -70,6 +76,11 @@ The theme follows the device scheme; `data-theme="light"` or `"dark"` on
 - Keep one `h1`. Use `h2` below it, then `h3` only below `h2`. Sibling pages
   use the same title size, weight, content edge, and equivalent gaps.
   Use theme utilities on native text, not to restyle generated controls.
+- Do not set font size or line height on an imported shadcn part. This also
+  applies in core compositions. `PageHeader` leaves its subtitle typography
+  to `CardDescription`. The `stack/shadcn-typography` lint rule checks static
+  JSX classes, including conditional classes and templates. The native page
+  heading and page layout keep the WorldBrain page pattern.
 - Do not put a card in a card. Use item parts, headings, space, or a line
   inside it. Wrap a named card in `section aria-label="…"` for a region.
   Use a semantic heading inside `CardTitle`.
@@ -125,6 +136,13 @@ The byte check uses the live registry and the pinned CLI. Do not install the
 named `mira` preset's font or Hugeicons packages without approval. Read the
 [CLI](https://ui.shadcn.com/docs/cli) and
 [configuration](https://ui.shadcn.com/docs/components-json) docs for options.
+
+The named `vega` preset also requests `@fontsource-variable/inter`. For a
+proof without new packages, use a registry preset with `font-inter` removed
+from `registryDependencies`, and keep the installed CLI version in its
+dependencies. Keep that experiment off the fixes branch. Icon migration has
+no dry-run option in CLI 4.23.0. A Tabler migration needs approval to install
+`@tabler/icons-react` first. Do not run it while that package is absent.
 
 The root `registry.json` lists each `core/` and `registry/` part in the
 [shadcn registry format](https://ui.shadcn.com/docs/registry). Add each new

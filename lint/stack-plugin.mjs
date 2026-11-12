@@ -5,7 +5,7 @@
  * plugin's configuration, not the architecture rules.
  */
 import { describeFile, importVisitors } from "./paths.mjs";
-import { pageClasses, pageImports } from "./ui-rules.mjs";
+import { pageClasses, pageImports, shadcnTypography } from "./ui-rules.mjs";
 
 const vendorImports = {
   meta: {
@@ -138,5 +138,6 @@ export default {
     "no-component-state": noComponentState,
     "page-imports": pageImports,
     "page-classes": pageClasses,
+    "shadcn-typography": shadcnTypography,
   },
 };

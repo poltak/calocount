@@ -18,9 +18,7 @@ export function PageHeader({
             {title}
           </h1>
           {subtitle && (
-            <CardDescription className="mt-1 text-sm leading-normal">
-              {subtitle}
-            </CardDescription>
+            <CardDescription className="mt-1">{subtitle}</CardDescription>
           )}
         </div>
         {actions && (

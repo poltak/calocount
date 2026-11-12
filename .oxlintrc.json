@@ -224,6 +224,7 @@
       }
     ],
     "stack/page-imports": "error",
+    "stack/shadcn-typography": "error",
     "stack/page-classes": [
       "error",
       {
