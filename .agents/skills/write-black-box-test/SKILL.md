@@ -62,7 +62,11 @@ models, before you start. This skill is the order of work.
    soft. It prints one line for each check:
    - `fails when changed`: the check works.
    - `DID NOT FAIL`: the check passes with a wrong value. Correct the check.
-   - `not known`: the run stopped early. Run it again with `--grep <test name>`.
+   - `not known`: the line gives the cause. When the run stopped early, or
+     the test of the check did not run, run it again with
+     `--grep <test name>`. When another error stopped the test at the line of
+     the check, read that error in the output, correct the test, and run the
+     script again.
    - `by hand`: the script cannot change the check, such as `toBeVisible()`
      or a check with `.not`. Change these yourself, in a temporary copy of the
      file. Import `expect` as `baseExpect`, set
