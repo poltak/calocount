@@ -23,6 +23,11 @@ const repair =
   "Run pnpm exec shadcn add --cwd frontend --yes --overwrite <component>. Put a fork in core/ui/registry/, not shadcn/.";
 const json = async (filename) => JSON.parse(await readFile(filename, "utf8"));
 
+// With `rsc: false` the directive has no effect, and the CLI writes it on
+// different files when it installs a different set of components together.
+const withoutUseClient = (content) =>
+  Buffer.from(content.toString("utf8").replace(/^"use client"\n\n?/, ""));
+
 async function componentList(filename, optional = false) {
   const components = await json(path.join(root, filename)).catch((error) => {
     if (optional && error.code === "ENOENT") return [];
@@ -49,7 +54,10 @@ async function files(directory, prefix = "") {
       ))
         result.set(filename, content);
     } else if (entry.isFile()) {
-      result.set(relative, await readFile(path.join(directory, entry.name)));
+      result.set(
+        relative,
+        withoutUseClient(await readFile(path.join(directory, entry.name))),
+      );
     } else {
       throw new Error(`Not a generated file: ${relative}`);
     }

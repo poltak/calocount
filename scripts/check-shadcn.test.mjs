@@ -91,6 +91,13 @@ test("regenerates both lists, removes duplicates, and checks project helper file
   assert.match(result.stdout, /Checked 4 shadcn files/);
 });
 
+test("ignores a use client directive that only one side has", async (context) => {
+  const result = await fixture(context, {
+    [ui + "button.tsx"]: '"use client"\n\nexport const Button = "generated";\n',
+  });
+  assert.equal(result.status, 0, result.stderr);
+});
+
 test("accepts an empty project list", async (context) => {
   const result = await fixture(context, {
     "scripts/shadcn-components.project.json": "[]",
