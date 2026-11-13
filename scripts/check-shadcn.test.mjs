@@ -209,3 +209,29 @@ test("the local and CI checks both run the generation check", async () => {
     /pnpm run ci:checks/,
   );
 });
+
+// A template component that templateOwned does not list is open to a hand edit
+// in each project, because the list names files and not the folder.
+test("lists each template shadcn file in templateOwned", async (context) => {
+  const projectList = JSON.parse(
+    await readFile(
+      path.join(root, "scripts/shadcn-components.project.json"),
+      "utf8",
+    ).catch(() => "[]"),
+  );
+  if (projectList.length > 0) {
+    context.skip("The project adds its own shadcn components.");
+    return;
+  }
+  const { templateOwned } = JSON.parse(
+    await readFile(path.join(root, "scripts/template-paths.json"), "utf8"),
+  );
+  const files = await readdir(path.join(root, ui), { recursive: true });
+  for (const file of files) {
+    if (!/\.tsx?$/.test(file)) continue;
+    assert.ok(
+      templateOwned.includes(`${ui}${file}`),
+      `Add ${ui}${file} to templateOwned in scripts/template-paths.json.`,
+    );
+  }
+});
