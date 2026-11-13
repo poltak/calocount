@@ -494,7 +494,7 @@ of earlier events.
 | Command                               | Purpose                                               |
 | ------------------------------------- | ----------------------------------------------------- |
 | `pnpm run dev`                        | Start the backend and the frontend in watch mode.     |
-| `pnpm run check`                      | Every check that CI runs, with the steps in parallel. |
+| `pnpm run check`                      | The CI checks without browser tests and live start.   |
 | `pnpm run ci:checks`                  | The same without the tests. CI runs the two apart.    |
 | `pnpm run typecheck`                  | Type-check all workspaces.                            |
 | `pnpm run build`                      | Build all workspaces.                                 |

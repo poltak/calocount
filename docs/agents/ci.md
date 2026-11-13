@@ -81,8 +81,8 @@ and the "Template-owned files" check stay there for that reason. Do not give
   of the 130 runs in place of 20, and the plan job would then cost more
   minutes than it saves. A pull request also finds the markers of `main`, so a pull request
   that changes only Markdown files skips the tests from its first run. A push
-  to `main` runs every job. A second attempt of a run does not look for a
-  marker, so that "Re-run all jobs" runs every job. From 16 October to 4
+  to `main` skips the same jobs when a pull request passed the same files. A
+  second attempt of a run does not look for a marker, so that "Re-run all jobs" runs every job. From 16 October to 4
   November 2026, up to 20 of 130 CI runs of the first project's pull requests had
   files that had passed before. In the first project, the skipped jobs are 19 of the 22 billed
   minutes of a run, and in the template 6 of 10. The cost is the new plan
