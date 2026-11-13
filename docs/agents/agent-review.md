@@ -140,14 +140,90 @@ The check works as follows:
   starts, and the pull request gets no "Agent review" check. Without the
   variable, each job runs and bills at least one minute, also with no secret.
 
-The review uses `TEMPLATE_MAINTAINERS` from the
-[template-owned check](setup.md#files-that-come-from-the-template). Make the label one
-time:
+## Turn on the review in a repository
 
-```sh
-gh label create agent-review-accepted --repo <owner>/<repo> --color 0e8a16 \
-  --description "A maintainer accepted the findings of the agent review"
-```
+A new repository has no model secrets, so the review does not run. A person
+with admin access to the repository does these steps one time. The commands
+use `R=<owner>/<repo>`.
+
+1. Set the Claude Code secret, as
+   [The Claude Code secret](#the-claude-code-secret) says. You can use one
+   token in more than one repository. Then the reviews of each repository
+   count against the limits of the same subscription.
+2. Set the two Codex secrets, as [The Codex secrets](#the-codex-secrets)
+   says. Make a new Codex login for each repository. Do not copy
+   `CODEX_AUTH_JSON` from a different repository. When one repository
+   refreshes the login, the refresh token of the copy stops working.
+3. Set the maintainers, and make the label. The
+   [template-owned check](setup.md#files-that-come-from-the-template) uses
+   the same variable. Without it, no person can accept a finding.
+
+   ```sh
+   gh variable set TEMPLATE_MAINTAINERS --repo $R --body "<login>,<login>"
+   gh label create agent-review-accepted --repo $R --color 0e8a16 \
+     --description "A maintainer accepted the findings of the agent review"
+   ```
+
+4. Make "Agent review" a required check of `main`. On the GitHub Free plan, a
+   private repository cannot require a check. This command makes the ruleset
+   of the template. It also requires "CI passed" and "Template-owned files",
+   and a resolved conversation for each line comment before a merge:
+
+   ```sh
+   gh api --method POST repos/$R/rulesets --input - <<'EOF'
+   {
+     "name": "Protect main",
+     "target": "branch",
+     "enforcement": "active",
+     "conditions": {
+       "ref_name": { "include": ["~DEFAULT_BRANCH"], "exclude": [] }
+     },
+     "rules": [
+       { "type": "deletion" },
+       { "type": "non_fast_forward" },
+       {
+         "type": "pull_request",
+         "parameters": {
+           "allowed_merge_methods": ["merge"],
+           "dismiss_stale_reviews_on_push": true,
+           "require_code_owner_review": false,
+           "require_last_push_approval": false,
+           "required_approving_review_count": 0,
+           "required_review_thread_resolution": true
+         }
+       },
+       {
+         "type": "required_status_checks",
+         "parameters": {
+           "strict_required_status_checks_policy": true,
+           "do_not_enforce_on_create": false,
+           "required_status_checks": [
+             { "context": "CI passed", "integration_id": 15368 },
+             { "context": "Template-owned files", "integration_id": 15368 },
+             { "context": "Agent review", "integration_id": 15368 }
+           ]
+         }
+       }
+     ]
+   }
+   EOF
+   ```
+
+   `15368` is the ID of the GitHub Actions app, so only a job of a workflow
+   can give the result of these checks. When the repository already has a
+   ruleset for `main`, add the checks to it on GitHub instead.
+
+5. When the repository has the variable `AGENT_REVIEW`, delete it last, so
+   that no review starts before the secrets exist:
+
+   ```sh
+   gh variable delete AGENT_REVIEW --repo $R
+   ```
+
+6. Make sure that `gh secret list --repo $R` shows the three secrets. Then
+   open a pull request, and mark it as ready. The master comment of the review
+   lists each model with its result. A model that failed shows its error
+   there, and the job log has the full output.
 
 ## The Claude Code secret
 
