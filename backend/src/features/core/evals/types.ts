@@ -139,6 +139,8 @@ export interface EvalDefinition<
   }): Record<string, (request: ModelRequest<Role>) => unknown>;
   score(input: { evalCase: Case; answer: EvalAnswer<Result> }): Score;
   results: {
+    /** The share of the key that a score has right, from 0 to 1. The `verify` command needs it. */
+    share?(score: Score): number;
     /** The two lines of the head of the results table. */
     head: readonly [string, string];
     /** The scores of one group have one row for each prompt version and model, such as a kind of document. */

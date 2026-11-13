@@ -113,6 +113,7 @@
     "workflows/workflow-pr-ready.yaml",
     "scripts/mutate-black-box-test.mjs",
     "scripts/mutate-black-box-test.test.mjs",
-    "workflows/workflow-black-box-mutate.yaml"
+    "workflows/workflow-black-box-mutate.yaml",
+    "scripts/eval-verify.test.mjs"
   ]
 }

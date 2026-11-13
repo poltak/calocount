@@ -18,9 +18,7 @@ import type {
   EvalMode,
   EvalModel,
 } from "../evals/types.js";
-
-// The command line of each eval. docs/agents/evals.md has the commands, the
-// options, and the folders.
+import { verifyCommand } from "./eval-verify-command.js";
 
 const REPOSITORY_ROOT = fileURLToPath(
   new URL("../../../../../", import.meta.url),
@@ -37,7 +35,7 @@ const VALUE_OPTIONS = [
 ];
 const BOOLEAN_OPTIONS = ["key-stdin", "dry"];
 
-interface Options<Role extends string> {
+export interface Options<Role extends string> {
   cases: string;
   runs: number;
   mode: EvalMode;
@@ -52,7 +50,7 @@ interface Options<Role extends string> {
 
 // The command only passes the cases, the results, and the scores from one
 // function of the definition to the next, so it does not need their types.
-type AnyEval = EvalDefinition<string, { id: string }, unknown, unknown>;
+export type AnyEval = EvalDefinition<string, { id: string }, unknown, unknown>;
 
 function readJson(path: string): unknown {
   return JSON.parse(readFileSync(path, "utf8"));
@@ -584,7 +582,7 @@ function scoreCommand(definition: AnyEval): void {
 }
 
 /**
- * Runs the command of an eval script: `check`, `run`, or `score`, with its
+ * Runs the command of an eval script: `check`, `run`, `score`, or `verify`, with its
  * options. A failure prints its message and sets the exit code, with no
  * stack.
  */
@@ -602,13 +600,24 @@ export async function runEvalCommand<
   try {
     if (command === "run") {
       await runCommand(anyEval, parseOptions(anyEval, rest));
+    } else if (command === "verify") {
+      await verifyCommand({
+        definition: anyEval,
+        args: rest,
+        parseOptions,
+        checkCommand,
+        runCommand,
+        modelLabel,
+        promptsOf,
+        checkDataDir,
+      });
     } else if (command === "score") {
       scoreCommand(anyEval);
     } else if (command === "check") {
       checkCommand(anyEval);
     } else {
       console.log(
-        `Commands of the ${definition.name} eval: check, run, score. docs/agents/evals.md has the options.`,
+        `Commands of the ${definition.name} eval: check, run, score, verify. docs/agents/evals.md has the options.`,
       );
       process.exitCode = 1;
     }
