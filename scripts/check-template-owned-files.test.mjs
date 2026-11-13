@@ -63,6 +63,7 @@ async function check({
   labels = [],
   answers = {},
   maintainers = "Owner, second-owner",
+  paths,
 }) {
   const directory = await mkdtemp(
     path.join(os.tmpdir(), "template-owned-check-"),
@@ -78,10 +79,12 @@ async function check({
   }
   await writeFile(
     path.join(directory, "scripts/template-paths.json"),
-    JSON.stringify({
-      templateOwned: ["AGENTS.md", "lint/", ".agents/hooks/"],
-      personOnly: ["docs/agents/project/reversals.md", "lint.project.json"],
-    }),
+    JSON.stringify(
+      paths ?? {
+        templateOwned: ["AGENTS.md", "lint/", ".agents/hooks/"],
+        personOnly: ["docs/agents/project/reversals.md", "lint.project.json"],
+      },
+    ),
   );
   if (version) {
     await writeFile(
@@ -153,6 +156,36 @@ test("passes a pull request that changes no file from the template", async (cont
   });
 
   assert.equal(result.status, 0, result.output);
+});
+
+test("allows project shadcn additions but rejects changes to template shadcn files", async (context) => {
+  const paths = JSON.parse(
+    await readFile(path.join(scriptsDirectory, "template-paths.json"), "utf8"),
+  );
+  const additions = await check({
+    context,
+    paths,
+    answers: {
+      [`GET ${PULLS}/files?per_page=100`]: files(
+        "frontend/src/features/core/ui/shadcn/avatar.tsx",
+        "scripts/shadcn-components.project.json",
+      ),
+    },
+  });
+  assert.equal(additions.status, 0, additions.output);
+  for (const file of [
+    "frontend/src/features/core/ui/shadcn/button.tsx",
+    "frontend/src/features/core/ui/shadcn/use-mobile.ts",
+    "scripts/shadcn-components.json",
+  ]) {
+    const edit = await check({
+      context,
+      paths,
+      answers: { [`GET ${PULLS}/files?per_page=100`]: files(file) },
+    });
+    assert.equal(edit.status, 1, edit.output);
+    assert.ok(edit.output.includes(file), edit.output);
+  }
 });
 
 test("fails a change to a file that only a person changes, and says why", async (context) => {

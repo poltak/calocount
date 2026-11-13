@@ -22,6 +22,15 @@ core part, a project part, then a feature-local part. Read the
 and `https://ui.shadcn.com/r/styles/base-mira/<name>.json`. Check the package
 requirements before installation. New packages need the person's approval.
 
+To add a component in a project, run
+`pnpm --filter frontend exec shadcn add <name>`. Add its registry name to
+`scripts/shadcn-components.project.json`. A template sync keeps this list.
+`check:shadcn` generates the union of this list and
+`scripts/shadcn-components.json`, then checks the whole `shadcn/` directory.
+Only the template's files in that directory are template-owned. When the
+template adds a generated file, list its path in `templateOwned` in
+`scripts/template-paths.json`.
+
 For product behavior, compose shadcn parts in `core/` or `components/`.
 Fork a different look into `registry/`. Before writing a control that shadcn
 lacks, find its Base UI behavior. A segmented control uses ToggleGroup.
