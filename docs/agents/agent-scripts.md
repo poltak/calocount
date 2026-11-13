@@ -11,6 +11,7 @@ run Swamp.
 
 | Workflow           | Runs                                                       | Run it in            |
 | ------------------ | ---------------------------------------------------------- | -------------------- |
+| `start-project`    | `scripts/start-project.mjs`, step by step                  | The template only    |
 | `sync-template`    | `pnpm run template:sync`, step by step                     | A project            |
 | `pr-ready`         | `pnpm run pr:ready`, step by step                          | A branch before a PR |
 | `issues-join`      | `pnpm run issues:join`                                     | The main checkout    |
