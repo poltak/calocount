@@ -64,29 +64,29 @@ a file when it needs one:
 
 ## Where to start reading the code
 
-| To understand                                  | Start at                                                                                   |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| How the backend is assembled                   | `backend/src/features/core/compose-app.ts`, `…/core/types.ts`                              |
-| Live and test backend setup                    | `backend/src/features/core/live/`, `…/core/tests/`                                         |
-| Backend routes and startup                     | `backend/src/features/core/server/`                                                        |
-| Errors and request validation                  | `backend/src/features/core/errors/`, `…/core/handlers/`                                    |
-| How the frontend is assembled                  | `frontend/src/main.tsx`, `frontend/src/features/core/`                                     |
-| The shared UI components and the theme         | `frontend/src/features/core/ui/components/`, `…/core/ui/theme.css`, `…/component-library/` |
-| Pages and routing                              | `frontend/src/features/core/ui/routes.tsx`                                                 |
-| Calling the backend                            | `frontend/src/features/api/client/`                                                        |
-| Logic and events                               | `common/src/features/core/`                                                                |
-| Logging and Core Services                      | `common/src/features/core/services/`                                                       |
-| Request log and request IDs                    | `backend/src/features/core/handlers/`, `…/core/server/`                                    |
-| A complete backend feature                     | `backend/src/features/health/`                                                             |
-| The architecture lint rules and their options  | `lint/`, `.oxlintrc.json`, `lint.project.json`                                             |
-| How a project takes template changes           | `scripts/sync-template.mjs`, `workflows/`                                                  |
-| What stops an edit of a file from the template | `.agents/hooks/guard-template-owned-files.mjs`, `scripts/check-template-owned-files.mjs`   |
-| What tells an agent that a command was slow    | `.agents/hooks/warn-slow-commands.mjs`                                                     |
-| The test fixture                               | `frontend/src/features/core/tests/full-application.ts`                                     |
-| The build checks in a real browser             | `frontend/src/features/core/tests/browser/built-app.spec.ts`                               |
-| The black box test fixture                     | `frontend/src/features/core/black-box-tests/black-box-test.ts`                             |
-| Model black box tests and page objects         | `frontend/src/features/auth/black-box-tests/`                                              |
-| The eval harness and the model service         | `backend/src/features/core/evals/`, `…/core/scripts/eval-command.ts`, `…/ai/services/`     |
+| To understand                                  | Start at                                                                                                  |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| How the backend is assembled                   | `backend/src/features/core/compose-app.ts`, `…/core/types.ts`                                             |
+| Live and test backend setup                    | `backend/src/features/core/live/`, `…/core/tests/`                                                        |
+| Backend routes and startup                     | `backend/src/features/core/server/`                                                                       |
+| Errors and request validation                  | `backend/src/features/core/errors/`, `…/core/handlers/`                                                   |
+| How the frontend is assembled                  | `frontend/src/main.tsx`, `frontend/src/features/core/`                                                    |
+| The shared UI components and the theme         | `frontend/src/features/core/ui/core/`, `…/core/ui/shadcn/`, `…/core/ui/theme.css`, `…/component-library/` |
+| Pages and routing                              | `frontend/src/features/core/ui/routes.tsx`                                                                |
+| Calling the backend                            | `frontend/src/features/api/client/`                                                                       |
+| Logic and events                               | `common/src/features/core/`                                                                               |
+| Logging and Core Services                      | `common/src/features/core/services/`                                                                      |
+| Request log and request IDs                    | `backend/src/features/core/handlers/`, `…/core/server/`                                                   |
+| A complete backend feature                     | `backend/src/features/health/`                                                                            |
+| The architecture lint rules and their options  | `lint/`, `.oxlintrc.json`, `lint.project.json`                                                            |
+| How a project takes template changes           | `scripts/sync-template.mjs`, `workflows/`                                                                 |
+| What stops an edit of a file from the template | `.agents/hooks/guard-template-owned-files.mjs`, `scripts/check-template-owned-files.mjs`                  |
+| What tells an agent that a command was slow    | `.agents/hooks/warn-slow-commands.mjs`                                                                    |
+| The test fixture                               | `frontend/src/features/core/tests/full-application.ts`                                                    |
+| The build checks in a real browser             | `frontend/src/features/core/tests/browser/built-app.spec.ts`                                              |
+| The black box test fixture                     | `frontend/src/features/core/black-box-tests/black-box-test.ts`                                            |
+| Model black box tests and page objects         | `frontend/src/features/auth/black-box-tests/`                                                             |
+| The eval harness and the model service         | `backend/src/features/core/evals/`, `…/core/scripts/eval-command.ts`, `…/ai/services/`                    |
 
 ### The model feature
 
