@@ -26,6 +26,9 @@ instructions.
 - [Setup and commands](setup.md): read to run, configure, or check the project.
 - [Hosting](hosting.md): what the root of a host must do, and what is tied to
   Node. Read before adding a host, or before running more than one instance.
+- [Scripts of agent tasks](agent-scripts.md): the scripts and the Swamp
+  workflows that do the fixed steps of agent tasks, and why. Read before you
+  add a script for a task step, or change one.
 - [Beads](beads.md): the issue tracker, its version, and how to join it or
   turn it on. Read before setting up beads.
 - [Agent review](agent-review.md): the review of each pull request by models

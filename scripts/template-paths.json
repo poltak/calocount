@@ -46,6 +46,7 @@
     "docs/agents/testing.md",
     "docs/agents/database.md",
     "docs/agents/ci.md",
+    "docs/agents/agent-scripts.md",
     "lint/",
     ".oxlintrc.json",
     ".agents/hooks/",
