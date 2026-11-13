@@ -139,7 +139,6 @@ The check works as follows:
   `gh variable set AGENT_REVIEW --body off`. Then no job of the workflow
   starts, and the pull request gets no "Agent review" check. Without the
   variable, each job runs and bills at least one minute, also with no secret.
-  The template sets the variable, because it has no model secrets.
 
 The review uses `TEMPLATE_MAINTAINERS` from the
 [template-owned check](setup.md#files-that-come-from-the-template). Make the label one

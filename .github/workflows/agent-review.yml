@@ -41,12 +41,12 @@ env:
 jobs:
   plan:
     name: Plan
-    # A repository with no model secrets, such as the template, sets the
-    # variable AGENT_REVIEW to "off". Then no job starts, and no minutes are
-    # billed. A draft and a dependency update get no review, so their events
-    # start no job either. The bots here are the bots of `DEPENDENCY_BOTS` in
-    # the script. The verdict job needs the same condition, because it fails
-    # when the plan did not succeed, and a skipped plan did not succeed.
+    # A repository with no model secrets sets the variable AGENT_REVIEW to
+    # "off". Then no job starts, and no minutes are billed. A draft and a
+    # dependency update get no review, so their events start no job either.
+    # The bots here are the bots of `DEPENDENCY_BOTS` in the script. The
+    # verdict job needs the same condition, because it fails when the plan did
+    # not succeed, and a skipped plan did not succeed.
     if: vars.AGENT_REVIEW != 'off' && !github.event.pull_request.draft && github.event.pull_request.user.login != 'renovate[bot]' && github.event.pull_request.user.login != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 5
