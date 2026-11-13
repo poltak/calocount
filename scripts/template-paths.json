@@ -107,6 +107,9 @@
     "scripts/check-shadcn.mjs",
     "scripts/check-shadcn.test.mjs",
     "scripts/shadcn-components.json",
-    "workflows/workflow-check-shadcn.yaml"
+    "workflows/workflow-check-shadcn.yaml",
+    "scripts/pr-ready.mjs",
+    "scripts/pr-ready.test.mjs",
+    "workflows/workflow-pr-ready.yaml"
   ]
 }

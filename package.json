@@ -40,7 +40,8 @@
     "test:scripts": "node --test scripts/*.test.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "prepare": "simple-git-hooks"
+    "prepare": "simple-git-hooks",
+    "pr:ready": "node scripts/pr-ready.mjs"
   },
   "description": "",
   "keywords": [],
