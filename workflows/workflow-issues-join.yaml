@@ -1,0 +1,20 @@
+# Run it in the main checkout, from its root, one time on each machine:
+#
+#   swamp workflow run issues-join
+#
+# The step runs `scripts/issues-join.mjs`, which describes its steps.
+id: c23dd4e1-e1de-4caa-9fc0-82f12a596990
+name: issues-join
+description: Join the issues of a project that uses beads.
+version: 1
+jobs:
+  - name: run
+    steps:
+      - name: join
+        task:
+          type: model_method
+          modelType: command/shell
+          modelName: issues-join-join
+          methodName: execute
+          inputs:
+            run: pnpm run issues:join

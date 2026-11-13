@@ -114,6 +114,9 @@
     "scripts/mutate-black-box-test.mjs",
     "scripts/mutate-black-box-test.test.mjs",
     "workflows/workflow-black-box-mutate.yaml",
-    "scripts/eval-verify.test.mjs"
+    "scripts/eval-verify.test.mjs",
+    "scripts/issues-join.mjs",
+    "scripts/issues-join.test.mjs",
+    "workflows/workflow-issues-join.yaml"
   ]
 }
