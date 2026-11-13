@@ -23,6 +23,9 @@ import {
 import os from "node:os";
 import path from "node:path";
 import { fail } from "./template-files.mjs";
+// The start of the message of a changed check that fails. Another error on the
+// line of a check, such as a TypeError, does not show that the check works.
+const MARKER = "Changed by the check:";
 const changeable = new Set([
   "toHaveText",
   "toContainText",
@@ -43,6 +46,8 @@ const changeable = new Set([
   "toStrictEqual",
   "toContain",
   "toMatch",
+  "toMatchObject",
+  "toContainEqual",
 ]);
 const args = process.argv.slice(2);
 const spec = args[0]?.startsWith("--")
@@ -118,13 +123,7 @@ const masked = mask(source);
 const checks = [];
 for (const match of masked.matchAll(/\.\s*(to\w+)\s*\(/g)) {
   const name = match[1];
-  if (!changeable.has(name) && !/^to(?:Be|Have)/.test(name)) continue;
   const before = masked.slice(0, match.index);
-  let reason = changeable.has(name)
-    ? null
-    : "has no expected value; change its locator by hand";
-  if (!reason && /\.\s*not\s*$/.test(before))
-    reason = "a negated check; change it by hand";
   // Ignore braces inside the poll callback while finding the statement start.
   let depth = 0,
     start = 0;
@@ -137,6 +136,16 @@ for (const match of masked.matchAll(/\.\s*(to\w+)\s*\(/g)) {
       break;
     }
   }
+  // A method such as `toString()` is not a check, because no `expect` is in
+  // its statement.
+  if (!/\bexpect\b/.test(before.slice(start))) continue;
+  let reason = changeable.has(name)
+    ? null
+    : /^to(?:Be|Have)/.test(name)
+      ? "has no expected value; change its locator by hand"
+      : "the script does not change this matcher; change it by hand";
+  if (!reason && /\.\s*not\s*$/.test(before))
+    reason = "a negated check; change it by hand";
   if (!reason && /expect\s*\.\s*poll\s*\(/.test(before.slice(start)))
     reason = "an expect.poll check; change it by hand";
   checks.push({
@@ -198,7 +207,7 @@ changed += `\nfunction changedMatchers() {
       await baseExpect(received)[name](...args);
       return { pass: true, message: () => "The changed value passed." };
     } catch (error) {
-      return { pass: false, message: () => String(error.message ?? error) };
+      return { pass: false, message: () => "${MARKER} " + String(error.message ?? error) };
     }
   }]));
 }\n`;
@@ -253,6 +262,7 @@ try {
   if (!existsSync(report))
     throw new Error("The browser run wrote no JSON report.");
   const lines = new Set();
+  const otherLines = new Set();
   const ranTests = new Set();
   let stopped = false;
   function visit(value) {
@@ -269,7 +279,9 @@ try {
       ranTests.add(value.line);
     for (const error of value.errors ?? []) {
       if (error.location && path.resolve(error.location.file) === copy)
-        lines.add(error.location.line);
+        (String(error.message).includes(MARKER) ? lines : otherLines).add(
+          error.location.line,
+        );
     }
     for (const [key, child] of Object.entries(value))
       if (key !== "errors") {
@@ -296,6 +308,9 @@ try {
     } else if (lines.has(check.line)) {
       counts.failed++;
       message = "fails when changed";
+    } else if (otherLines.has(check.line)) {
+      counts.unknown++;
+      message = "not known: another error stopped the test at this line";
     } else if (stopped) {
       counts.unknown++;
       message = "not known: the run stopped early; run again with --grep";

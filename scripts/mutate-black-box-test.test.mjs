@@ -38,7 +38,7 @@ const fs = require('node:fs');
 if (process.argv.includes('build')) process.exit(0);
 const copy = ${JSON.stringify(copy)};
 fs.copyFileSync(copy, process.env.SAVED);
-fs.writeFileSync(process.env.PLAYWRIGHT_JSON_OUTPUT_FILE, process.env.REPORT || JSON.stringify({suites:[{specs:[{tests:[{results:[{status:process.env.STATUS || 'failed',errors:process.env.NO_ERROR ? [] : [{location:{file:copy,line:2}}]}]}]}]}]}));
+fs.writeFileSync(process.env.PLAYWRIGHT_JSON_OUTPUT_FILE, process.env.REPORT || JSON.stringify({suites:[{specs:[{tests:[{results:[{status:process.env.STATUS || 'failed',errors:process.env.NO_ERROR ? [] : [{message:process.env.MESSAGE || 'Error: Changed by the check: expected',location:{file:copy,line:2}}]}]}]}]}]}));
 process.exit(1);
 `;
   writeFileSync(path.join(root, "bin/pnpm"), fake);
@@ -145,4 +145,28 @@ test("fails when the run fails before the tests", (t) => {
   assert.match(r.output, /failed before the tests:\nno build/);
   assert.doesNotMatch(r.output, /DID NOT FAIL/);
   assert.equal(existsSync(x.copy), false);
+});
+test("reports other matchers by hand and skips methods that are not checks", (t) => {
+  const x = setup(
+    t,
+    `import { expect } from "@playwright/test";
+await expect(locator).toMatchObject({ a: 1 });
+const label = count.toString();
+await expect(list).toSatisfy((items) => items.length > 0);
+`,
+  );
+  const r = x.run();
+  assert.equal(r.status, 0, r.output);
+  assert.match(r.output, /2: toMatchObject  fails when changed/);
+  assert.doesNotMatch(r.output, /toString/);
+  assert.match(
+    r.output,
+    /4: toSatisfy  by hand: the script does not change this matcher/,
+  );
+});
+test("does not count another error on the line of a check", (t) => {
+  const x = setup(t);
+  const r = x.run({ MESSAGE: "TypeError: value is not iterable" });
+  assert.equal(r.status, 1);
+  assert.match(r.output, /2: toHaveText  not known: another error/);
 });
