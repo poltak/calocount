@@ -144,7 +144,9 @@ pnpm run check:shadcn
 pnpm run check:registry
 ```
 
-After adding a shadcn part, add its name to `scripts/shadcn-components.json`.
+After adding a shadcn part, add its name to the list: in the template,
+`scripts/shadcn-components.json`; in a project,
+`scripts/shadcn-components.project.json`.
 The byte check uses the live registry and the pinned CLI. Do not install the
 named `mira` preset's font or Hugeicons packages without approval. Read the
 [CLI](https://ui.shadcn.com/docs/cli) and
