@@ -22,7 +22,6 @@ interface ComponentLibraryState {
   submitted: boolean;
 }
 
-/** The state of the examples on the component library page. */
 export class ComponentLibraryLogic extends Logic<
   FrontendLogicProps,
   ComponentLibraryState
