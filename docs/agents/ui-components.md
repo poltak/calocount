@@ -11,7 +11,9 @@ parts and product compositions.
 These paths start at `frontend/src/features/core/ui/`:
 
 - `shadcn/` contains CLI output. Never edit it by hand. `check:shadcn`
-  generates each installed part again and compares its bytes.
+  generates each installed part again and compares its bytes. It ignores a
+  leading `"use client"` line: with `rsc: false` the line has no effect, and
+  the CLI writes it on different files for different sets of parts.
 - `core/` contains the WorldBrain parts that each project gets.
 - `components/` contains project parts. The template keeps only its README.
 - `registry/` contains forks and new Base UI controls. It is empty today.
@@ -147,7 +149,7 @@ pnpm run check:registry
 After adding a shadcn part, add its name to the list: in the template,
 `scripts/shadcn-components.json`; in a project,
 `scripts/shadcn-components.project.json`.
-The byte check uses the live registry and the pinned CLI. Do not install the
+The check uses the live registry and the pinned CLI. Do not install the
 named `mira` preset's font or Hugeicons packages without approval. Read the
 [CLI](https://ui.shadcn.com/docs/cli) and
 [configuration](https://ui.shadcn.com/docs/components-json) docs for options.
