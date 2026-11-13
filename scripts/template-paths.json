@@ -110,6 +110,9 @@
     "workflows/workflow-check-shadcn.yaml",
     "scripts/pr-ready.mjs",
     "scripts/pr-ready.test.mjs",
-    "workflows/workflow-pr-ready.yaml"
+    "workflows/workflow-pr-ready.yaml",
+    "scripts/mutate-black-box-test.mjs",
+    "scripts/mutate-black-box-test.test.mjs",
+    "workflows/workflow-black-box-mutate.yaml"
   ]
 }

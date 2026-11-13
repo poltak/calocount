@@ -41,7 +41,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prepare": "simple-git-hooks",
-    "pr:ready": "node scripts/pr-ready.mjs"
+    "pr:ready": "node scripts/pr-ready.mjs",
+    "test:browser:mutate": "node scripts/mutate-black-box-test.mjs"
   },
   "description": "",
   "keywords": [],
