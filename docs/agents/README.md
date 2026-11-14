@@ -29,6 +29,9 @@ instructions.
 - [Scripts of agent tasks](agent-scripts.md): the scripts and the Swamp
   workflows that do the fixed steps of agent tasks, and why. Read before you
   add a script for a task step, or change one.
+- [Project hooks](project-hooks.md): how a project adds its own agent hooks
+  without changing a template file. Read before you add a guard or a check
+  that runs before a tool call.
 - [Beads](beads.md): the issue tracker, its version, and how to join it or
   turn it on. Read before setting up beads.
 - [Agent review](agent-review.md): the review of each pull request by models
@@ -84,6 +87,7 @@ a file when it needs one:
 | The architecture lint rules and their options  | `lint/`, `.oxlintrc.json`, `lint.project.json`                                                            |
 | How a project takes template changes           | `scripts/sync-template.ts`, `workflows/`                                                                  |
 | What stops an edit of a file from the template | `.agents/hooks/guard-template-owned-files.ts`, `scripts/check-template-owned-files.ts`                    |
+| What runs a project's own agent hooks          | `.agents/hooks/run-project-hooks.ts`, `docs/agents/project-hooks.md`                                      |
 | What tells an agent that a command was slow    | `.agents/hooks/warn-slow-commands.ts`                                                                     |
 | The test fixture                               | `frontend/src/features/core/tests/full-application.ts`                                                    |
 | The build checks in a real browser             | `frontend/src/features/core/tests/browser/built-app.spec.ts`                                              |

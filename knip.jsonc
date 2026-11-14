@@ -12,6 +12,7 @@
         ".agents/hooks/check-branch-is-current.ts",
         ".agents/hooks/format-edited-files.ts",
         ".agents/hooks/guard-template-owned-files.ts",
+        ".agents/hooks/run-project-hooks.ts",
       ],
       "project": [".agents/hooks/**/*.ts", "lint/**/*.ts"],
     },

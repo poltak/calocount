@@ -22,6 +22,16 @@
     ],
     "PreToolUse": [
       {
+        "matcher": "Bash|Read|Grep|Glob|Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pnpm --dir \"${CLAUDE_PROJECT_DIR}\" exec node \"${CLAUDE_PROJECT_DIR}/.agents/hooks/run-project-hooks.ts\" claude",
+            "timeout": 10
+          }
+        ]
+      },
+      {
         "matcher": "Edit|Write",
         "hooks": [
           {

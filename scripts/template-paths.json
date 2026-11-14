@@ -44,7 +44,11 @@
     "frontend/src/features/core/ui/components/",
     "frontend/src/features/core/ui/project.css"
   ],
-  "personOnly": ["docs/agents/project/reversals.md", "lint.project.json"],
+  "personOnly": [
+    "docs/agents/project/reversals.md",
+    "lint.project.json",
+    ".agents/project-hooks/"
+  ],
   "templateOwned": [
     "AGENTS.md",
     "docs/agents/README.md",
@@ -55,6 +59,7 @@
     "docs/agents/database.md",
     "docs/agents/ci.md",
     "docs/agents/agent-scripts.md",
+    "docs/agents/project-hooks.md",
     "lint/",
     ".oxlintrc.json",
     ".agents/hooks/",

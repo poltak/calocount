@@ -13,6 +13,16 @@
     ],
     "PreToolUse": [
       {
+        "matcher": "^(Bash|apply_patch)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "REPO_ROOT=\"$(git rev-parse --show-toplevel)\" && pnpm --dir \"$REPO_ROOT\" exec node \"$REPO_ROOT/.agents/hooks/run-project-hooks.ts\" codex",
+            "timeout": 10
+          }
+        ]
+      },
+      {
         "matcher": "^apply_patch$",
         "hooks": [
           {
