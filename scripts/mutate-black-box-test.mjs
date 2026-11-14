@@ -148,6 +148,20 @@ for (const match of masked.matchAll(/\.\s*(to\w+)\s*\(/g)) {
     reason = "a negated check; change it by hand";
   if (!reason && /expect\s*\.\s*poll\s*\(/.test(before.slice(start)))
     reason = "an expect.poll check; change it by hand";
+  if (!reason && name === "toHaveAttribute") {
+    // With no value, or with only options, the check is that the attribute
+    // exists. It has no expected value to change.
+    let depth = 0,
+      at = match.index + match[0].length;
+    for (; at < masked.length; at++) {
+      const char = masked[at];
+      if ("([{".includes(char)) depth++;
+      else if (")]}".includes(char) && depth-- === 0) break;
+      else if (char === "," && depth === 0) break;
+    }
+    if (masked[at] !== "," || /^\s*\{/.test(masked.slice(at + 1)))
+      reason = "checks only that the attribute exists; change it by hand";
+  }
   checks.push({
     name,
     reason,

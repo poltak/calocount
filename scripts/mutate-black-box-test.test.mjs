@@ -164,6 +164,21 @@ await expect(list).toSatisfy((items) => items.length > 0);
     /4: toSatisfy  by hand: the script does not change this matcher/,
   );
 });
+test("reports a toHaveAttribute check with no value by hand", (t) => {
+  const x = setup(
+    t,
+    `import { expect } from "@playwright/test";
+await expect(link).toHaveAttribute("href", "/notes");
+await expect(button).toHaveAttribute("disabled");
+await expect(button).toHaveAttribute("disabled", { timeout: 1000 });
+`,
+  );
+  const r = x.run();
+  assert.equal(r.status, 0, r.output);
+  assert.match(r.output, /2: toHaveAttribute  fails when changed/);
+  assert.match(r.output, /3: toHaveAttribute  by hand: checks only that/);
+  assert.match(r.output, /4: toHaveAttribute  by hand: checks only that/);
+});
 test("does not count another error on the line of a check", (t) => {
   const x = setup(t);
   const r = x.run({ MESSAGE: "TypeError: value is not iterable" });
