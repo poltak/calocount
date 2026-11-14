@@ -119,11 +119,14 @@ function merge() {
 }
 function check() {
   clean();
+  // A failed run must not leave the pass of an earlier run in the record.
+  record("check", null);
   run(["run", "check"]);
   record("check", { status: "passed" });
 }
 function browser() {
   clean();
+  record("browser", null);
   const files = command("diff", "--name-only", "origin/main...HEAD")
     .stdout.split("\n")
     .filter(Boolean);

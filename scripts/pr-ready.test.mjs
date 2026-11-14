@@ -138,6 +138,14 @@ for (const file of [
     assert.match(readFileSync(x.calls, "utf8"), /run test:browser/);
     assert.equal(x.record().checks.browser.status, "passed");
   });
+test("report refuses an earlier pass after a failed run at the same commit", (t) => {
+  const x = setup(t);
+  x.commit(x.root, "backend/change", "x");
+  assert.equal(x.run("check").status, 0);
+  assert.equal(x.run("browser").status, 0);
+  assert.equal(x.run("check", { FAIL_CHECK: "1" }).status, 1);
+  assert.equal(x.run("report").status, 1);
+});
 test("all stops at a failed check", (t) => {
   const x = setup(t);
   x.commit(x.root, "frontend/src/features/core/ui/routes.tsx", "change");
