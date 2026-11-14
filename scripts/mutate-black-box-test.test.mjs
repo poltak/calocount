@@ -168,7 +168,7 @@ test("reports a toHaveAttribute check with no value by hand", (t) => {
   const x = setup(
     t,
     `import { expect } from "@playwright/test";
-await expect(link).toHaveAttribute("href", "/notes");
+await expect(link).toHaveAttribute("href", /* a */ "/notes" /* b */);
 await expect(button).toHaveAttribute("disabled");
 await expect(button).toHaveAttribute("disabled", { timeout: 1000 });
 await expect(button).toHaveAttribute(
