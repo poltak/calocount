@@ -3,10 +3,14 @@
 #   swamp workflow run pr-ready
 #
 # Each step runs `scripts/pr-ready.mjs`, which has the logic. After a merge
-# conflict or a failed check, correct the cause, commit, and then retry the
-# failed step with the command that Swamp prints:
+# conflict, resolve it, commit, and then retry the merge step with the command
+# that Swamp prints:
 #
 #   swamp workflow resume pr-ready --run <run id>
+#
+# After a failed check, correct the cause, commit, and run the workflow again
+# from the start. The results of a check are for one commit, so a new commit
+# needs each check again.
 id: ae26cafe-c781-4e93-b5a4-9c53fff5b679
 name: pr-ready
 description: >-
