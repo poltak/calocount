@@ -65,7 +65,7 @@ export async function verifyCommand(input: {
     console.log(
       `${mode}: ${cases.length - failures.length} of ${cases.length} cases at ${mode === "oracle" ? 100 : 0}%`,
     );
-    failures.slice(0, 20).forEach((failure) => console.log(failure));
+    failures.forEach((failure) => console.log(failure));
     failed ||= failures.length > 0;
   }
   if (failed) {
