@@ -84,6 +84,11 @@ function templateMigrations({ root }: { root: string }): Set<string> {
   return new Set(status === 0 ? stdout.split("\n") : []);
 }
 
+const migrationsOf = (output: string): string[] =>
+  output
+    .split("\n")
+    .filter((file) => MIGRATION_FILE.test(path.posix.basename(file)));
+
 /**
  * The migrations of the working tree that differ from the commit where the
  * branch left `main`: the new ones, the changed ones, and the deleted ones.
@@ -93,11 +98,6 @@ function templateMigrations({ root }: { root: string }): Set<string> {
  * migration of the branch. Returns `null` when the repository has no `main`
  * to compare with.
  */
-const migrationsOf = (output: string): string[] =>
-  output
-    .split("\n")
-    .filter((file) => MIGRATION_FILE.test(path.posix.basename(file)));
-
 export function branchMigrations({ root }: { root: string }): {
   added: string[];
   changed: string[];

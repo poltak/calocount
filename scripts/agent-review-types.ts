@@ -149,7 +149,6 @@ export interface LinkInput {
   commit?: string | undefined;
 }
 
-/** The functions that write the links and the titles of the issues. */
 export interface View {
   server: string;
   repositoryUrl: string;

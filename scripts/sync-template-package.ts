@@ -13,6 +13,14 @@ interface MergeResult {
   keptRemoved: string[];
 }
 
+const isObject = (value: unknown): value is JsonObject =>
+  value !== null && typeof value === "object" && !Array.isArray(value);
+
+// pnpm keeps each list of dependencies in order. An object whose keys were
+// in order stays in order.
+const isOrdered = (names: string[]) =>
+  names.every((name, index) => index === 0 || (names[index - 1] ?? "") < name);
+
 /**
  * Merge two changed versions of a JSON object, key by key. Git merges a
  * `package.json` by its lines. A template commit that changes a version, and
@@ -24,14 +32,6 @@ interface MergeResult {
  * Such a dependency stays out of the project, because the project has no use
  * for its new version.
  */
-const isObject = (value: unknown): value is JsonObject =>
-  value !== null && typeof value === "object" && !Array.isArray(value);
-
-// pnpm keeps each list of dependencies in order. An object whose keys were
-// in order stays in order.
-const isOrdered = (names: string[]) =>
-  names.every((name, index) => index === 0 || (names[index - 1] ?? "") < name);
-
 function mergeJson({
   base,
   ours,

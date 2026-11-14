@@ -20,12 +20,6 @@ import type {
 } from "./agent-review-types.ts";
 import { firstSentence, isOpen, isOpenFinding } from "./agent-review-view.ts";
 
-/**
- * Returns the summary of a later review: what changed since the earlier
- * review, and the result of the check. It stays short, because the master
- * comment has the full text of each issue, and the status that each model
- * gave it.
- */
 const section = (
   title: string,
   items: Issue[],
@@ -46,6 +40,12 @@ const section = (
   ];
 };
 
+/**
+ * Returns the summary of a later review: what changed since the earlier
+ * review, and the result of the check. It stays short, because the master
+ * comment has the full text of each issue, and the status that each model
+ * gave it.
+ */
 export function summaryBody({
   view,
   issues,

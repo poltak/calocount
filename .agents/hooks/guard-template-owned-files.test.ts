@@ -110,7 +110,6 @@ async function runGuard({
   return output ? JSON.parse(output).hookSpecificOutput : undefined;
 }
 
-/** Like `runGuard`, for a test that expects the hook to answer. */
 async function runGuardAnswer(options: Parameters<typeof runGuard>[0]) {
   const answer = await runGuard(options);
   assert.ok(answer);

@@ -215,11 +215,6 @@ interface Version {
   body: string;
 }
 
-/**
- * Returns each check or clear of a box that a maintainer made, from the
- * versions of a comment, oldest first. The key of a box is the ID of its
- * issue.
- */
 const boxesOf = (body: string) =>
   new Map(
     [...body.matchAll(BOX)].map(([, mark, id]): [string, boolean] => [
@@ -228,6 +223,11 @@ const boxesOf = (body: string) =>
     ]),
   );
 
+/**
+ * Returns each check or clear of a box that a maintainer made, from the
+ * versions of a comment, oldest first. The key of a box is the ID of its
+ * issue.
+ */
 function boxChanges(versions: Version[]): BoxChange[] {
   return versions.flatMap(({ editor, at, body }, index) => {
     const earlier = versions[index - 1];
