@@ -37,7 +37,7 @@ export interface Template extends Node {
   value: { raw: string };
 }
 
-export interface Name {
+interface Name {
   name?: string;
   value?: string;
 }
@@ -75,7 +75,7 @@ export interface CallExpression extends Node {
   arguments: AstNode[];
 }
 
-export interface TypeArguments {
+interface TypeArguments {
   params: TypeReference[];
 }
 
@@ -91,7 +91,7 @@ export interface ClassDeclaration extends Node {
   implements?: { expression?: Name }[];
 }
 
-export interface ConstructorParameter extends Node {
+interface ConstructorParameter extends Node {
   name?: string;
   parameter?: Name;
   accessibility?: string;
@@ -122,7 +122,7 @@ export interface Literal extends Node {
   value: unknown;
 }
 
-export interface JsxAttribute extends Node {
+interface JsxAttribute extends Node {
   parent?: Node & { name?: Name };
   name: Name;
   value?: AstNode | null;
