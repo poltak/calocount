@@ -174,6 +174,7 @@ await expect(button).toHaveAttribute("disabled", { timeout: 1000 });
 await expect(button).toHaveAttribute(
   "disabled",
 );
+await expect(button).toHaveAttribute("disabled", /* a */ { timeout: 1000 });
 `,
   );
   const r = x.run();
@@ -182,6 +183,7 @@ await expect(button).toHaveAttribute(
   assert.match(r.output, /3: toHaveAttribute  by hand: checks only that/);
   assert.match(r.output, /4: toHaveAttribute  by hand: checks only that/);
   assert.match(r.output, /5: toHaveAttribute  by hand: checks only that/);
+  assert.match(r.output, /8: toHaveAttribute  by hand: checks only that/);
 });
 test("does not count another error on the line of a check", (t) => {
   const x = setup(t);

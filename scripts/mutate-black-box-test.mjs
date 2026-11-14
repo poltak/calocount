@@ -161,7 +161,10 @@ for (const match of masked.matchAll(/\.\s*(to\w+)\s*\(/g)) {
     }
     // The source and not the masked text, because the mask makes a string
     // look like blank space, as after a trailing comma.
-    if (masked[at] !== "," || /^\s*[{)]/.test(source.slice(at + 1)))
+    if (
+      masked[at] !== "," ||
+      /^(?:\s|\/\*[\s\S]*?\*\/|\/\/[^\n]*)*[{)]/.test(source.slice(at + 1))
+    )
       reason = "checks only that the attribute exists; change it by hand";
   }
   checks.push({
