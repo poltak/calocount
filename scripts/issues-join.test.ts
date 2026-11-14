@@ -14,10 +14,11 @@ import {
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-function setup(t) {
+import type { TestContext } from "node:test";
+function setup(t: TestContext) {
   const root = mkdtempSync(path.join(os.tmpdir(), "issues-join-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));
-  const env = {
+  const env: NodeJS.ProcessEnv = {
     ...process.env,
     GIT_CONFIG_GLOBAL: os.devNull,
     GIT_CONFIG_NOSYSTEM: "1",
@@ -26,11 +27,11 @@ function setup(t) {
     GIT_COMMITTER_NAME: "Person",
     GIT_COMMITTER_EMAIL: "person@example.test",
   };
-  const git = (...args) =>
+  const git = (...args: string[]) =>
     execFileSync("git", args, { cwd: root, env, encoding: "utf8" }).trim();
   git("init", "--quiet", "--initial-branch=main");
   mkdirSync(path.join(root, "scripts"));
-  for (const file of ["issues-join.mjs", "template-files.mjs"])
+  for (const file of ["issues-join.ts", "template-files.mjs"])
     cpSync(new URL(file, import.meta.url), path.join(root, "scripts", file));
   mkdirSync(path.join(root, "bin"));
   writeFileSync(
@@ -38,13 +39,13 @@ function setup(t) {
     '#!/bin/sh\nprintf "%s\\n" "$*" >> "$CALLS"\n[ "$*" = "exec bd bootstrap --yes" ] && [ -n "$FAIL_BOOTSTRAP" ] && exit 1\nexit 0\n',
   );
   chmodSync(path.join(root, "bin/pnpm"), 0o755);
-  const run = (extra = {}, cwd = root) => {
-    const r = spawnSync(process.execPath, ["scripts/issues-join.mjs"], {
+  const run = (extra: Record<string, string> = {}, cwd = root) => {
+    const r = spawnSync(process.execPath, ["scripts/issues-join.ts"], {
       cwd,
       encoding: "utf8",
       env: {
         ...env,
-        PATH: path.join(root, "bin") + path.delimiter + env.PATH,
+        PATH: `${path.join(root, "bin")}${path.delimiter}${env.PATH}`,
         CALLS: path.join(root, "calls"),
         ...extra,
       },

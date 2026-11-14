@@ -24,17 +24,32 @@ const NO_OBJECT = /^0+$/;
 // Git looks for a NUL byte in the start of a file to find a binary file.
 const BINARY_TEST_BYTES = 8000;
 
-function git(args, { input, allowFailure = false, encoding = "utf8" } = {}) {
+function git(
+  args: string[],
+  options: { input?: string; allowFailure?: boolean } = {},
+) {
   const result = spawnSync("git", args, {
-    encoding,
-    input,
+    encoding: "utf8",
+    input: options.input,
     maxBuffer: 1024 * 1024 * 1024,
   });
-  if (result.status !== 0 && !allowFailure) {
+  if (result.status !== 0 && !options.allowFailure) {
     console.error(String(result.stderr) || result.error?.message);
     process.exit(2);
   }
   return result;
+}
+
+function gitBlob(object: string) {
+  const result = spawnSync("git", ["cat-file", "blob", object], {
+    encoding: "buffer",
+    maxBuffer: 1024 * 1024 * 1024,
+  });
+  if (result.status !== 0) {
+    console.error(String(result.stderr) || result.error?.message);
+    process.exit(2);
+  }
+  return result.stdout;
 }
 
 const operation = ["MERGE_HEAD", "CHERRY_PICK_HEAD", "REVERT_HEAD"].find(
@@ -56,13 +71,23 @@ const fields = git([
   "--find-renames",
   "--diff-filter=ACMRT",
 ]).stdout.split("\0");
-const changes = [];
+interface Change {
+  name: string;
+  newObject: string;
+  oldObject: string | undefined;
+}
+
+const changes: Change[] = [];
 for (let index = 0; index < fields.length - 1;) {
-  const [oldMode, newMode, oldObject, newObject, status] = fields[index]
-    .slice(1)
-    .split(" ");
+  const [
+    oldMode = "",
+    newMode = "",
+    oldObject = "",
+    newObject = "",
+    status = "",
+  ] = (fields[index] ?? "").slice(1).split(" ");
   const pathCount = /^[RC]/.test(status) ? 2 : 1;
-  const name = fields[index + pathCount];
+  const name = fields[index + pathCount] ?? "";
   index += 1 + pathCount;
   if (!REGULAR_FILE.test(newMode)) continue;
   changes.push({
@@ -76,7 +101,9 @@ for (let index = 0; index < fields.length - 1;) {
 }
 
 const objects = changes.flatMap((change) =>
-  [change.oldObject, change.newObject].filter(Boolean),
+  [change.oldObject, change.newObject].filter(
+    (object): object is string => object !== undefined,
+  ),
 );
 const sizes = new Map(
   git(["cat-file", "--batch-check=%(objectname) %(objectsize)"], {
@@ -86,15 +113,15 @@ const sizes = new Map(
     .split("\n")
     .filter(Boolean)
     .map((line) => {
-      const [object, size] = line.split(" ");
-      return [object, Number(size)];
+      const [object = "", size] = line.split(" ");
+      return [object, Number(size)] as const;
     }),
 );
 
 const grown = changes
   .map((change) => ({
     ...change,
-    newSize: sizes.get(change.newObject),
+    newSize: sizes.get(change.newObject) ?? 0,
     oldSize: change.oldObject ? sizes.get(change.oldObject) : undefined,
   }))
   .filter(
@@ -108,23 +135,27 @@ const attributes = grown.length
       input: grown.map(({ name }) => `${name}\0`).join(""),
     }).stdout.split("\0")
   : [];
-const generated = new Set();
+const generated = new Set<string>();
 for (let index = 0; index + 2 < attributes.length; index += 3) {
-  if (["set", "true"].includes(attributes[index + 2])) {
-    generated.add(attributes[index]);
+  const name = attributes[index];
+  const value = attributes[index + 2];
+  if (
+    name !== undefined &&
+    value !== undefined &&
+    ["set", "true"].includes(value)
+  ) {
+    generated.add(name);
   }
 }
 
 const tooLarge = grown.filter(({ name, newObject }) => {
   if (generated.has(name)) return false;
-  const content = git(["cat-file", "blob", newObject], {
-    encoding: "buffer",
-  }).stdout;
+  const content = gitBlob(newObject);
   return !content.subarray(0, BINARY_TEST_BYTES).includes(0);
 });
 
 if (tooLarge.length > 0) {
-  const tokens = (bytes) =>
+  const tokens = (bytes: number) =>
     Math.ceil(bytes / BYTES_PER_TOKEN).toLocaleString("en");
   console.error(
     [

@@ -14,6 +14,7 @@ import {
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import type { TestContext } from "node:test";
 const source = `import { expect } from "@playwright/test";
 await expect(locator).toHaveText("Saved");
 await expect(locator).not.toHaveText("Other");
@@ -22,7 +23,7 @@ const text = '.toHaveText("Hidden")';
 // .toHaveText("Hidden")
 await expect.poll(() => 1).toBe(1);
 `;
-function setup(t, specSource = source) {
+function setup(t: TestContext, specSource = source) {
   const root = mkdtempSync(path.join(os.tmpdir(), "mutation-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   mkdirSync(path.join(root, "scripts"));
@@ -31,7 +32,7 @@ function setup(t, specSource = source) {
   const copy = path.join(root, spec.replace(".spec.ts", ".mutated.spec.ts"));
   mkdirSync(path.dirname(copy), { recursive: true });
   writeFileSync(path.join(root, spec), specSource);
-  for (const file of ["mutate-black-box-test.mjs", "template-files.mjs"])
+  for (const file of ["mutate-black-box-test.ts", "template-files.mjs"])
     cpSync(new URL(file, import.meta.url), path.join(root, "scripts", file));
   const fake = `#!${process.execPath}
 const fs = require('node:fs');
@@ -47,7 +48,7 @@ process.exit(1);
   const run = (extra = {}, file = spec) => {
     const r = spawnSync(
       process.execPath,
-      ["scripts/mutate-black-box-test.mjs", file],
+      ["scripts/mutate-black-box-test.ts", file],
       {
         cwd: root,
         encoding: "utf8",

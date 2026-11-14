@@ -16,14 +16,24 @@ import { fileURLToPath } from "node:url";
 const root = fileURLToPath(new URL("..", import.meta.url));
 const WORKFLOWS = ".github/workflows";
 
+interface PackageEngine {
+  name?: string;
+  version?: string;
+}
+
+interface PackageFile {
+  packageManager?: string;
+  devEngines?: { packageManager?: PackageEngine | PackageEngine[] };
+}
+
 const { packageManager, devEngines } = JSON.parse(
   await readFile(path.join(root, "package.json"), "utf8"),
-);
+) as PackageFile;
 // Without `packageManager`, the step uses its own input, and no version can
 // differ.
 const expected = packageManager?.match(/^pnpm@([^+]+)/)?.[1];
 
-const different = [];
+const different: string[] = [];
 const engine = [devEngines?.packageManager]
   .flat()
   .find((entry) => entry?.name === "pnpm");

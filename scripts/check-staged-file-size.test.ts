@@ -4,22 +4,26 @@ import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import type { TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
 
 const SCRIPT = fileURLToPath(
-  new URL("check-staged-file-size.mjs", import.meta.url),
+  new URL("check-staged-file-size.ts", import.meta.url),
 );
 const LIMIT = 20_000;
-const text = (bytes) => "a".repeat(bytes - 1) + "\n";
+const text = (bytes: number) => "a".repeat(bytes - 1) + "\n";
 
-const git = (directory, ...args) =>
+const git = (directory: string, ...args: string[]) =>
   spawnSync(
     "git",
     ["-c", "user.name=Test", "-c", "user.email=test@example.com", ...args],
     { cwd: directory, encoding: "utf8" },
   );
 
-async function repository(context, committed = {}) {
+async function repository(
+  context: TestContext,
+  committed: Record<string, string | Buffer> = {},
+) {
   const directory = await mkdtemp(path.join(os.tmpdir(), "staged-size-"));
   context.after(() => rm(directory, { recursive: true, force: true }));
   git(directory, "init", "--quiet", "--initial-branch=main");
@@ -28,7 +32,10 @@ async function repository(context, committed = {}) {
   return directory;
 }
 
-async function stage(directory, files) {
+async function stage(
+  directory: string,
+  files: Record<string, string | Buffer>,
+) {
   for (const [name, content] of Object.entries(files)) {
     await mkdir(path.dirname(path.join(directory, name)), { recursive: true });
     await writeFile(path.join(directory, name), content);
@@ -36,7 +43,7 @@ async function stage(directory, files) {
   git(directory, "add", "--all");
 }
 
-function check(directory) {
+function check(directory: string) {
   const result = spawnSync(process.execPath, [SCRIPT, "ignored-argument"], {
     cwd: directory,
     encoding: "utf8",

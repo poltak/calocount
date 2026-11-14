@@ -2,7 +2,7 @@
 // template, or a file that only a person changes. The "Template-owned files"
 // workflow of CI runs it for each change to a pull request:
 //
-//   node scripts/check-template-owned-files.mjs
+//   node scripts/check-template-owned-files.ts
 //
 // It passes when the pull request changes no file in `templateOwned` or
 // `personOnly` of `scripts/template-paths.json`, when a maintainer opened it,
@@ -30,6 +30,39 @@ import {
   isProjectPath,
   matchesPath,
 } from "./template-files.mjs";
+import type { VersionFile } from "./template-files.mjs";
+
+interface ChangedFile {
+  filename: string;
+  previous_filename?: string;
+  status?: string;
+  sha?: string;
+  patch?: string;
+}
+
+interface IssueEvent {
+  event: string;
+  label?: { name: string };
+  actor?: { login: string };
+}
+
+interface PullEvent {
+  action: string;
+  before: string;
+  after: string;
+  repository: { full_name: string; html_url: string };
+  pull_request: {
+    number: number;
+    base: { ref: string };
+    user: { login: string };
+    labels: { name: string }[];
+  };
+}
+
+interface PathsFile {
+  templateOwned: string[];
+  personOnly?: string[];
+}
 
 const LABEL = "template-change-approved";
 // GitHub lists at most 300 files in a compare, so the list of a longer compare
@@ -38,25 +71,25 @@ const COMPARE_FILE_LIMIT = 300;
 const HUNK_LINE_NUMBERS = /^@@ -\d+(?:,\d+)? \+\d+(?:,\d+)? @@/gm;
 const root = fileURLToPath(new URL("..", import.meta.url));
 
-function readPages(route) {
+function readPages<Page>(route: string): Page[] {
   // The lists of changed files have the text of each diff. Above the default
   // limit of 1 MiB, Node stops `gh` and the check fails with ENOBUFS.
   const output = execFileSync("gh", ["api", "--paginate", "--slurp", route], {
     encoding: "utf8",
     maxBuffer: 256 * 1024 * 1024,
   });
-  return JSON.parse(output);
+  return JSON.parse(output) as Page[];
 }
 
 /** Each path in a list of changed files, also the old path of a move. */
-const pathsOf = (files) =>
+const pathsOf = (files: ChangedFile[]) =>
   files.flatMap((file) =>
     file.previous_filename
       ? [file.filename, file.previous_filename]
       : [file.filename],
   );
 
-const listOf = (files) => files.map((file) => `  ${file}`).join("\n");
+const listOf = (files: string[]) => files.map((file) => `  ${file}`).join("\n");
 
 /**
  * The pull request's own change to each file from the template, at one head
@@ -64,12 +97,22 @@ const listOf = (files) => files.map((file) => `  ${file}`).join("\n");
  * the commit where the branch left the base branch, so a change that came in
  * from the base branch is not in it. Null when GitHub cannot give each change.
  */
-function ownChanges({ repository, base, head, isOwned }) {
-  let files;
+function ownChanges({
+  repository,
+  base,
+  head,
+  isOwned,
+}: {
+  repository: string;
+  base: string;
+  head: string;
+  isOwned: (file: string) => boolean;
+}): Map<string, string> | null {
+  let files: ChangedFile[];
   try {
-    files = readPages(`repos/${repository}/compare/${base}...${head}`).flatMap(
-      (page) => page.files ?? [],
-    );
+    files = readPages<{ files?: ChangedFile[] }>(
+      `repos/${repository}/compare/${base}...${head}`,
+    ).flatMap((page) => page.files ?? []);
   } catch {
     // After a force push, GitHub can be without the old commit.
     return null;
@@ -80,7 +123,7 @@ function ownChanges({ repository, base, head, isOwned }) {
   return new Map(
     files
       .filter((file) => pathsOf([file]).some(isOwned))
-      .map((file) => [
+      .map((file): [string, string] => [
         file.filename,
         [
           file.status,
@@ -101,21 +144,25 @@ function check() {
     return true;
   }
 
-  const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, "utf8"));
+  const event = JSON.parse(
+    readFileSync(process.env.GITHUB_EVENT_PATH ?? "", "utf8"),
+  ) as PullEvent;
   const maintainers = (process.env.TEMPLATE_MAINTAINERS ?? "")
     .split(/[\s,]+/)
     .filter(Boolean);
-  const isMaintainer = (login) =>
+  const isMaintainer = (login: string | undefined) =>
     maintainers.some((name) => name.toLowerCase() === login?.toLowerCase());
   const { templateOwned, personOnly = [] } = JSON.parse(
     readFileSync(path.join(root, PATHS_FILE), "utf8"),
-  );
-  const { ownPaths } = JSON.parse(readFileSync(versionFile, "utf8"));
-  const isListed = (entries, file) =>
+  ) as PathsFile;
+  const { ownPaths } = JSON.parse(
+    readFileSync(versionFile, "utf8"),
+  ) as VersionFile;
+  const isListed = (entries: string[], file: string) =>
     entries.some((entry) => matchesPath({ entry, file }));
-  const isFromTemplate = (file) =>
+  const isFromTemplate = (file: string) =>
     isListed(templateOwned, file) && !isProjectPath({ ownPaths, file });
-  const isOwned = (file) =>
+  const isOwned = (file: string) =>
     GUARDED_FILES.includes(file) ||
     isFromTemplate(file) ||
     isListed(personOnly, file);
@@ -126,7 +173,7 @@ function check() {
 
   const changed = new Set(
     pathsOf(
-      readPages(
+      readPages<ChangedFile[]>(
         `repos/${repository}/pulls/${pull.number}/files?per_page=100`,
       ).flat(),
     ).filter(isOwned),
@@ -143,7 +190,7 @@ function check() {
 
   let approved = pull.labels.some((label) => label.name === LABEL);
   if (approved && event.action === "synchronize") {
-    const changesAt = (head) =>
+    const changesAt = (head: string) =>
       ownChanges({ repository, base: pull.base.ref, head, isOwned });
     const before = changesAt(event.before);
     const after = before && changesAt(event.after);
@@ -178,7 +225,7 @@ function check() {
     return true;
   }
   if (approved) {
-    const adder = readPages(`${issueRoute}/events?per_page=100`)
+    const adder = readPages<IssueEvent[]>(`${issueRoute}/events?per_page=100`)
       .flat()
       .filter(
         (entry) => entry.event === "labeled" && entry.label?.name === LABEL,

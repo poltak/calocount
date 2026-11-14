@@ -19,21 +19,27 @@ const root = fileURLToPath(new URL("..", import.meta.url));
 const DATA_DIRECTORY = ".beads";
 const COMMIT_MESSAGE = "Turn on the beads issue tracker";
 
-const read = (...args) => git({ root, args }).stdout;
+const read = (...args: string[]) => git({ root, args }).stdout;
 
 function readPrefix() {
-  let values;
+  let values: { prefix?: string | undefined };
   try {
     ({ values } = parseArgs({
       args: process.argv.slice(2),
       options: { prefix: { type: "string" } },
     }));
   } catch (error) {
-    fail(`${error.message}\n\nUsage: pnpm run issues:init [--prefix <name>]`);
+    fail(
+      `${error instanceof Error ? error.message : String(error)}\n\nUsage: pnpm run issues:init [--prefix <name>]`,
+    );
   }
   return (
     values.prefix ??
-    JSON.parse(readFileSync(path.join(root, "package.json"), "utf8")).name
+    (
+      JSON.parse(readFileSync(path.join(root, "package.json"), "utf8")) as {
+        name: string;
+      }
+    ).name
   );
 }
 

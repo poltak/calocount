@@ -12,6 +12,7 @@
 // has no JavaScript API, so the script finds the checks in the text, with
 // comments and strings masked.
 import { spawn } from "node:child_process";
+import type { ChildProcess, SpawnOptions } from "node:child_process";
 import {
   existsSync,
   mkdtempSync,
@@ -23,6 +24,15 @@ import {
 import os from "node:os";
 import path from "node:path";
 import { fail } from "./template-files.mjs";
+// The shape of the parts of a Playwright JSON report that the script reads.
+interface ReportNode {
+  status?: string;
+  line?: number;
+  tests?: { results?: { status: string }[] }[];
+  errors?: { message?: string; location?: { file: string; line: number } }[];
+  [key: string]: unknown;
+}
+
 // The start of the message of a changed check that fails. Another error on the
 // line of a check, such as a TypeError, does not show that the check works.
 const MARKER = "Changed by the check:";
@@ -76,9 +86,9 @@ if (
 const copy = original.replace(/\.spec\.ts$/, ".mutated.spec.ts");
 if (existsSync(copy)) fail(`Delete the existing copy ${copy} first.`);
 const source = readFileSync(original, "utf8");
-function mask(text) {
+function mask(text: string) {
   const out = text.split("");
-  const blank = (start, end) => {
+  const blank = (start: number, end: number) => {
     for (let at = start; at < end; at++)
       if (out[at] !== "\n" && out[at] !== "\r") out[at] = " ";
   };
@@ -90,7 +100,7 @@ function mask(text) {
     } else if (text.startsWith("/*", at)) {
       const end = text.indexOf("*/", at + 2);
       at = end < 0 ? text.length : end + 2;
-    } else if (["'", '"', "`"].includes(text[at])) {
+    } else if (["'", '"', "`"].includes(text.charAt(at))) {
       const quote = text[at++];
       while (at < text.length) {
         if (text[at] === "\\") at += 2;
@@ -120,15 +130,22 @@ function mask(text) {
   return out.join("");
 }
 const masked = mask(source);
-const checks = [];
+interface Check {
+  name: string;
+  reason: string | null;
+  offset: number;
+  line: number;
+}
+
+const checks: Check[] = [];
 for (const match of masked.matchAll(/\.\s*(to\w+)\s*\(/g)) {
-  const name = match[1];
+  const name = match[1] ?? "";
   const before = masked.slice(0, match.index);
   // Ignore braces inside the poll callback while finding the statement start.
   let depth = 0,
     start = 0;
   for (let at = before.length - 1; at >= 0; at--) {
-    const char = before[at];
+    const char = before.charAt(at);
     if (char === ")" || char === "]") depth++;
     else if (char === "(" || char === "[") depth--;
     if (depth === 0 && ";{}".includes(char)) {
@@ -154,7 +171,7 @@ for (const match of masked.matchAll(/\.\s*(to\w+)\s*\(/g)) {
     let depth = 0,
       at = match.index + match[0].length;
     for (; at < masked.length; at++) {
-      const char = masked[at];
+      const char = masked.charAt(at);
       if ("([{".includes(char)) depth++;
       else if (")]}".includes(char) && depth-- === 0) break;
       else if (char === "," && depth === 0) break;
@@ -187,17 +204,17 @@ for (const check of checks.toReversed())
     changed =
       changed.slice(0, check.offset) +
       "changed" +
-      check.name[0].toUpperCase() +
+      check.name.charAt(0).toUpperCase() +
       check.name.slice(1) +
       changed.slice(check.offset + check.name.length);
 const importPattern =
   /import\s*\{([^}]+)\}\s*from\s*(["'])@playwright\/test\2\s*;/;
 const imported = changed.match(importPattern);
-if (!imported || !/(?:^|,)\s*expect\s*(?:,|$)/.test(imported[1]))
+if (!imported || !/(?:^|,)\s*expect\s*(?:,|$)/.test(imported[1] ?? ""))
   fail('The spec must import { expect } from "@playwright/test".');
 changed = changed.replace(
   importPattern,
-  (statement, names) =>
+  (statement: string, names: string) =>
     statement.replace(
       names,
       names.replace(/\bexpect\b/, "expect as baseExpect"),
@@ -237,9 +254,12 @@ changed += `\nfunction changedMatchers() {
     }
   }]));
 }\n`;
-let temporary;
-let child;
-function runPnpm(args, options) {
+let temporary: string | undefined;
+let child: ChildProcess | undefined;
+function runPnpm(
+  args: string[],
+  options: SpawnOptions,
+): Promise<{ error?: Error; status?: number | null }> {
   return new Promise((resolve) => {
     child = spawn("pnpm", args, options);
     child.once("error", (error) => resolve({ error }));
@@ -253,7 +273,7 @@ const cleanup = () => {
   rmSync(copy, { force: true });
   if (temporary) rmSync(temporary, { recursive: true, force: true });
 };
-for (const signal of ["SIGINT", "SIGTERM"])
+for (const signal of ["SIGINT", "SIGTERM"] as const)
   process.once(signal, () => {
     child?.kill(signal);
     cleanup();
@@ -291,9 +311,14 @@ try {
   const otherLines = new Set();
   const ranTests = new Set();
   let stopped = false;
-  function visit(value) {
-    if (!value || typeof value !== "object") return;
-    if (["timedOut", "interrupted"].includes(value.status)) stopped = true;
+  function visit(node: unknown) {
+    if (!node || typeof node !== "object") return;
+    const value = node as ReportNode;
+    if (
+      value.status !== undefined &&
+      ["timedOut", "interrupted"].includes(value.status)
+    )
+      stopped = true;
     // A spec of the report has the line of its test and the results of its runs.
     if (
       typeof value.line === "number" &&
@@ -315,7 +340,7 @@ try {
         else if (child && typeof child === "object") visit(child);
       }
   }
-  const json = JSON.parse(readFileSync(report, "utf8"));
+  const json = JSON.parse(readFileSync(report, "utf8")) as ReportNode;
   // An error before the tests, such as a failed build of the frontend, has no
   // test. Then no check ran.
   if (json.errors?.length)
@@ -324,7 +349,8 @@ try {
     );
   visit(json);
   const allRan = testLines.every((line) => ranTests.has(line));
-  const testOf = (line) => testLines.filter((start) => start <= line).at(-1);
+  const testOf = (line: number) =>
+    testLines.filter((start) => start <= line).at(-1);
   const counts = { failed: 0, passed: 0, unknown: 0, manual: 0 };
   for (const check of checks) {
     let message;
@@ -354,7 +380,7 @@ try {
   );
   if (counts.passed || counts.unknown) process.exitCode = 1;
 } catch (error) {
-  console.error(error.message);
+  console.error(error instanceof Error ? error.message : String(error));
   process.exitCode = 1;
 } finally {
   cleanup();

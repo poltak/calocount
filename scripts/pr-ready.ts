@@ -14,15 +14,31 @@ import path from "node:path";
 import { fail, git } from "./template-files.mjs";
 
 const root = process.cwd();
-const command = (...args) => git({ root, args });
-export const browserRules = [
+const command = (...args: string[]) => git({ root, args });
+interface BrowserResult {
+  status: "passed" | "not-needed";
+  files: string[];
+}
+
+interface CheckRecord {
+  head: string;
+  checks: {
+    check?: { status: "passed" } | null;
+    browser?: BrowserResult | null;
+  };
+}
+
+export const browserRules: {
+  reason: string;
+  test: (file: string) => boolean;
+}[] = [
   {
     reason: "the entry point",
-    test: (file) => file === "frontend/src/main.tsx",
+    test: (file: string) => file === "frontend/src/main.tsx",
   },
   {
     reason: "the build and the test setup",
-    test: (file) =>
+    test: (file: string) =>
       [
         "frontend/vite.config.ts",
         "frontend/playwright.config.ts",
@@ -31,15 +47,16 @@ export const browserRules = [
   },
   {
     reason: "routing",
-    test: (file) => file === "frontend/src/features/core/ui/routes.tsx",
+    test: (file: string) => file === "frontend/src/features/core/ui/routes.tsx",
   },
   {
     reason: "an error boundary",
-    test: (file) => path.posix.basename(file).includes("error-boundary"),
+    test: (file: string) =>
+      path.posix.basename(file).includes("error-boundary"),
   },
   {
     reason: "a feature with black box tests",
-    test: (file) => {
+    test: (file: string) => {
       const feature = file.match(/^frontend\/src\/features\/([^/]+)\//)?.[1];
       return Boolean(
         feature &&
@@ -52,12 +69,13 @@ export const browserRules = [
   },
   {
     reason: "browser tests",
-    test: (file) =>
+    test: (file: string) =>
       file.startsWith("frontend/src/features/core/tests/browser/"),
   },
   {
     reason: "styles",
-    test: (file) => file.startsWith("frontend/src/") && file.endsWith(".css"),
+    test: (file: string) =>
+      file.startsWith("frontend/src/") && file.endsWith(".css"),
   },
 ];
 const clean = () => {
@@ -73,17 +91,20 @@ const containsMain = () =>
   }).status === 0;
 const resolveMessage =
   "Resolve the files, run git add on them, then git commit --no-edit. Run the merge step again.";
-function record(name, result) {
+function record<Name extends keyof CheckRecord["checks"]>(
+  name: Name,
+  result: CheckRecord["checks"][Name],
+) {
   const file = command("rev-parse", "--git-path", "pr-ready.json").stdout;
-  let value = { head: head(), checks: {} };
+  let value: CheckRecord = { head: head(), checks: {} };
   if (existsSync(file)) {
-    const previous = JSON.parse(readFileSync(file, "utf8"));
+    const previous = JSON.parse(readFileSync(file, "utf8")) as CheckRecord;
     if (previous.head === value.head) value = previous;
   }
   value.checks[name] = result;
   writeFileSync(file, JSON.stringify(value, null, 2) + "\n");
 }
-function run(args) {
+function run(args: string[]) {
   const result = spawnSync("pnpm", args, { stdio: "inherit" });
   if (result.error || result.status !== 0)
     fail(`pnpm ${args.join(" ")} failed.`);
@@ -130,7 +151,7 @@ function browser() {
   const files = command("diff", "--name-only", "origin/main...HEAD")
     .stdout.split("\n")
     .filter(Boolean);
-  const matched = new Set();
+  const matched = new Set<string>();
   for (const rule of browserRules) {
     const matches = files.filter(rule.test);
     if (matches.length) {
@@ -152,7 +173,7 @@ function report() {
   const file = command("rev-parse", "--git-path", "pr-ready.json").stdout;
   if (!existsSync(file))
     fail("Run check and browser first. No check record exists.");
-  const value = JSON.parse(readFileSync(file, "utf8"));
+  const value = JSON.parse(readFileSync(file, "utf8")) as CheckRecord;
   if (value.head !== head()) fail("HEAD changed. Run check and browser again.");
   if (!value.checks.check || !value.checks.browser)
     fail("Run check and browser first.");
@@ -161,11 +182,11 @@ function report() {
     result.files.slice(0, 5).join(", ") +
     (result.files.length > 5 ? ` and ${result.files.length - 5} more` : "");
   console.log(
-    `Checks at ${head().slice(0, 12)}, after a merge of origin/main (${command("rev-parse", "origin/main").stdout.slice(0, 12)}):\n- \`pnpm run check\`: passed\n- \`pnpm run test:browser\`: ${result.status === "passed" ? `passed (${files})` : "not needed (no change matches the rules in scripts/pr-ready.mjs)"}`,
+    `Checks at ${head().slice(0, 12)}, after a merge of origin/main (${command("rev-parse", "origin/main").stdout.slice(0, 12)}):\n- \`pnpm run check\`: passed\n- \`pnpm run test:browser\`: ${result.status === "passed" ? `passed (${files})` : "not needed (no change matches the rules in scripts/pr-ready.ts)"}`,
   );
 }
-const steps = { merge, check, browser, report };
+const steps: Record<string, () => void> = { merge, check, browser, report };
 const step = process.argv[2] ?? "all";
 if (step === "all") Object.values(steps).forEach((runStep) => runStep());
-else if (steps[step]) steps[step]();
+else if (steps[step]) steps[step]?.();
 else fail("Use merge, check, browser, report, or all.");

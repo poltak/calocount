@@ -21,30 +21,49 @@ const root = path.resolve(
 const uiDirectory = "src/features/core/ui/shadcn";
 const repair =
   "Run pnpm exec shadcn add --cwd frontend --yes --overwrite <component>. Put a fork in core/ui/registry/, not shadcn/.";
-const json = async (filename) => JSON.parse(await readFile(filename, "utf8"));
+const json = async (filename: string): Promise<unknown> =>
+  JSON.parse(await readFile(filename, "utf8"));
+
+interface PackageFile {
+  version?: string;
+  devDependencies?: { shadcn?: string };
+}
+
+interface ComponentsConfig {
+  tailwind: { css: string };
+}
 
 // With `rsc: false` the directive has no effect, and the CLI writes it on
 // different files when it installs a different set of components together.
-const withoutUseClient = (content) =>
+const withoutUseClient = (content: Buffer) =>
   Buffer.from(content.toString("utf8").replace(/^"use client"\n\n?/, ""));
 
-async function componentList(filename, optional = false) {
-  const components = await json(path.join(root, filename)).catch((error) => {
-    if (optional && error.code === "ENOENT") return [];
-    throw error;
-  });
+async function componentList(
+  filename: string,
+  optional = false,
+): Promise<string[]> {
+  const components = await json(path.join(root, filename)).catch(
+    (error: NodeJS.ErrnoException) => {
+      if (optional && error.code === "ENOENT") return [];
+      throw error;
+    },
+  );
   if (
     !Array.isArray(components) ||
     !components.every(
-      (component) => typeof component === "string" && component.trim() !== "",
+      (component: unknown) =>
+        typeof component === "string" && component.trim() !== "",
     )
   )
     throw new Error(`${filename} must be an array of registry names.`);
   return components;
 }
 
-async function files(directory, prefix = "") {
-  const result = new Map();
+async function files(
+  directory: string,
+  prefix = "",
+): Promise<Map<string, Buffer>> {
+  const result = new Map<string, Buffer>();
   for (const entry of await readdir(directory, { withFileTypes: true })) {
     const relative = path.join(prefix, entry.name);
     if (entry.isDirectory()) {
@@ -66,21 +85,23 @@ async function files(directory, prefix = "") {
 }
 
 async function check() {
-  const project = await json(path.join(root, "package.json"));
+  const project = (await json(path.join(root, "package.json"))) as PackageFile;
   const pin = project.devDependencies?.shadcn;
   if (!/^\d+\.\d+\.\d+$/.test(pin ?? ""))
     throw new Error("Pin shadcn to an exact dev dependency in package.json.");
   const require = createRequire(path.join(root, "package.json"));
   const cli = require.resolve("shadcn");
-  const installed = await json(
+  const installed = (await json(
     path.resolve(path.dirname(cli), "../package.json"),
-  );
+  )) as PackageFile;
   if (installed.version !== pin)
     throw new Error(
       `shadcn ${installed.version} does not match the pin ${pin}. Run pnpm install.`,
     );
   const frontend = path.join(root, "frontend");
-  const config = await json(path.join(frontend, "components.json"));
+  const config = (await json(
+    path.join(frontend, "components.json"),
+  )) as ComponentsConfig;
   const components = [
     ...new Set([
       ...(await componentList("scripts/shadcn-components.json")),
@@ -150,6 +171,6 @@ async function check() {
 try {
   await check();
 } catch (error) {
-  console.error(error.message);
+  console.error(error instanceof Error ? error.message : String(error));
   process.exitCode = 1;
 }

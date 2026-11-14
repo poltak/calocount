@@ -60,10 +60,10 @@ const STAGED_DIFF = [
   "--no-ext-diff",
 ];
 
-const runGit = (...args) =>
+const runGit = (...args: string[]) =>
   spawnSync("git", args, { encoding: "utf8", maxBuffer: 1024 * 1024 * 1024 });
 
-function git(...args) {
+function git(...args: string[]) {
   const result = runGit(...args);
   if (result.status !== 0) {
     console.error(result.stderr || result.error?.message);
@@ -76,8 +76,16 @@ function git(...args) {
  * What looks like a secret in one file of one change: its name, and the lines
  * that the patch adds. Each entry starts with `label`.
  */
-function secretsInFile({ name, patch, label }) {
-  const found = [];
+function secretsInFile({
+  name,
+  patch,
+  label,
+}: {
+  name: string;
+  patch: string;
+  label: string;
+}) {
+  const found: string[] = [];
   const base = path.posix.basename(name);
   for (const { kind, name: pattern } of SECRET_FILES) {
     if (pattern.test(base) && !ALLOWED_FILES.test(base)) {
@@ -86,7 +94,7 @@ function secretsInFile({ name, patch, label }) {
   }
   // A file that replaces a symbolic link has two sections. The lines before
   // the first hunk of a section are its header, such as `+++ b/name`.
-  let line;
+  let line: number | undefined;
   for (const text of patch.split("\n")) {
     const hunk = text.match(/^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
     if (text.startsWith("diff --git ")) {
@@ -127,7 +135,7 @@ function branchBase() {
 }
 
 /** The path in `diff --git a/<path> b/<path>`, which has no rename here. */
-function pathInHeader(section) {
+function pathInHeader(section: string) {
   const paths = section.slice("diff --git ".length, section.indexOf("\n"));
   return paths.slice(2, (paths.length - 1) / 2);
 }
@@ -152,9 +160,12 @@ function secretsInBranchCommits() {
     `${base}..HEAD`,
   );
   const fields = log.split("\0");
-  const found = [];
+  const found: string[] = [];
   for (let index = 1; index + 2 < fields.length; index += 3) {
-    const [commit, message, patch] = fields.slice(index, index + 3);
+    const [commit = "", message = "", patch = ""] = fields.slice(
+      index,
+      index + 3,
+    );
     if (ACCEPTED_COMMIT.test(message)) {
       continue;
     }
@@ -183,7 +194,7 @@ function warnWithoutHook() {
   }
 }
 
-function report(found) {
+function report(found: string[]) {
   console.error(
     [
       BRANCH_MODE

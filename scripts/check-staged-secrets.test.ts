@@ -4,10 +4,11 @@ import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import type { TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
 
 const SCRIPT = fileURLToPath(
-  new URL("check-staged-secrets.mjs", import.meta.url),
+  new URL("check-staged-secrets.ts", import.meta.url),
 );
 // The test builds each value from parts, so that this file has no value that
 // the check, or a scanner of GitHub, takes for a secret.
@@ -15,10 +16,13 @@ const GITHUB_TOKEN = ["gh", "p_", "A1b2C3d4E5f6".repeat(3)].join("");
 const OPENROUTER_KEY = ["sk-or", "-v1-", "0123456789abcdef".repeat(4)].join("");
 const PRIVATE_KEY = ["-----BEGIN", "OPENSSH PRIVATE KEY-----"].join(" ");
 
-const git = (directory, ...args) =>
+const git = (directory: string, ...args: string[]) =>
   spawnSync("git", args, { cwd: directory, encoding: "utf8" });
 
-async function repository(context, committed = {}) {
+async function repository(
+  context: TestContext,
+  committed: Record<string, string> = {},
+) {
   const directory = await mkdtemp(path.join(os.tmpdir(), "staged-secrets-"));
   context.after(() => rm(directory, { recursive: true, force: true }));
   git(directory, "init", "--quiet");
@@ -39,7 +43,7 @@ async function repository(context, committed = {}) {
   return directory;
 }
 
-async function stage(directory, files) {
+async function stage(directory: string, files: Record<string, string>) {
   for (const [name, text] of Object.entries(files)) {
     await mkdir(path.dirname(path.join(directory, name)), { recursive: true });
     await writeFile(path.join(directory, name), text);
@@ -49,7 +53,11 @@ async function stage(directory, files) {
   git(directory, "add", "--force", "--all");
 }
 
-function check(directory, env = {}, args = []) {
+function check(
+  directory: string,
+  env: Record<string, string> = {},
+  args: string[] = [],
+) {
   const result = spawnSync(process.execPath, [SCRIPT, ...args], {
     cwd: directory,
     encoding: "utf8",
@@ -159,7 +167,7 @@ test("SKIP_SECRET_CHECK=1 skips the check", async (context) => {
   assert.match(result.output, /the secret check did not run/);
 });
 
-function commit(directory, message) {
+function commit(directory: string, message: string) {
   git(
     directory,
     "-c",
@@ -175,7 +183,7 @@ function commit(directory, message) {
 }
 
 /** A repository on a branch that starts at `main`. */
-async function branch(context) {
+async function branch(context: TestContext) {
   const directory = await repository(context, { "README.md": "# Base\n" });
   git(directory, "switch", "--quiet", "-c", "feature/work");
   git(directory, "branch", "--force", "main", "HEAD");

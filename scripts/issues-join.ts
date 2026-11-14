@@ -12,7 +12,7 @@ import { chmodSync, existsSync } from "node:fs";
 import path from "node:path";
 import { fail, git } from "./template-files.mjs";
 const root = process.cwd();
-const command = (...args) => git({ root, args }).stdout;
+const command = (...args: string[]) => git({ root, args }).stdout;
 if (!existsSync(".beads"))
   fail(
     "This branch has no issues. For a new project, run pnpm run issues:init.",
@@ -23,12 +23,12 @@ if (
 ) {
   const main = command("worktree", "list", "--porcelain")
     .split("\n")[0]
-    .slice(9);
+    ?.slice(9);
   fail(
     `All worktrees use the issues of the main checkout. Run issues:join in ${main}.`,
   );
 }
-function bd(args) {
+function bd(args: string[]) {
   console.log(`Run pnpm exec bd ${args.join(" ")}.`);
   const result = spawnSync("pnpm", ["exec", "bd", ...args], {
     stdio: "inherit",

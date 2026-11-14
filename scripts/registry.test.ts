@@ -9,6 +9,18 @@ import { fileURLToPath } from "node:url";
 const root = fileURLToPath(new URL("..", import.meta.url));
 const ui = "frontend/src/features/core/ui";
 
+interface RegistryItem {
+  name: string;
+  type: string;
+  dependencies?: string[];
+  registryDependencies?: string[];
+  files: { path: string; target?: string }[];
+}
+
+interface BuiltItem extends RegistryItem {
+  files: { path: string; target?: string; content: string }[];
+}
+
 test("the registry builds every WorldBrain part from its source", async () => {
   const output = await mkdtemp(path.join(os.tmpdir(), "worldbrain-registry-"));
   try {
@@ -18,12 +30,12 @@ test("the registry builds every WorldBrain part from its source", async () => {
     });
     const registry = JSON.parse(
       await readFile(path.join(root, "registry.json"), "utf8"),
-    );
-    const sources = new Set();
+    ) as { items: RegistryItem[] };
+    const sources = new Set<string>();
     for (const item of registry.items) {
       const built = JSON.parse(
         await readFile(path.join(output, `${item.name}.json`), "utf8"),
-      );
+      ) as BuiltItem;
       assert.equal(built.name, item.name);
       assert.equal(built.type, item.type);
       assert.deepEqual(built.dependencies, item.dependencies);

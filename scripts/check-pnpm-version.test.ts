@@ -4,12 +4,13 @@ import { cp, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import type { TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
 
 const scriptsDirectory = path.dirname(fileURLToPath(import.meta.url));
-const SCRIPT = "scripts/check-pnpm-version.mjs";
+const SCRIPT = "scripts/check-pnpm-version.ts";
 
-const job = (version, index) => `  job-${index + 1}:
+const job = (version: string | undefined, index: number) => `  job-${index + 1}:
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
@@ -24,18 +25,27 @@ ${version ? `        with:\n          version: ${version}\n` : ""}
 `;
 
 /** Run the check in a repository that has these CI jobs. */
-async function check({ context, versions, engineVersion = "12.8.2" }) {
+async function check({
+  context,
+  versions,
+  engineVersion = "12.8.2",
+}: {
+  context: TestContext;
+  versions: (string | undefined)[];
+  engineVersion?: string;
+}) {
   const directory = await mkdtemp(path.join(os.tmpdir(), "pnpm-version-"));
   context.after(() => rm(directory, { recursive: true, force: true }));
   await mkdir(path.join(directory, "scripts"));
   await mkdir(path.join(directory, ".github/workflows"), { recursive: true });
   await cp(
-    path.join(scriptsDirectory, "check-pnpm-version.mjs"),
+    path.join(scriptsDirectory, "check-pnpm-version.ts"),
     path.join(directory, SCRIPT),
   );
   await writeFile(
     path.join(directory, "package.json"),
     JSON.stringify({
+      type: "module",
       packageManager: "pnpm@12.8.2",
       devEngines: {
         packageManager: { name: "pnpm", version: engineVersion },

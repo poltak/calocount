@@ -13,6 +13,7 @@ import {
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import type { TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
 
 const scriptsDirectory = path.dirname(fileURLToPath(import.meta.url));
@@ -41,20 +42,23 @@ git commit --quiet --message "bd init"
 exit 0
 `;
 
-const git = (directory, ...args) =>
+const git = (directory: string, ...args: string[]) =>
   execFileSync("git", args, {
     cwd: directory,
     env: GIT_ENVIRONMENT,
     encoding: "utf8",
   }).trimEnd();
 
-async function createProject(context, { version = true } = {}) {
+async function createProject(
+  context: TestContext,
+  { version = true }: { version?: boolean } = {},
+) {
   const directory = await mkdtemp(path.join(os.tmpdir(), "issues-init-"));
   context.after(() => rm(directory, { recursive: true, force: true }));
   const project = path.join(directory, "project");
   await mkdir(path.join(project, "scripts"), { recursive: true });
   await mkdir(path.join(directory, "bin"));
-  for (const script of ["issues-init.mjs", "template-files.mjs"]) {
+  for (const script of ["issues-init.ts", "template-files.mjs"]) {
     await cp(
       path.join(scriptsDirectory, script),
       path.join(project, "scripts", script),
@@ -82,10 +86,20 @@ async function createProject(context, { version = true } = {}) {
   return { directory, project };
 }
 
-function run({ directory, project, args = [], environment = {} }) {
+function run({
+  directory,
+  project,
+  args = [],
+  environment = {},
+}: {
+  directory: string;
+  project: string;
+  args?: string[];
+  environment?: Record<string, string>;
+}) {
   const result = spawnSync(
     process.execPath,
-    [path.join(project, "scripts/issues-init.mjs"), ...args],
+    [path.join(project, "scripts/issues-init.ts"), ...args],
     {
       cwd: project,
       encoding: "utf8",
@@ -100,9 +114,10 @@ function run({ directory, project, args = [], environment = {} }) {
   return { status: result.status, output: `${result.stdout}${result.stderr}` };
 }
 
-const callOf = (directory) =>
+const callOf = (directory: string) =>
   readFile(path.join(directory, "calls.txt"), "utf8");
-const called = (directory) => existsSync(path.join(directory, "calls.txt"));
+const called = (directory: string) =>
+  existsSync(path.join(directory, "calls.txt"));
 
 test("turns on beads with the flags that keep the hooks and the agents' files", async (context) => {
   const { directory, project } = await createProject(context);
@@ -175,7 +190,7 @@ test("refuses the template, a project that has beads, and a tree with changes", 
 
   const results = [inTemplate, withBeads, withChanges].map((project) =>
     run(project),
-  );
+  ) as [ReturnType<typeof run>, ReturnType<typeof run>, ReturnType<typeof run>];
 
   assert.deepEqual(
     results.map(({ status }) => status),

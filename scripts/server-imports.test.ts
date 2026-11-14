@@ -14,12 +14,12 @@ const IMPORT =
   /(?:^|\n)\s*(?:import|export)\s+(?!type\s)(?:[^;'"]*?\sfrom\s+)?"(\.[^"]+)"|import\(\s*"(\.[^"]+)"\s*\)/g;
 
 /** Each source file that a file loads at run time, also through other files. */
-async function loadedFrom(start) {
-  const loaded = new Set();
+async function loadedFrom(start: string) {
+  const loaded = new Set<string>();
   const pending = [start];
   while (pending.length > 0) {
     const file = pending.pop();
-    if (loaded.has(file)) {
+    if (file === undefined || loaded.has(file)) {
       continue;
     }
     loaded.add(file);
@@ -27,7 +27,7 @@ async function loadedFrom(start) {
     for (const [, statement, call] of source.matchAll(IMPORT)) {
       pending.push(
         path
-          .resolve(path.dirname(file), statement ?? call)
+          .resolve(path.dirname(file), statement ?? call ?? "")
           .replace(/\.js$/, ".ts"),
       );
     }

@@ -13,7 +13,8 @@ import {
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-const env = {
+import type { TestContext } from "node:test";
+const env: NodeJS.ProcessEnv = {
   ...process.env,
   GIT_CONFIG_GLOBAL: os.devNull,
   GIT_CONFIG_NOSYSTEM: "1",
@@ -22,14 +23,14 @@ const env = {
   GIT_COMMITTER_NAME: "Person",
   GIT_COMMITTER_EMAIL: "person@example.test",
 };
-function setup(t) {
+function setup(t: TestContext) {
   const dir = mkdtempSync(path.join(os.tmpdir(), "pr-ready-"));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
   const origin = path.join(dir, "origin.git"),
     upstream = path.join(dir, "upstream"),
     root = path.join(dir, "project"),
     bin = path.join(dir, "bin");
-  const git = (cwd, ...args) =>
+  const git = (cwd: string, ...args: string[]) =>
     execFileSync("git", args, {
       cwd,
       env,
@@ -38,7 +39,7 @@ function setup(t) {
     }).trim();
   git(dir, "init", "--bare", "--initial-branch=main", origin);
   git(dir, "clone", origin, upstream);
-  const commit = (cwd, file, text) => {
+  const commit = (cwd: string, file: string, text: string) => {
     mkdirSync(path.dirname(path.join(cwd, file)), { recursive: true });
     writeFileSync(path.join(cwd, file), text);
     git(cwd, "add", ".");
@@ -49,7 +50,7 @@ function setup(t) {
   git(dir, "clone", origin, root);
   git(root, "switch", "-c", "feature/trial");
   mkdirSync(path.join(root, "scripts"));
-  for (const file of ["pr-ready.mjs", "template-files.mjs"])
+  for (const file of ["pr-ready.ts", "template-files.mjs"])
     cpSync(new URL(file, import.meta.url), path.join(root, "scripts", file));
   git(root, "add", ".");
   git(root, "commit", "-m", "Add script");
@@ -60,13 +61,13 @@ function setup(t) {
   );
   chmodSync(path.join(bin, "pnpm"), 0o755);
   const calls = path.join(dir, "calls");
-  const run = (step, extra = {}) => {
-    const result = spawnSync(process.execPath, ["scripts/pr-ready.mjs", step], {
+  const run = (step: string, extra: Record<string, string> = {}) => {
+    const result = spawnSync(process.execPath, ["scripts/pr-ready.ts", step], {
       cwd: root,
       encoding: "utf8",
       env: {
         ...env,
-        PATH: bin + path.delimiter + env.PATH,
+        PATH: `${bin}${path.delimiter}${env.PATH}`,
         CALLS: calls,
         ...extra,
       },

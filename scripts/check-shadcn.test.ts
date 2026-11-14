@@ -12,13 +12,17 @@ import {
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import type { TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
-const script = path.join(root, "scripts/check-shadcn.mjs");
+const script = path.join(root, "scripts/check-shadcn.ts");
 const ui = "frontend/src/features/core/ui/shadcn/";
 
-async function fixture(context, changes = {}) {
+async function fixture(
+  context: TestContext,
+  changes: Record<string, string | null> = {},
+) {
   const directory = await mkdtemp(path.join(os.tmpdir(), "shadcn-fixture-"));
   context.after(() => rm(directory, { recursive: true, force: true }));
   const files = {
@@ -141,7 +145,7 @@ test(
   async () => {
     const { templateOwned, projectOwned } = JSON.parse(
       await readFile(path.join(root, "scripts/template-paths.json"), "utf8"),
-    );
+    ) as { templateOwned: string[]; projectOwned: string[] };
     const filenames = await readdir(path.join(root, ui));
     assert.deepEqual(
       templateOwned.filter((entry) => entry.startsWith(ui)).sort(),
@@ -160,12 +164,13 @@ test(
   },
 );
 
-for (const [name, changes, expected] of [
+const rejections: [string, Record<string, string | null>, string][] = [
   ["edited", { [ui + "button.tsx"]: "hand edit" }, "button.tsx"],
   ["missing", { [ui + "button.tsx"]: null }, "button.tsx"],
   ["extra", { [ui + "extra.tsx"]: "new file" }, "extra.tsx"],
   ["edited helper", { [ui + "helper.ts"]: "hand edit" }, "helper.ts"],
-])
+];
+for (const [name, changes, expected] of rejections)
   test(`rejects an ${name} file and gives the repair command`, async (context) => {
     const result = await fixture(context, changes);
     assert.equal(result.status, 1);
@@ -207,8 +212,10 @@ test("reports a failed generator rather than a pass", async (context) => {
 test("the local and CI checks both run the generation check", async () => {
   const pkg = JSON.parse(
     await readFile(path.join(root, "package.json"), "utf8"),
-  );
-  assert.equal(pkg.scripts["check:shadcn"], "node scripts/check-shadcn.mjs");
+  ) as {
+    scripts: { "check:shadcn": string; check: string; "ci:checks": string };
+  };
+  assert.equal(pkg.scripts["check:shadcn"], "node scripts/check-shadcn.ts");
   assert.match(pkg.scripts.check, /check:/);
   assert.match(pkg.scripts["ci:checks"], /check:/);
   assert.match(
@@ -220,7 +227,7 @@ test("the local and CI checks both run the generation check", async () => {
 // A template component that templateOwned does not list is open to a hand edit
 // in each project, because the list names files and not the folder.
 test("lists each template shadcn file in templateOwned", async (context) => {
-  const projectList = JSON.parse(
+  const projectList: string[] = JSON.parse(
     await readFile(
       path.join(root, "scripts/shadcn-components.project.json"),
       "utf8",
@@ -232,7 +239,7 @@ test("lists each template shadcn file in templateOwned", async (context) => {
   }
   const { templateOwned } = JSON.parse(
     await readFile(path.join(root, "scripts/template-paths.json"), "utf8"),
-  );
+  ) as { templateOwned: string[] };
   const files = await readdir(path.join(root, ui), { recursive: true });
   for (const file of files) {
     if (!/\.tsx?$/.test(file)) continue;

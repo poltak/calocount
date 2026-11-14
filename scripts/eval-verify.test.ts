@@ -6,11 +6,12 @@ import { existsSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import type { TestContext } from "node:test";
 const compiled = new URL(
   "../backend/dist/features/core/scripts/eval-command.js",
   import.meta.url,
 );
-function run(t, kind) {
+function run(t: TestContext, kind: string) {
   assert.ok(
     existsSync(compiled),
     "Run `pnpm --filter backend... run build` first.",
