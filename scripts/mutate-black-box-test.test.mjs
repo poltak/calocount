@@ -171,6 +171,9 @@ test("reports a toHaveAttribute check with no value by hand", (t) => {
 await expect(link).toHaveAttribute("href", "/notes");
 await expect(button).toHaveAttribute("disabled");
 await expect(button).toHaveAttribute("disabled", { timeout: 1000 });
+await expect(button).toHaveAttribute(
+  "disabled",
+);
 `,
   );
   const r = x.run();
@@ -178,6 +181,7 @@ await expect(button).toHaveAttribute("disabled", { timeout: 1000 });
   assert.match(r.output, /2: toHaveAttribute  fails when changed/);
   assert.match(r.output, /3: toHaveAttribute  by hand: checks only that/);
   assert.match(r.output, /4: toHaveAttribute  by hand: checks only that/);
+  assert.match(r.output, /5: toHaveAttribute  by hand: checks only that/);
 });
 test("does not count another error on the line of a check", (t) => {
   const x = setup(t);

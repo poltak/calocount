@@ -159,7 +159,9 @@ for (const match of masked.matchAll(/\.\s*(to\w+)\s*\(/g)) {
       else if (")]}".includes(char) && depth-- === 0) break;
       else if (char === "," && depth === 0) break;
     }
-    if (masked[at] !== "," || /^\s*\{/.test(masked.slice(at + 1)))
+    // The source and not the masked text, because the mask makes a string
+    // look like blank space, as after a trailing comma.
+    if (masked[at] !== "," || /^\s*[{)]/.test(source.slice(at + 1)))
       reason = "checks only that the attribute exists; change it by hand";
   }
   checks.push({
