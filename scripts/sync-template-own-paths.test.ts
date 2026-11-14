@@ -18,16 +18,24 @@ import {
   readProjectFile,
   short,
   createProject,
-} from "./sync-template-fixtures.mjs";
+} from "./sync-template-fixtures.ts";
 
 /**
  * Run the script in a real terminal, and type one line. `own` refuses a process
  * that has no terminal, and Node cannot make one without `script`.
  */
-function syncInTerminal({ project, typed, args }) {
+function syncInTerminal({
+  project,
+  typed,
+  args,
+}: {
+  project: string;
+  typed?: string | undefined;
+  args: string[];
+}) {
   const command = [
     process.execPath,
-    path.join(project, "scripts/sync-template.mjs"),
+    path.join(project, "scripts/sync-template.ts"),
     ...args,
   ];
   const quoted = command
@@ -58,7 +66,13 @@ done=$(mktemp -u) && mkfifo "$done" || exit 1
 }
 
 /** Give the project a list of paths that it took over, in one commit. */
-async function keepPaths({ project, paths }) {
+async function keepPaths({
+  project,
+  paths,
+}: {
+  project: string;
+  paths: string[];
+}) {
   await write(project, {
     "template-version.json": json({
       ...(await readVersion(project)),
@@ -148,7 +162,8 @@ test("does not write a list of migrations that the project keeps", async (contex
   const { template, project } = await createProject(context);
   const database = "backend/src/features/core/database";
   const list = `${database}/migrations.ts`;
-  const migration = (name) => `export const migration = { name: "${name}" };\n`;
+  const migration = (name: string) =>
+    `export const migration = { name: "${name}" };\n`;
   for (const directory of [template, project]) {
     await symlink(
       path.join(repoRoot, "node_modules"),
@@ -158,10 +173,10 @@ test("does not write a list of migrations that the project keeps", async (contex
   const createMigration = () =>
     execFileSync(
       process.execPath,
-      [path.join(template, "scripts/create-migration.mjs"), "--sync"],
+      [path.join(template, "scripts/create-migration.ts"), "--sync"],
       { cwd: template },
     );
-  for (const script of ["create-migration.mjs", "migration-files.mjs"]) {
+  for (const script of ["create-migration.ts", "migration-files.ts"]) {
     await cp(
       path.join(scriptsDirectory, script),
       path.join(template, "scripts", script),
@@ -177,7 +192,13 @@ test("does not write a list of migrations that the project keeps", async (contex
   assert.equal(sync(project, "finish").status, 0);
 
   /** A mixed commit: one migration, its list, and one file of the application. */
-  const addMigration = async ({ timestamp, name }) => {
+  const addMigration = async ({
+    timestamp,
+    name,
+  }: {
+    timestamp: number;
+    name: string;
+  }) => {
     await write(template, {
       [`${database}/migrations/${timestamp}-create-${name}.ts`]:
         migration(name),
@@ -223,7 +244,7 @@ test("refuses each command while the project keeps a gate of the template", asyn
   const { project } = await createProject(context);
 
   for (const entry of [
-    "scripts/sync-template.mjs",
+    "scripts/sync-template.ts",
     "scripts/",
     ".agents/hooks/guard-template-owned-files.mjs",
     ".agents/",
@@ -319,11 +340,11 @@ test("refuses to take over a gate, a path with no file, or a path that the proje
   const { project } = await createProject(context);
   await keepPaths({ project, paths: ["src/app.txt"] });
   sync(project, "plan");
-  const own = (entry) =>
+  const own = (entry: string) =>
     syncInTerminal({ project, args: ["own", entry, "A reason"] });
 
   for (const entry of [
-    "scripts/sync-template.mjs",
+    "scripts/sync-template.ts",
     "scripts/",
     ".agents/hooks/",
   ]) {

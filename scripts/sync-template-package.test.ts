@@ -17,7 +17,7 @@ import {
   readProjectFile,
   short,
   createProject,
-} from "./sync-template-fixtures.mjs";
+} from "./sync-template-fixtures.ts";
 
 test("merges package.json by its keys when Git finds a conflict in its lines", async (context) => {
   const { template, project } = await createProject(context);
@@ -237,12 +237,13 @@ test("keeps the project's lockfile when the template's change does not apply to 
 test("writes the list of migrations again when a template commit adds a migration", async (context) => {
   const { template, project } = await createProject(context);
   const database = "backend/src/features/core/database";
-  const migration = (name) => `export const migration = { name: "${name}" };\n`;
-  const listOf = async (directory) =>
+  const migration = (name: string) =>
+    `export const migration = { name: "${name}" };\n`;
+  const listOf = async (directory: string) =>
     (await readProjectFile(directory, `${database}/migrations.ts`))
       .split("\n")
       .filter((line) => line.startsWith("import { migration as "))
-      .map((line) => line.match(/as (\w+) /)[1]);
+      .map((line) => line.match(/as (\w+) /)?.[1]);
   // The real script writes the list. It needs Prettier, from the repository
   // of these tests.
   for (const directory of [template, project]) {
@@ -251,14 +252,14 @@ test("writes the list of migrations again when a template commit adds a migratio
       path.join(directory, "node_modules"),
     );
   }
-  const createMigration = (directory) =>
+  const createMigration = (directory: string) =>
     execFileSync(
       process.execPath,
-      [path.join(directory, "scripts/create-migration.mjs"), "--sync"],
+      [path.join(directory, "scripts/create-migration.ts"), "--sync"],
       { cwd: directory },
     );
 
-  for (const script of ["create-migration.mjs", "migration-files.mjs"]) {
+  for (const script of ["create-migration.ts", "migration-files.ts"]) {
     await cp(
       path.join(scriptsDirectory, script),
       path.join(template, "scripts", script),

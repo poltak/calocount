@@ -11,7 +11,7 @@ import {
   readProjectFile,
   short,
   createProject,
-} from "./sync-template-fixtures.mjs";
+} from "./sync-template-fixtures.ts";
 
 test("commits the lockfile and the new template version, one time", async (context) => {
   const { template, project } = await createProject(context);

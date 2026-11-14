@@ -2,7 +2,9 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import type { TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
+import type { VersionFile } from "./template-files.mjs";
 
 export const scriptsDirectory = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(scriptsDirectory, "..");
@@ -35,7 +37,7 @@ export const PACKAGE_JSON = {
   scripts: { check: "node check.mjs", dev: "node dev.mjs" },
   dependencies: { hono: "4.0.0", react: "19.0.0", zod: "4.0.0" },
 };
-export const json = (value) => `${JSON.stringify(value, null, 2)}\n`;
+export const json = (value: unknown) => `${JSON.stringify(value, null, 2)}\n`;
 // The lists of the template in these tests. The tests do not read the lists
 // of this repository, so a change to those lists does not change a result.
 export const TEMPLATE_PATHS = {
@@ -52,7 +54,7 @@ export const TEMPLATE_PATHS = {
   projectOwned: ["README.md", "docs/agents/project/"],
 };
 
-export function git(directory, ...args) {
+export function git(directory: string, ...args: string[]): string {
   return execFileSync("git", args, {
     cwd: directory,
     env: GIT_ENVIRONMENT,
@@ -60,7 +62,7 @@ export function git(directory, ...args) {
   }).trimEnd();
 }
 
-export async function write(directory, files) {
+export async function write(directory: string, files: Record<string, string>) {
   for (const [file, content] of Object.entries(files)) {
     const target = path.join(directory, file);
     await mkdir(path.dirname(target), { recursive: true });
@@ -69,7 +71,11 @@ export async function write(directory, files) {
 }
 
 /** Commit every change in a repository, and return the commit's ID. */
-export function commit(directory, message, environment = {}) {
+export function commit(
+  directory: string,
+  message: string,
+  environment: Record<string, string> = {},
+): string {
   git(directory, "add", "--all");
   execFileSync("git", ["commit", "--quiet", "--message", message], {
     cwd: directory,
@@ -79,15 +85,27 @@ export function commit(directory, message, environment = {}) {
 }
 
 /** Make one template commit that writes these files. */
-export async function templateCommit({ template, message, files }) {
+export async function templateCommit({
+  template,
+  message,
+  files,
+}: {
+  template: string;
+  message: string;
+  files: Record<string, string>;
+}): Promise<string> {
   await write(template, files);
   return commit(template, message, TEMPLATE_AUTHOR);
 }
 
-export function sync(project, ...args) {
+export function syncScript(
+  project: string,
+  script: string,
+  ...args: string[]
+): { status: number | null; output: string } {
   const result = spawnSync(
     process.execPath,
-    [path.join(project, "scripts/sync-template.mjs"), ...args],
+    [path.join(project, "scripts", script), ...args],
     { cwd: project, env: GIT_ENVIRONMENT, encoding: "utf8" },
   );
   return {
@@ -96,18 +114,38 @@ export function sync(project, ...args) {
   };
 }
 
-export const readVersion = async (project) =>
-  JSON.parse(await readFile(path.join(project, "template-version.json")));
-export const readProjectFile = (project, file) =>
+export const sync = (project: string, ...args: string[]) =>
+  syncScript(project, "sync-template.ts", ...args);
+
+export const readVersion = async (project: string) =>
+  JSON.parse(
+    await readFile(path.join(project, "template-version.json"), "utf8"),
+  ) as VersionFile;
+export const readProjectFile = (project: string, file: string) =>
   readFile(path.join(project, file), "utf8");
-export const short = (commitId) => commitId.slice(0, 7);
+export const short = (commitId: string) => commitId.slice(0, 7);
+
+// The scripts that a project has from the template, each split module too.
+export const SYNC_SCRIPTS = [
+  "sync-template.ts",
+  "sync-template-common.ts",
+  "sync-template-plan.ts",
+  "sync-template-package.ts",
+  "sync-template-apply.ts",
+  "sync-template-finish.ts",
+  "sync-template.mjs",
+  "template-files.mjs",
+];
 
 /**
  * A template, and a project in the state that `start-project` leaves. The
  * project is without the files that only the template needs, and it has a
  * version file.
  */
-export async function createProject(context) {
+export async function createProject(
+  context: TestContext,
+  { scripts }: { scripts?: Record<string, string> } = {},
+) {
   const directory = await mkdtemp(path.join(os.tmpdir(), "sync-template-"));
   context.after(() => rm(directory, { recursive: true, force: true }));
   const template = path.join(directory, "template");
@@ -126,10 +164,24 @@ export async function createProject(context) {
     "backend/src/features/notes/note.txt": "the example\n",
     "scripts/template-paths.json": json(TEMPLATE_PATHS),
   });
-  for (const script of ["sync-template.mjs", "template-files.mjs"]) {
-    await cp(
-      path.join(scriptsDirectory, script),
-      path.join(template, "scripts", script),
+  // `scripts` has the text of each script that the template starts with, in
+  // place of the current scripts.
+  if (scripts === undefined) {
+    for (const script of SYNC_SCRIPTS) {
+      await cp(
+        path.join(scriptsDirectory, script),
+        path.join(template, "scripts", script),
+      );
+    }
+  } else {
+    await write(
+      template,
+      Object.fromEntries(
+        Object.entries(scripts).map(([script, text]) => [
+          `scripts/${script}`,
+          text,
+        ]),
+      ),
     );
   }
   const start = commit(template, "Start the template", TEMPLATE_AUTHOR);

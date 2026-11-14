@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { mkdir, rm } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
+import type { TestContext } from "node:test";
 import {
   json,
   git,
@@ -13,14 +14,20 @@ import {
   readProjectFile,
   short,
   createProject,
-} from "./sync-template-fixtures.mjs";
+} from "./sync-template-fixtures.ts";
 
 /**
  * A repository with its own history that took the template later. A merge
  * brings in the template's history. A copy brings in only its files. In both,
  * the project keeps its own README, and has no commit from before the template.
  */
-async function adoptTemplate({ context, bringFiles }) {
+async function adoptTemplate({
+  context,
+  bringFiles,
+}: {
+  context: TestContext;
+  bringFiles: (project: string) => void;
+}) {
   const { template, start } = await createProject(context);
   const project = `${template}-adopted`;
   await mkdir(project);
@@ -43,7 +50,7 @@ async function adoptTemplate({ context, bringFiles }) {
   return { template, project };
 }
 
-const ADOPTIONS = {
+const ADOPTIONS: Record<string, (project: string) => void> = {
   "a merge of unrelated histories": (project) =>
     git(
       project,

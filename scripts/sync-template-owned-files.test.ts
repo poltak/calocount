@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
+import type { TestContext } from "node:test";
 import {
   json,
   git,
@@ -15,7 +16,7 @@ import {
   createProject,
   TEMPLATE_PATHS,
   scriptsDirectory,
-} from "./sync-template-fixtures.mjs";
+} from "./sync-template-fixtures.ts";
 
 const GUIDE = "docs/agents/guide.md";
 const OWNED = [GUIDE, "docs/agents/tests/", "backend/src/features/notes/"];
@@ -71,7 +72,7 @@ test("keeps project shadcn files and their list while protecting template shadcn
   assert.equal(await readProjectFile(project, projectList), '["avatar"]\n');
 });
 
-async function createSyncedProject(context) {
+async function createSyncedProject(context: TestContext) {
   const created = await createProject(context);
   const { template, project } = created;
   const first = await templateCommit({

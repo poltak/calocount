@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { rm } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
+import type { TemplatePaths } from "./sync-template-common.ts";
 import {
   json,
   git,
@@ -12,7 +13,7 @@ import {
   readProjectFile,
   short,
   createProject,
-} from "./sync-template-fixtures.mjs";
+} from "./sync-template-fixtures.ts";
 
 test("leaves out the files that the project is without, in a commit that changes other files too", async (context) => {
   const { template, project } = await createProject(context);
@@ -73,11 +74,19 @@ test("names the files that a commit loses in the plan, and counts them in finish
 });
 
 /** One template commit that adds a migration of the example, with its entry. */
-async function addExampleMigration({ template, files }) {
+async function addExampleMigration({
+  template,
+  files,
+}: {
+  template: string;
+  files: Record<string, string>;
+}) {
   const pathsFile = "scripts/template-paths.json";
   const migration =
     "backend/src/features/core/database/migrations/1800000000-add-note-color.ts";
-  const paths = JSON.parse(await readProjectFile(template, pathsFile));
+  const paths = JSON.parse(
+    await readProjectFile(template, pathsFile),
+  ) as TemplatePaths;
   await templateCommit({
     template,
     message: "Give a note a color",
@@ -188,7 +197,9 @@ test("counts a project as without the example when only a migration of the examp
 test("leaves out a new file that the template adds with its entry in the list", async (context) => {
   const { template, project } = await createProject(context);
   const pathsFile = "scripts/template-paths.json";
-  const paths = JSON.parse(await readProjectFile(template, pathsFile));
+  const paths = JSON.parse(
+    await readProjectFile(template, pathsFile),
+  ) as TemplatePaths;
   await templateCommit({
     template,
     message: "Add a tool that only the template needs",
@@ -214,9 +225,21 @@ test("leaves out a new file that the template adds with its entry in the list", 
 });
 
 /** One template commit that adds a project-owned file, with its entry. */
-async function addProjectOwnedFile({ template, file, text, files = {} }) {
+async function addProjectOwnedFile({
+  template,
+  file,
+  text,
+  files = {},
+}: {
+  template: string;
+  file: string;
+  text: string;
+  files?: Record<string, string>;
+}) {
   const pathsFile = "scripts/template-paths.json";
-  const paths = JSON.parse(await readProjectFile(template, pathsFile));
+  const paths = JSON.parse(
+    await readProjectFile(template, pathsFile),
+  ) as TemplatePaths;
   return templateCommit({
     template,
     message: "Add a file that each project owns",

@@ -1,8 +1,15 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import {
   json,
+  PACKAGE_JSON,
+  SYNC_SCRIPTS,
+  TEMPLATE_PATHS,
+  scriptsDirectory,
+  syncScript,
   git,
   write,
   commit,
@@ -12,7 +19,7 @@ import {
   readProjectFile,
   short,
   createProject,
-} from "./sync-template-fixtures.mjs";
+} from "./sync-template-fixtures.ts";
 
 test("refuses a repository that is not a project", async (context) => {
   const { template } = await createProject(context);
@@ -262,8 +269,8 @@ test("names each file that stopped apply in the commit of finish", async (contex
 });
 
 /** One template commit that changes the word that `apply` prints for a commit. */
-async function changeTheSyncScript({ template }) {
-  const script = "scripts/sync-template.mjs";
+async function changeTheSyncScript({ template }: { template: string }) {
+  const script = "scripts/sync-template-apply.ts";
   const text = await readProjectFile(template, script);
   const changed = text.replace("`took  ${short", "`taken  ${short");
   assert.notEqual(changed, text);
@@ -454,3 +461,103 @@ test("finds a change that the template took with the commands of template.md", a
     ),
   );
 });
+
+/**
+ * The sync script from before the code moved to TypeScript, which a project
+ * made earlier still runs the first time. It comes from the last commit that
+ * changed it. A clone without that history skips the test.
+ */
+function readOldSyncScript(): string | undefined {
+  try {
+    return execFileSync("git", ["show", "b941232:scripts/sync-template.mjs"], {
+      cwd: scriptsDirectory,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+  } catch {
+    return undefined;
+  }
+}
+
+const oldSyncScript = readOldSyncScript();
+
+test(
+  "takes the commit that moves the sync script to TypeScript with the old script, and a later commit",
+  { skip: oldSyncScript === undefined && "The history has no old sync script" },
+  async (context) => {
+    const { template, project } = await createProject(context, {
+      scripts: {
+        "sync-template.mjs": oldSyncScript ?? "",
+        "template-files.mjs": await readFile(
+          path.join(scriptsDirectory, "template-files.mjs"),
+          "utf8",
+        ),
+      },
+    });
+    const packageWith = (script: string) =>
+      json({
+        ...PACKAGE_JSON,
+        scripts: { ...PACKAGE_JSON.scripts, "template:sync": script },
+      });
+    await templateCommit({
+      template,
+      message: "Add the sync script to package.json",
+      files: { "package.json": packageWith("node scripts/sync-template.mjs") },
+    });
+    assert.equal(syncScript(project, "sync-template.mjs", "plan").status, 0);
+    const first = syncScript(project, "sync-template.mjs", "apply");
+    assert.equal(first.status, 0, first.output);
+
+    const scripts: Record<string, string> = {};
+    for (const script of SYNC_SCRIPTS) {
+      scripts[`scripts/${script}`] = await readFile(
+        path.join(scriptsDirectory, script),
+        "utf8",
+      );
+    }
+    await templateCommit({
+      template,
+      message: "Move the sync script to TypeScript",
+      files: {
+        ...scripts,
+        "package.json": packageWith("node scripts/sync-template.ts"),
+        "scripts/template-paths.json": json({
+          ...TEMPLATE_PATHS,
+          projectOwned: [...TEMPLATE_PATHS.projectOwned, "CHANGELOG.md"],
+        }),
+      },
+    });
+    await templateCommit({
+      template,
+      message: "Change the application",
+      files: { "src/app.txt": "one\ntwo\nthree\nfour\n" },
+    });
+
+    assert.equal(syncScript(project, "sync-template.mjs", "plan").status, 0);
+    const moved = syncScript(project, "sync-template.mjs", "apply");
+
+    assert.equal(moved.status, 0, moved.output);
+    assert.match(moved.output, /took  \w{7}  Move the sync script/);
+    assert.match(moved.output, /took  \w{7}  Change the application/);
+    assert.match(
+      await readProjectFile(project, "scripts/sync-template.mjs"),
+      /await import\("\.\/sync-template\.ts"\)/,
+    );
+    assert.match(
+      await readProjectFile(project, "package.json"),
+      /"template:sync": "node scripts\/sync-template\.ts"/,
+    );
+    assert.equal(git(project, "status", "--porcelain"), "");
+
+    await templateCommit({
+      template,
+      message: "Change the application again",
+      files: { "src/app.txt": "one\ntwo\nthree\nfour\nfive\n" },
+    });
+    assert.equal(sync(project, "plan").status, 0);
+    const later = sync(project, "apply");
+    assert.equal(later.status, 0, later.output);
+    assert.match(later.output, /took  \w{7}  Change the application again/);
+    assert.equal(sync(project, "finish").status, 0);
+  },
+);
