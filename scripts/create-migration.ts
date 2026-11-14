@@ -9,7 +9,7 @@
 import { mkdir, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { branchMigrations } from "./migration-files.mjs";
+import { branchMigrations } from "./migration-files.ts";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const databaseDirectory = fileURLToPath(
@@ -35,9 +35,9 @@ export const migration = defineMigration({
 });
 `;
 
-function listSource(files) {
+function listSource(files: string[]): string {
   const entries = files.map((file) => {
-    const [, timestamp, name] = file.match(MIGRATION_FILE);
+    const [, timestamp = "", name = ""] = file.match(MIGRATION_FILE) ?? [];
     const camelCaseName = name.replace(/-([a-z0-9])/g, (_match, letter) =>
       letter.toUpperCase(),
     );
@@ -66,7 +66,7 @@ function listSource(files) {
   ].join("\n");
 }
 
-async function writeFormatted(file, source) {
+async function writeFormatted(file: string, source: string): Promise<void> {
   const prettier = await import("prettier");
   const config = await prettier.resolveConfig(file);
   await writeFile(
@@ -91,7 +91,7 @@ const files = (await readdir(migrationsDirectory))
 if (argument !== "--sync") {
   // A new migration always sorts after every existing one, even when a clock
   // is wrong or two are created in the same second.
-  const latest = Number(files.at(-1)?.match(MIGRATION_FILE)[1] ?? 0);
+  const latest = Number(files.at(-1)?.match(MIGRATION_FILE)?.[1] ?? 0);
   const timestamp = Math.max(Math.floor(Date.now() / 1000), latest + 1);
   const file = `${timestamp}-${argument}.ts`;
   await writeFormatted(

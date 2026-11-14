@@ -1,13 +1,31 @@
 import { access, readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 
-export async function checkScreenCoverage(outputDirectory, routes) {
+interface ScreenResult {
+  file?: string;
+  width: string;
+  theme: string;
+}
+
+interface Screen {
+  route: string;
+  state?: string;
+  results?: ScreenResult[];
+}
+
+export async function checkScreenCoverage(
+  outputDirectory: string,
+  routes: string[],
+): Promise<void> {
   const names = await readdir(outputDirectory);
-  const screens = await Promise.all(
+  const screens: Screen[] = await Promise.all(
     names
       .filter((name) => name.endsWith(".json"))
-      .map(async (name) =>
-        JSON.parse(await readFile(path.join(outputDirectory, name), "utf8")),
+      .map(
+        async (name) =>
+          JSON.parse(
+            await readFile(path.join(outputDirectory, name), "utf8"),
+          ) as Screen,
       ),
   );
   for (const route of routes) {

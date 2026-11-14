@@ -1,7 +1,7 @@
 // Starts the Worker as `pnpm run dev` does, on an empty local D1 with each
 // migration applied, and checks that it answers and stops.
 //
-//   node scripts/check-live-start.mjs
+//   node scripts/check-live-start.ts
 //
 // `test:live-start` builds the frontend and the backend first. The check shows
 // that the Worker bundles from the root `wrangler.jsonc`, that it builds its

@@ -3,12 +3,13 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { checkScreenCoverage } from "./ui-screens-coverage.mjs";
+import type { TestContext } from "node:test";
+import { checkScreenCoverage } from "./ui-screens-coverage.ts";
 
-async function fixture(context) {
+async function fixture(context: TestContext) {
   const directory = await mkdtemp(path.join(os.tmpdir(), "screens-coverage-"));
   context.after(() => rm(directory, { recursive: true, force: true }));
-  const results = [];
+  const results: { file: string; width: string; theme: string }[] = [];
   for (const width of ["desktop", "phone"]) {
     for (const theme of ["light", "dark"]) {
       const file = `root.${width}.${theme}.png`;

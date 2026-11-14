@@ -19,7 +19,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
-import { checkScreenCoverage } from "./ui-screens-coverage.mjs";
+import { checkScreenCoverage } from "./ui-screens-coverage.ts";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const SCREENS = "frontend/.browser-test/screens";
@@ -69,8 +69,9 @@ if (values["dry-run"]) {
 }
 
 // Throws, not exits, so that `finally` removes the temporary worktree.
-function run(command, cwd) {
-  const result = spawnSync(command[0], command.slice(1), {
+function run(command: string[], cwd: string): void {
+  const [program = ""] = command;
+  const result = spawnSync(program, command.slice(1), {
     cwd,
     stdio: "inherit",
   });
@@ -85,13 +86,13 @@ try {
   await capture();
   await checkScreenCoverage(outputDirectory, values.route);
 } catch (error) {
-  console.error(error.message);
+  console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);
 }
 
 console.log(`The screens are in ${path.relative(root, outputDirectory)}/`);
 
-async function capture() {
+async function capture(): Promise<void> {
   if (values.ref) {
     const worktree = await mkdtemp(path.join(os.tmpdir(), "ui-screens-"));
     try {

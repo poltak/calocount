@@ -5,13 +5,21 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
-const SCRIPT = path.join(root, "scripts/ui-screens.mjs");
+const SCRIPT = path.join(root, "scripts/ui-screens.ts");
 
-function plan(...args) {
+interface DryRunPlan {
+  request: { outputDirectory: string; routes: string[] };
+  ref: string | null;
+}
+
+function plan(...args: string[]) {
   const result = spawnSync(process.execPath, [SCRIPT, "--dry-run", ...args], {
     encoding: "utf8",
   });
-  return { ...result, plan: result.status === 0 && JSON.parse(result.stdout) };
+  return {
+    ...result,
+    plan: (result.status === 0 && JSON.parse(result.stdout)) as DryRunPlan,
+  };
 }
 
 test("takes each screen into the current folder by default", () => {
