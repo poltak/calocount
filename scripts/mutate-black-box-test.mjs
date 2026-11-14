@@ -201,12 +201,17 @@ changed += `\nfunction changedMatchers() {
   };
   return Object.fromEntries(names.map((name) => ["changed" + name[0].toUpperCase() + name.slice(1), async function(received, ...args) {
     const index = ["toHaveAttribute", "toHaveCSS"].includes(name) ? 1 : 0;
+    if (name === "toHaveAttribute" && (args[1] === undefined || Object.getPrototypeOf(args[1]) === Object.prototype))
+      throw new Error("toHaveAttribute with no value has no expected value. Change it by hand.");
     args[index] = name === "toHaveRole" ? (args[index] === "button" ? "link" : "button") : change(args[index]);
     if (name.startsWith("toHave") || ["toContainText"].includes(name)) args[index + 1] = { ...args[index + 1], timeout: 1500 };
     try {
       await baseExpect(received)[name](...args);
       return { pass: true, message: () => "The changed value passed." };
     } catch (error) {
+      // Only a failed assertion shows that the check fails. A wrong argument
+      // or another error goes to the report without the marker.
+      if (!error?.matcherResult) throw error;
       return { pass: false, message: () => "${MARKER} " + String(error.message ?? error) };
     }
   }]));
