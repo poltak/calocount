@@ -40,11 +40,14 @@ and the "Template-owned files" check stay there for that reason. Do not give
   cache.** On the GitHub runner, `--with-deps` took 21 of the step's 26
   seconds and added only fonts, which no test needs. The download takes 4
   seconds, and a cache of that size takes as long to restore.
-- **CI has no step that sets up Node, and no dependency cache.** pnpm
-  downloads the pinned Node by itself, so a setup step downloaded Node a
-  second time and took about 10 seconds. That step also kept the dependency
-  cache. The cache gave nothing: a run with a cache hit and a run that
-  downloaded each package took the same time.
+- **The jobs that use pnpm have no step that sets up Node, and no dependency
+  cache.** pnpm downloads the pinned Node by itself, so a setup step
+  downloaded Node a second time and took about 10 seconds. That step also
+  kept the dependency cache. The cache gave nothing: a run with a cache hit
+  and a run that downloaded each package took the same time. The agent review
+  and the template-owned files check install nothing, so they set up the
+  pinned Node with `actions/setup-node`. Their scripts are TypeScript, and the
+  Node of the runner image can be too old to run them.
 - **CI runs its jobs at the same time: the checks, four jobs of tests, and
   the browser tests with the live start.** With one job, a run took the sum of
   the three. The tests have four jobs, because the runner of a private
