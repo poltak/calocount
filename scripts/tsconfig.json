@@ -1,0 +1,22 @@
+// Node runs these scripts as they are: the pinned Node removes the types, so
+// there is no compile step. Only this check reads the types. Node removes
+// only syntax that has no effect at run time, so `erasableSyntaxOnly` rejects
+// the rest, such as `enum` and parameter properties.
+//
+// Two files stay JavaScript. `check-node-version.mjs` must run on a wrong Node
+// to report it. `template-files.mjs` is imported by an agent hook, and hooks
+// run on the `node` of the PATH, which can be too old to remove types.
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "target": "ESNext",
+    "lib": ["ESNext"],
+    "types": ["node"],
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true,
+    "allowJs": true,
+    "checkJs": false
+  },
+  "include": ["*.ts"]
+}
