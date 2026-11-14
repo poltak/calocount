@@ -3,8 +3,8 @@
 A project can run its own hook before each tool call of an agent. The
 template files `.claude/settings.json`, `.codex/hooks.json`, and
 `.agents/hooks/` come from the template, so a project does not change them.
-The template has one hook, `.agents/hooks/run-project-hooks.ts`. It runs the
-hooks that the project lists in `.agents/project-hooks/`.
+One template hook, `.agents/hooks/run-project-hooks.ts`, runs the hooks that
+the project lists in `.agents/project-hooks/`.
 
 ## The contract
 
