@@ -153,13 +153,13 @@ database user and password in `.env.example` are for this local database only.
 `pnpm install` installs a Git pre-commit hook that runs `lint-staged`. Its
 configuration in `package.json` runs three commands on the staged files:
 
-1. [`scripts/check-staged-secrets.mjs`](../../scripts/check-staged-secrets.mjs)
+1. [`scripts/check-staged-secrets.ts`](../../scripts/check-staged-secrets.ts)
    stops the commit when the staged changes have an obvious secret: a file of
    environment variables such as `.env.production`, a private key file, or a
    token in a well-known format. It reads only the lines that the commit adds,
    and it shows the file and the line, not the value. The script lists the
    formats.
-2. [`scripts/check-staged-file-size.mjs`](../../scripts/check-staged-file-size.mjs)
+2. [`scripts/check-staged-file-size.ts`](../../scripts/check-staged-file-size.ts)
    stops the commit when it adds a file over 5,000 tokens, or makes such a
    file larger. It counts a token for each 4 bytes. A file that is over the
    limit can get smaller or keep its size. The message says how to split a
@@ -211,7 +211,7 @@ names the template, and the last template commit that the project has.
 
 `pnpm run template:sync <command>` takes the later commits of the template
 into the project. The `sync-template` skill has the order of its commands, and
-[`scripts/sync-template.mjs`](../../scripts/sync-template.mjs) describes each
+[`scripts/sync-template.ts`](../../scripts/sync-template.ts) describes each
 one. `pnpm run template:sync plan` changes no file. It fetches the template
 and lists the new commits.
 

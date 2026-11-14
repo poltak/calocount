@@ -11,7 +11,7 @@ run Swamp.
 
 | Workflow           | Runs                                                       | Run it in            |
 | ------------------ | ---------------------------------------------------------- | -------------------- |
-| `start-project`    | `scripts/start-project.mjs`, step by step                  | The template only    |
+| `start-project`    | `scripts/start-project.ts`, step by step                   | The template only    |
 | `sync-template`    | `pnpm run template:sync`, step by step                     | A project            |
 | `pr-ready`         | `pnpm run pr:ready`, step by step                          | A branch before a PR |
 | `issues-join`      | `pnpm run issues:join`                                     | The main checkout    |
@@ -26,7 +26,7 @@ an agent without Swamp runs the same commands, and the result is the same.
 
 - **`pr:ready` runs the browser tests for more files than `AGENTS.md`
   names.** Its rules are file paths, in `browserRules` of
-  `scripts/pr-ready.mjs`. They also match each file of a feature that has
+  `scripts/pr-ready.ts`. They also match each file of a feature that has
   black box tests, and each CSS file. A run of the browser tests that is not
   necessary costs minutes. A missed run costs a failed CI run and a second
   agent review.

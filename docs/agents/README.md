@@ -82,8 +82,8 @@ a file when it needs one:
 | Request log and request IDs                    | `backend/src/features/core/handlers/`, `…/core/server/`                                                   |
 | A complete backend feature                     | `backend/src/features/health/`                                                                            |
 | The architecture lint rules and their options  | `lint/`, `.oxlintrc.json`, `lint.project.json`                                                            |
-| How a project takes template changes           | `scripts/sync-template.mjs`, `workflows/`                                                                 |
-| What stops an edit of a file from the template | `.agents/hooks/guard-template-owned-files.mjs`, `scripts/check-template-owned-files.mjs`                  |
+| How a project takes template changes           | `scripts/sync-template.ts`, `workflows/`                                                                  |
+| What stops an edit of a file from the template | `.agents/hooks/guard-template-owned-files.mjs`, `scripts/check-template-owned-files.ts`                   |
 | What tells an agent that a command was slow    | `.agents/hooks/warn-slow-commands.mjs`                                                                    |
 | The test fixture                               | `frontend/src/features/core/tests/full-application.ts`                                                    |
 | The build checks in a real browser             | `frontend/src/features/core/tests/browser/built-app.spec.ts`                                              |

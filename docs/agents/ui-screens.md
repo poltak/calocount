@@ -3,7 +3,7 @@
 The `ui-review` skill compares pages from their screenshots and measurements.
 `pnpm run ui:screens` takes them on the black box fixture, so each picture
 shows only fake rows, never a real database. Its options are in
-`scripts/ui-screens.mjs`:
+`scripts/ui-screens.ts`:
 
 - `--route <pattern>` takes only that route, such as `/notes/:noteId`.
 - `--ref <commit>` takes the screens of another commit, such as a baseline,

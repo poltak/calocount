@@ -2,7 +2,7 @@
 #
 #   swamp workflow run sync-template
 #
-# Each step runs `scripts/sync-template.mjs`, which has the logic and
+# Each step runs `scripts/sync-template.ts`, which has the logic and
 # describes each command. The `apply-commits` step fails when a template
 # commit has a conflict that no rule resolves. Resolve the conflict, stage the
 # files, and then retry the failed step with the command that Swamp prints:

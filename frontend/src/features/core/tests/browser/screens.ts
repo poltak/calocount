@@ -29,7 +29,7 @@ interface ScreensRequest {
   routes: string[];
 }
 
-// `scripts/ui-screens.mjs` writes this file before it starts Playwright.
+// `scripts/ui-screens.ts` writes this file before it starts Playwright.
 // A file, not the environment, because the frontend lint forbids
 // `process.env`.
 const REQUEST_FILE = path.resolve(".browser-test/screens/request.json");

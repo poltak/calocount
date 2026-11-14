@@ -30,7 +30,7 @@ import {
 } from "../../scripts/template-files.mjs";
 import { parsePatchFiles } from "./format-edited-files.mjs";
 
-// The file that `scripts/sync-template.mjs` keeps in the Git directory while
+// The file that `scripts/sync-template.ts` keeps in the Git directory while
 // a template commit is in the working tree.
 const SYNC_STOPPED = "template-sync-stopped";
 // In these Claude Code modes, nobody sees a prompt, so "ask" would not stop

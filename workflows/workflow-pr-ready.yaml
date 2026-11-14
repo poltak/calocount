@@ -2,7 +2,7 @@
 #
 #   swamp workflow run pr-ready
 #
-# Each step runs `scripts/pr-ready.mjs`, which has the logic. After a merge
+# Each step runs `scripts/pr-ready.ts`, which has the logic. After a merge
 # conflict, resolve it, commit, and then retry the merge step with the command
 # that Swamp prints:
 #

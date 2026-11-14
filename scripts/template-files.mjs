@@ -33,7 +33,7 @@ const ISSUES_DIRECTORY = ".beads/";
  * - `templateOwned`: files that a project takes from the template and does
  *   not change, unless the project's `ownPaths` names them.
  *   `.agents/hooks/guard-template-owned-files.mjs` and
- *   `check-template-owned-files.mjs` read this list from the project. `apply`
+ *   `check-template-owned-files.ts` read this list from the project. `apply`
  *   does not read it. `finish` compares these files with the template.
  *
  * A sync leaves out each template change to a `templateOnly` path that the
@@ -53,11 +53,18 @@ export const PATHS_FILE = "scripts/template-paths.json";
 // The checks that keep a project on the template. A fix to one of them must
 // reach each project, so `ownPaths` cannot name them.
 const GATE_PATHS = [
+  "scripts/sync-template.ts",
+  "scripts/sync-template-apply.ts",
+  "scripts/sync-template-common.ts",
+  "scripts/sync-template-finish.ts",
+  "scripts/sync-template-package.ts",
+  "scripts/sync-template-plan.ts",
+  // The old sync of a project starts itself again at this path.
   "scripts/sync-template.mjs",
   "scripts/template-files.mjs",
   PATHS_FILE,
-  "scripts/check-staged-secrets.mjs",
-  "scripts/check-template-owned-files.mjs",
+  "scripts/check-staged-secrets.ts",
+  "scripts/check-template-owned-files.ts",
   ".github/workflows/template-owned-files.yml",
   ".agents/hooks/",
 ];

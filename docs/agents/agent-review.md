@@ -4,7 +4,7 @@ The "Agent review" workflow of CI gives each pull request to two models,
 Claude Code and Codex. Each one reports rule violations that no lint
 rule or test can check. An example is a doc's content that the change made no longer valid.
 The script also reports each new document in `docs/agents/`.
-[`scripts/agent-review.mjs`](../../scripts/agent-review.mjs) describes each
+[`scripts/agent-review.ts`](../../scripts/agent-review.ts) describes each
 step.
 
 - The general rules are in

@@ -408,7 +408,7 @@ accessibility tree, with the role and name of each element.
 `pnpm run test:live-start` starts the built backend as a deployment does: the
 live composition root, the `pg` driver, and a real PostgreSQL. No other test
 runs these, because every other test uses the test root with an in-memory
-database. [`check-live-start.mjs`](../../scripts/check-live-start.mjs) checks
+database. [`check-live-start.ts`](../../scripts/check-live-start.ts) checks
 that the server:
 
 - starts with the configuration in `.env.example`, so the check also fails

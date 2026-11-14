@@ -361,7 +361,7 @@ template. Some reasons come from what happened in it.
 - **The choices of how CI runs its jobs are in [CI](ci.md).**
 - **A script takes template changes, and a Swamp workflow runs the script.**
   An agent that followed a skill did this work before, and no two runs were
-  the same. `scripts/sync-template.mjs` now has each step and each rule, and
+  the same. `scripts/sync-template.ts` now has each step and each rule, and
   has tests. The workflow in `workflows/` only gives the order of its
   commands. The rules are not in Swamp models, because each Swamp command
   needs an account at swamp-club.com. CI and a person without an account can

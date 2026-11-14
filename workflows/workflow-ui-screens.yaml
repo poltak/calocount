@@ -2,7 +2,7 @@
 #
 #   swamp workflow run ui-screens
 #
-# The step runs `scripts/ui-screens.mjs`, which describes its options. The
+# The step runs `scripts/ui-screens.ts`, which describes its options. The
 # `ui-review` skill reads the files that it writes.
 id: c10c2de6-58ee-4a8e-8c97-bedbb7077e7f
 name: ui-screens

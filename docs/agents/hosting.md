@@ -48,7 +48,7 @@ commands in the `scripts/` folders run on Node on each host.
 | `core/handlers/client-address.ts`      | The address of the socket                        | Set `APP_CLIENT_ADDRESS_HEADER`                                                                                    |
 | `core/database/migration-hashes.ts`    | `node:crypto`                                    | Workers need `nodejs_compat`                                                                                       |
 | `core/tests/api.ts`                    | `@hono/node-server`, in `startTestBackendServer` | Tests stay on Node, or [run on a second host](testing.md)                                                          |
-| `scripts/check-live-start.mjs`         | Starts `server/start.js`                         | Replace the script. CI calls `test:live-start` by name, and no list owns the script                                |
+| `scripts/check-live-start.ts`          | Starts `server/start.js`                         | Replace the script. CI calls `test:live-start` by name, and no list owns the script                                |
 
 ## Settings for Cloudflare Workers
 

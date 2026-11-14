@@ -9,7 +9,7 @@ description: Bring later changes from the template repository into a project tha
 the project has. A sync starts from that record, so a project needs no history
 in common with the template.
 
-`scripts/sync-template.mjs` takes the new template commits, so each sync has
+`scripts/sync-template.ts` takes the new template commits, so each sync has
 the same steps and the same result. One step needs your judgment. That step
 is a conflict that no rule of the script resolves.
 

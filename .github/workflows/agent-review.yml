@@ -8,7 +8,7 @@ name: Agent review
 # "Agent review" job fails while a rule violation is open. A maintainer can
 # accept only findings whose rules permit approval. Fix-required findings and
 # failed review jobs cannot be accepted.
-# `scripts/agent-review.mjs` has the logic, and `docs/agents/agent-review.md`
+# `scripts/agent-review.ts` has the logic, and `docs/agents/agent-review.md`
 # the secrets of a project.
 #
 # The trigger is `pull_request`, so GitHub runs this file as it is in the pull
@@ -67,9 +67,16 @@ jobs:
             scripts
             .agents/review
 
+      # The scripts are TypeScript, and the pinned Node removes their types.
+      # The Node of the runner image can be too old for that.
+      - name: Set up the pinned Node
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+
       - name: Choose a review, a check of the label, or nothing
         id: plan
-        run: node scripts/agent-review.mjs plan
+        run: node scripts/agent-review.ts plan
         env:
           GH_TOKEN: ${{ github.token }}
           TEMPLATE_MAINTAINERS: ${{ vars.TEMPLATE_MAINTAINERS }}
@@ -108,9 +115,16 @@ jobs:
           # `.git/config`.
           persist-credentials: false
 
+      # The scripts are TypeScript, and the pinned Node removes their types.
+      # The Node of the runner image can be too old for that.
+      - name: Set up the pinned Node
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+
       - name: Review
         id: review
-        run: node scripts/agent-review.mjs claude
+        run: node scripts/agent-review.ts claude
         env:
           EARLIER_REVIEW: ${{ needs.plan.outputs.earlier }}
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -159,16 +173,23 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      # The scripts are TypeScript, and the pinned Node removes their types.
+      # The Node of the runner image can be too old for that.
+      - name: Set up the pinned Node
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+
       - name: Review
         id: review
-        run: node scripts/agent-review.mjs codex
+        run: node scripts/agent-review.ts codex
         env:
           EARLIER_REVIEW: ${{ needs.plan.outputs.earlier }}
           CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
 
       - name: Save the refreshed Codex login
         if: always()
-        run: node scripts/agent-review.mjs save-codex-login
+        run: node scripts/agent-review.ts save-codex-login
         env:
           CODEX_AUTH_JSON: ${{ secrets.CODEX_AUTH_JSON }}
           GH_TOKEN: ${{ secrets.CODEX_AUTH_WRITE_TOKEN }}
@@ -202,8 +223,15 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      # The scripts are TypeScript, and the pinned Node removes their types.
+      # The Node of the runner image can be too old for that.
+      - name: Set up the pinned Node
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+
       - name: Post the issues, and pass or fail
-        run: node scripts/agent-review.mjs verdict
+        run: node scripts/agent-review.ts verdict
         env:
           GH_TOKEN: ${{ github.token }}
           MODE: ${{ needs.plan.outputs.mode }}

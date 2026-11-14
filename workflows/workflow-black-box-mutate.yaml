@@ -2,7 +2,7 @@
 #
 #   swamp workflow run black-box-mutate --input spec=<path>
 #
-# The step runs `scripts/mutate-black-box-test.mjs`, which describes its output.
+# The step runs `scripts/mutate-black-box-test.ts`, which describes its output.
 id: 6aca94ed-22de-45f4-a6b2-d39d847fb9fe
 name: black-box-mutate
 description: >-

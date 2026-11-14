@@ -108,7 +108,7 @@ Read and follow @docs/agents/project/rules.md and @docs/agents/project/reversals
 - Before you open a pull request, run `pnpm run pr:ready`, or
   `swamp workflow run pr-ready`. It merges `origin/main` into the branch, runs
   `pnpm run check`, and runs `pnpm run test:browser` when a changed file
-  matches a rule in `scripts/pr-ready.mjs`. Its last step prints the checks
+  matches a rule in `scripts/pr-ready.ts`. Its last step prints the checks
   that passed, for the description of the pull request.
 - Do not open a pull request when `pnpm run pr:ready report` fails. Make each
   check pass, or tell the person why a check cannot run.
