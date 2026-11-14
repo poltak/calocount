@@ -46,7 +46,9 @@ function parseHooks(text: string): ProjectHook[] {
       throw new Error(`hooks.json has an unknown key: ${key}.`);
     }
   }
-  const list = config["preToolUse"] ?? [];
+  // An absent key means no hooks. A key with null is an error, not an empty
+  // list, so that a mistake cannot turn the guards off.
+  const list = "preToolUse" in config ? config["preToolUse"] : [];
   if (!Array.isArray(list)) {
     throw new Error("`preToolUse` must be a list.");
   }
@@ -165,9 +167,16 @@ function runScript({
     let stdout = "";
     let stderr = "";
     let timedOut = false;
+    // The runner decides at its own limit. A process that the hook started
+    // can keep the pipes open after the kill, and then "close" comes only
+    // when the agent stops the runner, with no decision.
     const timer = setTimeout(() => {
       timedOut = true;
       child.kill("SIGKILL");
+      child.stdout.destroy();
+      child.stderr.destroy();
+      child.unref();
+      reject(new Error(`It did not finish in ${timeoutMs} ms.`));
     }, timeoutMs);
     child.stdout.on("data", (chunk) => (stdout += chunk));
     child.stderr.on("data", (chunk) => (stderr += chunk));
@@ -180,7 +189,7 @@ function runScript({
     child.on("close", (code) => {
       clearTimeout(timer);
       if (timedOut) {
-        reject(new Error(`It did not finish in ${timeoutMs} ms.`));
+        return;
       } else if (code !== 0) {
         const line = stderr.trim().split("\n")[0] ?? "";
         reject(

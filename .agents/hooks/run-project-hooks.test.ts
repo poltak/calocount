@@ -275,6 +275,19 @@ test("denies when hooks.json has an unknown key", async (context) => {
   }
 });
 
+test("denies when the list of hooks is null", async (context) => {
+  const root = await createProject(context, { hooks: { preToolUse: null } });
+  await assertDenied({
+    output: await runProjectHooks({
+      root,
+      agent: "claude",
+      input: event(),
+      timeoutMs: SLOW_MACHINE_MS,
+    }),
+    includes: ["must be a list"],
+  });
+});
+
 test("denies when a hook has no name or no script", async (context) => {
   for (const hooks of [
     { preToolUse: [{ script: "a.ts" }] },
@@ -332,6 +345,26 @@ test("denies when a hook takes too long", async (context) => {
     timeoutMs: 300,
   });
   await assertDenied({ output, includes: ["[slow]", "300 ms"] });
+});
+
+test("denies at its limit when a process of the hook keeps the pipes", async (context) => {
+  const started = Date.now();
+  const output = await run(context, {
+    entries: [{ name: "child", script: "c.ts" }],
+    scripts: {
+      "c.ts": [
+        'import { spawn } from "node:child_process";',
+        "spawn(process.execPath, ['-e', 'setTimeout(() => {}, 30000)'], {",
+        '  stdio: "inherit",',
+        "}).unref();",
+        "setTimeout(() => {}, 30000);",
+        "",
+      ].join("\n"),
+    },
+    timeoutMs: 1000,
+  });
+  await assertDenied({ output, includes: ["[child]", "1000 ms"] });
+  assert.ok(Date.now() - started < 20000);
 });
 
 test("denies when a hook prints output that is not the contract", async (context) => {
