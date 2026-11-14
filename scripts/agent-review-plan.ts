@@ -110,13 +110,13 @@ function earlierReview(event: ReviewEvent): string {
   });
 }
 
+const isMaintainerComment = ({ user }: GithubComment) =>
+  isMaintainer(user?.login) && !BOT_LOGINS.has(user?.login);
+
 /**
  * What the maintainers wrote about each issue: a reply to its line comment, or
  * a comment on the pull request that names its ID.
  */
-const isMaintainerComment = ({ user }: GithubComment) =>
-  isMaintainer(user?.login) && !BOT_LOGINS.has(user?.login);
-
 function maintainerComments({
   repository,
   number,

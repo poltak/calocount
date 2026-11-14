@@ -273,14 +273,6 @@ interface EditsAnswer {
   };
 }
 
-/**
- * Returns the maintainer who accepted each issue, by its ID. A maintainer
- * accepts an issue with its box in the master comment or in its line
- * comment, and clears the box to take the acceptance back. Each review edits
- * the master comment, and stores each acceptance from before its edit, so
- * only the changes after the newest edit of the bot count, and the newest
- * change wins. A box that another person checks accepts nothing.
- */
 // GitHub gives the newest version first, and the oldest is the comment as
 // it was posted.
 const versionsOf = (node: UserContentEdits | null | undefined): Version[] =>
@@ -292,6 +284,14 @@ const versionsOf = (node: UserContentEdits | null | undefined): Version[] =>
     }))
     .toReversed();
 
+/**
+ * Returns the maintainer who accepted each issue, by its ID. A maintainer
+ * accepts an issue with its box in the master comment or in its line
+ * comment, and clears the box to take the acceptance back. Each review edits
+ * the master comment, and stores each acceptance from before its edit, so
+ * only the changes after the newest edit of the bot count, and the newest
+ * change wins. A box that another person checks accepts nothing.
+ */
 export function acceptances({
   repository,
   number,

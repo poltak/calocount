@@ -253,13 +253,13 @@ function sortKeys(value: unknown): unknown {
   return value;
 }
 
+const same = (text: string) => JSON.stringify(sortKeys(JSON.parse(text)));
+
 /**
  * Codex refreshes its login when the login is about 8 days old, and the old
  * refresh token then stops working. The next run needs the new login, so the
  * workflow runs this step also when the review failed or was cancelled.
  */
-const same = (text: string) => JSON.stringify(sortKeys(JSON.parse(text)));
-
 export function saveCodexLogin(): boolean {
   const seed = process.env.CODEX_AUTH_JSON;
   const file = path.join(codexHome(), "auth.json");

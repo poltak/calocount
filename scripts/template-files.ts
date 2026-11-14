@@ -173,7 +173,6 @@ export function git({
   };
 }
 
-/** `git@host:owner/name.git` and `https://host/owner/name` are one repository. */
 const normalize = (url: string) =>
   url
     .trim()
@@ -184,6 +183,7 @@ const normalize = (url: string) =>
     .replace(/\.git$/, "")
     .toLowerCase();
 
+/** `git@host:owner/name.git` and `https://host/owner/name` are one repository. */
 export function sameRepository({
   left,
   right,

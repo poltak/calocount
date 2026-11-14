@@ -25,6 +25,9 @@ import type {
   TemplatePaths,
 } from "./sync-template-common.ts";
 
+const entryFor = ({ entries, file }: { entries: string[]; file: string }) =>
+  entries.find((entry) => matchesPath({ entry, file }));
+
 /**
  * The template commits that are new for this project, oldest first, each with
  * what `apply` does to it:
@@ -34,9 +37,6 @@ import type {
  * - `leave out`: it changes only files that the project is without.
  * - `skipped`: a person left it out, with a reason in the version file.
  */
-const entryFor = ({ entries, file }: { entries: string[]; file: string }) =>
-  entries.find((entry) => matchesPath({ entry, file }));
-
 export function loadPlan({
   fetch,
   before = readStopped()?.before ?? "HEAD",

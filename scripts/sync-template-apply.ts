@@ -45,16 +45,16 @@ function restoreFromHead(file: string) {
   }
 }
 
-/**
- * Bring the cherry-pick that is in the working tree to a commit. The rules
- * here resolve what needs no decision. Anything else stops the command, for a
- * person or an agent to resolve.
- */
 const section = (title: string, lines: string[]) =>
   lines.length > 0
     ? `\n${title}\n${lines.map((line) => `  ${line}`).join("\n")}\n`
     : "";
 
+/**
+ * Bring the cherry-pick that is in the working tree to a commit. The rules
+ * here resolve what needs no decision. Anything else stops the command, for a
+ * person or an agent to resolve.
+ */
 async function settle({
   commit,
   leftOut,
