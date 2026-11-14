@@ -23,7 +23,7 @@ import {
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { fail } from "./template-files.mjs";
+import { fail } from "./template-files.ts";
 // The shape of the parts of a Playwright JSON report that the script reads.
 interface ReportNode {
   status?: string;
@@ -63,8 +63,9 @@ const args = process.argv.slice(2);
 const spec = args[0]?.startsWith("--")
   ? process.env.BLACK_BOX_SPEC
   : (args.shift() ?? process.env.BLACK_BOX_SPEC);
-if (!spec || (args.length && (args.length !== 2 || args[0] !== "--grep")))
+if (!spec || (args.length && (args.length !== 2 || args[0] !== "--grep"))) {
   fail("Give a spec path and optional --grep text.");
+}
 const root = process.cwd();
 const original = path.resolve(
   root,
@@ -79,48 +80,67 @@ if (
   !realpathSync(original).startsWith(
     realpathSync(path.join(root, "frontend/src/features")) + path.sep,
   )
-)
+) {
   fail(
     "The spec must exist under frontend/src/features/<feature>/black-box-tests/ and end in .spec.ts.",
   );
+}
 const copy = original.replace(/\.spec\.ts$/, ".mutated.spec.ts");
-if (existsSync(copy)) fail(`Delete the existing copy ${copy} first.`);
+if (existsSync(copy)) {
+  fail(`Delete the existing copy ${copy} first.`);
+}
 const source = readFileSync(original, "utf8");
 function mask(text: string) {
   const out = text.split("");
   const blank = (start: number, end: number) => {
-    for (let at = start; at < end; at++)
-      if (out[at] !== "\n" && out[at] !== "\r") out[at] = " ";
+    for (let at = start; at < end; at++) {
+      if (out[at] !== "\n" && out[at] !== "\r") {
+        out[at] = " ";
+      }
+    }
   };
   for (let at = 0; at < text.length;) {
     const start = at;
     if (text.startsWith("//", at)) {
       at = text.indexOf("\n", at);
-      if (at < 0) at = text.length;
+      if (at < 0) {
+        at = text.length;
+      }
     } else if (text.startsWith("/*", at)) {
       const end = text.indexOf("*/", at + 2);
       at = end < 0 ? text.length : end + 2;
     } else if (["'", '"', "`"].includes(text.charAt(at))) {
       const quote = text[at++];
       while (at < text.length) {
-        if (text[at] === "\\") at += 2;
-        else if (text[at++] === quote) break;
+        if (text[at] === "\\") {
+          at += 2;
+        } else if (text[at++] === quote) {
+          break;
+        }
       }
     } else if (
       text[at] === "/" &&
-      /(?:^|[=(:,!&|?;{}\[])\s*$/.test(text.slice(0, at))
+      /(?:^|[=(:,!&|?;{}[])\s*$/.test(text.slice(0, at))
     ) {
       at++;
       let inClass = false;
       while (at < text.length) {
         const char = text[at++];
-        if (char === "\\") at++;
-        else if (char === "[") inClass = true;
-        else if (char === "]") inClass = false;
-        else if (char === "/" && !inClass) break;
-        else if (char === "\n") break;
+        if (char === "\\") {
+          at++;
+        } else if (char === "[") {
+          inClass = true;
+        } else if (char === "]") {
+          inClass = false;
+        } else if (char === "/" && !inClass) {
+          break;
+        } else if (char === "\n") {
+          break;
+        }
       }
-      while (/[a-z]/i.test(text[at] ?? "") && at < text.length) at++;
+      while (/[a-z]/i.test(text[at] ?? "") && at < text.length) {
+        at++;
+      }
     } else {
       at++;
       continue;
@@ -146,8 +166,11 @@ for (const match of masked.matchAll(/\.\s*(to\w+)\s*\(/g)) {
     start = 0;
   for (let at = before.length - 1; at >= 0; at--) {
     const char = before.charAt(at);
-    if (char === ")" || char === "]") depth++;
-    else if (char === "(" || char === "[") depth--;
+    if (char === ")" || char === "]") {
+      depth++;
+    } else if (char === "(" || char === "[") {
+      depth--;
+    }
     if (depth === 0 && ";{}".includes(char)) {
       start = at + 1;
       break;
@@ -155,26 +178,34 @@ for (const match of masked.matchAll(/\.\s*(to\w+)\s*\(/g)) {
   }
   // A method such as `toString()` is not a check, because no `expect` is in
   // its statement.
-  if (!/\bexpect\b/.test(before.slice(start))) continue;
+  if (!/\bexpect\b/.test(before.slice(start))) {
+    continue;
+  }
   let reason = changeable.has(name)
     ? null
     : /^to(?:Be|Have)/.test(name)
       ? "has no expected value; change its locator by hand"
       : "the script does not change this matcher; change it by hand";
-  if (!reason && /\.\s*not\s*$/.test(before))
+  if (!reason && /\.\s*not\s*$/.test(before)) {
     reason = "a negated check; change it by hand";
-  if (!reason && /expect\s*\.\s*poll\s*\(/.test(before.slice(start)))
+  }
+  if (!reason && /expect\s*\.\s*poll\s*\(/.test(before.slice(start))) {
     reason = "an expect.poll check; change it by hand";
+  }
   if (!reason && name === "toHaveAttribute") {
     // With no value, or with only options, the check is that the attribute
     // exists. It has no expected value to change.
-    let depth = 0,
+    let nesting = 0,
       at = match.index + match[0].length;
     for (; at < masked.length; at++) {
       const char = masked.charAt(at);
-      if ("([{".includes(char)) depth++;
-      else if (")]}".includes(char) && depth-- === 0) break;
-      else if (char === "," && depth === 0) break;
+      if ("([{".includes(char)) {
+        nesting++;
+      } else if (")]}".includes(char) && nesting-- === 0) {
+        break;
+      } else if (char === "," && nesting === 0) {
+        break;
+      }
     }
     // The source and not the masked text, because the mask makes a string
     // look like blank space, as after a trailing comma.
@@ -183,8 +214,9 @@ for (const match of masked.matchAll(/\.\s*(to\w+)\s*\(/g)) {
       /^(?:\s|\/\*(?:(?!\*\/)[\s\S])*\*\/|\/\/[^\n]*)*[{)]/.test(
         source.slice(at + 1),
       )
-    )
+    ) {
       reason = "checks only that the attribute exists; change it by hand";
+    }
   }
   checks.push({
     name,
@@ -199,19 +231,22 @@ const testLines = [
   ...masked.matchAll(/(?<![\w.])test(?:\.(?:only|skip|fixme|fail))?\s*\(/g),
 ].map((match) => source.slice(0, match.index).split("\n").length);
 let changed = source;
-for (const check of checks.toReversed())
-  if (!check.reason)
+for (const check of checks.toReversed()) {
+  if (!check.reason) {
     changed =
       changed.slice(0, check.offset) +
       "changed" +
       check.name.charAt(0).toUpperCase() +
       check.name.slice(1) +
       changed.slice(check.offset + check.name.length);
+  }
+}
 const importPattern =
   /import\s*\{([^}]+)\}\s*from\s*(["'])@playwright\/test\2\s*;/;
 const imported = changed.match(importPattern);
-if (!imported || !/(?:^|,)\s*expect\s*(?:,|$)/.test(imported[1] ?? ""))
+if (!imported || !/(?:^|,)\s*expect\s*(?:,|$)/.test(imported[1] ?? "")) {
   fail('The spec must import { expect } from "@playwright/test".');
+}
 changed = changed.replace(
   importPattern,
   (statement: string, names: string) =>
@@ -257,11 +292,11 @@ changed += `\nfunction changedMatchers() {
 let temporary: string | undefined;
 let child: ChildProcess | undefined;
 function runPnpm(
-  args: string[],
+  pnpmArgs: string[],
   options: SpawnOptions,
 ): Promise<{ error?: Error; status?: number | null }> {
   return new Promise((resolve) => {
-    child = spawn("pnpm", args, options);
+    child = spawn("pnpm", pnpmArgs, options);
     child.once("error", (error) => resolve({ error }));
     child.once("close", (status) => {
       child = undefined;
@@ -271,22 +306,26 @@ function runPnpm(
 }
 const cleanup = () => {
   rmSync(copy, { force: true });
-  if (temporary) rmSync(temporary, { recursive: true, force: true });
+  if (temporary) {
+    rmSync(temporary, { recursive: true, force: true });
+  }
 };
-for (const signal of ["SIGINT", "SIGTERM"] as const)
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.once(signal, () => {
     child?.kill(signal);
     cleanup();
     process.exit(signal === "SIGINT" ? 130 : 143);
   });
+}
 try {
   temporary = mkdtempSync(path.join(os.tmpdir(), "black-box-mutate-"));
   writeFileSync(copy, changed);
   const build = await runPnpm(["--filter", "backend...", "run", "build"], {
     stdio: "inherit",
   });
-  if (build.error || build.status !== 0)
+  if (build.error || build.status !== 0) {
     throw new Error("The backend build failed.");
+  }
   const report = path.join(temporary, "report.json");
   const result = await runPnpm(
     [
@@ -304,49 +343,62 @@ try {
       env: { ...process.env, PLAYWRIGHT_JSON_OUTPUT_FILE: report },
     },
   );
-  if (result.error) throw result.error;
-  if (!existsSync(report))
+  if (result.error) {
+    throw result.error;
+  }
+  if (!existsSync(report)) {
     throw new Error("The browser run wrote no JSON report.");
+  }
   const lines = new Set();
   const otherLines = new Set();
   const ranTests = new Set();
   let stopped = false;
   function visit(node: unknown) {
-    if (!node || typeof node !== "object") return;
+    if (!node || typeof node !== "object") {
+      return;
+    }
     const value = node as ReportNode;
     if (
       value.status !== undefined &&
       ["timedOut", "interrupted"].includes(value.status)
-    )
+    ) {
       stopped = true;
+    }
     // A spec of the report has the line of its test and the results of its runs.
     if (
       typeof value.line === "number" &&
       Array.isArray(value.tests) &&
       value.tests.some((run) =>
-        (run.results ?? []).some((result) => result.status !== "skipped"),
+        (run.results ?? []).some((outcome) => outcome.status !== "skipped"),
       )
-    )
+    ) {
       ranTests.add(value.line);
+    }
     for (const error of value.errors ?? []) {
-      if (error.location && path.resolve(error.location.file) === copy)
+      if (error.location && path.resolve(error.location.file) === copy) {
         (String(error.message).includes(MARKER) ? lines : otherLines).add(
           error.location.line,
         );
-    }
-    for (const [key, child] of Object.entries(value))
-      if (key !== "errors") {
-        if (Array.isArray(child)) child.forEach(visit);
-        else if (child && typeof child === "object") visit(child);
       }
+    }
+    for (const [key, nested] of Object.entries(value)) {
+      if (key !== "errors") {
+        if (Array.isArray(nested)) {
+          nested.forEach(visit);
+        } else if (nested && typeof nested === "object") {
+          visit(nested);
+        }
+      }
+    }
   }
   const json = JSON.parse(readFileSync(report, "utf8")) as ReportNode;
   // An error before the tests, such as a failed build of the frontend, has no
   // test. Then no check ran.
-  if (json.errors?.length)
+  if (json.errors?.length) {
     throw new Error(
       `The browser run failed before the tests:\n${json.errors.map((error) => error.message).join("\n")}`,
     );
+  }
   visit(json);
   const allRan = testLines.every((line) => ranTests.has(line));
   const testOf = (line: number) =>
@@ -378,7 +430,9 @@ try {
   console.log(
     `${counts.failed} fail when changed; ${counts.passed} did not fail; ${counts.unknown} not known; ${counts.manual} by hand.`,
   );
-  if (counts.passed || counts.unknown) process.exitCode = 1;
+  if (counts.passed || counts.unknown) {
+    process.exitCode = 1;
+  }
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
   process.exitCode = 1;

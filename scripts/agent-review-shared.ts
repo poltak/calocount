@@ -11,7 +11,9 @@ import type {
 
 export function requireEnv(name: string): string {
   const value = process.env[name];
-  if (value === undefined) throw new Error(`${name} is not set.`);
+  if (value === undefined) {
+    throw new Error(`${name} is not set.`);
+  }
   return value;
 }
 
@@ -55,7 +57,9 @@ export function readPages<T>(route: string): T[] {
 
 export function readOne<T>(route: string): T {
   const [item] = readPages<T>(route);
-  if (item === undefined) throw new Error(`${route} gave no answer.`);
+  if (item === undefined) {
+    throw new Error(`${route} gave no answer.`);
+  }
   return item;
 }
 

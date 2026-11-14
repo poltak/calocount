@@ -10,7 +10,16 @@ import {
   importVisitors,
   isListed,
   resolveImport,
-} from "./paths.mjs";
+} from "./paths.ts";
+import type { FileDescription } from "./paths.ts";
+import type {
+  CallExpression,
+  MemberExpression,
+  Plugin,
+  Property,
+  Rule,
+  TestingOptions,
+} from "./plugin-types.ts";
 
 const DOC = "See docs/agents/testing.md";
 const TEST_DOUBLES = [
@@ -75,7 +84,9 @@ const INSIDE_METHODS = [
  * screenshots of the UI review. It checks nothing, so it may seed rows through
  * the API, but only with the screens helper.
  */
-function blackBoxKind(file) {
+function blackBoxKind(
+  file: FileDescription,
+): "test" | "screens" | "pageObject" | null {
   if (/\.spec\.[cm]?[jt]sx?$/.test(file.file)) {
     return "test";
   }
@@ -89,14 +100,14 @@ function blackBoxKind(file) {
 }
 
 /** UI Logic and its LogicPlugins live in a feature's `ui/` directory. */
-function isUiLogic(file) {
+function isUiLogic(file: FileDescription | null): file is FileDescription {
   return (
     file?.role === "ui" &&
     (file.base.endsWith("-logic") || file.base.endsWith("-plugin"))
   );
 }
 
-const uiLogicTested = {
+const uiLogicTested: Rule = {
   meta: {
     type: "problem",
     docs: {
@@ -132,7 +143,7 @@ const uiLogicTested = {
   },
 };
 
-const logicTests = {
+const logicTests: Rule<TestingOptions> = {
   meta: {
     type: "problem",
     docs: {
@@ -166,14 +177,14 @@ const logicTests = {
     }
 
     const fixture = options.fixtureName ?? "setupLogicTest";
-    const isFixtureFile = (source) => {
+    const isFixtureFile = (source: string) => {
       const target = resolveImport(filename, source);
       const described = target ? describeFile(target) : null;
       return (
         described !== null && isListed(described, [options.fixtureFile ?? ""])
       );
     };
-    const isForbiddenImport = (source) => {
+    const isForbiddenImport = (source: string) => {
       if ((options.forbiddenPackages ?? []).includes(source)) {
         return true;
       }
@@ -198,12 +209,12 @@ const logicTests = {
           });
         }
       }),
-      MemberExpression(node) {
+      MemberExpression(node: MemberExpression) {
         if (node.object.type !== "Identifier" || node.computed) {
           return;
         }
-        const object = node.object.name;
-        const property = node.property.name;
+        const object = node.object.name ?? "";
+        const property = node.property.name ?? "";
         if (object === "vi" && TEST_DOUBLES.includes(property)) {
           context.report({
             node,
@@ -224,7 +235,7 @@ const logicTests = {
   },
 };
 
-const blackBoxTests = {
+const blackBoxTests: Rule<TestingOptions> = {
   meta: {
     type: "problem",
     docs: {
@@ -338,12 +349,12 @@ const blackBoxTests = {
         }
         context.report({ node, messageId: "import", data: { source } });
       }),
-      CallExpression(node) {
+      CallExpression(node: CallExpression) {
         const callee = node.callee;
         if (callee.type !== "MemberExpression" || callee.computed) {
           return;
         }
-        const name = callee.property.name;
+        const name = callee.property?.name ?? "";
         if (name === "waitForTimeout") {
           context.report({ node, messageId: "wait" });
         } else if (INSIDE_METHODS.includes(name)) {
@@ -355,12 +366,12 @@ const blackBoxTests = {
         }
       },
       // `page.request`, `context.request`, and the `request` fixture.
-      MemberExpression(node) {
+      MemberExpression(node: MemberExpression) {
         if (!node.computed && node.property.name === "request") {
           context.report({ node, messageId: "api" });
         }
       },
-      Property(node) {
+      Property(node: Property) {
         if (
           node.parent?.type === "ObjectPattern" &&
           !node.computed &&
@@ -378,7 +389,7 @@ const blackBoxTests = {
   },
 };
 
-export default {
+const plugin: Plugin = {
   meta: { name: "testing" },
   rules: {
     "ui-logic-tested": uiLogicTested,
@@ -386,3 +397,5 @@ export default {
     "black-box-tests": blackBoxTests,
   },
 };
+
+export default plugin;

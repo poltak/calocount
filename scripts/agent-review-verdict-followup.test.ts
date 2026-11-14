@@ -13,7 +13,6 @@ import {
   PULL,
   SUMMARY_POST,
   SUMMARY_URL,
-  at,
   commitAll,
   earlierOf,
   editsAnswer,
@@ -28,6 +27,9 @@ import {
   run,
   stateIn,
 } from "./agent-review-fixtures.ts";
+
+const link = (id: string) =>
+  `\\[${id}\\]\\(${ISSUE_URL}agent-review-${id.toLowerCase()}\\)`;
 
 test("verdict follows up the issues of the master comment, posts a summary, and edits the master comment", async (context) => {
   const repo = await repository(context);
@@ -115,8 +117,6 @@ test("verdict follows up the issues of the master comment, posts a summary, and 
   assert.equal(result.status, 1, result.output);
   const summary = inputOf(result, SUMMARY_POST).body;
   const head7 = repo.head.slice(0, 7);
-  const link = (id: string) =>
-    `\\[${id}\\]\\(${ISSUE_URL}agent-review-${id.toLowerCase()}\\)`;
   assert.match(
     summary,
     new RegExp(

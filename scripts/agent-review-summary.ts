@@ -26,6 +26,26 @@ import { firstSentence, isOpen, isOpenFinding } from "./agent-review-view.ts";
  * comment has the full text of each issue, and the status that each model
  * gave it.
  */
+const section = (
+  title: string,
+  items: Issue[],
+  entry: (issue: Issue) => string[],
+): string[] => {
+  if (items.length === 0) {
+    return [];
+  }
+  const hidden = items.length - COMMENT_FINDING_LIMIT;
+  return [
+    `**${title}: ${items.length}**`,
+    "",
+    ...items.slice(0, COMMENT_FINDING_LIMIT).flatMap(entry),
+    ...(hidden > 0
+      ? [`- ${hidden} more ${are(hidden)} in the master comment.`]
+      : []),
+    "",
+  ];
+};
+
 export function summaryBody({
   view,
   issues,
@@ -53,23 +73,6 @@ export function summaryBody({
   const openNotes = issues.filter(isOpen).length - openFindings;
   const where = (issue: Issue, commit = issue.commit) =>
     `${view.issueLink(issue)} ${issue.rule ?? "other issue"} in ${view.link({ file: issue.file, line: issue.line, commit })}`;
-  const section = (
-    title: string,
-    items: Issue[],
-    entry: (issue: Issue) => string[],
-  ): string[] => {
-    if (items.length === 0) return [];
-    const hidden = items.length - COMMENT_FINDING_LIMIT;
-    return [
-      `**${title}: ${items.length}**`,
-      "",
-      ...items.slice(0, COMMENT_FINDING_LIMIT).flatMap(entry),
-      ...(hidden > 0
-        ? [`- ${hidden} more ${are(hidden)} in the master comment.`]
-        : []),
-      "",
-    ];
-  };
   const lines: string[] = [
     `${SUMMARY_MARKER}head=${head} review=${review} -->`,
     `### Agent review ${review}, of ${head.slice(0, 7)}: the check ${blockers === 0 ? "passes" : "fails"}`,

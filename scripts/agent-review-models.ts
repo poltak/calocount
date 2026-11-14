@@ -44,6 +44,11 @@ interface CodexUsage {
   output_tokens?: number;
 }
 
+const number = (value: number | undefined) =>
+  value !== undefined && Number.isFinite(value)
+    ? value.toLocaleString("en-US")
+    : "?";
+
 // The input of each model includes the tokens from its cache, so that the
 // lines of the two models compare.
 function tokenText({
@@ -55,10 +60,6 @@ function tokenText({
   cached: number | undefined;
   output: number | undefined;
 }): string {
-  const number = (value: number | undefined) =>
-    value !== undefined && Number.isFinite(value)
-      ? value.toLocaleString("en-US")
-      : "?";
   return `${number(input)} input tokens, ${number(cached)} of them from the cache, and ${number(output)} output tokens`;
 }
 
@@ -238,12 +239,14 @@ export function codex(): void {
 }
 
 function sortKeys(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(sortKeys);
+  if (Array.isArray(value)) {
+    return value.map(sortKeys);
+  }
   if (value && typeof value === "object") {
     const record = value as Record<string, unknown>;
     return Object.fromEntries(
       Object.keys(record)
-        .sort()
+        .toSorted()
         .map((key) => [key, sortKeys(record[key])]),
     );
   }
@@ -255,6 +258,8 @@ function sortKeys(value: unknown): unknown {
  * refresh token then stops working. The next run needs the new login, so the
  * workflow runs this step also when the review failed or was cancelled.
  */
+const same = (text: string) => JSON.stringify(sortKeys(JSON.parse(text)));
+
 export function saveCodexLogin(): boolean {
   const seed = process.env.CODEX_AUTH_JSON;
   const file = path.join(codexHome(), "auth.json");
@@ -262,7 +267,6 @@ export function saveCodexLogin(): boolean {
     return true;
   }
   const login = readFileSync(file, "utf8");
-  const same = (text: string) => JSON.stringify(sortKeys(JSON.parse(text)));
   if (same(login) === same(seed)) {
     console.log("The Codex login did not change.");
     return true;

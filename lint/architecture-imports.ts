@@ -1,28 +1,32 @@
-/**
- * Lint rules for the class roles, feature layout, and dependency direction in
- * docs/agents/code-architecture.md. They use the standard ESLint rule API, so
- * oxlint (through `jsPlugins`) and ESLint can both load this plugin.
- *
- * These rules describe the architecture's shape. Rules about specific
- * technology choices live in stack-plugin.mjs.
- */
+// Architecture rules about imports, feature boundaries, and what each role may use.
 import {
   camelCase,
   describeFile,
   importVisitors,
   isListed,
   resolveImport,
-} from "./paths.mjs";
-import { projectOptions } from "./project-options.mjs";
+} from "./paths.ts";
+import type { FileDescription } from "./paths.ts";
+import type {
+  ArchitectureOptions,
+  AstNode,
+  ClassDeclaration,
+  NewExpression,
+  Lookup,
+  Node,
+  Rule,
+  RuleContext,
+  TypeReference,
+} from "./plugin-types.ts";
+import { projectOptions } from "./project-options.ts";
+import { DOC, currentFile } from "./architecture-shared.ts";
 
-const DOC = "See docs/agents/code-architecture.md";
-const LAYER_ROLES = ["services", "storage", "logic", "ui", "handlers"];
+const LAYER_ROLES: Lookup = ["services", "storage", "logic", "ui", "handlers"];
 
-function currentFile(context) {
-  return describeFile(context.filename ?? context.getFilename());
-}
-
-function importedFile(context, source) {
+function importedFile(
+  context: RuleContext,
+  source: string,
+): FileDescription | null {
   const target = resolveImport(
     context.filename ?? context.getFilename(),
     source,
@@ -30,41 +34,30 @@ function importedFile(context, source) {
   return target ? describeFile(target) : null;
 }
 
-function isCompositionFile(file, options) {
+function isCompositionFile(
+  file: FileDescription,
+  options: ArchitectureOptions,
+): boolean {
   return isListed(file, [
     ...(options.compositionFiles ?? []),
     ...projectOptions.compositionFiles,
   ]);
 }
 
-function roleClassKind(file) {
-  if (file.role === "services" && file.base.endsWith("-service")) {
-    return "Service";
-  }
-  if (file.role === "storage" && file.base.endsWith("-storage")) {
-    return "Storage";
-  }
-  if (file.base.endsWith("-logic")) {
-    return "Logic";
-  }
-  if (file.base.endsWith("-plugin")) {
-    return "Plugin";
-  }
-  return null;
-}
+const startOf = (node: Node | undefined) => node?.range?.[0] ?? node?.start;
 
 /** The string keys of `"a"` or `"a" | "b"`, as in the second argument of a `Pick`. */
-function literalKeys(type) {
+function literalKeys(type: AstNode | undefined): unknown[] {
   if (type?.type === "TSLiteralType") {
-    return [type.literal.value];
+    return [type.literal?.value];
   }
   if (type?.type === "TSUnionType") {
-    return type.types.flatMap(literalKeys);
+    return (type.types ?? []).flatMap(literalKeys);
   }
   return [];
 }
 
-const featureBoundaries = {
+export const featureBoundaries: Rule<ArchitectureOptions> = {
   meta: {
     type: "problem",
     docs: {
@@ -91,6 +84,7 @@ const featureBoundaries = {
     }
 
     const shared = options.sharedFeatures ?? [];
+    const feature = file.feature;
     return importVisitors((node, source) => {
       const target = importedFile(context, source);
       if (
@@ -107,7 +101,7 @@ const featureBoundaries = {
       // Other features import a project's shared feature, so an import from it
       // can start a cycle. This also keeps the boundaries when a project lists
       // each feature.
-      if (projectOptions.sharedFeatures.includes(file.feature)) {
+      if (projectOptions.sharedFeatures.includes(feature)) {
         if (!shared.includes(target.feature)) {
           context.report({
             node,
@@ -133,7 +127,7 @@ const featureBoundaries = {
   },
 };
 
-const layerImports = {
+export const layerImports: Rule<ArchitectureOptions> = {
   meta: {
     type: "problem",
     docs: {
@@ -172,8 +166,8 @@ const layerImports = {
     }
 
     const isolated = file.role === "storage" || file.role === "services";
-    const ownFeatureServices = [];
-    const implemented = new Set();
+    const ownFeatureServices: { node: Node; name: string }[] = [];
+    const implemented = new Set<string | undefined>();
     const imports = importVisitors((node, source, names) => {
       const target = importedFile(context, source);
       if (!target?.feature) {
@@ -232,7 +226,7 @@ const layerImports = {
 
     return {
       ...imports,
-      ClassDeclaration(node) {
+      ClassDeclaration(node: ClassDeclaration) {
         for (const item of node.implements ?? []) {
           implemented.add(item.expression?.name);
         }
@@ -255,7 +249,7 @@ const layerImports = {
   },
 };
 
-const serviceImplementations = {
+export const serviceImplementations: Rule<ArchitectureOptions> = {
   meta: {
     type: "problem",
     docs: {
@@ -290,7 +284,7 @@ const serviceImplementations = {
   },
 };
 
-const noConstruction = {
+export const noConstruction: Rule<ArchitectureOptions> = {
   meta: {
     type: "problem",
     docs: {
@@ -313,8 +307,9 @@ const noConstruction = {
     }
 
     return {
-      NewExpression(node) {
-        const name = node.callee.type === "Identifier" ? node.callee.name : "";
+      NewExpression(node: NewExpression) {
+        const name =
+          node.callee.type === "Identifier" ? (node.callee.name ?? "") : "";
         if (/(?:Service|Storage|Logic)$/.test(name)) {
           context.report({ node, messageId: "construct", data: { name } });
         }
@@ -323,7 +318,7 @@ const noConstruction = {
   },
 };
 
-const ownStorage = {
+export const ownStorage: Rule<ArchitectureOptions> = {
   meta: {
     type: "problem",
     docs: {
@@ -352,7 +347,7 @@ const ownStorage = {
     const prefix = camelCase(file.feature);
 
     return {
-      TSTypeReference(node) {
+      TSTypeReference(node: TypeReference) {
         if (!(options.propsTypes ?? []).includes(node.typeName?.name)) {
           return;
         }
@@ -371,7 +366,7 @@ const ownStorage = {
   },
 };
 
-const handlerDependencies = {
+export const handlerDependencies: Rule<ArchitectureOptions> = {
   meta: {
     type: "problem",
     docs: {
@@ -403,10 +398,9 @@ const handlerDependencies = {
     // A `Pick` records where its Service collection starts. The visitor
     // reaches that collection next, and must not report it as a whole one.
     const pickedAt = new Set();
-    const startOf = (node) => node.range?.[0] ?? node.start;
 
     return {
-      TSTypeReference(node) {
+      TSTypeReference(node: TypeReference) {
         const name = node.typeName?.name;
         if (storageCollections.includes(name)) {
           context.report({ node, messageId: "collection", data: { name } });
@@ -424,7 +418,9 @@ const handlerDependencies = {
           }
           pickedAt.add(startOf(collection));
           for (const key of literalKeys(keys)) {
-            if (!(options.coreServices ?? []).includes(key)) {
+            if (
+              !(options.coreServices ?? []).some((service) => service === key)
+            ) {
               context.report({ node, messageId: "service", data: { key } });
             }
           }
@@ -435,308 +431,5 @@ const handlerDependencies = {
         }
       },
     };
-  },
-};
-
-const roleNaming = {
-  meta: {
-    type: "problem",
-    docs: {
-      description:
-        "Service, Storage, Logic, and LogicPlugin files and classes follow the naming scheme.",
-    },
-    schema: [{ type: "object" }],
-    messages: {
-      file: "Files in {{role}}/ must be named {{allowed}}. " + DOC + ".",
-      className:
-        "The class in '{{file}}' must be named after the file and end with '{{suffix}}'. " +
-        DOC +
-        " (Class roles).",
-      interface:
-        "A Service class must implement an interface named <Name>ServiceInterface from types.ts. " +
-        DOC +
-        " (Class roles).",
-      base: "A {{kind}} class must extend {{base}}. " + DOC + " (Class roles).",
-    },
-  },
-  create(context) {
-    const options = context.options[0] ?? {};
-    const file = currentFile(context);
-    if (
-      !file?.feature ||
-      file.isTest ||
-      (options.exemptFeatures ?? []).includes(file.feature)
-    ) {
-      return {};
-    }
-
-    const allowedFiles = {
-      services: ["-service"],
-      storage: ["-storage"],
-      logic: ["-logic", "-plugin"],
-    }[file.role];
-    const kind = roleClassKind(file);
-
-    return {
-      Program(node) {
-        if (
-          allowedFiles &&
-          file.base !== "types" &&
-          !allowedFiles.some((suffix) => file.base.endsWith(suffix))
-        ) {
-          context.report({
-            node,
-            messageId: "file",
-            data: {
-              role: file.role,
-              allowed: ["types.ts"]
-                .concat(allowedFiles.map((suffix) => `<name>${suffix}.ts`))
-                .join(" or "),
-            },
-          });
-        }
-      },
-      ClassDeclaration(node) {
-        if (!kind) {
-          return;
-        }
-
-        const name = node.id?.name ?? "";
-        if (
-          !name.endsWith(kind) ||
-          name.toLowerCase() !== file.base.replaceAll("-", "")
-        ) {
-          context.report({
-            node,
-            messageId: "className",
-            data: { file: file.file, suffix: kind },
-          });
-        }
-
-        if (kind === "Service") {
-          const interfaces = (node.implements ?? []).map(
-            (item) => item.expression?.name ?? "",
-          );
-          if (!interfaces.some((item) => item.endsWith("ServiceInterface"))) {
-            context.report({ node, messageId: "interface" });
-          }
-        }
-        if ((kind === "Logic" || kind === "Plugin") && !node.superClass) {
-          context.report({
-            node,
-            messageId: "base",
-            data: {
-              kind,
-              base: kind === "Logic" ? "Logic" : "LogicPlugin",
-            },
-          });
-        }
-      },
-    };
-  },
-};
-
-const constructorDeps = {
-  meta: {
-    type: "problem",
-    docs: {
-      description:
-        "Service, Storage, and Logic constructors take their dependencies as one `deps` parameter.",
-    },
-    schema: [{ type: "object" }],
-    messages: {
-      deps:
-        "A {{kind}} constructor takes one parameter named `deps`. " +
-        DOC +
-        " (Application setup).",
-      field:
-        "A {{kind}} class declares its dependencies as `private readonly deps`. " +
-        DOC +
-        " (Application setup).",
-    },
-  },
-  create(context) {
-    const options = context.options[0] ?? {};
-    const file = currentFile(context);
-    const kind = file ? roleClassKind(file) : null;
-    if (
-      !kind ||
-      file.isTest ||
-      (options.exemptFeatures ?? []).includes(file.feature)
-    ) {
-      return {};
-    }
-
-    return {
-      MethodDefinition(node) {
-        if (node.kind !== "constructor") {
-          return;
-        }
-
-        const params = node.value.params;
-        if (params.length === 0) {
-          return;
-        }
-        const [param] = params;
-        const isProperty = param.type === "TSParameterProperty";
-        const name = isProperty ? param.parameter.name : param.name;
-        if (params.length > 1 || name !== "deps") {
-          context.report({ node, messageId: "deps", data: { kind } });
-          return;
-        }
-
-        const ownsDeps = kind === "Service" || kind === "Storage";
-        if (
-          ownsDeps &&
-          !(isProperty && param.accessibility === "private" && param.readonly)
-        ) {
-          context.report({ node, messageId: "field", data: { kind } });
-        }
-      },
-    };
-  },
-};
-
-const fileLayout = {
-  meta: {
-    type: "problem",
-    docs: {
-      description:
-        "Every source file lives in a known role directory of a feature.",
-    },
-    schema: [{ type: "object" }],
-    messages: {
-      outside:
-        "Source files live in src/features/<feature>/<role>/. " +
-        DOC +
-        " (Layout of src/).",
-      featureRoot:
-        "Only {{allowed}} may sit directly in a feature directory. Put this file in a role directory. " +
-        DOC +
-        " (Layout of src/).",
-      role:
-        "'{{role}}' is not a known role directory for the '{{feature}}' feature. Known: {{allowed}}. " +
-        DOC +
-        " (File organization).",
-    },
-  },
-  create(context) {
-    const options = context.options[0] ?? {};
-    const file = currentFile(context);
-    if (!file) {
-      return {};
-    }
-
-    return {
-      Program(node) {
-        if (!file.feature) {
-          const allowed = (options.srcRootFiles ?? []).concat(
-            projectOptions.srcRootFiles,
-          );
-          if (!allowed.includes(file.inSrc)) {
-            context.report({ node, messageId: "outside" });
-          }
-          return;
-        }
-
-        if (!file.role) {
-          const allowed = (options.featureRootFiles ?? []).concat(
-            options.featureRootFilesByFeature?.[file.feature] ?? [],
-          );
-          if (!allowed.includes(file.base)) {
-            context.report({
-              node,
-              messageId: "featureRoot",
-              data: { allowed: allowed.map((name) => `${name}.ts`).join(", ") },
-            });
-          }
-          return;
-        }
-
-        const allowed = (options.roles ?? []).concat(
-          options.rolesByFeature?.[file.feature] ?? [],
-          projectOptions.roles,
-          projectOptions.rolesByFeature[file.feature] ?? [],
-        );
-        if (!allowed.includes(file.role)) {
-          context.report({
-            node,
-            messageId: "role",
-            data: {
-              role: file.role,
-              feature: file.feature,
-              allowed: allowed.join(", "),
-            },
-          });
-        }
-      },
-    };
-  },
-};
-
-/** True for `this.deps.<name>`. */
-function isDepsMember(node, name) {
-  return (
-    node.type === "MemberExpression" &&
-    !node.computed &&
-    node.property.name === name &&
-    node.object.type === "MemberExpression" &&
-    node.object.object.type === "ThisExpression" &&
-    node.object.property.name === "deps"
-  );
-}
-
-const transactionScope = {
-  meta: {
-    type: "problem",
-    docs: {
-      description:
-        "Inside a transaction, a Logic class uses the Storage that the transaction provides.",
-    },
-    schema: [],
-    messages: {
-      outside:
-        "Inside a transaction, use the Storage that the callback receives. `this.deps.storage` is not part of the transaction. " +
-        "See docs/agents/database.md (Transactions).",
-    },
-  },
-  create(context) {
-    let enclosingTransactionCalls = 0;
-    const isTransactionCall = (node) =>
-      isDepsMember(node.callee, "transaction");
-
-    return {
-      CallExpression(node) {
-        if (isTransactionCall(node)) {
-          enclosingTransactionCalls += 1;
-        }
-      },
-      "CallExpression:exit"(node) {
-        if (isTransactionCall(node)) {
-          enclosingTransactionCalls -= 1;
-        }
-      },
-      MemberExpression(node) {
-        if (enclosingTransactionCalls > 0 && isDepsMember(node, "storage")) {
-          context.report({ node, messageId: "outside" });
-        }
-      },
-    };
-  },
-};
-
-export default {
-  meta: { name: "architecture" },
-  rules: {
-    "feature-boundaries": featureBoundaries,
-    "layer-imports": layerImports,
-    "service-implementations": serviceImplementations,
-    "no-construction": noConstruction,
-    "own-storage": ownStorage,
-    "handler-dependencies": handlerDependencies,
-    "role-naming": roleNaming,
-    "constructor-deps": constructorDeps,
-    "file-layout": fileLayout,
-    "transaction-scope": transactionScope,
   },
 };

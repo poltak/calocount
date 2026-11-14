@@ -3,8 +3,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { VERSION_FILE, git } from "./template-files.mjs";
-import type { VersionFile } from "./template-files.mjs";
+import { VERSION_FILE, git } from "./template-files.ts";
+import type { VersionFile } from "./template-files.ts";
 
 export const root = fileURLToPath(new URL("..", import.meta.url));
 export const TEMPLATE_BRANCH = "main";
@@ -32,7 +32,7 @@ export const RULE_FILES = [
   "scripts/sync-template-apply.ts",
   "scripts/sync-template-finish.ts",
   "scripts/sync-template.mjs",
-  "scripts/template-files.mjs",
+  "scripts/template-files.ts",
 ];
 // The commit to go back to, for an `apply` that an `apply` started.
 export const SYNC_START = "TEMPLATE_SYNC_START";

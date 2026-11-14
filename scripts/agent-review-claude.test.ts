@@ -6,19 +6,22 @@ import {
   OVERRIDE,
   PROJECT_RULES,
   argAfter,
-  at,
   commitAll,
   decode,
   finding,
   firstCall,
   git,
   issue,
-  note,
   pack,
   repository,
   run,
   type RunResult,
 } from "./agent-review-fixtures.ts";
+
+const promptOf = (result: RunResult) => {
+  const { args } = firstCall(result);
+  return argAfter(args, "-p");
+};
 
 test("claude gives the reviewer the open findings and notes in a file, and not the accepted or addressed ones", async (context) => {
   const repo = await repository(context);
@@ -39,10 +42,6 @@ test("claude gives the reviewer the open findings and notes in a file, and not t
         }),
       },
     });
-  const promptOf = (result: RunResult) => {
-    const { args } = firstCall(result);
-    return argAfter(args, "-p");
-  };
 
   const withEarlier = await review({
     head: "abc1234",

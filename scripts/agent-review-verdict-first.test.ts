@@ -95,6 +95,8 @@ test("verdict posts the master comment of the first review, merges the findings,
   );
 });
 
+const bodyOf = (result: RunResult) => inputOf(result, SUMMARY_POST).body;
+
 test("verdict shows other issues with their IDs, and other issues do not fail the check", async (context) => {
   const repo = await repository(context);
   const verdict = (env?: Record<string, string | undefined>) =>
@@ -105,7 +107,6 @@ test("verdict shows other issues with their IDs, and other issues do not fail th
       answers: { [`GET ${PULL}`]: { head: { sha: repo.base } } },
       env: { MODE: "review", ...env },
     });
-  const bodyOf = (result: RunResult) => inputOf(result, SUMMARY_POST).body;
 
   const withFinding = await verdict({
     CLAUDE_JOB: job(

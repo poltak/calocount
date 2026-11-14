@@ -49,7 +49,7 @@ async function createRepository(
   for (const script of [
     "check-migrations.ts",
     "migration-files.ts",
-    "template-files.mjs",
+    "template-files.ts",
   ]) {
     await cp(
       path.join(scriptsDirectory, script),

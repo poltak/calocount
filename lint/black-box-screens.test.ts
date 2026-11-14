@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { lint } from "./lint-fixture.mjs";
+import { lint } from "./lint-fixture.ts";
 
 const fixture =
   'import { test } from "../../core/black-box-tests/black-box-test.js";\n';

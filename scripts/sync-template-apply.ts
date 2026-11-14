@@ -9,7 +9,7 @@ import {
   git,
   readVersionFile,
   writeVersionFile,
-} from "./template-files.mjs";
+} from "./template-files.ts";
 import {
   CONFLICT_MARKER,
   LOCKFILE,
@@ -50,6 +50,11 @@ function restoreFromHead(file: string) {
  * here resolve what needs no decision. Anything else stops the command, for a
  * person or an agent to resolve.
  */
+const section = (title: string, lines: string[]) =>
+  lines.length > 0
+    ? `\n${title}\n${lines.map((line) => `  ${line}`).join("\n")}\n`
+    : "";
+
 async function settle({
   commit,
   leftOut,
@@ -118,10 +123,6 @@ async function settle({
         conflicts: [...new Set([...stopped.conflicts, ...unmerged])],
       }),
     );
-    const section = (title: string, lines: string[]) =>
-      lines.length > 0
-        ? `\n${title}\n${lines.map((line) => `  ${line}`).join("\n")}\n`
-        : "";
     fail(
       `Stopped at template commit ${short(commit.commit)}: ${commit.subject}\n` +
         section(
@@ -189,6 +190,19 @@ async function settle({
   return read("rev-parse", "HEAD");
 }
 
+const report = ({
+  commit,
+  made,
+}: {
+  commit: PlanCommit;
+  made: string | undefined;
+}) =>
+  console.log(
+    made
+      ? `took  ${short(commit.commit)}  ${commit.subject}  (now ${short(made)})`
+      : `have  ${short(commit.commit)}  ${commit.subject}  (it changed nothing)`,
+  );
+
 export async function apply() {
   const stopped = readStopped();
   // A run that stops and continues is one sync, with one commit to go back to.
@@ -200,18 +214,6 @@ export async function apply() {
       `The working tree has changes. Commit them, or discard them, before \`apply\`:\n  ${changedFiles().join("\n  ")}`,
     );
   }
-  const report = ({
-    commit,
-    made,
-  }: {
-    commit: PlanCommit;
-    made: string | undefined;
-  }) =>
-    console.log(
-      made
-        ? `took  ${short(commit.commit)}  ${commit.subject}  (now ${short(made)})`
-        : `have  ${short(commit.commit)}  ${commit.subject}  (it changed nothing)`,
-    );
 
   if (stopped) {
     const commit = plan.commits.find(

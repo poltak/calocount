@@ -29,8 +29,8 @@ import {
   VERSION_FILE,
   isProjectPath,
   matchesPath,
-} from "./template-files.mjs";
-import type { VersionFile } from "./template-files.mjs";
+} from "./template-files.ts";
+import type { VersionFile } from "./template-files.ts";
 
 interface ChangedFile {
   filename: string;
@@ -137,6 +137,9 @@ function ownChanges({
   );
 }
 
+const isListed = (entries: string[], file: string) =>
+  entries.some((entry) => matchesPath({ entry, file }));
+
 function check() {
   const versionFile = path.join(root, VERSION_FILE);
   if (!existsSync(versionFile)) {
@@ -158,8 +161,6 @@ function check() {
   const { ownPaths } = JSON.parse(
     readFileSync(versionFile, "utf8"),
   ) as VersionFile;
-  const isListed = (entries: string[], file: string) =>
-    entries.some((entry) => matchesPath({ entry, file }));
   const isFromTemplate = (file: string) =>
     isListed(templateOwned, file) && !isProjectPath({ ownPaths, file });
   const isOwned = (file: string) =>

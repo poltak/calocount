@@ -29,7 +29,7 @@ import {
   isGate,
   matchesPath,
   writeVersionFile,
-} from "./template-files.mjs";
+} from "./template-files.ts";
 import {
   CHECKS,
   USAGE,

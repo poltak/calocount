@@ -234,11 +234,19 @@ test("keeps the project's lockfile when the template's change does not apply to 
   );
 });
 
+const migration = (name: string) =>
+  `export const migration = { name: "${name}" };\n`;
+
+const createMigration = (directory: string) =>
+  execFileSync(
+    process.execPath,
+    [path.join(directory, "scripts/create-migration.ts"), "--sync"],
+    { cwd: directory },
+  );
+
 test("writes the list of migrations again when a template commit adds a migration", async (context) => {
   const { template, project } = await createProject(context);
   const database = "backend/src/features/core/database";
-  const migration = (name: string) =>
-    `export const migration = { name: "${name}" };\n`;
   const listOf = async (directory: string) =>
     (await readProjectFile(directory, `${database}/migrations.ts`))
       .split("\n")
@@ -252,12 +260,6 @@ test("writes the list of migrations again when a template commit adds a migratio
       path.join(directory, "node_modules"),
     );
   }
-  const createMigration = (directory: string) =>
-    execFileSync(
-      process.execPath,
-      [path.join(directory, "scripts/create-migration.ts"), "--sync"],
-      { cwd: directory },
-    );
 
   for (const script of ["create-migration.ts", "migration-files.ts"]) {
     await cp(

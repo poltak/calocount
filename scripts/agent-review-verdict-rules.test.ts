@@ -6,7 +6,6 @@ import {
   PROJECT_RULES,
   PULL,
   SUMMARY_POST,
-  at,
   commitAll,
   finding,
   git,
@@ -17,6 +16,9 @@ import {
   run,
   stateIn,
 } from "./agent-review-fixtures.ts";
+
+const entry = (link: string, models: string, explanation: string) =>
+  `in [\`${link} (${models}) · ${explanation === "A note." ? "Nonblocking note" : explanation === "Another rule." ? "Maintainer approval permitted" : "Fix required"} · found in review 1\n\n${explanation}`;
 
 test("verdict keeps a finding of a project rule, deletes one of a rule that the review does not have, and links both files of rules", async (context) => {
   const repo = await repository(context);
@@ -183,8 +185,6 @@ test("verdict finds a secret that a later commit deletes, merges by file, and sh
   assert.equal(result.status, 1, result.output);
   const { body } = inputOf(result, SUMMARY_POST);
   assert.match(body, /blockers=6 reviewed=\w+ base=\w+ -->/);
-  const entry = (link: string, models: string, explanation: string) =>
-    `in [\`${link} (${models}) · ${explanation === "A note." ? "Nonblocking note" : explanation === "Another rule." ? "Maintainer approval permitted" : "Fix required"} · found in review 1\n\n${explanation}`;
   for (const text of [
     entry(
       `src/settings.ts:3\`](https://github.com/acme/project/blob/${added}/src/settings.ts#L3) at commit ${added.slice(0, 7)}`,

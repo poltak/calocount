@@ -2,7 +2,7 @@
 // is behind `main` on its remote. Claude Code and Codex run it when a session
 // starts:
 //
-//   node .agents/hooks/check-branch-is-current.mjs
+//   pnpm exec node .agents/hooks/check-branch-is-current.ts
 //
 // A branch that starts from an old `main` does not have the fixes that `main`
 // got after that, and its pull request can conflict with them or undo them.
@@ -17,7 +17,17 @@ import { readFileSync } from "node:fs";
 // A slow network must not hold up the start of the session.
 const FETCH_TIMEOUT_MS = 15_000;
 
-function readGit({ directory, args, env, timeout }) {
+function readGit({
+  directory,
+  args,
+  env,
+  timeout,
+}: {
+  directory: string;
+  args: string[];
+  env?: NodeJS.ProcessEnv;
+  timeout?: number;
+}): string | undefined {
   try {
     return execFileSync("git", ["-C", directory, ...args], {
       encoding: "utf8",
@@ -30,9 +40,9 @@ function readGit({ directory, args, env, timeout }) {
   }
 }
 
-function readEvent() {
+function readEvent(): { cwd?: unknown } {
   try {
-    return JSON.parse(readFileSync(0, "utf8"));
+    return JSON.parse(readFileSync(0, "utf8")) as { cwd?: unknown };
   } catch {
     return {};
   }
@@ -49,7 +59,10 @@ const remote = tracked && tracked !== "." ? tracked : "origin";
 // A prompt for a password or a passphrase would wait in the agent's terminal
 // until the timeout. Git and SSH fail at once instead. A person's own SSH
 // command stays as it is.
-const fetchEnv = { ...process.env, GIT_TERMINAL_PROMPT: "0" };
+const fetchEnv: NodeJS.ProcessEnv = {
+  ...process.env,
+  GIT_TERMINAL_PROMPT: "0",
+};
 if (
   !fetchEnv.GIT_SSH_COMMAND &&
   !readGit({ directory, args: ["config", "core.sshCommand"] })

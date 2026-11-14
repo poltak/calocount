@@ -6,7 +6,10 @@ const rootUrl = new URL("../", import.meta.url);
 const nvmrc = (await readFile(new URL(".nvmrc", rootUrl), "utf8")).trim();
 const packageJson = JSON.parse(
   await readFile(new URL("package.json", rootUrl), "utf8"),
-);
+) as {
+  engines?: { node?: string };
+  devEngines?: { runtime?: { version?: string } };
+};
 
 const declared = {
   ".nvmrc": nvmrc,

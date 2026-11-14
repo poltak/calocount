@@ -91,7 +91,7 @@ async function check({
   context.after(() => rm(directory, { recursive: true, force: true }));
   await mkdir(path.join(directory, "scripts"));
   await mkdir(path.join(directory, "bin"));
-  for (const file of ["check-template-owned-files.ts", "template-files.mjs"]) {
+  for (const file of ["check-template-owned-files.ts", "template-files.ts"]) {
     await cp(
       path.join(scriptsDirectory, file),
       path.join(directory, "scripts", file),

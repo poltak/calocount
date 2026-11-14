@@ -145,7 +145,9 @@ export function commitWithQuote(
     ],
     { cwd: root, encoding: "utf8" },
   );
-  if (!text || log.status !== 0) return undefined;
+  if (!text || log.status !== 0) {
+    return undefined;
+  }
   return log.stdout
     .split("\n")
     .filter(Boolean)
@@ -176,8 +178,11 @@ export function commitWithQuote(
       let inHunk = false;
       const added: string[] = [];
       for (const line of shown.stdout.split("\n")) {
-        if (line.startsWith("@@")) inHunk = true;
-        else if (inHunk && line.startsWith("+")) added.push(line.slice(1));
+        if (line.startsWith("@@")) {
+          inHunk = true;
+        } else if (inHunk && line.startsWith("+")) {
+          added.push(line.slice(1));
+        }
       }
       return shown.status === 0 && flatten(added.join("\n")).includes(text);
     });
@@ -216,7 +221,9 @@ export function sameFinding(
   one: Pick<Finding, "file" | "rule" | "quote">,
   other: Pick<Finding, "file" | "rule" | "quote">,
 ): boolean {
-  if (one.file !== other.file) return false;
+  if (one.file !== other.file) {
+    return false;
+  }
   const first = flatten(one.quote ?? "");
   const second = flatten(other.quote ?? "");
   // The comment stores no quote of a sensitive rule, or from its file.
@@ -236,7 +243,9 @@ export function linesOfQuote({
     .split("\n")
     .map((text) => text.trim());
   const [first] = quoted;
-  if (!first) return { start: line, end: line };
+  if (!first) {
+    return { start: line, end: line };
+  }
   const lines = readFileSync(path.resolve(root, file), "utf8").split("\n");
   // A short quote can be on more lines than one, so the line that the model
   // gave goes first.

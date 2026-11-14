@@ -83,7 +83,9 @@ function earlierReview(event: ReviewEvent): string {
   const { number } = event.pull_request;
   const comment = reviewComment({ repository, number });
   const [, head, , reviewed, base] = comment?.body.match(MARKER_FIELDS) ?? [];
-  if (!comment || !head) return "";
+  if (!comment || !head) {
+    return "";
+  }
   const master = comment.body.startsWith(MASTER_MARKER);
   const issues = reviewIssues(
     master
@@ -112,6 +114,9 @@ function earlierReview(event: ReviewEvent): string {
  * What the maintainers wrote about each issue: a reply to its line comment, or
  * a comment on the pull request that names its ID.
  */
+const isMaintainerComment = ({ user }: GithubComment) =>
+  isMaintainer(user?.login) && !BOT_LOGINS.has(user?.login);
+
 function maintainerComments({
   repository,
   number,
@@ -125,8 +130,6 @@ function maintainerComments({
       ...(written.get(id) ?? []),
       { author: user?.login ?? "", body },
     ]);
-  const isMaintainerComment = ({ user }: GithubComment) =>
-    isMaintainer(user?.login) && !BOT_LOGINS.has(user?.login);
   const lineComments = readPages<GithubComment[]>(
     `repos/${repository}/pulls/${number}/comments?per_page=100`,
   ).flat();
@@ -143,7 +146,9 @@ function maintainerComments({
       comment.in_reply_to_id === undefined
         ? undefined
         : issueOfLine.get(comment.in_reply_to_id);
-    if (id) add(id, comment);
+    if (id) {
+      add(id, comment);
+    }
   }
   const pullComments = readPages<GithubComment[]>(
     `repos/${repository}/issues/${number}/comments?per_page=100`,

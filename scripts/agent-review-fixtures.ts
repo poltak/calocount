@@ -146,7 +146,7 @@ export async function repository(context: TestContext): Promise<Repo> {
   context.after(() => rm(directory, { recursive: true, force: true }));
   for (const file of [
     ...(await scriptFiles()),
-    "scripts/template-files.mjs",
+    "scripts/template-files.ts",
     ".agents/review/prompt.md",
     ".agents/review/findings.schema.json",
   ]) {
@@ -390,17 +390,23 @@ export const bot = (body: string, id = 99) => ({
 });
 export const at = <T>(items: T[], index = 0): T => {
   const item = items[index];
-  if (item === undefined) throw new Error(`The list has no item ${index}.`);
+  if (item === undefined) {
+    throw new Error(`The list has no item ${index}.`);
+  }
   return item;
 };
 export const firstCall = (result: RunResult): Call => {
   const [first] = result.calls;
-  if (!first) throw new Error("The script ran no program.");
+  if (!first) {
+    throw new Error("The script ran no program.");
+  }
   return first;
 };
 export const argAfter = (args: string[], flag: string): string => {
   const value = args[args.indexOf(flag) + 1];
-  if (value === undefined) throw new Error(`No value follows ${flag}.`);
+  if (value === undefined) {
+    throw new Error(`No value follows ${flag}.`);
+  }
   return value;
 };
 export const stateIn = (body: string): ReviewState => {
@@ -429,7 +435,9 @@ export const payloadOf = (input: string): PostedInput =>
   JSON.parse(input) as PostedInput;
 export const inputOf = (result: RunResult, call: string): PostedInput => {
   const entry = result.calls.find((candidate) => candidate.call === call);
-  if (!entry) throw new Error(`The script made no call ${call}.`);
+  if (!entry) {
+    throw new Error(`The script made no call ${call}.`);
+  }
   return payloadOf(entry.input);
 };
 
@@ -502,7 +510,7 @@ export const versions = (...list: [string, string, string][]) => ({
         editor: { login },
         diff,
       }))
-      .reverse(),
+      .toReversed(),
   },
 });
 export const editsAnswer = ({

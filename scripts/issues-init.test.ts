@@ -58,7 +58,7 @@ async function createProject(
   const project = path.join(directory, "project");
   await mkdir(path.join(project, "scripts"), { recursive: true });
   await mkdir(path.join(directory, "bin"));
-  for (const script of ["issues-init.ts", "template-files.mjs"]) {
+  for (const script of ["issues-init.ts", "template-files.ts"]) {
     await cp(
       path.join(scriptsDirectory, script),
       path.join(project, "scripts", script),

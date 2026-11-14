@@ -12,7 +12,6 @@ import {
   SUMMARY_POST,
   SUMMARY_URL,
   at,
-  bot,
   boxes,
   earlierOf,
   editsAnswer,
@@ -28,6 +27,23 @@ import {
   stateIn,
   versions,
 } from "./agent-review-fixtures.ts";
+
+const thread = (id: string, ...list: [string, string, string][]) => ({
+  comments: {
+    nodes: [
+      {
+        author: { login: "github-actions" },
+        body: lineBody(id, list.at(-1)?.[2] ?? ""),
+        ...versions(
+          ...list.map(
+            ([time, login, mark]) =>
+              [time, login, lineBody(id, mark)] as [string, string, string],
+          ),
+        ),
+      },
+    ],
+  },
+});
 
 test("verdict moves each issue that a maintainer accepted with its box to the addressed issues, opens one with a cleared box again, and counts only the boxes of maintainers after the newest review", async (context) => {
   const repo = await repository(context);
@@ -69,22 +85,6 @@ test("verdict moves each issue that a maintainer accepted with its box to the ad
     text: boxes({ F1: "x", F2: "x", F3: "x", F4: " ", F5: " ", N1: " " }),
   });
   const posted = { F1: " ", F2: " ", F3: "x", F4: "x", F5: " ", N1: " " };
-  const thread = (id: string, ...list: [string, string, string][]) => ({
-    comments: {
-      nodes: [
-        {
-          author: { login: "github-actions" },
-          body: lineBody(id, list.at(-1)?.[2] ?? ""),
-          ...versions(
-            ...list.map(
-              ([at, login, mark]) =>
-                [at, login, lineBody(id, mark)] as [string, string, string],
-            ),
-          ),
-        },
-      ],
-    },
-  });
   const result = await run({
     repo,
     command: "verdict",

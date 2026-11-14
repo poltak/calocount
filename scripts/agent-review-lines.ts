@@ -55,7 +55,9 @@ export function lineComments({
         { length: end - start + 1 },
         (_, offset) => start + offset,
       ).filter((line) => diffLines.has(line));
-      if (inDiff.length === 0) return [];
+      if (inDiff.length === 0) {
+        return [];
+      }
       const each = end > start && inDiff.length === end - start + 1;
       return [
         {
@@ -112,10 +114,16 @@ export function markLines({
   ).flat();
   for (const comment of comments) {
     const id = comment.body?.match(LINE_PATTERN)?.[1];
-    if (!id || comment.user?.login !== "github-actions[bot]") continue;
-    if (!addresses.has(id)) addresses.set(id, comment.html_url);
-    const issue = issues.find((issue) => issue.id === id);
-    if (!issue) continue;
+    if (!id || comment.user?.login !== "github-actions[bot]") {
+      continue;
+    }
+    if (!addresses.has(id)) {
+      addresses.set(id, comment.html_url);
+    }
+    const issue = issues.find((candidate) => candidate.id === id);
+    if (!issue) {
+      continue;
+    }
     const lines = marks.get(id);
     let body = comment.body.replace(
       /^-(?: \[[ x]\])? (?=\*\*[FN]\d+ ·)/m,
@@ -129,9 +137,12 @@ export function markLines({
       "A configured maintainer can accept this issue with its checkbox. Replies do not grant approval.",
       acceptanceText(issue),
     );
-    if (lines && !lines.every((line) => body.includes(line)))
+    if (lines && !lines.every((line) => body.includes(line))) {
       body = [body, "", ...lines].join("\n");
-    if (body === comment.body) continue;
+    }
+    if (body === comment.body) {
+      continue;
+    }
     callApi({
       method: "PATCH",
       route: `repos/${repository}/pulls/comments/${comment.id}`,

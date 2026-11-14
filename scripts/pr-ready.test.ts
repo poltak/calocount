@@ -23,6 +23,14 @@ const env: NodeJS.ProcessEnv = {
   GIT_COMMITTER_NAME: "Person",
   GIT_COMMITTER_EMAIL: "person@example.test",
 };
+const git = (cwd: string, ...args: string[]) =>
+  execFileSync("git", args, {
+    cwd,
+    env,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  }).trim();
+
 function setup(t: TestContext) {
   const dir = mkdtempSync(path.join(os.tmpdir(), "pr-ready-"));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
@@ -30,13 +38,6 @@ function setup(t: TestContext) {
     upstream = path.join(dir, "upstream"),
     root = path.join(dir, "project"),
     bin = path.join(dir, "bin");
-  const git = (cwd: string, ...args: string[]) =>
-    execFileSync("git", args, {
-      cwd,
-      env,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-    }).trim();
   git(dir, "init", "--bare", "--initial-branch=main", origin);
   git(dir, "clone", origin, upstream);
   const commit = (cwd: string, file: string, text: string) => {
@@ -50,8 +51,9 @@ function setup(t: TestContext) {
   git(dir, "clone", origin, root);
   git(root, "switch", "-c", "feature/trial");
   mkdirSync(path.join(root, "scripts"));
-  for (const file of ["pr-ready.ts", "template-files.mjs"])
+  for (const file of ["pr-ready.ts", "template-files.ts"]) {
     cpSync(new URL(file, import.meta.url), path.join(root, "scripts", file));
+  }
   git(root, "add", ".");
   git(root, "commit", "-m", "Add script");
   mkdirSync(bin);
@@ -125,20 +127,22 @@ test("records checks and reports them, then refuses results for an old commit", 
 for (const file of [
   "frontend/src/features/core/ui/routes.tsx",
   "frontend/src/features/x/ui/page.tsx",
-])
+]) {
   test(`runs browser tests for ${file}`, (t) => {
     const x = setup(t);
-    if (file.includes("/x/"))
+    if (file.includes("/x/")) {
       x.commit(
         x.root,
         "frontend/src/features/x/black-box-tests/test.spec.ts",
         "test",
       );
+    }
     x.commit(x.root, file, "change");
     assert.equal(x.run("browser").status, 0);
     assert.match(readFileSync(x.calls, "utf8"), /run test:browser/);
     assert.equal(x.record().checks.browser.status, "passed");
   });
+}
 test("report refuses an earlier pass after a failed run at the same commit", (t) => {
   const x = setup(t);
   x.commit(x.root, "backend/change", "x");

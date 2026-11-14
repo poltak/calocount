@@ -16,7 +16,7 @@ import type {
   View,
   Vote,
 } from "./agent-review-types.ts";
-import { VERSION_FILE, type VersionFile } from "./template-files.mjs";
+import { VERSION_FILE, type VersionFile } from "./template-files.ts";
 
 // GitHub gives the ID of an anchor in a comment the prefix `user-content-`.
 export const anchorOf = (id: string): string =>
@@ -41,7 +41,9 @@ export const firstSentence = (text: string): string =>
  * says it, so the list is empty.
  */
 export function voteLines(votes: Vote[] = []): string[] {
-  if (!votes.some((vote) => vote.status)) return [];
+  if (!votes.some((vote) => vote.status)) {
+    return [];
+  }
   return votes.map(({ model, status, explanation }) =>
     status
       ? `- ${model}: ${status}. ${escapeOutsideCode(flatten(explanation ?? "").slice(0, 300))}`
@@ -135,7 +137,9 @@ function ruleLinkOf({
   const fileUrl = (file: string) =>
     `${server}/${repository}/blob/${head}/${encodeURI(file)}`;
   return (rule) => {
-    if (generalNames.has(rule)) return `[${rule}](${general.url}#${rule})`;
+    if (generalNames.has(rule)) {
+      return `[${rule}](${general.url}#${rule})`;
+    }
     return `[${rule}](${fileUrl(PROJECT_RULES_FILE)}#${rule})`;
   };
 }

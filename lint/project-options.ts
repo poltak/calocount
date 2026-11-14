@@ -13,16 +13,24 @@ import { fileURLToPath } from "node:url";
 const FILE = "lint.project.json";
 const LISTS = ["compositionFiles", "roles", "sharedFeatures", "srcRootFiles"];
 
-const isNames = (value) =>
+export interface ProjectOptions {
+  compositionFiles: string[];
+  roles: string[];
+  rolesByFeature: Record<string, string[]>;
+  sharedFeatures: string[];
+  srcRootFiles: string[];
+}
+
+const isNames = (value: unknown): value is string[] =>
   Array.isArray(value) && value.every((name) => typeof name === "string");
-const isNamesByFeature = (value) =>
+const isNamesByFeature = (value: unknown) =>
   typeof value === "object" &&
   value !== null &&
   !Array.isArray(value) &&
   Object.values(value).every(isNames);
 
 /** A wrong key stops lint. Without this, a typo looks like a rule that passes. */
-function validate(options) {
+function validate(options: object) {
   for (const [key, value] of Object.entries(options)) {
     if (key === "rolesByFeature") {
       if (!isNamesByFeature(value)) {
@@ -36,11 +44,11 @@ function validate(options) {
   }
 }
 
-function read() {
+function read(): ProjectOptions {
   const file = fileURLToPath(new URL(`../${FILE}`, import.meta.url));
-  const options = existsSync(file)
-    ? JSON.parse(readFileSync(file, "utf8"))
-    : {};
+  const options = (
+    existsSync(file) ? JSON.parse(readFileSync(file, "utf8")) : {}
+  ) as Partial<ProjectOptions>;
   validate(options);
   return {
     compositionFiles: [],

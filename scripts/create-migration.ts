@@ -86,7 +86,7 @@ if (argument !== "--sync" && !MIGRATION_NAME.test(argument ?? "")) {
 await mkdir(migrationsDirectory, { recursive: true });
 const files = (await readdir(migrationsDirectory))
   .filter((file) => MIGRATION_FILE.test(file))
-  .sort();
+  .toSorted();
 
 if (argument !== "--sync") {
   // A new migration always sorts after every existing one, even when a clock

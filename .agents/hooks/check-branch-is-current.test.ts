@@ -4,6 +4,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import type { TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
 
 const repoRoot = path.resolve(
@@ -11,13 +12,19 @@ const repoRoot = path.resolve(
   "../..",
 );
 
-const git = ({ directory, args }) =>
+const git = ({ directory, args }: { directory: string; args: string[] }) =>
   execFileSync("git", ["-C", directory, ...args], {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
   }).trimEnd();
 
-async function commit({ directory, file }) {
+async function commit({
+  directory,
+  file,
+}: {
+  directory: string;
+  file: string;
+}) {
   await writeFile(path.join(directory, file), `${file}\n`);
   git({ directory, args: ["add", file] });
   git({
@@ -39,7 +46,13 @@ async function commit({ directory, file }) {
  * A repository on this machine with one commit on `main`, and a function that
  * pushes more commits to its `main`, as another person does.
  */
-async function createRemote({ directory, name }) {
+async function createRemote({
+  directory,
+  name,
+}: {
+  directory: string;
+  name: string;
+}) {
   const url = path.join(directory, `${name}.git`);
   const other = path.join(directory, `${name}-other`);
   git({
@@ -48,7 +61,7 @@ async function createRemote({ directory, name }) {
   });
   git({ directory, args: ["clone", "--quiet", url, other] });
   git({ directory: other, args: ["symbolic-ref", "HEAD", "refs/heads/main"] });
-  const pushToMain = async (files) => {
+  const pushToMain = async (files: string[]) => {
     for (const file of files) {
       await commit({ directory: other, file });
     }
@@ -59,7 +72,7 @@ async function createRemote({ directory, name }) {
 }
 
 /** A clone of a repository on this machine, as a person's checkout. */
-async function createClones(context) {
+async function createClones(context: TestContext) {
   const directory = await mkdtemp(path.join(os.tmpdir(), "branch-current-"));
   context.after(() => rm(directory, { recursive: true, force: true }));
   const origin = await createRemote({ directory, name: "origin" });
@@ -68,19 +81,31 @@ async function createClones(context) {
   return { directory, clone, pushToMain: origin.pushToMain };
 }
 
-async function readStartCommand(configPath) {
+interface HookConfig {
+  hooks: Record<string, { hooks: { command: string }[] }[]>;
+}
+
+async function readStartCommand(configPath: string) {
   const config = JSON.parse(
     await readFile(path.join(repoRoot, configPath), "utf8"),
-  );
-  const commands = config.hooks.SessionStart.flatMap((entry) =>
-    entry.hooks.map((hook) => hook.command),
-  ).filter((command) => command.includes("check-branch-is-current.mjs"));
+  ) as HookConfig;
+  const commands = (config.hooks["SessionStart"] ?? [])
+    .flatMap((entry) => entry.hooks.map((hook) => hook.command))
+    .filter((command) => command.includes("check-branch-is-current.ts"));
+  const [command] = commands;
   assert.equal(commands.length, 1);
-  return commands[0];
+  assert.ok(command);
+  return command;
 }
 
 /** Run the hook as the agent's configuration runs it, and read its output. */
-async function runHook({ agent, cwd }) {
+async function runHook({
+  agent,
+  cwd,
+}: {
+  agent: "claude" | "codex";
+  cwd: string;
+}) {
   const command = await readStartCommand(
     agent === "claude" ? ".claude/settings.json" : ".codex/hooks.json",
   );
@@ -98,7 +123,7 @@ test("tells both agents when the local main is behind origin/main", async (conte
   const { clone, pushToMain } = await createClones(context);
   await pushToMain(["second.txt", "third.txt"]);
 
-  for (const agent of ["claude", "codex"]) {
+  for (const agent of ["claude", "codex"] as const) {
     const output = await runHook({ agent, cwd: clone });
 
     assert.equal(output.hookSpecificOutput.hookEventName, "SessionStart");

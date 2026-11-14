@@ -5,7 +5,27 @@ import { fileURLToPath } from "node:url";
 
 const EDIT_TOOLS = new Set(["Edit", "Write"]);
 
-export function extractTargetPaths(event) {
+// The fields of the hook input that this hook reads. Claude Code and Codex
+// send more.
+export interface EditEvent {
+  tool_name?: string;
+  tool_input?: { file_path?: unknown; command?: unknown } | null;
+  cwd?: unknown;
+}
+
+export interface PatchFile {
+  operation: string;
+  path: string;
+  moveTo?: string;
+}
+
+function errorCode(error: unknown): string | undefined {
+  return (error as NodeJS.ErrnoException | undefined)?.code;
+}
+
+export function extractTargetPaths(
+  event: EditEvent | null | undefined,
+): string[] {
   if (!event || typeof event !== "object") {
     return [];
   }
@@ -16,6 +36,7 @@ export function extractTargetPaths(event) {
   }
 
   if (
+    event.tool_name !== undefined &&
     EDIT_TOOLS.has(event.tool_name) &&
     typeof toolInput.file_path === "string"
   ) {
@@ -32,7 +53,7 @@ export function extractTargetPaths(event) {
   return [];
 }
 
-export function parsePatchTargetPaths(patchText) {
+export function parsePatchTargetPaths(patchText: string): string[] {
   const paths = parsePatchFiles(patchText)
     .filter((file) => file.operation !== "Delete")
     .map((file) => file.moveTo ?? file.path);
@@ -43,16 +64,16 @@ export function parsePatchTargetPaths(patchText) {
  * Each file of a Codex patch: `operation` is `Add`, `Update`, or `Delete`,
  * and `moveTo` is the new path of a file that the patch moves.
  */
-export function parsePatchFiles(patchText) {
-  const files = [];
-  let currentFile;
+export function parsePatchFiles(patchText: string): PatchFile[] {
+  const files: PatchFile[] = [];
+  let currentFile: PatchFile | undefined;
 
   for (const line of patchText.split(/\r?\n/)) {
     const fileHeader = line.match(/^\*\*\* (Add|Update|Delete) File: (.*)$/);
     if (fileHeader) {
       currentFile = {
-        operation: fileHeader[1],
-        path: fileHeader[2],
+        operation: fileHeader[1] ?? "",
+        path: fileHeader[2] ?? "",
       };
       files.push(currentFile);
       continue;
@@ -64,14 +85,14 @@ export function parsePatchFiles(patchText) {
 
     const moveHeader = line.match(/^\*\*\* Move to: (.*)$/);
     if (currentFile && moveHeader) {
-      currentFile.moveTo = moveHeader[1];
+      currentFile.moveTo = moveHeader[1] ?? "";
     }
   }
 
   return files;
 }
 
-export async function resolveGitRoot(startPath) {
+export async function resolveGitRoot(startPath: string): Promise<string> {
   if (typeof startPath !== "string" || startPath.length === 0) {
     throw new Error("A repository path is required to run the format hook.");
   }
@@ -85,7 +106,7 @@ export async function resolveGitRoot(startPath) {
   return realpath(gitRoot);
 }
 
-function isWithinRoot(root, candidate) {
+function isWithinRoot(root: string, candidate: string): boolean {
   const relativePath = path.relative(root, candidate);
   return (
     relativePath === "" ||
@@ -96,12 +117,12 @@ function isWithinRoot(root, candidate) {
 }
 
 export async function resolveSafeFiles(
-  candidatePaths,
-  { repoRoot, cwd = repoRoot },
-) {
+  candidatePaths: unknown[],
+  { repoRoot, cwd = repoRoot }: { repoRoot: string; cwd?: string },
+): Promise<string[]> {
   const root = await realpath(repoRoot);
   const workingDirectory = path.resolve(cwd);
-  const safeFiles = [];
+  const safeFiles: string[] = [];
 
   for (const candidatePath of candidatePaths) {
     if (typeof candidatePath !== "string" || candidatePath.length === 0) {
@@ -120,7 +141,7 @@ export async function resolveSafeFiles(
       }
       safeFiles.push(targetPath);
     } catch (error) {
-      if (error?.code === "ENOENT" || error?.code === "ENOTDIR") {
+      if (errorCode(error) === "ENOENT" || errorCode(error) === "ENOTDIR") {
         continue;
       }
       throw error;
@@ -130,9 +151,9 @@ export async function resolveSafeFiles(
   return [...new Set(safeFiles)];
 }
 
-async function existingIgnoreFiles(repoRoot) {
+async function existingIgnoreFiles(repoRoot: string): Promise<string[]> {
   const ignoreFiles = [".gitignore", ".prettierignore"];
-  const existingFiles = [];
+  const existingFiles: string[] = [];
 
   for (const fileName of ignoreFiles) {
     const filePath = path.join(repoRoot, fileName);
@@ -140,7 +161,7 @@ async function existingIgnoreFiles(repoRoot) {
       await access(filePath);
       existingFiles.push(filePath);
     } catch (error) {
-      if (error?.code !== "ENOENT") {
+      if (errorCode(error) !== "ENOENT") {
         throw error;
       }
     }
@@ -150,9 +171,9 @@ async function existingIgnoreFiles(repoRoot) {
 }
 
 export async function formatChangedFiles(
-  candidatePaths,
-  { repoRoot, cwd = repoRoot },
-) {
+  candidatePaths: unknown[],
+  { repoRoot, cwd = repoRoot }: { repoRoot: string; cwd?: string },
+): Promise<string[]> {
   if (candidatePaths.length === 0) {
     return [];
   }
@@ -168,8 +189,8 @@ export async function formatChangedFiles(
 
   const prettier = await import("prettier");
   const ignorePath = await existingIgnoreFiles(root);
-  const formattedFiles = [];
-  const errors = [];
+  const formattedFiles: string[] = [];
+  const errors: string[] = [];
 
   for (const filePath of files) {
     try {
@@ -193,7 +214,7 @@ export async function formatChangedFiles(
         formattedFiles.push(filePath);
       }
     } catch (error) {
-      errors.push(`${filePath}: ${error.message}`);
+      errors.push(`${filePath}: ${(error as Error).message}`);
     }
   }
 
@@ -206,7 +227,7 @@ export async function formatChangedFiles(
   return formattedFiles;
 }
 
-async function readHookInput() {
+async function readHookInput(): Promise<string> {
   let input = "";
   for await (const chunk of process.stdin) {
     input += chunk;
@@ -214,13 +235,13 @@ async function readHookInput() {
   return input;
 }
 
-async function main() {
+async function main(): Promise<void> {
   const input = await readHookInput();
   if (!input) {
     return;
   }
 
-  const event = JSON.parse(input);
+  const event = JSON.parse(input) as EditEvent;
   const candidatePaths = extractTargetPaths(event);
   if (candidatePaths.length === 0) {
     return;
@@ -242,7 +263,7 @@ if (
   fileURLToPath(import.meta.url) === path.resolve(process.argv[1])
 ) {
   main().catch((error) => {
-    console.error(`[format-hook] ${error.message}`);
+    console.error(`[format-hook] ${(error as Error).message}`);
     process.exitCode = 1;
   });
 }

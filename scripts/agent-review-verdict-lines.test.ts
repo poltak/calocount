@@ -17,7 +17,6 @@ import {
   SUMMARY_POST,
   SUMMARY_URL,
   at,
-  bot,
   commitAll,
   earlierOf,
   editsAnswer,
@@ -118,7 +117,7 @@ test("verdict puts each new issue on lines of the diff in a review, links it in 
     "4 new issues of the agent review are on lines of this change. The [master comment](https://github.com/acme/project/pull/7#issuecomment-123) of the agent review has each issue, and the result of the check.",
   );
   assert.deepEqual(
-    review.comments.map(({ body, ...place }) => place),
+    review.comments.map(({ body: _body, ...place }) => place),
     [
       { path: "docs/agents/plan.md", side: "RIGHT", line: 3 },
       {

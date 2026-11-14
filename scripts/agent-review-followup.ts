@@ -101,7 +101,9 @@ export function followUp({
       line: checkable ? linesOfQuote(issue).start : issue.line,
     });
     if (issue.status === "fixed") {
-      if (!again) return issue;
+      if (!again) {
+        return issue;
+      }
       const reopened: Issue = {
         ...now(),
         status: "open",
@@ -147,7 +149,9 @@ export function followUp({
         acceptedBy: accepted.get(issue.id),
         acceptedIn: issue.status === "accepted" ? issue.acceptedIn : review,
       };
-      if (issue.status !== "accepted") changes.accepted.push(item);
+      if (issue.status !== "accepted") {
+        changes.accepted.push(item);
+      }
       return item;
     }
     if (issue.status === "accepted") {
@@ -216,17 +220,20 @@ interface Version {
  * versions of a comment, oldest first. The key of a box is the ID of its
  * issue.
  */
+const boxesOf = (body: string) =>
+  new Map(
+    [...body.matchAll(BOX)].map(([, mark, id]): [string, boolean] => [
+      id ?? "",
+      mark === "x",
+    ]),
+  );
+
 function boxChanges(versions: Version[]): BoxChange[] {
-  const boxesOf = (body: string) =>
-    new Map(
-      [...body.matchAll(BOX)].map(([, mark, id]): [string, boolean] => [
-        id ?? "",
-        mark === "x",
-      ]),
-    );
   return versions.flatMap(({ editor, at, body }, index) => {
     const earlier = versions[index - 1];
-    if (index === 0 || !earlier || !isMaintainer(editor)) return [];
+    if (index === 0 || !earlier || !isMaintainer(editor)) {
+      return [];
+    }
     const before = boxesOf(earlier.body);
     return [...boxesOf(body)]
       .filter(
@@ -274,6 +281,17 @@ interface EditsAnswer {
  * only the changes after the newest edit of the bot count, and the newest
  * change wins. A box that another person checks accepts nothing.
  */
+// GitHub gives the newest version first, and the oldest is the comment as
+// it was posted.
+const versionsOf = (node: UserContentEdits | null | undefined): Version[] =>
+  (node?.userContentEdits?.nodes ?? [])
+    .map(({ editedAt, editor, diff }) => ({
+      at: editedAt,
+      editor: editor?.login,
+      body: diff ?? "",
+    }))
+    .toReversed();
+
 export function acceptances({
   repository,
   number,
@@ -293,7 +311,9 @@ export function acceptances({
         issue.acceptedBy,
       ]),
   );
-  if (!master) return accepted;
+  if (!master) {
+    return accepted;
+  }
   const [owner, name] = repository.split("/");
   let data: EditsAnswer["data"];
   try {
@@ -311,16 +331,6 @@ export function acceptances({
     );
     return accepted;
   }
-  // GitHub gives the newest version first, and the oldest is the comment as
-  // it was posted.
-  const versionsOf = (node: UserContentEdits | null | undefined): Version[] =>
-    (node?.userContentEdits?.nodes ?? [])
-      .map(({ editedAt, editor, diff }) => ({
-        at: editedAt,
-        editor: editor?.login,
-        body: diff ?? "",
-      }))
-      .reverse();
   const masterVersions = versionsOf(data?.comment);
   const since =
     masterVersions.filter(({ editor }) => BOT_LOGINS.has(editor)).at(-1)?.at ??
@@ -330,7 +340,9 @@ export function acceptances({
   ).flatMap((thread) => {
     const line = thread.comments.nodes[0];
     const id = line?.body.match(LINE_PATTERN)?.[1];
-    if (!line || !id || !BOT_LOGINS.has(line.author?.login)) return [];
+    if (!line || !id || !BOT_LOGINS.has(line.author?.login)) {
+      return [];
+    }
     return boxChanges(versionsOf(line)).filter(({ key }) => key === id);
   });
   const ids = new Set(
@@ -340,13 +352,16 @@ export function acceptances({
   );
   const changes = [...boxChanges(masterVersions), ...lineChanges]
     .filter(({ key, at }) => ids.has(key) && since !== undefined && at > since)
-    .sort((one, other) => one.at.localeCompare(other.at));
+    .toSorted((one, other) => one.at.localeCompare(other.at));
   for (const { key, checked, login, at } of changes) {
     console.log(
       `${login} ${checked ? "checked" : "cleared"} the box of ${key} at ${at}.`,
     );
-    if (checked) accepted.set(key, login);
-    else accepted.delete(key);
+    if (checked) {
+      accepted.set(key, login);
+    } else {
+      accepted.delete(key);
+    }
   }
   return accepted;
 }

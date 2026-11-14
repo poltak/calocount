@@ -12,6 +12,7 @@ import {
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import type { TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
 
 const repoRoot = path.resolve(
@@ -26,11 +27,17 @@ const OWNED = [
 ];
 
 /** A project made from the template, with a few of its files. */
-async function createProject(context, { version = true, ownPaths } = {}) {
+async function createProject(
+  context: TestContext,
+  {
+    version = true,
+    ownPaths,
+  }: { version?: boolean; ownPaths?: { path: string; reason: string }[] } = {},
+) {
   const directory = await mkdtemp(path.join(os.tmpdir(), "template-owned-"));
   context.after(() => rm(directory, { recursive: true, force: true }));
   execFileSync("git", ["init", "--quiet", directory]);
-  const write = async (file, text) => {
+  const write = async (file: string, text: string) => {
     await mkdir(path.dirname(path.join(directory, file)), { recursive: true });
     await writeFile(path.join(directory, file), text);
   };
@@ -59,19 +66,37 @@ async function createProject(context, { version = true, ownPaths } = {}) {
   return directory;
 }
 
-async function readGuardCommand(configPath) {
+interface HookConfig {
+  hooks: Record<string, { hooks: { command: string }[] }[]>;
+}
+
+async function readGuardCommand(configPath: string) {
   const config = JSON.parse(
     await readFile(path.join(repoRoot, configPath), "utf8"),
-  );
-  const commands = config.hooks.PreToolUse.flatMap((entry) =>
-    entry.hooks.map((hook) => hook.command),
-  ).filter((command) => command.includes("guard-template-owned-files.mjs"));
+  ) as HookConfig;
+  const commands = (config.hooks["PreToolUse"] ?? [])
+    .flatMap((entry) => entry.hooks.map((hook) => hook.command))
+    .filter((command) => command.includes("guard-template-owned-files.ts"));
+  const [command] = commands;
   assert.equal(commands.length, 1);
-  return commands[0];
+  assert.ok(command);
+  return command;
 }
 
 /** Run the hook as the agent's configuration runs it, and read its answer. */
-async function runGuard({ agent, input }) {
+interface GuardAnswer {
+  hookEventName: string;
+  permissionDecision: string;
+  permissionDecisionReason: string;
+}
+
+async function runGuard({
+  agent,
+  input,
+}: {
+  agent: "claude" | "codex";
+  input: unknown;
+}): Promise<GuardAnswer | undefined> {
   const command = await readGuardCommand(
     agent === "claude" ? ".claude/settings.json" : ".codex/hooks.json",
   );
@@ -85,8 +110,23 @@ async function runGuard({ agent, input }) {
   return output ? JSON.parse(output).hookSpecificOutput : undefined;
 }
 
-const claudeEdit = ({ project, file, mode = "default" }) => ({
-  agent: "claude",
+/** Like `runGuard`, for a test that expects the hook to answer. */
+async function runGuardAnswer(options: Parameters<typeof runGuard>[0]) {
+  const answer = await runGuard(options);
+  assert.ok(answer);
+  return answer;
+}
+
+const claudeEdit = ({
+  project,
+  file,
+  mode = "default",
+}: {
+  project: string;
+  file: string;
+  mode?: string;
+}) => ({
+  agent: "claude" as const,
   input: {
     tool_name: "Edit",
     tool_input: { file_path: path.join(project, file) },
@@ -95,8 +135,14 @@ const claudeEdit = ({ project, file, mode = "default" }) => ({
   },
 });
 
-const codexPatch = ({ project, lines }) => ({
-  agent: "codex",
+const codexPatch = ({
+  project,
+  lines,
+}: {
+  project: string;
+  lines: string[];
+}) => ({
+  agent: "codex" as const,
   input: {
     tool_name: "apply_patch",
     tool_input: {
@@ -109,7 +155,9 @@ const codexPatch = ({ project, lines }) => ({
 test("asks before Claude Code edits a template-owned file of a project", async (context) => {
   const project = await createProject(context);
 
-  const answer = await runGuard(claudeEdit({ project, file: "AGENTS.md" }));
+  const answer = await runGuardAnswer(
+    claudeEdit({ project, file: "AGENTS.md" }),
+  );
 
   assert.equal(answer.hookEventName, "PreToolUse");
   assert.equal(answer.permissionDecision, "ask");
@@ -123,7 +171,7 @@ test("asks before Claude Code edits a template-owned file of a project", async (
 test("asks before Claude Code edits a file that only a person changes", async (context) => {
   const project = await createProject(context);
 
-  const answer = await runGuard(
+  const answer = await runGuardAnswer(
     claudeEdit({ project, file: "docs/agents/project/reversals.md" }),
   );
 
@@ -135,7 +183,7 @@ test("asks before Claude Code edits a file that only a person changes", async (c
 test("denies Codex an edit of a file that only a person changes, and gives both reasons", async (context) => {
   const project = await createProject(context);
 
-  const answer = await runGuard(
+  const answer = await runGuardAnswer(
     codexPatch({
       project,
       lines: [
@@ -164,7 +212,7 @@ test("denies the edit in a Claude Code mode that shows no prompt", async (contex
   const project = await createProject(context);
 
   for (const mode of ["bypassPermissions", "dontAsk"]) {
-    const answer = await runGuard(
+    const answer = await runGuardAnswer(
       claudeEdit({ project, file: "AGENTS.md", mode }),
     );
 
@@ -179,7 +227,7 @@ test("denies the edit in a Claude Code mode that shows no prompt", async (contex
 test("denies a Codex patch that changes, deletes, or moves a template-owned file", async (context) => {
   const project = await createProject(context);
 
-  const changed = await runGuard(
+  const changed = await runGuardAnswer(
     codexPatch({
       project,
       lines: [
@@ -190,10 +238,10 @@ test("denies a Codex patch that changes, deletes, or moves a template-owned file
       ],
     }),
   );
-  const deleted = await runGuard(
+  const deleted = await runGuardAnswer(
     codexPatch({ project, lines: ["*** Delete File: lint/rule.mjs"] }),
   );
-  const moved = await runGuard(
+  const moved = await runGuardAnswer(
     codexPatch({
       project,
       lines: [
@@ -213,7 +261,7 @@ test("denies a Codex patch that changes, deletes, or moves a template-owned file
 test("finds a new file in a template-owned directory, and a file under a skill link", async (context) => {
   const project = await createProject(context);
 
-  const added = await runGuard({
+  const added = await runGuardAnswer({
     agent: "claude",
     input: {
       tool_name: "Write",
@@ -221,7 +269,7 @@ test("finds a new file in a template-owned directory, and a file under a skill l
       cwd: project,
     },
   });
-  const linked = await runGuard(
+  const linked = await runGuardAnswer(
     claudeEdit({ project, file: ".claude/skills/unslop/SKILL.md" }),
   );
 
@@ -280,7 +328,7 @@ test("allows an edit of a template-owned file that the project took over", async
     undefined,
   );
   assert.equal(
-    (await runGuard(claudeEdit({ project, file: "AGENTS.md" })))
+    (await runGuardAnswer(claudeEdit({ project, file: "AGENTS.md" })))
       .permissionDecision,
     "ask",
   );
@@ -291,7 +339,7 @@ test("does not let a project take over a gate of the template", async (context) 
     ownPaths: [{ path: ".agents/", reason: "A reason." }],
   });
 
-  const answer = await runGuard(
+  const answer = await runGuardAnswer(
     claudeEdit({ project, file: ".agents/hooks/guard.mjs" }),
   );
 
@@ -308,12 +356,12 @@ test("asks before an agent edits the version file, also while a sync waits at a 
   const project = await createProject(context);
   const edit = claudeEdit({ project, file: "template-version.json" });
 
-  const answer = await runGuard(edit);
+  const answer = await runGuardAnswer(edit);
   await writeFile(
     path.join(project, ".git/template-sync-stopped"),
     JSON.stringify({ commit: "0".repeat(40) }),
   );
-  const atConflict = await runGuard(edit);
+  const atConflict = await runGuardAnswer(edit);
 
   for (const result of [answer, atConflict]) {
     assert.equal(result.permissionDecision, "ask");
@@ -330,7 +378,7 @@ test("asks before an agent edits a person-only file while a sync waits at a conf
     JSON.stringify({ commit: "0".repeat(40) }),
   );
 
-  const result = await runGuard(
+  const result = await runGuardAnswer(
     claudeEdit({ project, file: "docs/agents/project/reversals.md" }),
   );
 

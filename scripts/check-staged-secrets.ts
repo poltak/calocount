@@ -103,7 +103,9 @@ function secretsInFile({
       line = Number(hunk[1]);
     } else if (line !== undefined && text.startsWith("+")) {
       for (const { kind, pattern } of SECRET_PATTERNS) {
-        if (pattern.test(text)) found.push(`${label}:${line}: ${kind}`);
+        if (pattern.test(text)) {
+          found.push(`${label}:${line}: ${kind}`);
+        }
       }
       line += 1;
     }

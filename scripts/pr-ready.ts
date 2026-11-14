@@ -11,7 +11,7 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { fail, git } from "./template-files.mjs";
+import { fail, git } from "./template-files.ts";
 
 const root = process.cwd();
 const command = (...args: string[]) => git({ root, args });
@@ -79,8 +79,9 @@ export const browserRules: {
   },
 ];
 const clean = () => {
-  if (command("status", "--porcelain").stdout)
+  if (command("status", "--porcelain").stdout) {
     fail("Commit the changes first. The working tree is not clean.");
+  }
 };
 const head = () => command("rev-parse", "HEAD").stdout;
 const containsMain = () =>
@@ -99,28 +100,33 @@ function record<Name extends keyof CheckRecord["checks"]>(
   let value: CheckRecord = { head: head(), checks: {} };
   if (existsSync(file)) {
     const previous = JSON.parse(readFileSync(file, "utf8")) as CheckRecord;
-    if (previous.head === value.head) value = previous;
+    if (previous.head === value.head) {
+      value = previous;
+    }
   }
   value.checks[name] = result;
   writeFileSync(file, JSON.stringify(value, null, 2) + "\n");
 }
 function run(args: string[]) {
   const result = spawnSync("pnpm", args, { stdio: "inherit" });
-  if (result.error || result.status !== 0)
+  if (result.error || result.status !== 0) {
     fail(`pnpm ${args.join(" ")} failed.`);
+  }
 }
 function merge() {
   const branch = command("branch", "--show-current").stdout;
-  if (!branch || branch === "main")
+  if (!branch || branch === "main") {
     fail("Use a feature branch. HEAD must not be detached or on main.");
+  }
   if (
     git({
       root,
       args: ["rev-parse", "-q", "--verify", "MERGE_HEAD"],
       allowFailure: true,
     }).status === 0
-  )
+  ) {
     fail(resolveMessage);
+  }
   clean();
   command("fetch", "origin", "main");
   if (containsMain()) {
@@ -132,10 +138,11 @@ function merge() {
     args: ["merge", "--no-edit", "origin/main"],
     allowFailure: true,
   });
-  if (result.status !== 0)
+  if (result.status !== 0) {
     fail(
       `${result.stderr}\n${command("diff", "--name-only", "--diff-filter=U").stdout}\n${resolveMessage}`,
     );
+  }
   console.log(result.stdout);
 }
 function check() {
@@ -159,8 +166,11 @@ function browser() {
       matches.forEach((file) => matched.add(file));
     }
   }
-  if (!matched.size) console.log("No change matches the browser test rules.");
-  else run(["run", "test:browser"]);
+  if (!matched.size) {
+    console.log("No change matches the browser test rules.");
+  } else {
+    run(["run", "test:browser"]);
+  }
   record("browser", {
     status: matched.size ? "passed" : "not-needed",
     files: [...matched],
@@ -168,15 +178,20 @@ function browser() {
 }
 function report() {
   clean();
-  if (!containsMain())
+  if (!containsMain()) {
     fail("Run the merge step first. The branch does not contain origin/main.");
+  }
   const file = command("rev-parse", "--git-path", "pr-ready.json").stdout;
-  if (!existsSync(file))
+  if (!existsSync(file)) {
     fail("Run check and browser first. No check record exists.");
+  }
   const value = JSON.parse(readFileSync(file, "utf8")) as CheckRecord;
-  if (value.head !== head()) fail("HEAD changed. Run check and browser again.");
-  if (!value.checks.check || !value.checks.browser)
+  if (value.head !== head()) {
+    fail("HEAD changed. Run check and browser again.");
+  }
+  if (!value.checks.check || !value.checks.browser) {
     fail("Run check and browser first.");
+  }
   const result = value.checks.browser;
   const files =
     result.files.slice(0, 5).join(", ") +
@@ -187,6 +202,10 @@ function report() {
 }
 const steps: Record<string, () => void> = { merge, check, browser, report };
 const step = process.argv[2] ?? "all";
-if (step === "all") Object.values(steps).forEach((runStep) => runStep());
-else if (steps[step]) steps[step]?.();
-else fail("Use merge, check, browser, report, or all.");
+if (step === "all") {
+  Object.values(steps).forEach((runStep) => runStep());
+} else if (steps[step]) {
+  steps[step]?.();
+} else {
+  fail("Use merge, check, browser, report, or all.");
+}

@@ -5,7 +5,6 @@ import {
   LINE_COMMENTS,
   OVERRIDE,
   bot,
-  finding,
   git,
   issue,
   pack,
@@ -155,6 +154,14 @@ test("plan gives the issues of the master comment and the commit that each model
   assert.equal(none, "");
 });
 
+const reply = (fields?: Record<string, unknown>) => ({
+  in_reply_to_id: 40,
+  user: { login: "owner" },
+  author_association: "NONE",
+  body: "This is correct.",
+  ...fields,
+});
+
 test("plan gives each issue what a maintainer wrote about it, and not what another person wrote", async (context) => {
   const repo = await repository(context);
   const line = {
@@ -162,13 +169,6 @@ test("plan gives each issue what a maintainer wrote about it, and not what anoth
     user: { login: "github-actions[bot]" },
     body: "<!-- agent-review-line F1 -->\n- [ ] **F1 · override**",
   };
-  const reply = (fields?: Record<string, unknown>) => ({
-    in_reply_to_id: 40,
-    user: { login: "owner" },
-    author_association: "NONE",
-    body: "This is correct.",
-    ...fields,
-  });
   const master = bot(
     `<!-- agent-review-master head=abc1234 blockers=1 reviewed=abc1234 base=0ba5e00 -->\n<!-- agent-review-state ${pack(
       { issues: [issue("F1"), issue("F2")], reviews: [] },

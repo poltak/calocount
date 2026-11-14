@@ -158,12 +158,13 @@ test("takes the rest of a commit that changes a kept path, and names what the pr
   ]);
 });
 
+const migration = (name: string) =>
+  `export const migration = { name: "${name}" };\n`;
+
 test("does not write a list of migrations that the project keeps", async (context) => {
   const { template, project } = await createProject(context);
   const database = "backend/src/features/core/database";
   const list = `${database}/migrations.ts`;
-  const migration = (name: string) =>
-    `export const migration = { name: "${name}" };\n`;
   for (const directory of [template, project]) {
     await symlink(
       path.join(repoRoot, "node_modules"),
@@ -246,7 +247,7 @@ test("refuses each command while the project keeps a gate of the template", asyn
   for (const entry of [
     "scripts/sync-template.ts",
     "scripts/",
-    ".agents/hooks/guard-template-owned-files.mjs",
+    ".agents/hooks/guard-template-owned-files.ts",
     ".agents/",
   ]) {
     await keepPaths({ project, paths: [entry] });

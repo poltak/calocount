@@ -10,13 +10,14 @@
 import { spawnSync } from "node:child_process";
 import { chmodSync, existsSync } from "node:fs";
 import path from "node:path";
-import { fail, git } from "./template-files.mjs";
+import { fail, git } from "./template-files.ts";
 const root = process.cwd();
 const command = (...args: string[]) => git({ root, args }).stdout;
-if (!existsSync(".beads"))
+if (!existsSync(".beads")) {
   fail(
     "This branch has no issues. For a new project, run pnpm run issues:init.",
   );
+}
 if (
   path.resolve(command("rev-parse", "--git-dir")) !==
   path.resolve(command("rev-parse", "--git-common-dir"))
@@ -33,12 +34,13 @@ function bd(args: string[]) {
   const result = spawnSync("pnpm", ["exec", "bd", ...args], {
     stdio: "inherit",
   });
-  if (result.error || result.status !== 0)
+  if (result.error || result.status !== 0) {
     fail(
       args[0] === "bootstrap"
         ? "bd bootstrap failed. It uses the SSH URL in .beads/config.yaml. The SSH key for GitHub must work."
         : "The bd command failed.",
     );
+  }
 }
 bd(["metrics", "off"]);
 bd(["bootstrap", "--yes"]);

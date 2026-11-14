@@ -13,7 +13,7 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
-import { VERSION_FILE, fail, git, readVersionFile } from "./template-files.mjs";
+import { VERSION_FILE, fail, git, readVersionFile } from "./template-files.ts";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const DATA_DIRECTORY = ".beads";

@@ -44,7 +44,9 @@ async function componentList(
 ): Promise<string[]> {
   const components = await json(path.join(root, filename)).catch(
     (error: NodeJS.ErrnoException) => {
-      if (optional && error.code === "ENOENT") return [];
+      if (optional && error.code === "ENOENT") {
+        return [];
+      }
       throw error;
     },
   );
@@ -54,8 +56,9 @@ async function componentList(
       (component: unknown) =>
         typeof component === "string" && component.trim() !== "",
     )
-  )
+  ) {
     throw new Error(`${filename} must be an array of registry names.`);
+  }
   return components;
 }
 
@@ -70,8 +73,9 @@ async function files(
       for (const [filename, content] of await files(
         path.join(directory, entry.name),
         relative,
-      ))
+      )) {
         result.set(filename, content);
+      }
     } else if (entry.isFile()) {
       result.set(
         relative,
@@ -87,17 +91,19 @@ async function files(
 async function check() {
   const project = (await json(path.join(root, "package.json"))) as PackageFile;
   const pin = project.devDependencies?.shadcn;
-  if (!/^\d+\.\d+\.\d+$/.test(pin ?? ""))
+  if (!/^\d+\.\d+\.\d+$/.test(pin ?? "")) {
     throw new Error("Pin shadcn to an exact dev dependency in package.json.");
+  }
   const require = createRequire(path.join(root, "package.json"));
   const cli = require.resolve("shadcn");
   const installed = (await json(
     path.resolve(path.dirname(cli), "../package.json"),
   )) as PackageFile;
-  if (installed.version !== pin)
+  if (installed.version !== pin) {
     throw new Error(
       `shadcn ${installed.version} does not match the pin ${pin}. Run pnpm install.`,
     );
+  }
   const frontend = path.join(root, "frontend");
   const config = (await json(
     path.join(frontend, "components.json"),
@@ -144,10 +150,11 @@ async function check() {
         maxBuffer: 4 * 1024 * 1024,
       },
     );
-    if (generation.status !== 0)
+    if (generation.status !== 0) {
       throw new Error(
         `The pinned CLI failed.\n${generation.stderr || generation.stdout || generation.error?.message}`,
       );
+    }
     const generated = await files(path.join(temporary, uiDirectory));
     const actual = await files(path.join(frontend, uiDirectory));
     const differences = [...new Set([...generated.keys(), ...actual.keys()])]
@@ -157,11 +164,12 @@ async function check() {
             .get(filename)
             ?.equals(actual.get(filename) ?? Buffer.alloc(0)),
       )
-      .sort();
-    if (differences.length)
+      .toSorted();
+    if (differences.length) {
       throw new Error(
         `Generated shadcn files differ:\n${differences.map((filename) => `  ${filename}`).join("\n")}\n${repair}`,
       );
+    }
     console.log(`Checked ${generated.size} shadcn files with CLI ${pin}.`);
   } finally {
     await rm(temporary, { recursive: true, force: true });

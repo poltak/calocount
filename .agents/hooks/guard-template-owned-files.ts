@@ -2,7 +2,7 @@
 // a file that only a person changes. Claude Code and Codex run it before each
 // edit, with the agent's name:
 //
-//   node .agents/hooks/guard-template-owned-files.mjs claude|codex
+//   pnpm exec node .agents/hooks/guard-template-owned-files.ts claude|codex
 //
 // `templateOwned` in `scripts/template-paths.json` lists the first kind. A
 // project takes their changes only with a sync, because an edit in the project
@@ -27,17 +27,36 @@ import {
   VERSION_FILE,
   isProjectPath,
   matchesPath,
-} from "../../scripts/template-files.mjs";
-import { parsePatchFiles } from "./format-edited-files.mjs";
+} from "../../scripts/template-files.ts";
+import type { VersionFile } from "../../scripts/template-files.ts";
+import { parsePatchFiles } from "./format-edited-files.ts";
+import type { EditEvent } from "./format-edited-files.ts";
+
+interface GuardEvent extends EditEvent {
+  permission_mode?: string;
+}
+
+interface PathLists {
+  personOnly?: string[];
+  templateOwned?: string[];
+}
+
+interface GuardedFiles {
+  owned: string[];
+  personOnly: string[];
+}
 
 // The file that `scripts/sync-template.ts` keeps in the Git directory while
 // a template commit is in the working tree.
 const SYNC_STOPPED = "template-sync-stopped";
 // In these Claude Code modes, nobody sees a prompt, so "ask" would not stop
 // the edit or give the agent the reason.
-const MODES_WITHOUT_PROMPT = new Set(["bypassPermissions", "dontAsk"]);
+const MODES_WITHOUT_PROMPT = new Set<string | undefined>([
+  "bypassPermissions",
+  "dontAsk",
+]);
 
-function editedPaths(event) {
+function editedPaths(event: GuardEvent | undefined): string[] {
   const input = event?.tool_input;
   if (typeof input?.file_path === "string") {
     return [input.file_path];
@@ -54,7 +73,13 @@ function editedPaths(event) {
   return [];
 }
 
-function readGit({ directory, args }) {
+function readGit({
+  directory,
+  args,
+}: {
+  directory: string;
+  args: string[];
+}): string | undefined {
   try {
     return execFileSync("git", ["-C", directory, ...args], {
       encoding: "utf8",
@@ -70,7 +95,7 @@ function readGit({ directory, args }) {
  * The file can be new, and it can be under a symbolic link, such as a skill
  * in `.claude/skills/`. The path is then the path of the real file.
  */
-function locate(file) {
+function locate(file: string): { root: string; file: string } | undefined {
   let existing = file;
   while (!existsSync(existing)) {
     existing = path.dirname(existing);
@@ -91,16 +116,22 @@ function locate(file) {
   };
 }
 
-function guardedFiles({ root, files }) {
+function guardedFiles({
+  root,
+  files,
+}: {
+  root: string;
+  files: string[];
+}): GuardedFiles {
   const versionFile = path.join(root, VERSION_FILE);
   if (!existsSync(versionFile)) {
     return { owned: [], personOnly: [] };
   }
   const pathsFile = path.join(root, PATHS_FILE);
-  const lists = existsSync(pathsFile)
-    ? JSON.parse(readFileSync(pathsFile, "utf8"))
+  const lists: PathLists = existsSync(pathsFile)
+    ? (JSON.parse(readFileSync(pathsFile, "utf8")) as PathLists)
     : {};
-  const listed = (entries = []) =>
+  const listed = (entries: string[] = []) =>
     files.filter((file) =>
       entries.some((entry) => matchesPath({ entry, file })),
     );
@@ -115,7 +146,10 @@ function guardedFiles({ root, files }) {
   if (stopped && existsSync(path.resolve(root, stopped))) {
     return { owned: [], personOnly };
   }
-  const { ownPaths } = JSON.parse(readFileSync(versionFile, "utf8"));
+  const { ownPaths } = JSON.parse(readFileSync(versionFile, "utf8")) as Pick<
+    VersionFile,
+    "ownPaths"
+  >;
   return {
     owned: listed(lists.templateOwned).filter(
       (file) => !isProjectPath({ ownPaths, file }),
@@ -124,7 +158,9 @@ function guardedFiles({ root, files }) {
   };
 }
 
-async function readHookInput() {
+const nameOf = (file: string) => `\`${file}\``;
+
+async function readHookInput(): Promise<string> {
   let input = "";
   for await (const chunk of process.stdin) {
     input += chunk;
@@ -132,7 +168,7 @@ async function readHookInput() {
   return input;
 }
 
-async function main() {
+async function main(): Promise<void> {
   const agent = process.argv[2];
   if (agent !== "claude" && agent !== "codex") {
     throw new Error("Give the agent as the argument: claude or codex.");
@@ -141,10 +177,10 @@ async function main() {
   if (!input) {
     return;
   }
-  const event = JSON.parse(input);
+  const event = JSON.parse(input) as GuardEvent;
   const cwd = typeof event.cwd === "string" ? event.cwd : process.cwd();
 
-  const byRoot = new Map();
+  const byRoot = new Map<string, string[]>();
   for (const edited of editedPaths(event)) {
     const located = locate(path.resolve(cwd, edited));
     if (located) {
@@ -171,7 +207,6 @@ async function main() {
       : "deny";
   // A person reads the reason in the prompt. An agent reads it when the edit
   // is denied, also when Claude Code denies an "ask" that nobody can answer.
-  const nameOf = (file) => `\`${file}\``;
   const listedOnly = personOnly.filter((file) => !GUARDED_FILES.includes(file));
   const reason = [
     ...(listedOnly.length > 0
@@ -215,7 +250,7 @@ if (
   fileURLToPath(import.meta.url) === path.resolve(process.argv[1])
 ) {
   main().catch((error) => {
-    console.error(`[template-owned-hook] ${error.message}`);
+    console.error(`[template-owned-hook] ${(error as Error).message}`);
     process.exitCode = 1;
   });
 }

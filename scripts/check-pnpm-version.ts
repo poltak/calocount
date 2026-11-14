@@ -48,7 +48,7 @@ const files =
         /\.ya?ml$/.test(file),
       )
     : [];
-for (const file of files.sort()) {
+for (const file of files.toSorted()) {
   const lines = (
     await readFile(path.join(root, WORKFLOWS, file), "utf8")
   ).split("\n");

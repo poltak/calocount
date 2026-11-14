@@ -4,14 +4,15 @@ import { mkdtemp, readdir, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import type { TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
-import { SLOW_MS, VERY_SLOW_MS, handleEvent } from "./warn-slow-commands.mjs";
+import { SLOW_MS, VERY_SLOW_MS, handleEvent } from "./warn-slow-commands.ts";
 
 const hookPath = fileURLToPath(
-  new URL("./warn-slow-commands.mjs", import.meta.url),
+  new URL("./warn-slow-commands.ts", import.meta.url),
 );
 
-function bashEvent(fields) {
+function bashEvent(fields: Record<string, unknown>) {
   return {
     session_id: "session-1",
     hook_event_name: "PostToolUse",
@@ -22,7 +23,7 @@ function bashEvent(fields) {
   };
 }
 
-async function makeTimerDirectory(context) {
+async function makeTimerDirectory(context: TestContext) {
   const directory = await mkdtemp(path.join(os.tmpdir(), "slow-hook-test-"));
   context.after(() => rm(directory, { recursive: true, force: true }));
   return directory;
@@ -50,6 +51,7 @@ test("tells Claude Code about a slow command, with the name of the event", async
       duration_ms: 125_000,
     }),
   });
+  assert.ok(output);
 
   assert.equal(output.hookSpecificOutput.hookEventName, "PostToolUseFailure");
   const message = output.hookSpecificOutput.additionalContext;
@@ -63,6 +65,7 @@ test("gives a stronger message after five minutes", async () => {
     mode: "claude",
     event: bashEvent({ duration_ms: VERY_SLOW_MS + 1000 }),
   });
+  assert.ok(output);
 
   assert.match(
     output.hookSpecificOutput.additionalContext,
@@ -78,6 +81,7 @@ test("shortens a long command to one line", async () => {
       tool_input: { command: `echo start\n${"x".repeat(500)}` },
     }),
   });
+  assert.ok(output);
 
   const message = output.hookSpecificOutput.additionalContext;
   assert.match(message, /^The command `echo start x+…` took 1 min 30 s\./);
@@ -103,6 +107,7 @@ test("times a Codex command from its start to its end", async (context) => {
     now: startedAt + 61_000,
     timerDirectory,
   });
+  assert.ok(output);
 
   assert.equal(output.hookSpecificOutput.hookEventName, "PostToolUse");
   assert.match(
@@ -139,6 +144,7 @@ test("keeps the start times of two Codex commands apart", async (context) => {
     now: 110_000,
     timerDirectory,
   });
+  assert.ok(slow);
 
   assert.equal(fast, undefined);
   assert.match(slow.hookSpecificOutput.additionalContext, /took 1 min 50 s\./);

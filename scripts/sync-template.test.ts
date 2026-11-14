@@ -467,9 +467,9 @@ test("finds a change that the template took with the commands of template.md", a
  * made earlier still runs the first time. It comes from the last commit that
  * changed it. A clone without that history skips the test.
  */
-function readOldSyncScript(): string | undefined {
+function readOldScript(script: string): string | undefined {
   try {
-    return execFileSync("git", ["show", "b941232:scripts/sync-template.mjs"], {
+    return execFileSync("git", ["show", `b941232:scripts/${script}`], {
       cwd: scriptsDirectory,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],
@@ -479,26 +479,30 @@ function readOldSyncScript(): string | undefined {
   }
 }
 
-const oldSyncScript = readOldSyncScript();
+const oldSyncScript = readOldScript("sync-template.mjs");
+// The old sync imports this file, so a project with the old sync has it too.
+const oldTemplateFiles = readOldScript("template-files.mjs");
+
+const packageWith = (script: string) =>
+  json({
+    ...PACKAGE_JSON,
+    scripts: { ...PACKAGE_JSON.scripts, "template:sync": script },
+  });
 
 test(
   "takes the commit that moves the sync script to TypeScript with the old script, and a later commit",
-  { skip: oldSyncScript === undefined && "The history has no old sync script" },
+  {
+    skip:
+      (oldSyncScript === undefined || oldTemplateFiles === undefined) &&
+      "The history has no old sync script",
+  },
   async (context) => {
     const { template, project } = await createProject(context, {
       scripts: {
         "sync-template.mjs": oldSyncScript ?? "",
-        "template-files.mjs": await readFile(
-          path.join(scriptsDirectory, "template-files.mjs"),
-          "utf8",
-        ),
+        "template-files.mjs": oldTemplateFiles ?? "",
       },
     });
-    const packageWith = (script: string) =>
-      json({
-        ...PACKAGE_JSON,
-        scripts: { ...PACKAGE_JSON.scripts, "template:sync": script },
-      });
     await templateCommit({
       template,
       message: "Add the sync script to package.json",

@@ -2,7 +2,7 @@
 import { writeFileSync } from "node:fs";
 import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
-import { formatted, git } from "./template-files.mjs";
+import { formatted, git } from "./template-files.ts";
 import { DEPENDENCY_LISTS, read, root } from "./sync-template-common.ts";
 
 type JsonObject = Record<string, unknown>;
@@ -24,6 +24,14 @@ interface MergeResult {
  * Such a dependency stays out of the project, because the project has no use
  * for its new version.
  */
+const isObject = (value: unknown): value is JsonObject =>
+  value !== null && typeof value === "object" && !Array.isArray(value);
+
+// pnpm keeps each list of dependencies in order. An object whose keys were
+// in order stays in order.
+const isOrdered = (names: string[]) =>
+  names.every((name, index) => index === 0 || (names[index - 1] ?? "") < name);
+
 function mergeJson({
   base,
   ours,
@@ -35,8 +43,6 @@ function mergeJson({
   theirs: JsonObject;
   at?: string[];
 }): MergeResult {
-  const isObject = (value: unknown): value is JsonObject =>
-    value !== null && typeof value === "object" && !Array.isArray(value);
   const keys = Object.keys(ours);
   for (const key of Object.keys(theirs)) {
     if (keys.includes(key)) {
@@ -94,16 +100,10 @@ function mergeJson({
     }
   }
 
-  // pnpm keeps each list of dependencies in order. An object whose keys were
-  // in order stays in order.
-  const isOrdered = (names: string[]) =>
-    names.every(
-      (name, index) => index === 0 || (names[index - 1] ?? "") < name,
-    );
   if (isOrdered(Object.keys(ours)) && !isOrdered(Object.keys(merged))) {
     return {
       merged: Object.fromEntries(
-        Object.entries(merged).sort(([left], [right]) =>
+        Object.entries(merged).toSorted(([left], [right]) =>
           left < right ? -1 : 1,
         ),
       ),

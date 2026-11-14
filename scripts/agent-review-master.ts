@@ -39,6 +39,13 @@ import {
   voteLines,
 } from "./agent-review-view.ts";
 
+const states = (model: ModelResult) =>
+  ({
+    ok: `${count(model.findings.length, "rule violation")}, ${count(model.notes.length, "other issue")}`,
+    "not-configured": "not set up",
+    failed: `failed. ${escapeHtml(model.message ?? "")}`,
+  })[model.state];
+
 // A paragraph comes first, because Markdown joins two lists with only an
 // empty line between them into one list.
 export function modelLines({
@@ -50,12 +57,6 @@ export function modelLines({
   deleted: Deleted;
   title: string;
 }): string[] {
-  const states = (model: ModelResult) =>
-    ({
-      ok: `${count(model.findings.length, "rule violation")}, ${count(model.notes.length, "other issue")}`,
-      "not-configured": "not set up",
-      failed: `failed. ${escapeHtml(model.message ?? "")}`,
-    })[model.state];
   return [
     `**${title}**`,
     "",
@@ -83,7 +84,9 @@ export function usageLines({
   title: string;
 }): string[] {
   const used = models.filter((model) => model.usage);
-  if (used.length === 0) return [];
+  if (used.length === 0) {
+    return [];
+  }
   return [
     "",
     "<details>",
@@ -192,14 +195,16 @@ export function masterBody({
   deleted: Deleted;
 }): { body: string; full: string } {
   const review = reviews.at(-1);
-  if (!review) throw new Error("A master comment needs a review.");
+  if (!review) {
+    throw new Error("A master comment needs a review.");
+  }
   const open = [
     ...issues.filter((issue) => isOpenFinding(issue)),
     ...issues.filter((issue) => isOpen(issue) && kindOf(issue) === "N"),
   ];
   const addressed = issues
     .filter((issue) => !isOpen(issue))
-    .sort(
+    .toSorted(
       (one, other) =>
         (other.acceptedIn ?? other.fixedIn ?? NaN) -
         (one.acceptedIn ?? one.fixedIn ?? NaN),

@@ -5,11 +5,11 @@
 // Claude Code gives the time of a command in `duration_ms`, and runs the hook
 // after each Bash command:
 //
-//   node .agents/hooks/warn-slow-commands.mjs claude
+//   pnpm exec node .agents/hooks/warn-slow-commands.ts claude
 //
 // Codex gives no time, so it runs the hook before and after each command:
 //
-//   node .agents/hooks/warn-slow-commands.mjs codex-start|codex-end
+//   pnpm exec node .agents/hooks/warn-slow-commands.ts codex-start|codex-end
 //
 // `codex-start` writes the start time to a file in the temporary directory,
 // and `codex-end` reads and deletes the file. A command that Codex stops
@@ -21,6 +21,16 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+// The fields of the hook input that this hook reads. Claude Code and Codex
+// send more.
+export interface HookEvent {
+  tool_use_id?: unknown;
+  session_id?: unknown;
+  duration_ms?: unknown;
+  hook_event_name?: string;
+  tool_input?: { command?: unknown };
+}
+
 export const SLOW_MS = 60_000;
 export const VERY_SLOW_MS = 5 * 60_000;
 const MAX_COMMAND_LENGTH = 200;
@@ -30,7 +40,7 @@ export const DEFAULT_TIMER_DIRECTORY = path.join(
   "agent-command-timers",
 );
 
-function formatDuration(durationMs) {
+function formatDuration(durationMs: number): string {
   const seconds = Math.round(durationMs / 1000);
   if (seconds < 60) {
     return `${seconds} s`;
@@ -38,7 +48,7 @@ function formatDuration(durationMs) {
   return `${Math.floor(seconds / 60)} min ${seconds % 60} s`;
 }
 
-function shortCommand(command) {
+function shortCommand(command: unknown): string {
   if (typeof command !== "string") {
     return "The command";
   }
@@ -50,8 +60,18 @@ function shortCommand(command) {
   return `The command \`${text}\``;
 }
 
-export function slowCommandMessage({ command, durationMs }) {
-  if (!Number.isFinite(durationMs) || durationMs <= SLOW_MS) {
+export function slowCommandMessage({
+  command,
+  durationMs,
+}: {
+  command: unknown;
+  durationMs: unknown;
+}): string | undefined {
+  if (
+    typeof durationMs !== "number" ||
+    !Number.isFinite(durationMs) ||
+    durationMs <= SLOW_MS
+  ) {
     return undefined;
   }
 
@@ -74,7 +94,13 @@ export function slowCommandMessage({ command, durationMs }) {
   ].join(" ");
 }
 
-function timerFile({ event, timerDirectory }) {
+function timerFile({
+  event,
+  timerDirectory,
+}: {
+  event: HookEvent | undefined;
+  timerDirectory: string;
+}): string | undefined {
   if (typeof event?.tool_use_id !== "string" || event.tool_use_id === "") {
     return undefined;
   }
@@ -84,23 +110,35 @@ function timerFile({ event, timerDirectory }) {
   return path.join(timerDirectory, `${key}.json`);
 }
 
-async function codexDuration({ event, now, timerDirectory }) {
+async function codexDuration({
+  event,
+  now,
+  timerDirectory,
+}: {
+  event: HookEvent | undefined;
+  now: number;
+  timerDirectory: string;
+}): Promise<number | undefined> {
   const file = timerFile({ event, timerDirectory });
   if (!file) {
     return undefined;
   }
-  let startedAt;
+  let startedAt: unknown;
   try {
-    startedAt = JSON.parse(await readFile(file, "utf8")).startedAt;
+    startedAt = (
+      JSON.parse(await readFile(file, "utf8")) as { startedAt?: unknown }
+    ).startedAt;
   } catch (error) {
-    if (error?.code === "ENOENT") {
+    if ((error as NodeJS.ErrnoException | undefined)?.code === "ENOENT") {
       return undefined;
     }
     throw error;
   } finally {
     await rm(file, { force: true });
   }
-  return Number.isFinite(startedAt) ? now - startedAt : undefined;
+  return typeof startedAt === "number" && Number.isFinite(startedAt)
+    ? now - startedAt
+    : undefined;
 }
 
 /**
@@ -113,7 +151,15 @@ export async function handleEvent({
   event,
   now = Date.now(),
   timerDirectory = DEFAULT_TIMER_DIRECTORY,
-}) {
+}: {
+  mode: string | undefined;
+  event: HookEvent | undefined;
+  now?: number;
+  timerDirectory?: string;
+}): Promise<
+  | { hookSpecificOutput: { hookEventName: string; additionalContext: string } }
+  | undefined
+> {
   if (mode === "codex-start") {
     const file = timerFile({ event, timerDirectory });
     if (file) {
@@ -123,7 +169,7 @@ export async function handleEvent({
     return undefined;
   }
 
-  let durationMs;
+  let durationMs: unknown;
   if (mode === "claude") {
     durationMs = event?.duration_ms;
   } else if (mode === "codex-end") {
@@ -151,7 +197,7 @@ export async function handleEvent({
   };
 }
 
-async function readHookInput() {
+async function readHookInput(): Promise<string> {
   let input = "";
   for await (const chunk of process.stdin) {
     input += chunk;
@@ -166,7 +212,7 @@ async function main() {
   }
   const output = await handleEvent({
     mode: process.argv[2],
-    event: JSON.parse(input),
+    event: JSON.parse(input) as HookEvent,
   });
   if (output) {
     process.stdout.write(`${JSON.stringify(output)}\n`);
@@ -178,7 +224,7 @@ if (
   fileURLToPath(import.meta.url) === path.resolve(process.argv[1])
 ) {
   main().catch((error) => {
-    console.error(`[slow-command-hook] ${error.message}`);
+    console.error(`[slow-command-hook] ${(error as Error).message}`);
     process.exitCode = 1;
   });
 }

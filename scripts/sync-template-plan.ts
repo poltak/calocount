@@ -9,7 +9,7 @@ import {
   matchesPath,
   readVersionFile,
   sameRepository,
-} from "./template-files.mjs";
+} from "./template-files.ts";
 import {
   TEMPLATE_BRANCH,
   holds,
@@ -34,6 +34,9 @@ import type {
  * - `leave out`: it changes only files that the project is without.
  * - `skipped`: a person left it out, with a reason in the version file.
  */
+const entryFor = ({ entries, file }: { entries: string[]; file: string }) =>
+  entries.find((entry) => matchesPath({ entry, file }));
+
 export function loadPlan({
   fetch,
   before = readStopped()?.before ?? "HEAD",
@@ -140,8 +143,6 @@ export function loadPlan({
   );
   const projectHas = (entry: string) =>
     projectFiles.some((file) => matchesPath({ entry, file }));
-  const entryFor = ({ entries, file }: { entries: string[]; file: string }) =>
-    entries.find((entry) => matchesPath({ entry, file }));
 
   // The directories of the example show if the project has the example. The
   // file itself cannot show it. A file that the template adds for the

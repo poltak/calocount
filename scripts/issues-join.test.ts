@@ -31,8 +31,9 @@ function setup(t: TestContext) {
     execFileSync("git", args, { cwd: root, env, encoding: "utf8" }).trim();
   git("init", "--quiet", "--initial-branch=main");
   mkdirSync(path.join(root, "scripts"));
-  for (const file of ["issues-join.ts", "template-files.mjs"])
+  for (const file of ["issues-join.ts", "template-files.ts"]) {
     cpSync(new URL(file, import.meta.url), path.join(root, "scripts", file));
+  }
   mkdirSync(path.join(root, "bin"));
   writeFileSync(
     path.join(root, "bin/pnpm"),

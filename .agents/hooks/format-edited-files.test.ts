@@ -12,13 +12,14 @@ import { execFileSync } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import type { TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
 import {
   extractTargetPaths,
   formatChangedFiles,
   resolveGitRoot,
   resolveSafeFiles,
-} from "./format-edited-files.mjs";
+} from "./format-edited-files.ts";
 
 const hookDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = await resolveGitRoot(path.resolve(hookDirectory, "../.."));
@@ -126,18 +127,22 @@ test("formats a supported changed file and skips a file in .prettierignore", asy
   );
 });
 
-async function readHookCommand(configPath) {
+interface HookConfig {
+  hooks: Record<string, { hooks: { command: string }[] }[]>;
+}
+
+async function readHookCommand(configPath: string) {
   const config = JSON.parse(
     await readFile(path.join(repoRoot, configPath), "utf8"),
-  );
-  const [command] = config.hooks.PostToolUse.flatMap((entry) =>
+  ) as HookConfig;
+  const [command] = (config.hooks["PostToolUse"] ?? []).flatMap((entry) =>
     entry.hooks.map((hook) => hook.command),
   );
-  assert.equal(typeof command, "string");
+  assert.ok(command);
   return command;
 }
 
-async function createUnformattedRepoFile(context) {
+async function createUnformattedRepoFile(context: TestContext) {
   const testDirectory = await mkdtemp(
     path.join(repoRoot, ".format-hook-config-"),
   );
@@ -149,7 +154,10 @@ async function createUnformattedRepoFile(context) {
   return filePath;
 }
 
-function runHookCommand(command, { env = {}, input }) {
+function runHookCommand(
+  command: string,
+  { env = {}, input }: { env?: Record<string, string>; input: unknown },
+) {
   execFileSync("/bin/sh", ["-c", command], {
     cwd: repoRoot,
     env: { ...process.env, ...env },

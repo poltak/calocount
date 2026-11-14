@@ -26,7 +26,9 @@ function rulePolicies(): Map<string, string> {
     const headings = [...text.matchAll(RULE_HEADING)];
     for (const [index, heading] of headings.entries()) {
       const name = heading[1];
-      if (name === undefined || rules.has(name)) continue;
+      if (name === undefined || rules.has(name)) {
+        continue;
+      }
       const body = text.slice(
         (heading.index ?? 0) + heading[0].length,
         headings[index + 1]?.index,

@@ -5,11 +5,42 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
+export interface OwnPath {
+  path: string;
+  reason: string;
+}
+
+export interface SkippedCommit {
+  commit: string;
+  subject?: string | undefined;
+  reason: string;
+}
+
+export interface CommitConflicts {
+  commit: string;
+  files: string[];
+}
+
+export interface VersionFile {
+  template: string;
+  commit: string;
+  skipped: SkippedCommit[];
+  unchanged?: string[];
+  conflicts?: CommitConflicts[];
+  ownPaths?: OwnPath[];
+}
+
+export interface GitResult {
+  status: number | null;
+  stdout: string;
+  stderr: string;
+}
+
 export const VERSION_FILE = "template-version.json";
 // `ownPaths` turns off the two checks for a file, so the checks also cover this
 // list of files. In a project, an agent or a pull request changes them only
 // with a person's approval.
-export const GUARDED_FILES = [VERSION_FILE];
+export const GUARDED_FILES: string[] = [VERSION_FILE];
 // The template and each project that turned on beads have issues of their own
 // in this directory.
 const ISSUES_DIRECTORY = ".beads/";
@@ -32,7 +63,7 @@ const ISSUES_DIRECTORY = ".beads/";
  *   below read this list too. A sync does not read it.
  * - `templateOwned`: files that a project takes from the template and does
  *   not change, unless the project's `ownPaths` names them.
- *   `.agents/hooks/guard-template-owned-files.mjs` and
+ *   `.agents/hooks/guard-template-owned-files.ts` and
  *   `check-template-owned-files.ts` read this list from the project. `apply`
  *   does not read it. `finish` compares these files with the template.
  *
@@ -61,7 +92,7 @@ const GATE_PATHS = [
   "scripts/sync-template-plan.ts",
   // The old sync of a project starts itself again at this path.
   "scripts/sync-template.mjs",
-  "scripts/template-files.mjs",
+  "scripts/template-files.ts",
   PATHS_FILE,
   "scripts/check-staged-secrets.ts",
   "scripts/check-template-owned-files.ts",
@@ -69,17 +100,23 @@ const GATE_PATHS = [
   ".agents/hooks/",
 ];
 
-export function fail(message) {
+export function fail(message: string): never {
   console.error(message);
   process.exit(1);
 }
 
-export function matchesPath({ entry, file }) {
+export function matchesPath({
+  entry,
+  file,
+}: {
+  entry: string;
+  file: string;
+}): boolean {
   return entry.endsWith("/") ? file.startsWith(entry) : file === entry;
 }
 
 /** True for a gate, and for a directory that has a gate in it. */
-export const isGate = (entry) =>
+export const isGate = (entry: string): boolean =>
   GATE_PATHS.some(
     (gate) =>
       matchesPath({ entry: gate, file: entry }) ||
@@ -91,7 +128,13 @@ export const isGate = (entry) =>
  * issues, which each repository has for itself. A sync never takes a template
  * change to such a file.
  */
-export const isProjectPath = ({ ownPaths = [], file }) =>
+export const isProjectPath = ({
+  ownPaths = [],
+  file,
+}: {
+  ownPaths?: OwnPath[] | undefined;
+  file: string;
+}): boolean =>
   matchesPath({ entry: ISSUES_DIRECTORY, file }) ||
   (!isGate(file) &&
     ownPaths.some(({ path: entry }) => matchesPath({ entry, file })));
@@ -100,7 +143,17 @@ export const isProjectPath = ({ ownPaths = [], file }) =>
  * Run Git in the repository. A command that fails stops the script, unless
  * the caller reads the status itself with `allowFailure`.
  */
-export function git({ root, args, input, allowFailure = false }) {
+export function git({
+  root,
+  args,
+  input,
+  allowFailure = false,
+}: {
+  root: string;
+  args: string[];
+  input?: string | undefined;
+  allowFailure?: boolean | undefined;
+}): GitResult {
   const result = spawnSync("git", args, {
     cwd: root,
     encoding: "utf8",
@@ -121,16 +174,23 @@ export function git({ root, args, input, allowFailure = false }) {
 }
 
 /** `git@host:owner/name.git` and `https://host/owner/name` are one repository. */
-export function sameRepository({ left, right }) {
-  const normalize = (url) =>
-    url
-      .trim()
-      .replace(/^[a-z+]+:\/\//i, "")
-      .replace(/^[^@/]+@/, "")
-      .replace(":", "/")
-      .replace(/\/+$/, "")
-      .replace(/\.git$/, "")
-      .toLowerCase();
+const normalize = (url: string) =>
+  url
+    .trim()
+    .replace(/^[a-z+]+:\/\//i, "")
+    .replace(/^[^@/]+@/, "")
+    .replace(":", "/")
+    .replace(/\/+$/, "")
+    .replace(/\.git$/, "")
+    .toLowerCase();
+
+export function sameRepository({
+  left,
+  right,
+}: {
+  left: string;
+  right: string;
+}): boolean {
   return normalize(left) === normalize(right);
 }
 
@@ -151,12 +211,18 @@ export function sameRepository({ left, right }) {
  * - `ownPaths`: the paths that the project took over from the template, each
  *   with a `path` and a `reason`. A path that ends with `/` is a directory.
  */
-export function readVersionFile({ root }) {
+export function readVersionFile({
+  root,
+}: {
+  root: string;
+}): VersionFile | undefined {
   const file = path.join(root, VERSION_FILE);
   if (!existsSync(file)) {
     return undefined;
   }
-  const version = JSON.parse(readFileSync(file, "utf8"));
+  const version = JSON.parse(
+    readFileSync(file, "utf8"),
+  ) as Partial<VersionFile>;
   if (
     typeof version.template !== "string" ||
     !/^[0-9a-f]{40}$/.test(version.commit ?? "") ||
@@ -175,10 +241,16 @@ export function readVersionFile({ root }) {
       `${VERSION_FILE} must have "template" (a URL), "commit" (a full commit ID), and "skipped" (a list). "ownPaths" is optional, and each of its entries must have a "path" and a "reason".`,
     );
   }
-  return version;
+  return version as VersionFile;
 }
 
-export async function writeVersionFile({ root, version }) {
+export async function writeVersionFile({
+  root,
+  version,
+}: {
+  root: string;
+  version: VersionFile;
+}): Promise<void> {
   const file = path.join(root, VERSION_FILE);
   writeFileSync(
     file,
@@ -191,7 +263,13 @@ export async function writeVersionFile({ root, version }) {
  * is for a file that Prettier does not format, and when Prettier is absent,
  * as it is before the first `pnpm install`.
  */
-export async function formatted({ file, text }) {
+export async function formatted({
+  file,
+  text,
+}: {
+  file: string;
+  text: string;
+}): Promise<string> {
   const prettier = await import("prettier").catch(() => undefined);
   if (!prettier || !(await prettier.getFileInfo(file)).inferredParser) {
     return text;

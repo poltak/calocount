@@ -11,7 +11,7 @@ test("the migration list gives each file its own name", async () => {
   const list = await readFile(new URL("migrations.ts", database), "utf8");
   const files = (await readdir(new URL("migrations/", database)))
     .map((file) => file.replace(/\.ts$/, ""))
-    .sort();
+    .toSorted();
 
   const imported = new Map(
     [

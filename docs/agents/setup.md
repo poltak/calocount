@@ -99,7 +99,7 @@ A change to `.env` needs a restart of `pnpm run dev`.
 ### The branch at the start of an agent session
 
 When a Claude Code or Codex session starts,
-`.agents/hooks/check-branch-is-current.mjs` fetches `main` from the remote
+`.agents/hooks/check-branch-is-current.ts` fetches `main` from the remote
 that the branch tracks, or from `origin` for a branch that tracks none. When
 the branch is behind that `main`, the hook tells the agent and you how many
 commits it is behind, and what to do. So a template branch in a project's
@@ -110,7 +110,7 @@ the hooks of the repository.
 ### Slow commands of an agent
 
 After each shell command of a Claude Code or Codex agent,
-`.agents/hooks/warn-slow-commands.mjs` tells the agent how long the command
+`.agents/hooks/warn-slow-commands.ts` tells the agent how long the command
 took, if it took more than 1 minute. After 5 minutes, the message is stronger.
 The message tells the agent to run only the checks of the code that it
 changed, and to run the full checks one time at the end. Without it, an agent
@@ -254,7 +254,7 @@ A project can stay on an older version when its host or a tool needs that.
 Keep the older value, and write the reason in the project's documents. `apply`
 stops at each template update of that value, because both sides changed it.
 Resolve the stop in favor of the project. For Node, keep `.nvmrc`, `engines`,
-and `devEngines.runtime` equal. `scripts/check-node-version.mjs` compares those
+and `devEngines.runtime` equal. `scripts/check-node-version.ts` compares those
 values with each other, and not with the template.
 
 A project can also remove a package that it does not use. A sync keeps the
@@ -348,7 +348,7 @@ the project. A second run cannot weaken the first. Write
 {
   "plugins": [],
   "categories": { "correctness": "off" },
-  "jsPlugins": ["./lint/stack-plugin.mjs"],
+  "jsPlugins": ["./lint/stack-plugin.ts"],
   "rules": {
     "stack/vendor-imports": [
       "error",

@@ -58,13 +58,22 @@ function hideSummary(node: string): void {
       route: "graphql",
       body: { query: MINIMIZE_QUERY, variables: { id: node } },
     });
-    if (result?.errors) throw new Error(JSON.stringify(result.errors));
+    if (result?.errors) {
+      throw new Error(JSON.stringify(result.errors));
+    }
   } catch (error) {
     console.log(
       `::warning title=Agent review::GitHub did not hide the summary of the earlier review: ${flatten(errorMessage(error)).slice(0, 300)}`,
     );
   }
 }
+
+// The master comment has each issue, so a line comment that GitHub refuses
+// must not stop the verdict.
+const lineFailed = (error: unknown) =>
+  console.log(
+    `::warning title=Agent review::GitHub refused a line comment: ${flatten(errorMessage(error)).slice(0, 300)}`,
+  );
 
 function reviewVerdict(event: ReviewEvent): boolean {
   const repository = event.repository.full_name;
@@ -245,12 +254,6 @@ function reviewVerdict(event: ReviewEvent): boolean {
     ? `${view.pullUrl}#issuecomment-${posted.id}`
     : view.pullUrl;
 
-  // The master comment has each issue, so a line comment that GitHub refuses
-  // must not stop the verdict.
-  const lineFailed = (error: unknown) =>
-    console.log(
-      `::warning title=Agent review::GitHub refused a line comment: ${flatten(errorMessage(error)).slice(0, 300)}`,
-    );
   let comments: ReturnType<typeof lineComments> = [];
   try {
     comments = lineComments({ added: changes.added, range, view });
@@ -297,7 +300,9 @@ function reviewVerdict(event: ReviewEvent): boolean {
     (master || linked.some((issue, index) => issue !== issues[index]))
   ) {
     const { body, full } = masterOf(linked);
-    if (master) console.log(full);
+    if (master) {
+      console.log(full);
+    }
     callApi({
       method: "PATCH",
       route: `repos/${repository}/issues/comments/${posted.id}`,

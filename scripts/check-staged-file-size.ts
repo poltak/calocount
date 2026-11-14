@@ -57,7 +57,9 @@ const operation = ["MERGE_HEAD", "CHERRY_PICK_HEAD", "REVERT_HEAD"].find(
     git(["rev-parse", "--quiet", "--verify", ref], { allowFailure: true })
       .status === 0,
 );
-if (operation) process.exit(0);
+if (operation) {
+  process.exit(0);
+}
 
 // Each entry of `--raw -z` is `:<old mode> <new mode> <old object> <new
 // object> <status>`, then the path. A rename has the old path and the new
@@ -89,7 +91,9 @@ for (let index = 0; index < fields.length - 1;) {
   const pathCount = /^[RC]/.test(status) ? 2 : 1;
   const name = fields[index + pathCount] ?? "";
   index += 1 + pathCount;
-  if (!REGULAR_FILE.test(newMode)) continue;
+  if (!REGULAR_FILE.test(newMode)) {
+    continue;
+  }
   changes.push({
     name,
     newObject,
@@ -149,7 +153,9 @@ for (let index = 0; index + 2 < attributes.length; index += 3) {
 }
 
 const tooLarge = grown.filter(({ name, newObject }) => {
-  if (generated.has(name)) return false;
+  if (generated.has(name)) {
+    return false;
+  }
   const content = gitBlob(newObject);
   return !content.subarray(0, BINARY_TEST_BYTES).includes(0);
 });

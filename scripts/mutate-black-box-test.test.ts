@@ -32,8 +32,9 @@ function setup(t: TestContext, specSource = source) {
   const copy = path.join(root, spec.replace(".spec.ts", ".mutated.spec.ts"));
   mkdirSync(path.dirname(copy), { recursive: true });
   writeFileSync(path.join(root, spec), specSource);
-  for (const file of ["mutate-black-box-test.ts", "template-files.mjs"])
+  for (const file of ["mutate-black-box-test.ts", "template-files.ts"]) {
     cpSync(new URL(file, import.meta.url), path.join(root, "scripts", file));
+  }
   const fake = `#!${process.execPath}
 const fs = require('node:fs');
 if (process.argv.includes('build')) process.exit(0);

@@ -72,7 +72,7 @@ test("each model job of the workflow lists each output that the script writes", 
       .map(([, key]) => key)
       .filter((key) => key !== "mode" && key !== "earlier"),
   );
-  assert.deepEqual([...written].sort(), [
+  assert.deepEqual([...written].toSorted(), [
     "findings",
     "message",
     "notes",
@@ -93,6 +93,6 @@ test("each model job of the workflow lists each output that the script writes", 
     ]
       .filter(([, key, output]) => key === output)
       .map(([, key]) => key);
-    assert.deepEqual(listed.sort(), [...written].sort(), job);
+    assert.deepEqual(listed.toSorted(), [...written].toSorted(), job);
   }
 });

@@ -67,7 +67,9 @@ async function fixture(
     recursive: true,
   });
   for (const [filename, content] of Object.entries(files)) {
-    if (content === null) continue;
+    if (content === null) {
+      continue;
+    }
     const target = path.join(directory, filename);
     await mkdir(path.dirname(target), { recursive: true });
     await writeFile(target, content);
@@ -118,8 +120,8 @@ test("still rejects a template component edit when a project adds components", a
   assert.match(result.stderr, /button\.tsx/);
 });
 
-for (const filename of ["avatar.tsx", "helpers/avatar.ts"])
-  for (const content of [null, "hand edit"])
+for (const filename of ["avatar.tsx", "helpers/avatar.ts"]) {
+  for (const content of [null, "hand edit"]) {
     test(`rejects a missing or edited project file ${filename}: ${content}`, async (context) => {
       const result = await fixture(context, {
         ...projectComponents,
@@ -128,14 +130,17 @@ for (const filename of ["avatar.tsx", "helpers/avatar.ts"])
       assert.equal(result.status, 1);
       assert.ok(result.stderr.includes(filename), result.stderr);
     });
+  }
+}
 
-for (const content of ['{"avatar": true}', '["avatar", null]', '[""]', "{"])
+for (const content of ['{"avatar": true}', '["avatar", null]', '[""]', "{"]) {
   test(`rejects an invalid project list: ${content}`, async (context) => {
     const result = await fixture(context, {
       "scripts/shadcn-components.project.json": content,
     });
     assert.equal(result.status, 1);
   });
+}
 
 test(
   "lists each template shadcn file separately and keeps the project list project-owned",
@@ -148,8 +153,8 @@ test(
     ) as { templateOwned: string[]; projectOwned: string[] };
     const filenames = await readdir(path.join(root, ui));
     assert.deepEqual(
-      templateOwned.filter((entry) => entry.startsWith(ui)).sort(),
-      filenames.map((filename) => ui + filename).sort(),
+      templateOwned.filter((entry) => entry.startsWith(ui)).toSorted(),
+      filenames.map((filename) => ui + filename).toSorted(),
     );
     assert.ok(projectOwned.includes("scripts/shadcn-components.project.json"));
     assert.deepEqual(
@@ -170,7 +175,7 @@ const rejections: [string, Record<string, string | null>, string][] = [
   ["extra", { [ui + "extra.tsx"]: "new file" }, "extra.tsx"],
   ["edited helper", { [ui + "helper.ts"]: "hand edit" }, "helper.ts"],
 ];
-for (const [name, changes, expected] of rejections)
+for (const [name, changes, expected] of rejections) {
   test(`rejects an ${name} file and gives the repair command`, async (context) => {
     const result = await fixture(context, changes);
     assert.equal(result.status, 1);
@@ -178,6 +183,7 @@ for (const [name, changes, expected] of rejections)
     assert.match(result.stderr, /shadcn add --cwd frontend --yes --overwrite/);
     assert.match(result.stderr, /core\/ui\/registry/);
   });
+}
 
 test("rejects a version range before generation", async (context) => {
   const result = await fixture(context, {
@@ -242,7 +248,9 @@ test("lists each template shadcn file in templateOwned", async (context) => {
   ) as { templateOwned: string[] };
   const files = await readdir(path.join(root, ui), { recursive: true });
   for (const file of files) {
-    if (!/\.tsx?$/.test(file)) continue;
+    if (!/\.tsx?$/.test(file)) {
+      continue;
+    }
     assert.ok(
       templateOwned.includes(`${ui}${file}`),
       `Add ${ui}${file} to templateOwned in scripts/template-paths.json.`,

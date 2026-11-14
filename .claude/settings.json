@@ -14,7 +14,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PROJECT_DIR}/.agents/hooks/check-branch-is-current.mjs\"",
+            "command": "pnpm --dir \"${CLAUDE_PROJECT_DIR}\" exec node \"${CLAUDE_PROJECT_DIR}/.agents/hooks/check-branch-is-current.ts\"",
             "timeout": 30
           }
         ]
@@ -26,7 +26,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PROJECT_DIR}/.agents/hooks/guard-template-owned-files.mjs\" claude",
+            "command": "pnpm --dir \"${CLAUDE_PROJECT_DIR}\" exec node \"${CLAUDE_PROJECT_DIR}/.agents/hooks/guard-template-owned-files.ts\" claude",
             "timeout": 10
           }
         ]
@@ -38,7 +38,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PROJECT_DIR}/.agents/hooks/format-edited-files.mjs\" \"${CLAUDE_PROJECT_DIR}\"",
+            "command": "pnpm --dir \"${CLAUDE_PROJECT_DIR}\" exec node \"${CLAUDE_PROJECT_DIR}/.agents/hooks/format-edited-files.ts\" \"${CLAUDE_PROJECT_DIR}\"",
             "timeout": 60
           }
         ]
@@ -48,7 +48,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PROJECT_DIR}/.agents/hooks/warn-slow-commands.mjs\" claude",
+            "command": "pnpm --dir \"${CLAUDE_PROJECT_DIR}\" exec node \"${CLAUDE_PROJECT_DIR}/.agents/hooks/warn-slow-commands.ts\" claude",
             "timeout": 10
           }
         ]
@@ -60,7 +60,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PROJECT_DIR}/.agents/hooks/warn-slow-commands.mjs\" claude",
+            "command": "pnpm --dir \"${CLAUDE_PROJECT_DIR}\" exec node \"${CLAUDE_PROJECT_DIR}/.agents/hooks/warn-slow-commands.ts\" claude",
             "timeout": 10
           }
         ]

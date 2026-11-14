@@ -11,9 +11,9 @@
   ],
   "jsPlugins": [
     "@stylistic/eslint-plugin",
-    "./lint/architecture-plugin.mjs",
-    "./lint/stack-plugin.mjs",
-    "./lint/testing-plugin.mjs"
+    "./lint/architecture-plugin.ts",
+    "./lint/stack-plugin.ts",
+    "./lint/testing-plugin.ts"
   ],
   "categories": {
     "correctness": "error",
@@ -403,6 +403,13 @@
       ],
       "rules": {
         "no-console": "off"
+      }
+    },
+    {
+      "files": ["scripts/**", ".agents/hooks/**", "lint/**"],
+      "rules": {
+        "no-console": "off",
+        "node/no-process-env": "off"
       }
     },
     {

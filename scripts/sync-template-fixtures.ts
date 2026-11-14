@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import type { TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
-import type { VersionFile } from "./template-files.mjs";
+import type { VersionFile } from "./template-files.ts";
 
 export const scriptsDirectory = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(scriptsDirectory, "..");
@@ -134,7 +134,7 @@ export const SYNC_SCRIPTS = [
   "sync-template-apply.ts",
   "sync-template-finish.ts",
   "sync-template.mjs",
-  "template-files.mjs",
+  "template-files.ts",
 ];
 
 /**

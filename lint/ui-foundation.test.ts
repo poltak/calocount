@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { lint } from "./lint-fixture.mjs";
+import { lint } from "./lint-fixture.ts";
 
 const page = "frontend/src/features/notes/ui/page.tsx";
-const part = (name) => `frontend/src/features/core/ui/${name}/example.tsx`;
-const onlyUi = (problems) =>
+const part = (name: string) =>
+  `frontend/src/features/core/ui/${name}/example.tsx`;
+const onlyUi = (problems: string[]) =>
   problems.filter((problem) => /stack\(page-/.test(problem));
 
 test("preset typography reaches composed shadcn parts and aliased imports", async (context) => {
@@ -40,7 +41,7 @@ test("preset typography permits native text, layout, colors, alignment and forks
 });
 
 test("pages cannot import or re-export Base UI through any import syntax", async (context) => {
-  const files = {};
+  const files: Record<string, string> = {};
   for (const [name, source] of Object.entries({
     named: 'import { Button } from "@base-ui/react/button";',
     root: 'import * as Base from "@base-ui/react";',
@@ -48,8 +49,9 @@ test("pages cannot import or re-export Base UI through any import syntax", async
     star: 'export * from "@base-ui/react/dialog";',
     dynamic: 'const base = import("@base-ui/react/button");',
     require: 'const base = require("@base-ui/react/button");',
-  }))
+  })) {
     files[`frontend/src/features/notes/ui/${name}.tsx`] = source;
+  }
   assert.equal(onlyUi(await lint(context, files)).length, 6);
 });
 
@@ -94,11 +96,12 @@ test("bracket values fail in JSX, class functions, variants, and templates", asy
     'export const classes = cva("p-2", { variants: { tone: { wide: "gap-[7px]" } } });',
     "export const classes = `p-2 ${variant} [padding:3px]`;",
     'export const classes = "[&:hover]:bg-[#fff]";',
-  ])
+  ]) {
     assert.ok(
       onlyUi(await lint(context, { [page]: source })).length > 0,
       source,
     );
+  }
 });
 
 test("padding and spacing use the small scale, including variants and logical directions", async (context) => {

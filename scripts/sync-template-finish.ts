@@ -5,7 +5,7 @@ import {
   fail,
   git,
   writeVersionFile,
-} from "./template-files.mjs";
+} from "./template-files.ts";
 import {
   LOCKFILE,
   changedFiles,
@@ -139,7 +139,7 @@ export async function finish() {
   // The new version is past each commit in `unchanged` and `conflicts`, so
   // those lists end. A project's other fields stay, also a field that this
   // script does not know.
-  const { unchanged, conflicts = [], ...version } = plan.version;
+  const { unchanged: _unchanged, conflicts = [], ...version } = plan.version;
   await writeVersionFile({ root, version: { ...version, commit: plan.tip } });
   read("add", "--", VERSION_FILE);
   git({

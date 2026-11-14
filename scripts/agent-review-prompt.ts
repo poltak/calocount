@@ -16,11 +16,12 @@ import type {
   Scope,
 } from "./agent-review-types.ts";
 
+// Without this, a description could end the tag, and the text after it
+// would look like a part of the prompt.
+const clean = (text: string | null | undefined) =>
+  (text ?? "").replaceAll("</pull_request>", "");
+
 function pullRequestText(pull: PullRequest): string {
-  // Without this, a description could end the tag, and the text after it
-  // would look like a part of the prompt.
-  const clean = (text: string | null | undefined) =>
-    (text ?? "").replaceAll("</pull_request>", "");
   return `<pull_request>\nTitle: ${clean(pull.title)}\n\n${clean(pull.body) || "(no description)"}\n</pull_request>`;
 }
 
