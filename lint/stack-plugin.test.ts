@@ -125,3 +125,36 @@ test("keeps state out of frontend components", async (context) => {
     ].map((name) => `${page(name)}: stack(no-component-state)`),
   );
 });
+
+const call = (param: string) =>
+  `export const run = (client: any, id: string, rest: object) => client.get({ param: ${param} });\n`;
+
+test("requires encodeApiParam for each path parameter in the frontend", async (context) => {
+  const problems = await lint(context, {
+    "frontend/src/features/notes/ui/ok.ts": call("{ id: encodeApiParam(id) }"),
+    "frontend/src/features/notes/ui/raw.ts": call("{ id }"),
+    "frontend/src/features/notes/ui/spread.ts": call("{ ...rest }"),
+    "frontend/src/features/notes/ui/other.ts": call("{ id: String(id) }"),
+    "frontend/src/features/notes/ui/raw.test.ts": call("{ id }"),
+    "backend/src/features/notes/utils/raw.ts": call("{ id }"),
+  });
+
+  assert.deepEqual(problems, [
+    "frontend/src/features/notes/ui/other.ts: stack(encode-api-params)",
+    "frontend/src/features/notes/ui/raw.ts: stack(encode-api-params)",
+    "frontend/src/features/notes/ui/spread.ts: stack(encode-api-params)",
+  ]);
+});
+
+test("allows the zod validator only in core handlers", async (context) => {
+  const source =
+    'import { zValidator } from "@hono/zod-validator";\nexport const v = zValidator;\n';
+  const problems = await lint(context, {
+    [`${feature("core")}/handlers/validator.ts`]: source,
+    [`${feature("notes")}/handlers/notes-handlers.ts`]: source,
+  });
+
+  assert.deepEqual(problems, [
+    "backend/src/features/notes/handlers/notes-handlers.ts: stack(vendor-imports)",
+  ]);
+});

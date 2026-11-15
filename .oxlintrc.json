@@ -171,7 +171,8 @@
         }
       }
     ],
-    "architecture/transaction-scope": "error",
+    "architecture/transaction-scope": ["error", { "coreServices": ["logger"] }],
+    "architecture/log-messages": "error",
     "stack/vendor-imports": [
       "error",
       {
@@ -191,13 +192,19 @@
           },
           {
             "workspace": "backend",
-            "packages": ["hono", "@hono/node-server", "@hono/zod-validator"],
+            "packages": ["hono", "@hono/node-server"],
             "allowedIn": [
               "^features/[^/]+/handlers/",
               "^features/core/server/",
               "^features/core/tests/"
             ],
             "where": "handlers and core/server"
+          },
+          {
+            "workspace": "backend",
+            "packages": ["@hono/zod-validator"],
+            "allowedIn": ["^features/core/handlers/"],
+            "where": "core/handlers, in the shared validator() helper"
           },
           {
             "workspace": "frontend",
@@ -316,6 +323,7 @@
     {
       "files": ["frontend/src/**"],
       "rules": {
+        "stack/encode-api-params": "error",
         "no-restricted-imports": [
           "error",
           {

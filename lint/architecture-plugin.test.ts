@@ -140,6 +140,53 @@ test("keeps a transaction on the Storage that it provides", async (context) => {
   ]);
 });
 
+test("keeps a Service call out of a transaction, except a Core Service", async (context) => {
+  const problems = await lint(context, {
+    ...coreFiles("backend"),
+    ...coreFiles("frontend"),
+    [`${feature("notes")}/logic/notes-logic.ts`]:
+      importLogic +
+      "export class NotesLogic extends Logic {\n  logged() {\n    return this.deps.transaction(() => this.deps.services.logger.warn('x'));\n  }\n  mail() {\n    return this.deps.transaction(() => this.deps.services.mail.send());\n  }\n  destructured() {\n    return this.deps.transaction(() => {\n      const { mail } = this.deps.services;\n      return mail;\n    });\n  }\n  outside() {\n    return this.deps.services.mail.send();\n  }\n}\n",
+  });
+
+  assert.deepEqual(problems, [
+    "backend/src/features/notes/logic/notes-logic.ts: architecture(transaction-scope)",
+    "backend/src/features/notes/logic/notes-logic.ts: architecture(transaction-scope)",
+  ]);
+});
+
+test("lets only Logic start a transaction", async (context) => {
+  const problems = await lint(context, {
+    ...coreFiles("backend"),
+    ...coreFiles("frontend"),
+    [`${feature("notes")}/storage/notes-storage.ts`]:
+      "export class NotesStorage {\n  constructor(private readonly deps: { db: { transaction(): unknown } }) {}\n  save() {\n    return this.deps.db.transaction();\n  }\n}\n",
+    [`${feature("notes")}/logic/notes-logic.ts`]:
+      importLogic +
+      "export class NotesLogic extends Logic {\n  save() {\n    return this.deps.transaction(() => 1);\n  }\n}\n",
+  });
+
+  assert.deepEqual(problems, [
+    "backend/src/features/notes/storage/notes-storage.ts: architecture(transaction-scope)",
+  ]);
+});
+
+test("keeps log messages constant", async (context) => {
+  const problems = await lint(context, {
+    ...coreFiles("backend"),
+    ...coreFiles("frontend"),
+    [`${feature("notes")}/logic/notes-logic.ts`]:
+      importLogic +
+      "export class NotesLogic extends Logic {\n  run(id: string, error: unknown, level: 'warn') {\n    this.deps.services.logger.warn('Failed', { error });\n    this.deps.logger.info(`Done`);\n    this.deps.services.logger.error(`Failed ${id}`);\n    this.deps.logger.warn('Failed ' + id);\n    this.deps.logger.info(error);\n    this.deps.logger[level](id);\n    this.deps.other.warn(id);\n  }\n}\n",
+  });
+
+  assert.deepEqual(problems, [
+    "backend/src/features/notes/logic/notes-logic.ts: architecture(log-messages)",
+    "backend/src/features/notes/logic/notes-logic.ts: architecture(log-messages)",
+    "backend/src/features/notes/logic/notes-logic.ts: architecture(log-messages)",
+  ]);
+});
+
 test("enforces role names and constructor shape", async (context) => {
   const problems = await lint(context, {
     ...coreFiles("backend"),

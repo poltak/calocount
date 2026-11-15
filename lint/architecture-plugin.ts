@@ -15,6 +15,7 @@ import {
   ownStorage,
   serviceImplementations,
 } from "./architecture-imports.ts";
+import { logMessages } from "./architecture-logging.ts";
 import {
   constructorDeps,
   fileLayout,
@@ -35,6 +36,7 @@ const plugin: Plugin = {
     "constructor-deps": constructorDeps,
     "file-layout": fileLayout,
     "transaction-scope": transactionScope,
+    "log-messages": logMessages,
   },
 };
 

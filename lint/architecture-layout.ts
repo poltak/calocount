@@ -268,6 +268,8 @@ export const fileLayout: Rule<ArchitectureOptions> = {
   },
 };
 
+const startOf = (node: AstNode) => node.range?.[0] ?? node.start;
+
 const isTransactionCall = (node: CallExpression) =>
   isDepsMember(node.callee, "transaction");
 
@@ -290,20 +292,39 @@ export const transactionScope: Rule<ArchitectureOptions> = {
       description:
         "Inside a transaction, a Logic class uses the Storage that the transaction provides.",
     },
-    schema: [],
+    schema: [{ type: "object" }],
     messages: {
       outside:
         "Inside a transaction, use the Storage that the callback receives. `this.deps.storage` is not part of the transaction. " +
         "See docs/agents/database.md (Transactions).",
+      service:
+        "A Service call cannot roll back and keeps the transaction open. Call it before or after the transaction. " +
+        "See docs/agents/database.md (Transactions).",
+      storage:
+        "A Storage method does not start a transaction. Atomic writes start in Logic with `this.deps.transaction()`. " +
+        "See docs/agents/database.md (Transactions).",
     },
   },
   create(context) {
+    const options = context.options[0] ?? {};
+    const file = currentFile(context);
     let enclosingTransactionCalls = 0;
+    // `this.deps.services.logger` is visited as its object after the member
+    // that names the Service, so the allowed objects are found by position.
+    const allowedServices = new Set<number | undefined>();
 
     return {
       CallExpression(node: CallExpression) {
         if (isTransactionCall(node)) {
           enclosingTransactionCalls += 1;
+        }
+        if (
+          file?.role === "storage" &&
+          node.callee.type === "MemberExpression" &&
+          !node.callee.computed &&
+          node.callee.property?.name === "transaction"
+        ) {
+          context.report({ node, messageId: "storage" });
         }
       },
       "CallExpression:exit"(node: CallExpression) {
@@ -312,8 +333,25 @@ export const transactionScope: Rule<ArchitectureOptions> = {
         }
       },
       MemberExpression(node: MemberExpression) {
-        if (enclosingTransactionCalls > 0 && isDepsMember(node, "storage")) {
+        if (enclosingTransactionCalls === 0) {
+          return;
+        }
+        if (isDepsMember(node, "storage")) {
           context.report({ node, messageId: "outside" });
+        }
+        if (isDepsMember(node.object, "services") && !node.computed) {
+          const name = node.property.name;
+          if (
+            (options.coreServices ?? []).some((service) => service === name)
+          ) {
+            allowedServices.add(startOf(node.object));
+          }
+        }
+        if (
+          isDepsMember(node, "services") &&
+          !allowedServices.has(startOf(node))
+        ) {
+          context.report({ node, messageId: "service" });
         }
       },
     };

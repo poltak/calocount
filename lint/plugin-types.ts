@@ -31,6 +31,12 @@ export interface AstNode extends Node {
   literal?: AstNode;
   types?: AstNode[];
   superClass?: AstNode | null;
+  properties?: ObjectMember[];
+}
+
+/** A property or a spread element of an object expression. */
+export interface ObjectMember extends Node {
+  value?: AstNode;
 }
 
 export interface Template extends Node {
@@ -116,6 +122,7 @@ export interface MemberExpression extends AstNode {
 export interface Property extends Node {
   computed: boolean;
   key: Name;
+  value?: AstNode;
 }
 
 export interface Literal extends Node {

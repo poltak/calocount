@@ -13,6 +13,7 @@ import type {
   ImportExpression,
   Node,
   Plugin,
+  Property,
   Rule,
   Specifier,
   StackOptions,
@@ -147,11 +148,54 @@ const noComponentState: Rule<StackOptions> = {
   },
 };
 
+const encodeApiParams: Rule = {
+  meta: {
+    type: "problem",
+    docs: {
+      description: "Each path parameter of an API client call is encoded.",
+    },
+    schema: [],
+    messages: {
+      encode:
+        "The API client puts path parameters in the URL without encoding. Wrap each value in `encodeApiParam`. See docs/agents/code-architecture.md (Application setup).",
+    },
+  },
+  create(context) {
+    if (/\.test\.tsx?$/.test(context.filename ?? context.getFilename())) {
+      return {};
+    }
+
+    return {
+      Property(node: Property) {
+        if (
+          node.computed ||
+          (node.key.name ?? node.key.value) !== "param" ||
+          node.value?.type !== "ObjectExpression"
+        ) {
+          return;
+        }
+        for (const member of node.value.properties ?? []) {
+          const value = member.value;
+          const encoded =
+            member.type === "Property" &&
+            value?.type === "CallExpression" &&
+            value.callee?.type === "Identifier" &&
+            value.callee.name === "encodeApiParam";
+          if (!encoded) {
+            context.report({ node: member, messageId: "encode" });
+          }
+        }
+      },
+    };
+  },
+};
+
 const plugin: Plugin = {
   meta: { name: "stack" },
   rules: {
     "vendor-imports": vendorImports,
     "no-component-state": noComponentState,
+    "encode-api-params": encodeApiParams,
     "page-imports": pageImports,
     "page-classes": pageClasses,
     "shadcn-typography": shadcnTypography,
