@@ -34,6 +34,18 @@
     {
       "path": "frontend/src/features/core/utils/class-names.ts",
       "reason": "Calocount draws its pages with its own CSS and routes"
+    },
+    {
+      "path": "frontend/src/features/auth/ui/login-page.tsx",
+      "reason": "Calocount signs in with passkeys and has no sign-up or template app shell"
+    },
+    {
+      "path": "frontend/src/features/auth/ui/sign-up-page.tsx",
+      "reason": "Calocount signs in with passkeys and has no sign-up or template app shell"
+    },
+    {
+      "path": "frontend/src/features/core/black-box-tests/app-shell-page-object.ts",
+      "reason": "Calocount signs in with passkeys and has no sign-up or template app shell"
     }
   ]
 }
