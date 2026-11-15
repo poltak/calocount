@@ -44,16 +44,6 @@ test.describe("the owner logs an entry", () => {
     await expect(macros).toContainText("Fat7.75 g");
   });
 
-  test("should keep the entry after a reload", async ({ page }) => {
-    const today = new TodayPageObject(page);
-    await today.goto();
-    await today.addEntry({ name: "Apple", calories: 95 });
-
-    await page.reload();
-
-    await expect(today.entry("Apple")).toBeVisible();
-  });
-
   test("should show the description only when it differs from the name", async ({
     page,
   }) => {

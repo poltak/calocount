@@ -13,7 +13,7 @@ const LUNCH = {
 };
 
 test.describe("the owner edits an entry", () => {
-  test("should change the values of the entry and the totals of the day", async ({
+  test("should change the values, the type, the name and the description of the entry, and the totals of the day", async ({
     page,
   }) => {
     const today = new TodayPageObject(page);
@@ -36,41 +36,24 @@ test.describe("the owner edits an entry", () => {
     await expect(macros).toContainText("Fat25 g");
     await page.reload();
     await expect(today.calorieTotal(650)).toBeVisible();
-  });
 
-  test("should change the name and the description of the entry", async ({
-    page,
-  }) => {
-    const today = new TodayPageObject(page);
-    await today.goto();
-    await today.addEntry(LUNCH);
+    await expect(today.entry("Audit lunch")).toContainText("Lunch");
+    await today.changeEntry("Audit lunch", { type: "Breakfast" });
+    await expect(today.entry("Audit lunch")).toContainText("Breakfast");
+
+    await today.changeEntry("Audit lunch", { type: "Not set" });
+    await expect(today.entry("Audit lunch")).not.toContainText(
+      /Breakfast|Lunch|Dinner|Snack/,
+    );
 
     await today.changeEntry("Audit lunch", {
       name: "Team lunch",
       description: "Lunch at the audit",
     });
-
     await expect(
       today.entryText("Team lunch", "Lunch at the audit"),
     ).toBeVisible();
     await expect(today.entry("Audit lunch")).toHaveCount(0);
-  });
-
-  test("should change the type of the entry, and show no type for an entry without one", async ({
-    page,
-  }) => {
-    const today = new TodayPageObject(page);
-    await today.goto();
-    await today.addEntry({ ...LUNCH, name: "Midday meal" });
-    await expect(today.entry("Midday meal")).toContainText("Lunch");
-
-    await today.changeEntry("Midday meal", { type: "Breakfast" });
-    await expect(today.entry("Midday meal")).toContainText("Breakfast");
-
-    await today.changeEntry("Midday meal", { type: "Not set" });
-    await expect(today.entry("Midday meal")).not.toContainText(
-      /Breakfast|Lunch|Dinner|Snack/,
-    );
   });
 
   test("should let the owner clear a total and type it again", async ({
