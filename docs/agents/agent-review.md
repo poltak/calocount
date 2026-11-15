@@ -3,13 +3,18 @@
 The "Agent review" workflow of CI gives each pull request to two models,
 Claude Code and Codex. Each one reports rule violations that no lint
 rule or test can check. An example is a doc's content that the change made no longer valid.
-The script also reports each new document in `docs/agents/`.
+The script also reports, with no model, each new document in `docs/agents/`,
+each change to `lint.project.json` and `docs/agents/project/reversals.md`
+(rule `decision-change`), and each added plan line in `docs/agents/` (rule
+`plan-in-docs`).
 [`scripts/agent-review.ts`](../../scripts/agent-review.ts) describes each
 step.
 
 - The general rules are in
   [`.agents/review/prompt.md`](../../.agents/review/prompt.md), which comes
-  from the template.
+  from the template. When a script, a test, or lint can check a part of a
+  rule, it checks that part, and the rule in `prompt.md` keeps only the part
+  that needs judgment.
 - A project adds its own rules in `.agents/review/project-rules.md`. The
   project owns this file, and a sync never changes it. Without the file, the
   review uses only the general rules.

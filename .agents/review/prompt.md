@@ -92,10 +92,8 @@ You cannot know if the team agreed to the change, so report each one, and the
 maintainer confirms it. Quote the new text that changes the decision, and name
 the old decision in the explanation.
 
-A new or changed entry in `docs/agents/project/reversals.md` is such a change.
-
-A change to `lint.project.json` is such a change, because it can loosen a lint
-rule. Quote the changed line, and name the rule in the explanation.
+The script reports each change to `docs/agents/project/reversals.md` and to
+`lint.project.json`. Do not report those two files yourself.
 
 ### comment-restates-code
 
@@ -133,9 +131,12 @@ to a document in `docs/agents/`. `AGENTS.md` ("Project documentation") says
 that such a document describes how the system works and why, and open work
 goes in beads.
 
-Examples: a "Phases" section with "Phase 1" and "Phase 2", a "Next steps"
-list, a checklist item such as "- [ ] Add the table", or "As built on
-2026-10-20". Quote the heading or the first line of the list.
+The script reports each line that the pull request adds in `docs/agents/` and
+that is a checklist item, a heading that names a phase, next steps, a to-do
+list, or a roadmap, or "As built on" with a date. Do not report those lines
+yourself. Report the other forms, such as steps or a status in sentences.
+Example: "First we add the table, and then we move the routes." Quote the first
+sentence.
 
 ### secret
 

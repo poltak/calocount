@@ -7,7 +7,7 @@ import {
   TOKEN_PATTERN,
   root,
 } from "./agent-review-constants.ts";
-import { decode, flatten, git } from "./agent-review-shared.ts";
+import { decode, flatten } from "./agent-review-shared.ts";
 import type {
   Finding,
   ModelResult,
@@ -70,35 +70,6 @@ export function modelResult({
       outputs.message || `The job ended with "${result ?? "no result"}".`,
     ...empty,
   };
-}
-
-/** A new document needs a person's request, which no model can see. */
-export function newDocuments({ base, head }: Range): Finding[] {
-  return git(
-    "diff",
-    "--name-only",
-    "--diff-filter=A",
-    base,
-    head,
-    "--",
-    "docs/agents/",
-    // `docs/agents/README.md` permits a project these files with no request.
-    ":(exclude)docs/agents/project/",
-  )
-    .split("\n")
-    .filter((file) => file.endsWith(".md"))
-    .map((file) => ({
-      rule: "new-document",
-      file,
-      line: 1,
-      quote:
-        readFileSync(path.join(root, file), "utf8")
-          .split("\n")
-          .find((line) => line.trim()) ?? "",
-      explanation:
-        "The pull request adds a document in docs/agents/. docs/agents/README.md permits a new document only when a person asks for one, so a maintainer confirms that a person asked for it.",
-      models: ["script"],
-    }));
 }
 
 export const quoteIsInFile = ({

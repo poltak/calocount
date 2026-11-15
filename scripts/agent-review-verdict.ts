@@ -9,9 +9,9 @@ import {
   commitWithQuote,
   mergeFindings,
   modelResult,
-  newDocuments,
   quoteIsInFile,
 } from "./agent-review-findings.ts";
+import { scriptFindings } from "./agent-review-script-findings.ts";
 import { lineComments, markLines } from "./agent-review-lines.ts";
 import { masterBody } from "./agent-review-master.ts";
 import { reviewComment } from "./agent-review-plan.ts";
@@ -121,7 +121,7 @@ function reviewVerdict(event: ReviewEvent): boolean {
   const range = rangeOf(event);
   const found = [
     ...models.flatMap((model) => model.findings),
-    ...newDocuments(range),
+    ...scriptFindings(range),
   ].map((finding) =>
     SENSITIVE_RULES.has(finding.rule)
       ? { ...finding, commit: commitWithQuote(finding, range) }
