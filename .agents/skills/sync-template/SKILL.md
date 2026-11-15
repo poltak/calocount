@@ -71,8 +71,11 @@ what the template changed, and its message gives the reason.
   change to it, ask the person to take the path over. Only a person at a
   terminal can run this command. Then run `apply` again:
   ```sh
-  pnpm run template:sync own <path> "<reason>"
+  pnpm run template:sync own <path> [<path> ...] -- "<reason>"
   ```
+  Give all paths in one command. The command asks once. Do not give the person
+  several `own` commands to paste at once, because the first prompt reads the
+  next pasted line as its answer.
 
 ## Report a gap of the template
 

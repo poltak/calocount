@@ -410,9 +410,9 @@ a sync. `ownPaths` in `template-version.json` ends those stops:
 pnpm run template:sync own backend/src/features/core/database/ "D1 on Workers"
 ```
 
-The command adds an entry with the path and the reason, and commits it. A path
-that ends with `/` is a directory. Only a person at a terminal can run it. An
-agent gives the person the command and the reason.
+It records the path and reason in one commit. Put several paths before
+`--`: `own <path> <path> -- "<reason>"`. A path that ends with `/` is a
+directory. A person runs one command at a time, at a terminal.
 
 After that:
 

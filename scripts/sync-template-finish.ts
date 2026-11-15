@@ -95,7 +95,7 @@ export async function finish() {
         `\`git diff ${short(plan.tip)} -- <path>\` shows a difference. ` +
         `To take the template's file, run \`git checkout ${short(plan.tip)} -- <path>\` ` +
         `(\`git rm <path>\` for a file that the template does not have), commit it, and run \`finish\` again. ` +
-        `To keep the project's file, ask the person to run \`pnpm run template:sync own <path> "<reason>"\`.`,
+        `To keep the project's file, ask the person to run \`pnpm run template:sync own <path> -- "<reason>"\`.`,
     );
   }
   if (changed.includes(LOCKFILE)) {

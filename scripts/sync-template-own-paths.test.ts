@@ -337,6 +337,85 @@ test("changes nothing when the person at a terminal does not confirm", async (co
   assert.equal(git(project, "status", "--porcelain"), "");
 });
 
+test("takes several paths over with one prompt and one commit", async (context) => {
+  const { project } = await createProject(context);
+  await write(project, { "docs/note.txt": "note\n" });
+  git(project, "add", "-A");
+  git(project, "commit", "--quiet", "-m", "Add a note");
+  sync(project, "plan");
+  const before = git(project, "rev-list", "--count", "HEAD");
+
+  const result = syncInTerminal({
+    project,
+    typed: "own",
+    args: [
+      "own",
+      "src/",
+      "docs/note.txt",
+      "--",
+      "The",
+      "project",
+      "owns",
+      "them.",
+    ],
+  });
+
+  assert.equal(result.status, 0, result.output);
+  assert.match(result.output, /src\/ matches 1 file\./);
+  assert.match(result.output, /docs\/note\.txt matches 1 file\./);
+  assert.deepEqual((await readVersion(project)).ownPaths, [
+    { path: "src/", reason: "The project owns them." },
+    { path: "docs/note.txt", reason: "The project owns them." },
+  ]);
+  assert.equal(
+    Number(git(project, "rev-list", "--count", "HEAD")),
+    Number(before) + 1,
+  );
+  assert.equal(git(project, "status", "--porcelain"), "");
+});
+
+test("changes nothing when one path of a list is not valid", async (context) => {
+  const { project } = await createProject(context);
+  sync(project, "plan");
+  const head = git(project, "rev-parse", "HEAD");
+
+  const result = syncInTerminal({
+    project,
+    typed: "own",
+    args: ["own", "src/", "nothing/here/", "--", "A reason"],
+  });
+
+  assert.equal(result.status, 1, result.output);
+  assert.match(
+    result.output,
+    /No file of the project or the template matches nothing\/here\//,
+  );
+  assert.equal(git(project, "rev-parse", "HEAD"), head);
+  assert.equal((await readVersion(project)).ownPaths, undefined);
+});
+
+test("says what it read when the answer is not own", async (context) => {
+  const { project } = await createProject(context);
+  sync(project, "plan");
+  const head = git(project, "rev-parse", "HEAD");
+
+  const result = syncInTerminal({
+    project,
+    typed: `pnpm run template:sync own ${"x".repeat(100)}`,
+    args: ["own", "src/", "--", "A reason"],
+  });
+
+  assert.equal(result.status, 1, result.output);
+  assert.match(
+    result.output,
+    /Read "pnpm run template:sync own x+\.\.\." instead of "own"\. Nothing changed\./,
+  );
+  assert.doesNotMatch(result.output, /Read "[^"]*x{80}/);
+  assert.match(result.output, /own <path> <path> -- <reason>/);
+  assert.equal(git(project, "rev-parse", "HEAD"), head);
+  assert.equal((await readVersion(project)).ownPaths, undefined);
+});
+
 test("refuses to take over a gate, a path with no file, or a path that the project keeps", async (context) => {
   const { project } = await createProject(context);
   await keepPaths({ project, paths: ["src/app.txt"] });

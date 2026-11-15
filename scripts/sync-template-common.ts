@@ -52,7 +52,8 @@ export const USAGE = `Usage: pnpm run template:sync <command>
   plan                      List the new template commits.
   apply                     Cherry-pick them. Run it again after a conflict.
   skip <commit> <reason>    Leave one new commit out of the project.
-  own <path> <reason>       Take a path over from the template, in a terminal.
+  own <path> [<path> ...] -- <reason>
+                            Take paths over from the template, in a terminal.
   verify <${Object.keys(CHECKS).join("|")}>
   finish                    Check the owned files, then commit the lockfile and
                             the template version.`;

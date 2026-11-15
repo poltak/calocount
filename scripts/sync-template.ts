@@ -7,9 +7,11 @@
 //       no rule resolves. Resolve the conflict, then run it again.
 //   pnpm run template:sync skip <commit> <reason>
 //       Leave one new commit out of the project, and record the reason.
-//   pnpm run template:sync own <path> <reason>
-//       Take a path over from the template. Each later sync leaves out each
-//       template change to it. Only a person at a terminal can run this.
+//   pnpm run template:sync own <path> [<path> ...] -- <reason>
+//       Take paths over from the template, with one prompt and one commit.
+//       The form `own <path> <reason>` takes one path. Each later sync leaves
+//       out each template change to them. Only a person at a terminal can run
+//       this.
 //   pnpm run template:sync verify <install|check|browser|live-start>
 //       Run one check. It does nothing when the project took no commit.
 //   pnpm run template:sync finish
@@ -106,14 +108,8 @@ async function skip({
   console.log(`Left out ${short(commit.commit)}  ${commit.subject}`);
 }
 
-async function own({
-  entry,
-  reason,
-}: {
-  entry: string | undefined;
-  reason: string;
-}) {
-  if (!entry || !reason) {
+async function own({ entries, reason }: { entries: string[]; reason: string }) {
+  if (entries.length === 0 || !reason) {
     fail(USAGE);
   }
   // The edit guard does not see a shell command, so an agent that the guard
@@ -125,28 +121,38 @@ async function own({
   }
   const plan = loadPlan({ fetch: false });
   const ownPaths = plan.version.ownPaths ?? [];
-  if (isGate(entry)) {
-    fail(
-      `A project cannot take over ${entry}, because each project must get the template's fixes to its checks.`,
+  // Each path is checked before the prompt, so one bad path changes nothing.
+  const counts: { entry: string; count: number }[] = [];
+  for (const entry of entries) {
+    if (isGate(entry)) {
+      fail(
+        `A project cannot take over ${entry}, because each project must get the template's fixes to its checks.`,
+      );
+    }
+    if (
+      ownPaths.some(({ path: kept }) => kept === entry) ||
+      counts.some((seen) => seen.entry === entry)
+    ) {
+      fail(`The project already keeps ${entry}, or the list has it twice.`);
+    }
+    const matching = new Set(
+      [plan.tip, "HEAD"]
+        .flatMap((commit) => list("ls-tree", "-r", "--name-only", commit))
+        .filter((file) => matchesPath({ entry, file })),
     );
-  }
-  if (ownPaths.some(({ path: kept }) => kept === entry)) {
-    fail(`The project already keeps ${entry}.`);
-  }
-  const matching = new Set(
-    [plan.tip, "HEAD"]
-      .flatMap((commit) => list("ls-tree", "-r", "--name-only", commit))
-      .filter((file) => matchesPath({ entry, file })),
-  );
-  if (matching.size === 0) {
-    fail(
-      `No file of the project or the template matches ${entry}. A directory ends with "/".`,
-    );
+    if (matching.size === 0) {
+      fail(
+        `No file of the project or the template matches ${entry}. A directory ends with "/".`,
+      );
+    }
+    counts.push({ entry, count: matching.size });
   }
 
-  console.log(
-    `${entry} matches ${matching.size} ${matching.size === 1 ? "file" : "files"}. The project then gets no later template change to ${matching.size === 1 ? "it" : "them"}.`,
-  );
+  for (const { entry, count } of counts) {
+    console.log(
+      `${entry} matches ${count} ${count === 1 ? "file" : "files"}. The project then gets no later template change to ${count === 1 ? "it" : "them"}.`,
+    );
+  }
   const prompt = createInterface({
     input: process.stdin,
     output: process.stdout,
@@ -157,14 +163,22 @@ async function own({
   });
   prompt.close();
   if (answer.trim() !== "own") {
-    fail("Nothing changed.");
+    const typedAnswer = answer.trim();
+    const shown =
+      typedAnswer.length > 60 ? `${typedAnswer.slice(0, 60)}...` : typedAnswer;
+    fail(
+      `Read "${shown}" instead of "own". Nothing changed. Run one own command at a time, or give several paths in one command: own <path> <path> -- <reason>.`,
+    );
   }
 
   await writeVersionFile({
     root,
     version: {
       ...plan.version,
-      ownPaths: [...ownPaths, { path: entry, reason }],
+      ownPaths: [
+        ...ownPaths,
+        ...entries.map((entry) => ({ path: entry, reason })),
+      ],
     },
   });
   // A commit during a stop loses the state of each file that has a conflict.
@@ -175,12 +189,13 @@ async function own({
     return;
   }
   read("add", "--", VERSION_FILE);
+  const one = entries.length === 1;
   git({
     root,
     args: ["commit", "--quiet", "--file=-", "--", VERSION_FILE],
-    input: `Take ${entry} over from the template\n\n- The reason: ${reason}\n- A sync now leaves out each template change to it.\n`,
+    input: `Take ${entries.join(", ")} over from the template\n\n- The reason: ${reason}\n- A sync now leaves out each template change to ${one ? "it" : "them"}.\n`,
   });
-  console.log(`The project now keeps ${entry}.`);
+  console.log(`The project now keeps ${entries.join(", ")}.`);
 }
 
 function verify(name: string | undefined) {
@@ -222,7 +237,16 @@ if (command === "plan") {
     reason: rest.slice(1).join(" ").trim(),
   });
 } else if (command === "own") {
-  await own({ entry: rest[0], reason: rest.slice(1).join(" ").trim() });
+  const separator = rest.indexOf("--");
+  await (separator === -1
+    ? own({ entries: rest.slice(0, 1), reason: rest.slice(1).join(" ").trim() })
+    : own({
+        entries: rest.slice(0, separator),
+        reason: rest
+          .slice(separator + 1)
+          .join(" ")
+          .trim(),
+      }));
 } else if (command === "verify") {
   verify(rest[0]);
 } else if (command === "finish") {
