@@ -14,6 +14,10 @@
     {
       "path": "scripts/check-migrations.test.mjs",
       "reason": "Calocount's migrations are D1 SQL files in backend/migrations that wrangler applies"
+    },
+    {
+      "path": "scripts/migration-files.mjs",
+      "reason": "Calocount's migrations are D1 SQL files in backend/migrations that wrangler applies"
     }
   ]
 }
