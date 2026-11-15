@@ -279,3 +279,40 @@
     scroll-behavior: auto;
   }
 }
+
+/* The layout of the insights section. Ported from the earlier app. */
+.insights-overview {
+  display: grid;
+  gap: var(--dashboard-gap, 12px);
+  margin-top: var(--dashboard-gap, 12px);
+  scroll-margin-top: 18px;
+}
+
+.insights-overview-content {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start;
+  gap: var(--dashboard-gap, 12px);
+}
+
+.nutrition-insights-content {
+  display: grid;
+  gap: var(--dashboard-gap, 12px);
+  margin-bottom: var(--dashboard-gap, 12px);
+}
+
+.nutrition-insights-content[hidden],
+.insights-overview-content[hidden] {
+  display: none;
+}
+
+.insights-overview-content > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+@media (max-width: 1180px) {
+  .insights-overview-content {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

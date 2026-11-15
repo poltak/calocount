@@ -199,6 +199,41 @@
   flex-wrap: wrap;
 }
 
+.macro-trend-chart {
+  display: grid;
+  grid-template-columns: 37px minmax(0, 1fr);
+  height: 215px;
+  margin-top: 9px;
+}
+
+.macro-trend-bars {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: space-around;
+  gap: 8px;
+  padding: 0 5px;
+}
+
+.macro-trend-column {
+  position: relative;
+  display: flex;
+  flex: 1;
+  max-width: 54px;
+  height: 100%;
+  flex-direction: column;
+  justify-content: end;
+}
+
+.macro-trend-column > span {
+  height: 21px;
+  padding-top: 8px;
+  color: var(--chart-axis-strong);
+  font-size: 10px;
+  text-align: center;
+  white-space: nowrap;
+}
+
 .macro-trend-y-axis {
   display: flex;
   flex-direction: column;
@@ -436,6 +471,7 @@
 }
 
 @media (max-width: 620px) {
+  .macro-trend-chart,
   .protein-target-chart {
     height: 195px;
   }

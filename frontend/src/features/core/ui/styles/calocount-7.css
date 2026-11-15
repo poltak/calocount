@@ -97,6 +97,11 @@
   min-width: 0;
 }
 
+.bar-chart.is-month .bar {
+  width: min(8px, 72%);
+  border-radius: 3px 3px 1px 1px;
+}
+
 .nutrient-trend-chart.is-month .nutrient-trend-bar {
   width: min(8px, 72%);
   border-radius: 3px 3px 1px 1px;
@@ -739,4 +744,10 @@ dialog.settings-panel {
   max-height: none;
   margin: 12px 0 0;
   color: inherit;
+}
+
+.owner-link {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
 }
