@@ -3,6 +3,7 @@ import { test } from "../../core/black-box-tests/black-box-test.js";
 import {
   TodayPageObject,
   daysAgo,
+  shortDayLabel,
 } from "../../entries/black-box-tests/today-page-object.js";
 import { InsightsPageObject } from "./insights-page-object.js";
 
@@ -54,7 +55,7 @@ test.describe("nutrition attention", () => {
 
     await expect(panel).toContainText("Plain rice400 mg · 100%");
     await expect(panel).toContainText(
-      "Nov 8: 400 mg, within 2,300 mg. Known contributions below",
+      `${shortDayLabel(daysAgo(2))}: 400 mg, within 2,300 mg. Known contributions below`,
     );
   });
 
