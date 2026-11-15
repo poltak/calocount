@@ -1,36 +1,17 @@
-import {
-  isDateKey,
-  isMonthKey,
-  isValidTimeZone,
-  shiftDateKey,
-} from "@app/common/features/core/utils/logical-date";
 import { Hono } from "hono";
-import { z } from "zod";
 import { validator } from "../../core/handlers/validator.js";
 import type { ProfileEnvironment } from "../../core/handlers/types.js";
-import type { BackendLogic } from "../../core/types.js";
 import { serialiseEntry } from "../utils/entry-rows.js";
-import { proteinGoalOfDay, proteinTargetsOfDays } from "./protein-goal.js";
-
-const timeZoneQuery = z.object({
-  timezone: z
-    .string()
-    .refine(isValidTimeZone, "timezone must be a valid IANA timezone.")
-    .optional(),
-});
-
-const dateParam = z.object({
-  date: z
-    .string()
-    .refine(isDateKey, "The date must be a valid YYYY-MM-DD date."),
-});
-
-const monthQuery = timeZoneQuery.extend({
-  month: z.string().refine(isMonthKey, "month must be a valid YYYY-MM month."),
-});
+import {
+  readDayOf,
+  readMonthOf,
+  readSummary,
+  type DashboardReadLogic,
+} from "./dashboard-reads.js";
+import { dateParam, monthQuery, timeZoneQuery } from "./dashboard-schemas.js";
 
 interface DashboardHandlerProps {
-  logic: Pick<BackendLogic, "entryReads" | "settings" | "weights">;
+  logic: DashboardReadLogic;
 }
 
 /** The reads of the owner dashboard: one day of entries and its weight, a month of totals, and the recent days with the goals and weights. */
@@ -39,20 +20,8 @@ export function createDashboardHandlers({ logic }: DashboardHandlerProps) {
     .get("/days", validator("query", monthQuery), async (context) => {
       const { ownerKey } = context.get("session");
       const { month, timezone } = context.req.valid("query");
-      const [read, firstWeightDate] = await Promise.all([
-        logic.entryReads.month({ ownerKey, month, timeZone: timezone }),
-        logic.weights.firstDate({ ownerKey }),
-      ]);
-      const firstDates = [read.firstEntryDate, firstWeightDate].filter(
-        (date) => date !== null,
-      );
       return context.json(
-        {
-          month: read.month,
-          timezone: read.timeZone,
-          firstDate: firstDates.toSorted()[0] ?? null,
-          days: read.days,
-        },
+        await readMonthOf({ logic, ownerKey, timeZone: timezone, month }),
         200,
       );
     })
@@ -62,30 +31,19 @@ export function createDashboardHandlers({ logic }: DashboardHandlerProps) {
       validator("query", timeZoneQuery),
       async (context) => {
         const { ownerKey } = context.get("session");
-        const { date } = context.req.valid("param");
-        const [day, weight, goals] = await Promise.all([
-          logic.entryReads.day({
-            ownerKey,
-            date,
-            timeZone: context.req.valid("query").timezone,
-          }),
-          logic.weights.day({ ownerKey, date }),
-          logic.settings.dailyGoals({ ownerKey }),
-        ]);
-        const proteinGoal = await proteinGoalOfDay({
+        const read = await readDayOf({
           logic,
           ownerKey,
-          date,
-          goals,
-          dayWeight: weight,
+          timeZone: context.req.valid("query").timezone,
+          date: context.req.valid("param").date,
         });
         return context.json(
           {
-            date: day.date,
-            timezone: day.timeZone,
-            meals: day.entries.map(serialiseEntry),
-            weight: weight ?? null,
-            proteinGoal,
+            date: read.date,
+            timezone: read.timezone,
+            meals: read.entries.map(serialiseEntry),
+            weight: read.weight ?? null,
+            proteinGoal: read.proteinGoal,
           },
           200,
         );
@@ -96,58 +54,27 @@ export function createDashboardHandlers({ logic }: DashboardHandlerProps) {
       validator("query", timeZoneQuery),
       async (context) => {
         const { ownerKey } = context.get("session");
-        const [summary, goals, partnerProfileEnabled] = await Promise.all([
-          logic.entryReads.summary({
+        const [read, partnerProfileEnabled] = await Promise.all([
+          readSummary({
+            logic,
             ownerKey,
             timeZone: context.req.valid("query").timezone,
           }),
-          logic.settings.dailyGoals({ ownerKey }),
           logic.settings.partnerProfileEnabled({
             accountKey: context.get("accountKey"),
           }),
         ]);
-        const firstDate = summary.days[0]?.date ?? summary.date;
-        const firstTrendDate = summary.trendDays[0]?.date ?? firstDate;
-        const [trendWeights, weightBefore, todayProtein] = await Promise.all([
-          logic.weights.range({
-            ownerKey,
-            from: firstTrendDate,
-            to: summary.date,
-          }),
-          goals.proteinMode === "gramsPerKg"
-            ? logic.weights.latestOnOrBefore({
-                ownerKey,
-                date: shiftDateKey(firstTrendDate, -1),
-              })
-            : undefined,
-          proteinGoalOfDay({ logic, ownerKey, date: summary.date, goals }),
-        ]);
         return context.json(
           {
-            date: summary.date,
-            timezone: summary.timeZone,
+            date: read.date,
+            timezone: read.timezone,
             profile: context.get("profile"),
             partnerProfileEnabled,
-            targets: {
-              calories: goals.calories,
-              proteinG: todayProtein.targetG,
-              nutrients: goals.nutrients,
-            },
-            days: summary.days,
-            averageCalories: summary.averageCalories,
-            recentWeights: trendWeights.filter(
-              (weight) => weight.logicalDate >= firstDate,
-            ),
-            trend: {
-              days: summary.trendDays,
-              weights: trendWeights,
-              proteinTargets: proteinTargetsOfDays({
-                dates: summary.trendDays.map((day) => day.date),
-                goals,
-                weights: trendWeights,
-                weightBefore,
-              }),
-            },
+            targets: read.targets,
+            days: read.days,
+            averageCalories: read.averageCalories,
+            recentWeights: read.recentWeights,
+            trend: read.trend,
           },
           200,
         );

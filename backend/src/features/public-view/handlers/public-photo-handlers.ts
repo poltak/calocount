@@ -3,7 +3,7 @@ import type { AppConfig, BackendLogic } from "../../core/types.js";
 import {
   isPublicPhotoMimeType,
   isWithinPublicPhotoWindow,
-} from "../utils/public-photo-policy.js";
+} from "@app/common/features/entries/utils/public-photo-policy";
 
 interface PublicPhotoHandlerProps {
   logic: Pick<BackendLogic, "entries" | "entryReads" | "settings">;

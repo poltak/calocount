@@ -37,6 +37,29 @@ describe("typed API client", () => {
   });
 });
 
+type ResponseOf<Endpoint extends { $get: (...args: never[]) => unknown }> =
+  InferResponseType<Endpoint["$get"], 200>;
+
+// The dashboard reads one Logic code path for both audiences, so each public
+// body must stay a subtype of the owner body that it mirrors.
+describe("public mirrors of the owner reads", () => {
+  it("should give a body that the owner body accepts", () => {
+    type Api = BackendApi;
+    expectTypeOf<ResponseOf<Api["public"]["days"]>>().toExtend<
+      ResponseOf<Api["days"]>
+    >();
+    expectTypeOf<ResponseOf<Api["public"]["days"][":date"]>>().toExtend<
+      ResponseOf<Api["days"][":date"]>
+    >();
+    expectTypeOf<ResponseOf<Api["public"]["dashboard"]["summary"]>>().toExtend<
+      ResponseOf<Api["dashboard"]["summary"]>
+    >();
+    expectTypeOf<ResponseOf<Api["public"]["insights"]>>().toExtend<
+      ResponseOf<Api["insights"]>
+    >();
+  });
+});
+
 // Each test fixture sets one absolute base URL, so no other test reaches this.
 describe("API client base URL", () => {
   it("should build an absolute link to a route", () => {

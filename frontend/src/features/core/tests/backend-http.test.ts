@@ -21,6 +21,10 @@ const PUBLIC_ROUTES = [
   "POST /api/auth/login/verify",
   "POST /api/auth/logout",
   "GET /api/public/summary",
+  "GET /api/public/days",
+  "GET /api/public/days/:date",
+  "GET /api/public/dashboard/summary",
+  "GET /api/public/insights",
   // The routes for agents. `/mcp` and `/oauth/token` answer 401 without a
   // token, so they are not in this list. The rest are discovery documents, the
   // client registration, the preflight requests, and the consent page, which

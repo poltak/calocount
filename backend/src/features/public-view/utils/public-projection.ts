@@ -7,7 +7,7 @@ import type { MealWithItems } from "../../entries/storage/types.js";
 import {
   isPublicPhotoMimeType,
   isWithinPublicPhotoWindow,
-} from "./public-photo-policy.js";
+} from "@app/common/features/entries/utils/public-photo-policy";
 
 /**
  * Amounts are rounded to three places. Adding stored decimals leaves float

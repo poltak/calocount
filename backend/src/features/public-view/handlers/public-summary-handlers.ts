@@ -6,6 +6,7 @@ import {
 import { Hono } from "hono";
 import { z } from "zod";
 import type { AppConfig } from "../../core/types.js";
+import { resolvePublicOwner } from "./public-owner.js";
 import { readDashboard } from "./public-dashboard-read.js";
 import {
   readDaily,
@@ -62,34 +63,16 @@ export function createPublicSummaryHandlers({
     }),
     async (context) => {
       context.header("cache-control", "no-store");
-      const ownerKey = config.ownerKey.trim();
-      if (ownerKey === "") {
-        return context.json(
-          {
-            error: {
-              code: "public_owner_key_missing",
-              message: "The public dashboard is not configured.",
-            },
-          },
-          503,
-        );
-      }
-      const { enabled, timeZone } = await logic.settings.publicView({
-        ownerKey,
-      });
-      if (!enabled) {
-        return context.json(
-          {
-            error: {
-              code: "public_view_off",
-              message: "The public dashboard is turned off.",
-            },
-          },
-          404,
-        );
+      const owner = await resolvePublicOwner({ logic, config });
+      if (!owner.ok) {
+        return context.json(owner.body, owner.status);
       }
       const query = context.req.valid("query");
-      const read = { logic, ownerKey, timeZone };
+      const read = {
+        logic,
+        ownerKey: owner.ownerKey,
+        timeZone: owner.timeZone,
+      };
       switch (query.view) {
         case undefined:
         case "dashboard":

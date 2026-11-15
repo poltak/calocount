@@ -20,12 +20,18 @@ import {
 } from "../handlers/error-responses.js";
 import { privateJsonHeaders } from "../handlers/private-json-headers.js";
 import { logRequests } from "../handlers/request-log.js";
-import type { RequestEnvironment } from "../handlers/types.js";
+import type {
+  PublicViewEnvironment,
+  RequestEnvironment,
+} from "../handlers/types.js";
 import { createOAuthHandlers } from "../../auth/handlers/oauth-handlers.js";
 import { createExportHandlers } from "../../export/handlers/export-handlers.js";
 import { createMcpHandlers } from "../../mcp/handlers/mcp-handlers.js";
 import { createHealthHandlers } from "../../health/handlers/health-handlers.js";
 import { createInsightsHandlers } from "../../insights/handlers/insights-handlers.js";
+import { createPublicInsightsHandlers } from "../../insights/handlers/public-insights-handlers.js";
+import { createPublicDashboardHandlers } from "../../entries/handlers/public-dashboard-handlers.js";
+import { requirePublicView } from "../../public-view/handlers/require-public-view.js";
 import { createLlmsHandlers } from "../../public-view/handlers/llms-handlers.js";
 import { createPublicPhotoHandlers } from "../../public-view/handlers/public-photo-handlers.js";
 import { createPublicSummaryHandlers } from "../../public-view/handlers/public-summary-handlers.js";
@@ -62,21 +68,36 @@ function createBusinessHttpApp({ app }: ApiHttpAppProps) {
 }
 
 /**
+ * The public mirrors of the owner reads. The gate answers before any read, so
+ * no route here runs while the public view is off.
+ */
+function createPublicReadHttpApp({ app }: ApiHttpAppProps) {
+  return new Hono<PublicViewEnvironment>()
+    .use("*", requirePublicView({ logic: app.logic, config: app.config }))
+    .route("/", createPublicDashboardHandlers({ logic: app.logic }))
+    .route("/insights", createPublicInsightsHandlers({ logic: app.logic }));
+}
+
+/**
  * Routes under `/api`. The sign-in routes come first so they stay reachable
  * without a session, and every route after them passes the session gate.
  * `PUBLIC_ROUTES` in `backend-http.test.ts` lists each route before the gate.
  */
 export function createApiHttpApp({ app }: ApiHttpAppProps) {
-  return new Hono<AuthEnvironment>()
-    .use("*", privateJsonHeaders())
-    .use("*", requireTrustedOrigin({ config: app.config }))
-    .use("*", resolveSession({ services: app.services, logic: app.logic }))
-    .route("/auth", createAuthHandlers({ logic: app.logic }))
-    .route(
-      "/public",
-      createPublicSummaryHandlers({ logic: app.logic, config: app.config }),
-    )
-    .route("/", createBusinessHttpApp({ app }));
+  return (
+    new Hono<AuthEnvironment>()
+      .use("*", privateJsonHeaders())
+      .use("*", requireTrustedOrigin({ config: app.config }))
+      .use("*", resolveSession({ services: app.services, logic: app.logic }))
+      .route("/auth", createAuthHandlers({ logic: app.logic }))
+      .route(
+        "/public",
+        createPublicSummaryHandlers({ logic: app.logic, config: app.config }),
+      )
+      // After the summary, so that it answers first, and before the session gate.
+      .route("/public", createPublicReadHttpApp({ app }))
+      .route("/", createBusinessHttpApp({ app }))
+  );
 }
 
 export function createHttpApp({ app, clientAddressHeader }: HttpAppProps) {

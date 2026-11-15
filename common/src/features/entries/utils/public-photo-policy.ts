@@ -2,7 +2,7 @@ import {
   resolveTimeZone,
   shiftDateKey,
   zonedCalendar,
-} from "@app/common/features/core/utils/logical-date";
+} from "../../core/utils/logical-date.js";
 
 const PUBLIC_PHOTO_MIME_TYPES: ReadonlySet<string> = new Set([
   "image/jpeg",

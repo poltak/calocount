@@ -21,3 +21,11 @@ export interface ProfileEnvironment {
     accountKey: string;
   };
 }
+
+/** The environment of a route behind `requirePublicView`. */
+export interface PublicViewEnvironment {
+  Variables: {
+    /** The owner whose data the public view shows, and the timezone of its days. */
+    publicOwner: { ownerKey: string; timeZone: string };
+  };
+}

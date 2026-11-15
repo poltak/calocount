@@ -108,6 +108,10 @@
       "types": "./dist/features/entries/utils/nutrients.d.ts",
       "default": "./dist/features/entries/utils/nutrients.js"
     },
+    "./features/entries/utils/public-photo-policy": {
+      "types": "./dist/features/entries/utils/public-photo-policy.d.ts",
+      "default": "./dist/features/entries/utils/public-photo-policy.js"
+    },
     "./features/goals/utils/daily-targets": {
       "types": "./dist/features/goals/utils/daily-targets.d.ts",
       "default": "./dist/features/goals/utils/daily-targets.js"
