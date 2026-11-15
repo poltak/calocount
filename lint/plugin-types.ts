@@ -35,7 +35,7 @@ export interface AstNode extends Node {
 }
 
 /** A property or a spread element of an object expression. */
-export interface ObjectMember extends Node {
+interface ObjectMember extends Node {
   value?: AstNode;
 }
 
