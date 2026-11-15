@@ -196,47 +196,51 @@ export function createMcpHandlers({
       // The default limit is lower than the limit of this endpoint. The check
       // below refuses a body over `MAX_BODY_BYTES` with the code of the old
       // endpoint, so this limit only has to be higher.
-      .post("/mcp", routeBodyLimit(MAX_BODY_BYTES * 2), async (context) => {
-        const identity = await authorize(context);
-        if (identity instanceof Response) {
-          return identity;
-        }
-        const bytes = await readBody(context.req.raw);
-        if (bytes === null) {
-          return httpError(
-            413,
-            "payload_too_large",
-            "The request is too large.",
-          );
-        }
-        let body: unknown;
-        try {
-          body = JSON.parse(new TextDecoder().decode(bytes));
-        } catch {
-          const refused = versionError({ request: context.req.raw });
-          return (
-            refused ??
-            Response.json(
-              {
-                jsonrpc: "2.0",
-                id: null,
-                error: { code: -32700, message: "Parse error" },
-              },
-              { status: 400, headers: noStore() },
-            )
-          );
-        }
-        const refused = versionError({ request: context.req.raw, body });
-        if (refused) {
-          return refused;
-        }
-        const answer = await answerBody({
-          body,
-          callTool: tools.call(identity),
-        });
-        return answer === null
-          ? new Response(null, { status: 202, headers: noStore() })
-          : Response.json(answer, { status: 200, headers: noStore() });
-      })
+      .post(
+        "/mcp",
+        routeBodyLimit({ maxBytes: MAX_BODY_BYTES * 2 }),
+        async (context) => {
+          const identity = await authorize(context);
+          if (identity instanceof Response) {
+            return identity;
+          }
+          const bytes = await readBody(context.req.raw);
+          if (bytes === null) {
+            return httpError(
+              413,
+              "payload_too_large",
+              "The request is too large.",
+            );
+          }
+          let body: unknown;
+          try {
+            body = JSON.parse(new TextDecoder().decode(bytes));
+          } catch {
+            const refused = versionError({ request: context.req.raw });
+            return (
+              refused ??
+              Response.json(
+                {
+                  jsonrpc: "2.0",
+                  id: null,
+                  error: { code: -32700, message: "Parse error" },
+                },
+                { status: 400, headers: noStore() },
+              )
+            );
+          }
+          const refused = versionError({ request: context.req.raw, body });
+          if (refused) {
+            return refused;
+          }
+          const answer = await answerBody({
+            body,
+            callTool: tools.call(identity),
+          });
+          return answer === null
+            ? new Response(null, { status: 202, headers: noStore() })
+            : Response.json(answer, { status: 200, headers: noStore() });
+        },
+      )
   );
 }

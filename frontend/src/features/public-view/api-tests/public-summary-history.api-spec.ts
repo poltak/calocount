@@ -42,6 +42,8 @@ test.describe("public summary history", () => {
 
     const month = await response.json();
     expect(month.timezone).toBe("America/New_York");
+    // The entries above fix March 2026, so the month does not depend on today.
+    // oxlint-disable-next-line testing/no-fixed-date-in-expect
     expect(month.firstDate).toBe("2026-03-07");
     expect(
       month.days.map((day: { date: string; calories: number }) => [

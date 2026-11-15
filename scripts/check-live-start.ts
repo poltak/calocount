@@ -24,7 +24,13 @@ import {
 const TIME_LIMIT_MS = 120_000;
 const STATE_DIRECTORY = path.join(root, ".wrangler", "live-start");
 
-async function expectJson({ url, expected }) {
+async function expectJson({
+  url,
+  expected,
+}: {
+  url: string;
+  expected: number;
+}): Promise<unknown> {
   const response = await fetch(url);
   if (response.status !== expected) {
     throw new Error(
@@ -63,10 +69,10 @@ async function runCheck() {
     // The readiness route runs a query on the local D1.
     await expectJson({ url: `${origin}/health/ready`, expected: 200 });
     // The status route reads the migrated passkey table.
-    const status = await expectJson({
+    const status = (await expectJson({
       url: `${origin}/api/auth/status`,
       expected: 200,
-    });
+    })) as { mode?: unknown; hasPasskeys?: unknown };
     if (status.mode !== "passkey" || status.hasPasskeys !== false) {
       throw new Error(`Unexpected sign-in status: ${JSON.stringify(status)}`);
     }

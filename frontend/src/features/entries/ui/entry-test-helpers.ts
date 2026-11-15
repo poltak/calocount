@@ -1,3 +1,4 @@
+import { encodeApiParam } from "../../api/client/api-client.js";
 import type { FullApplication } from "../../core/tests/full-application.js";
 import { photoUpload } from "../utils/entry-form.js";
 import { entryViewOf, type EntryView } from "../utils/entry-view.js";
@@ -90,7 +91,7 @@ export async function readEntryView(
   date = todayKey(app),
 ): Promise<EntryView> {
   const response = await app.frontend.api.days[":date"].$get({
-    param: { date },
+    param: { date: encodeApiParam(date) },
     query: { timezone: "UTC" },
   });
   if (response.status !== 200) {

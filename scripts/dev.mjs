@@ -8,8 +8,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
-if (existsSync(path.join(root, ".env")))
+if (existsSync(path.join(root, ".env"))) {
   process.loadEnvFile(path.join(root, ".env"));
+}
 const bin = (name) => path.join(root, "node_modules", ".bin", name);
 const env = {
   ...process.env,
@@ -46,12 +47,20 @@ const children = [
 
 let stopping = false;
 function stop(code) {
-  if (stopping) return;
+  if (stopping) {
+    return;
+  }
   stopping = true;
   for (const child of children) {
-    if (child.exitCode === null) child.kill("SIGTERM");
+    if (child.exitCode === null) {
+      child.kill("SIGTERM");
+    }
   }
   process.exitCode = code;
 }
-for (const child of children) child.on("exit", (code) => stop(code ?? 1));
-for (const signal of ["SIGINT", "SIGTERM"]) process.on(signal, () => stop(0));
+for (const child of children) {
+  child.on("exit", (code) => stop(code ?? 1));
+}
+for (const signal of ["SIGINT", "SIGTERM"]) {
+  process.on(signal, () => stop(0));
+}

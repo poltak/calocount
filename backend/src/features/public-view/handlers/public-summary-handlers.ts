@@ -1,3 +1,7 @@
+// The summary keeps the error body of the old app, `{ error: { code:
+// "invalid_query" } }`, which outside clients read. The shared `validator()`
+// answers with the app's own error body.
+// oxlint-disable-next-line stack/vendor-imports
 import { zValidator } from "@hono/zod-validator";
 import {
   isDateKey,

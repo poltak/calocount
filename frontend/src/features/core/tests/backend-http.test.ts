@@ -158,7 +158,7 @@ describe("backend HTTP app", () => {
   it("should keep the JSON answers of a person out of caches and search indexes", async () => {
     const { transport } = await createFullApplication();
 
-    const signedIn = await transport.fetch(`${ORIGIN}/api/me`);
+    const signedIn = await transport.fetch(`${ORIGIN}/api/auth/passkeys`);
     expect(signedIn.status).toEqual(200);
     expectPrivate(signedIn);
 
@@ -167,7 +167,9 @@ describe("backend HTTP app", () => {
     expectPrivate(missing);
 
     const anonymous = await createFullApplication({ authenticated: false });
-    const refused = await anonymous.transport.fetch(`${ORIGIN}/api/me`);
+    const refused = await anonymous.transport.fetch(
+      `${ORIGIN}/api/auth/passkeys`,
+    );
     expect(refused.status).toEqual(401);
     expectPrivate(refused);
   });
