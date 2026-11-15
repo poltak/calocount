@@ -6,6 +6,10 @@
     {
       "path": "backend/src/features/core/database/pglite-database.ts",
       "reason": "Calocount runs on Cloudflare D1, so it has no PGlite"
+    },
+    {
+      "path": "scripts/check-migrations.mjs",
+      "reason": "Calocount's migrations are D1 SQL files in backend/migrations that wrangler applies"
     }
   ]
 }
