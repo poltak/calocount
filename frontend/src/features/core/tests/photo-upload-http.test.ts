@@ -132,6 +132,21 @@ describe("photo upload over HTTP", () => {
       error: { code: "UNSUPPORTED_MEDIA_TYPE" },
     });
 
+    const gif = await post({
+      body: form({
+        payload: JSON.stringify(ENTRY),
+        photo: new File([await pngFile().arrayBuffer()], "a.gif", {
+          type: "image/gif",
+        }),
+      }),
+    });
+    expect(gif.status).toEqual(415);
+
+    const notJson = await post({
+      body: form({ payload: "{", photo: pngFile() }),
+    });
+    expect(notJson.status).toEqual(400);
+
     const tooBig = await post({
       body: form({
         payload: JSON.stringify(ENTRY),
@@ -164,6 +179,44 @@ describe("photo upload over HTTP", () => {
     ).toEqual([]);
   });
 
+  it("should accept the entry as single form fields", async () => {
+    const app = await createFullApplication();
+
+    const response = await app.transport.fetch(`${ORIGIN}/api/meals`, {
+      method: "POST",
+      body: form({
+        caption: "A quick snack",
+        mealType: "snack",
+        items: JSON.stringify([{ name: "Yogurt", calories: 120 }]),
+        photo: pngFile(),
+      }),
+    });
+
+    expect(response.status).toEqual(201);
+    const { meal } = await response.json();
+    expect(meal).toMatchObject({ caption: "A quick snack", mealType: "snack" });
+    expect(meal.items).toEqual([
+      expect.objectContaining({ name: "Yogurt", calories: 120 }),
+    ]);
+  });
+
+  it("should ignore a photo key that the form names", async () => {
+    const app = await createFullApplication();
+
+    const response = await app.transport.fetch(`${ORIGIN}/api/meals`, {
+      method: "POST",
+      body: form({
+        payload: JSON.stringify({ ...ENTRY, photoKey: "private/other-key" }),
+      }),
+    });
+
+    expect(response.status).toEqual(201);
+    expect((await response.json()).meal.photoKey).toBeNull();
+    expect(
+      await app.backend.db.selectFrom("mealLogs").select("photoKey").execute(),
+    ).toEqual([{ photoKey: null }]);
+  });
+
   it("should send the photo only to the owner whose entry uses it", async () => {
     const app = await createFullApplication();
     const id = await seedEntry(app, { name: "First", photo: pngFile() });
@@ -173,6 +226,9 @@ describe("photo upload over HTTP", () => {
     const own = await app.transport.fetch(address);
     expect(own.status).toEqual(200);
     expect(own.headers.get("content-type")).toEqual("image/png");
+    expect(new Uint8Array(await own.arrayBuffer())).toEqual(
+      new Uint8Array(await pngFile().arrayBuffer()),
+    );
 
     const etag = own.headers.get("etag") ?? "";
     const revalidated = await app.transport.fetch(address, {

@@ -1,6 +1,7 @@
 import { APP_NAME } from "@app/common/features/core/utils/app-name";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 import { SET_UP_HEADING, setUp, startVisit } from "./built-app-visit.js";
+import { test } from "./worker-origin.js";
 
 // These tests are one visit to the built app, in one page, on the Worker that
 // serves the API and the frontend. They run on the `next` target only. Each
@@ -15,8 +16,8 @@ const MISSING_PAGE = "/a-page-that-no-route-has";
 let visit: Awaited<ReturnType<typeof startVisit>>;
 let page: Page;
 
-test.beforeAll(async ({ browser, baseURL }) => {
-  visit = await startVisit({ browser, baseURL: baseURL ?? "" });
+test.beforeAll(async ({ browser, workerOrigin }) => {
+  visit = await startVisit({ browser, baseURL: workerOrigin });
   ({ page } = visit);
 });
 

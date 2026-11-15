@@ -39,15 +39,19 @@ remote D1 and deploys. An agent never runs it.
 pnpm run test:browser:install
 cd frontend
 pnpm exec playwright test
-NEXT_BLACK_BOX_PORT=4294 pnpm exec playwright test    # another port
+NEXT_BLACK_BOX_PORT=4294 pnpm exec playwright test    # other ports
+NEXT_BLACK_BOX_WORKERS=2 pnpm exec playwright test     # fewer test workers
 ```
 
-`scripts/black-box-next.mjs` starts the Worker on `NEXT_BLACK_BOX_PORT` (4284).
-A worktree that runs the tests at the same time as another one needs another
-port. Each run builds the backend and the frontend, then starts `wrangler dev`
-on a fresh local D1 in `.wrangler/black-box/`.
+The tests run in `NEXT_BLACK_BOX_WORKERS` test workers (4) at the same time.
+`scripts/black-box-next.mjs` starts one Worker for each test worker, on
+`NEXT_BLACK_BOX_PORT` (4284) and the ports after it, each with a fresh local D1
+of its own in `.wrangler/black-box/`. A test empties the database of its own
+Worker only. A worktree that runs the tests at the same time as another one
+needs ports that do not overlap, such as 4294. Each run builds the backend and
+the frontend one time.
 
-The Worker has the setup code `black-box-setup-code` and the reset route. A
+Each Worker has the setup code `black-box-setup-code` and the reset route. A
 test with `authenticated: true` starts as the signed-in owner: the fixture
 saves the owner's passkey on the sign-in page.
 

@@ -36,7 +36,7 @@ test.describe("theme appearance", () => {
     await expect(async () => expect(await shot()).toEqual(light)).toPass();
   });
 
-  test("should paint the saved theme on the first load, and the system theme when nothing is saved", async ({
+  test("should paint the saved theme on the first load, keep the chosen theme checked in Settings after a reload, and paint the system theme when nothing is saved", async ({
     page,
   }) => {
     const today = new TodayPageObject(page);
@@ -57,10 +57,16 @@ test.describe("theme appearance", () => {
     await privacy.goto();
 
     expect(await shot()).toEqual(dark);
+    await today.goto();
+    await settings.open();
+    await expect(settings.field("Dark")).toBeChecked();
     await page.emulateMedia({ colorScheme: "dark" });
     await today.goto();
     await settings.chooseTheme("Light");
     await privacy.goto();
     expect(await shot()).toEqual(light);
+    await today.goto();
+    await settings.open();
+    await expect(settings.field("Light")).toBeChecked();
   });
 });

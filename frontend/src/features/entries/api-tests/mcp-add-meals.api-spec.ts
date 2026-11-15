@@ -30,27 +30,6 @@ test.describe("an agent that the owner connected", () => {
     expect(tools.map((tool) => tool.name).toSorted()).toEqual(TOOLS);
   });
 
-  test("should add a meal that the owner then sees on the dashboard", async ({
-    agent,
-    ownerPage,
-  }) => {
-    const result = await agent.callTool("add_meals", {
-      meals: [oatMeal(new Date())],
-    });
-
-    expect(result.isError ?? false).toBe(false);
-    expect(result.structuredContent).toMatchObject({
-      status: "batch_processed",
-      created_count: 1,
-      already_exists_count: 0,
-    });
-    const today = new TodayPageObject(ownerPage);
-    await today.goto();
-    await expect(today.entryMacros("Agent oats")).toContainText(
-      "Energy410 kcal",
-    );
-  });
-
   test("should show a meal from the agent when the owner comes back to the open dashboard", async ({
     agent,
     ownerPage,
@@ -60,9 +39,17 @@ test.describe("an agent that the owner connected", () => {
     await today.goto();
     await expect(today.entry("Agent oats")).toHaveCount(0);
 
-    await agent.callTool("add_meals", { meals: [oatMeal(new Date())] });
+    const result = await agent.callTool("add_meals", {
+      meals: [oatMeal(new Date())],
+    });
     await returnToTab(ownerPage);
 
+    expect(result.isError ?? false).toBe(false);
+    expect(result.structuredContent).toMatchObject({
+      status: "batch_processed",
+      created_count: 1,
+      already_exists_count: 0,
+    });
     await expect(today.entryMacros("Agent oats")).toContainText(
       "Energy410 kcal",
     );

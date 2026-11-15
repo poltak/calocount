@@ -193,14 +193,15 @@ test.describe("add_meals with photos", () => {
     );
   });
 
-  for (const { path, code } of [
-    { path: "/png-as-jpeg", code: "unsupported_photo_type" },
-    { path: "/pdf", code: "invalid_image" },
-    { path: "/huge", code: ERROR_PHOTO_CODES },
-  ]) {
-    test(`should refuse the photo ${path} with ${code} and save no meal`, async ({
-      agent,
-    }) => {
+  test("should refuse a photo that cannot be used and save no meal", async ({
+    agent,
+  }) => {
+    for (const { path, code } of [
+      { path: "/png-as-jpeg", code: "unsupported_photo_type" },
+      { path: "/pdf", code: "invalid_image" },
+      { path: "/huge", code: ERROR_PHOTO_CODES },
+    ]) {
+      const caseName = `the photo ${path} with ${code}`;
       const lunch = meal();
       const result = (await agent.callTool("add_meals", {
         meals: [lunch],
@@ -208,16 +209,16 @@ test.describe("add_meals with photos", () => {
         photo_meal_indices: [0],
       })) as ToolError;
 
-      expect(result.isError).toBe(true);
-      expect(result.structuredContent?.error?.code).toBe(code);
+      expect(result.isError, caseName).toBe(true);
+      expect(result.structuredContent?.error?.code, caseName).toBe(code);
       const date = lunch.eaten_at.slice(0, 10);
       const history = await agent.callTool("get_nutrition_history", {
         start_date: date,
         end_date: date,
       });
-      expect(history.structuredContent).toMatchObject({ meals: [] });
-    });
-  }
+      expect(history.structuredContent, caseName).toMatchObject({ meals: [] });
+    }
+  });
 
   test("should never store a HEIC photo as it came", async ({
     agent,

@@ -43,11 +43,17 @@ export function freePort() {
 
 /**
  * Start the Worker with `wrangler dev`. `vars` become Worker vars for this run
- * only. The child stays in the process group of this script, so that a kill of
- * the group, as Playwright does at the end of a run, also ends Wrangler and the
+ * only. Two Workers that run at the same time need two `inspectorPort`s. The
+ * child stays in the process group of this script, so that a kill of the
+ * group, as Playwright does at the end of a run, also ends Wrangler and the
  * `workerd` below it.
  */
-export function startWorker({ port, persistTo, vars }) {
+export function startWorker({
+  port,
+  inspectorPort = undefined,
+  persistTo,
+  vars,
+}) {
   const varFlags = Object.entries(vars).flatMap(([name, value]) => [
     "--var",
     `${name}:${value}`,
@@ -63,6 +69,9 @@ export function startWorker({ port, persistTo, vars }) {
       String(port),
       "--persist-to",
       persistTo,
+      ...(inspectorPort === undefined
+        ? []
+        : ["--inspector-port", String(inspectorPort)]),
       ...varFlags,
     ],
     {

@@ -48,79 +48,81 @@ async function logFoods(today: TodayPageObject) {
 }
 
 test.describe("nutrition food insights", () => {
-  test("should compare adding or replacing a logged food without changing the totals", async ({
+  test("should compare adding or replacing a logged food without changing the totals, and show how an excluded food source changes a nutrient", async ({
     page,
   }) => {
     const today = new TodayPageObject(page);
     const insights = new InsightsPageObject(page);
     await logFoods(today);
     await insights.showNutrition();
-    const card = insights.card("Compare a food change");
+    const compareCard = insights.card("Compare a food change");
 
-    await expect(card).toContainText("Adding Eggs at 1× the logged portion.");
-    await expect(card).toContainText("Calories0 kcal500 kcal+500 kcal");
-    await insights.button(card, "1.5×").click();
-    await expect(card).toContainText("Adding Eggs at 1.5× the logged portion.");
-    await expect(card).toContainText("Calories0 kcal750 kcal+750 kcal");
+    await expect(compareCard).toContainText(
+      "Adding Eggs at 1× the logged portion.",
+    );
+    await expect(compareCard).toContainText("Calories0 kcal500 kcal+500 kcal");
+    await insights.button(compareCard, "1.5×").click();
+    await expect(compareCard).toContainText(
+      "Adding Eggs at 1.5× the logged portion.",
+    );
+    await expect(compareCard).toContainText("Calories0 kcal750 kcal+750 kcal");
     await insights
-      .choice(card, "Food to add")
+      .choice(compareCard, "Food to add")
       .selectOption(`Toast · 1 serving · ${shortDayLabel(daysAgo(9))}`);
-    await expect(card).toContainText(
+    await expect(compareCard).toContainText(
       "Adding Toast at 1.5× the logged portion.",
     );
-    await expect(card).toContainText("Calories0 kcal450 kcal+450 kcal");
+    await expect(compareCard).toContainText("Calories0 kcal450 kcal+450 kcal");
 
     await insights
-      .choice(card, "Change type")
+      .choice(compareCard, "Change type")
       .selectOption("Replace one logged food");
-    await insights.button(card, "1×").click();
+    await insights.button(compareCard, "1×").click();
     await insights
-      .choice(card, "Food being replaced")
+      .choice(compareCard, "Food being replaced")
       .selectOption({ index: 0 });
-    await insights.choice(card, "Replacement food").selectOption({
+    await insights.choice(compareCard, "Replacement food").selectOption({
       label: `Toast · 1 serving · ${shortDayLabel(daysAgo(9))}`,
     });
-    await expect(card).toContainText(
+    await expect(compareCard).toContainText(
       "Replacing Eggs with Toast at 1× the logged portion.",
     );
-    await expect(card).toContainText("Calories500 kcal300 kcal-200 kcal");
+    await expect(compareCard).toContainText(
+      "Calories500 kcal300 kcal-200 kcal",
+    );
     await expect(today.calorieTotal(400)).toBeVisible();
-  });
 
-  test("should show how an excluded food source changes a nutrient, and leave the records unchanged", async ({
-    page,
-  }) => {
-    const today = new TodayPageObject(page);
-    const insights = new InsightsPageObject(page);
-    await logFoods(today);
-    await insights.showNutrition();
-    const card = insights.card("Where a nutrient comes from");
+    const sourceCard = insights.card("Where a nutrient comes from");
 
-    await expect(card).toContainText("13 g known");
-    await expect(card).toContainText(
+    await expect(sourceCard).toContainText("13 g known");
+    await expect(sourceCard).toContainText(
       "Eggs provides 77% of known recorded fiber",
     );
-    await expect(card).toContainText("Eggs10 g · 77% · 2 portions · 2 days");
-    await expect(card).toContainText("Toast3 g · 23% · 1 portion · 1 day");
-    await expect(card).not.toContainText("Hypothetical exclusion");
+    await expect(sourceCard).toContainText(
+      "Eggs10 g · 77% · 2 portions · 2 days",
+    );
+    await expect(sourceCard).toContainText(
+      "Toast3 g · 23% · 1 portion · 1 day",
+    );
+    await expect(sourceCard).not.toContainText("Hypothetical exclusion");
 
     await insights.excludeButton(0).click();
 
-    await expect(card).toContainText("Hypothetical exclusion");
-    await expect(card).toContainText(
+    await expect(sourceCard).toContainText("Hypothetical exclusion");
+    await expect(sourceCard).toContainText(
       "Removing this source from the calculation leaves 3 g recorded known fiber. Records are unchanged; this is a what-if view.",
     );
-    await expect(card).toContainText("Source amount10 g");
+    await expect(sourceCard).toContainText("Source amount10 g");
     await insights.excludeButton(1).click();
-    await expect(card).toContainText("leaves 10 g recorded known fiber.");
+    await expect(sourceCard).toContainText("leaves 10 g recorded known fiber.");
 
-    await insights.choice(card, "Nutrient").selectOption("Sodium");
-    await expect(card).toContainText(
+    await insights.choice(sourceCard, "Nutrient").selectOption("Sodium");
+    await expect(sourceCard).toContainText(
       "Eggs provides 83% of known recorded sodium",
     );
-    await expect(card).not.toContainText("Hypothetical exclusion");
-    await insights.button(card, "14 days").click();
-    await expect(card).toContainText("3 of 3 item values known");
+    await expect(sourceCard).not.toContainText("Hypothetical exclusion");
+    await insights.button(sourceCard, "14 days").click();
+    await expect(sourceCard).toContainText("3 of 3 item values known");
     await page.reload();
     await expect(today.entry("Oats")).toBeVisible();
     await expect(today.calorieTotal(400)).toBeVisible();

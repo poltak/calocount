@@ -5,11 +5,11 @@
 
 import {
   expect,
-  test as base,
   type Browser,
   type CDPSession,
   type Page,
 } from "@playwright/test";
+import { test as base } from "../tests/browser/worker-origin.js";
 import { PasskeySignInPageObject } from "../../auth/black-box-tests/passkey-sign-in-page-object.js";
 
 /** The setup code of the Worker in `scripts/black-box-next.mjs`. */

@@ -28,7 +28,7 @@ async function logFoods(today: TodayPageObject) {
 }
 
 test.describe("top food contributors", () => {
-  test("should rank the foods of the last 7 days by calories, and add up repeated foods", async ({
+  test("should rank the foods of the last 7 days by calories and add up repeated foods, then include older days on a 30-day range and rank by another measure", async ({
     page,
   }) => {
     const today = new TodayPageObject(page);
@@ -49,19 +49,11 @@ test.describe("top food contributors", () => {
     await expect(insights.contributionBar(rows.nth(1))).toHaveAccessibleName(
       "40% of the top contributor",
     );
-  });
 
-  test("should include older days on a 30-day range, and rank by another measure", async ({
-    page,
-  }) => {
-    const today = new TodayPageObject(page);
-    const insights = new InsightsPageObject(page);
-    await logFoods(today);
     const panel = insights.panel("Top food contributors");
 
     await insights.button(panel, "30 days").click();
 
-    const rows = insights.contributionRows();
     await expect(rows).toHaveCount(3);
     await expect(rows.nth(0)).toContainText("Eggs");
     await expect(rows.nth(2)).toContainText("Toast");

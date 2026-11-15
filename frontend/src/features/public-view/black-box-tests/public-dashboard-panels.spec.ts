@@ -26,7 +26,7 @@ const PANELS = [
 ];
 
 test.describe("the public dashboard panels", () => {
-  test("should show a visitor every panel of the owner's dashboard with no control that changes data", async ({
+  test("should show a visitor every panel of the owner's dashboard with no control that changes data, and let the visitor change the range of a trend", async ({
     page,
     visitorPage,
   }) => {
@@ -55,25 +55,10 @@ test.describe("the public dashboard panels", () => {
     await expect(visitor.weightButton).toBeHidden();
     await expect(visitor.savedEntriesHeading).toBeHidden();
     await expect(visitor.settings).toBeHidden();
-  });
 
-  test("should let a visitor change the range of a trend", async ({
-    page,
-    visitorPage,
-  }) => {
-    const today = new TodayPageObject(page);
-    const settings = new SettingsPageObject(page);
-    await today.goto();
-    await settings.open();
-    await settings.field(PUBLIC_VIEW).check();
-    await settings.save();
-    const visitor = new PublicPageObject(visitorPage);
-    await visitor.goto();
     const range = visitor.trendRange("Calorie trend");
     await expect(range).toHaveValue("7");
-
     await range.selectOption("30");
-
     await expect(range).toHaveValue("30");
   });
 });
