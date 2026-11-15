@@ -1,4 +1,4 @@
-import { routeBodyLimit } from "backend/testing";
+import { privateJsonHeaders, routeBodyLimit } from "backend/testing";
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
 import { inspectRoutes } from "hono/dev";
@@ -63,6 +63,14 @@ function chunkedBody(text: string) {
     },
   });
   return { init: { body: stream, duplex: "half" }, sentBytes: () => sentBytes };
+}
+
+function expectPrivate(response: Response) {
+  expect(response.headers.get("cache-control")).toEqual("no-store");
+  expect(response.headers.get("pragma")).toEqual("no-cache");
+  expect(response.headers.get("x-robots-tag")).toEqual(
+    "noindex, nofollow, noarchive",
+  );
 }
 
 const LARGE_REQUESTS = [
@@ -145,6 +153,50 @@ describe("backend HTTP app", () => {
     expect(response.headers.get("strict-transport-security")).toEqual(
       "max-age=15552000; includeSubDomains",
     );
+  });
+
+  it("should keep the JSON answers of a person out of caches and search indexes", async () => {
+    const { transport } = await createFullApplication();
+
+    const signedIn = await transport.fetch(`${ORIGIN}/api/me`);
+    expect(signedIn.status).toEqual(200);
+    expectPrivate(signedIn);
+
+    const missing = await transport.fetch(`${ORIGIN}/api/no-such-route`);
+    expect(missing.status).toEqual(404);
+    expectPrivate(missing);
+
+    const anonymous = await createFullApplication({ authenticated: false });
+    const refused = await anonymous.transport.fetch(`${ORIGIN}/api/me`);
+    expect(refused.status).toEqual(401);
+    expectPrivate(refused);
+  });
+
+  it("should keep the cache-control of a route and leave other content types alone", async () => {
+    const { httpApp, transport } = await createFullApplication();
+    // The middleware sits in the `/api` app, so a test route needs its own copy.
+    httpApp.route(
+      "/api/probe",
+      new Hono()
+        .use("*", privateJsonHeaders())
+        .get("/cached", (context) => {
+          context.header("cache-control", "max-age=60");
+          return context.json({ ok: true });
+        })
+        .get("/text", (context) => context.text("plain")),
+    );
+
+    const cached = await transport.fetch(`${ORIGIN}/api/probe/cached`);
+    expect(cached.headers.get("cache-control")).toEqual("max-age=60");
+    expect(cached.headers.get("pragma")).toEqual(null);
+    expect(cached.headers.get("x-robots-tag")).toEqual(
+      "noindex, nofollow, noarchive",
+    );
+
+    const text = await transport.fetch(`${ORIGIN}/api/probe/text`);
+    expect(text.headers.get("cache-control")).toEqual(null);
+    expect(text.headers.get("pragma")).toEqual(null);
+    expect(text.headers.get("x-robots-tag")).toEqual(null);
   });
 
   it("should give each request an ID and log the request with it", async () => {
