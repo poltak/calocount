@@ -7,7 +7,10 @@ import {
 } from "@app/common/features/entries/utils/entry-kind";
 import { mealPhotoError } from "@app/common/features/entries/utils/meal-photo";
 import type { NutrientKey } from "@app/common/features/entries/utils/nutrients";
-import { requireApiSuccess } from "../../api/client/api-client.js";
+import {
+  requireApiSuccess,
+  encodeApiParam,
+} from "../../api/client/api-client.js";
 import type { FrontendLogicProps } from "../../core/logic/types.js";
 import type { EntryEvent } from "../types.js";
 import { clockTime } from "../../core/utils/dashboard-format.js";
@@ -277,7 +280,7 @@ export class EntryFormLogic extends Logic<
       try {
         const json = editBody(draft);
         const response = await this.deps.api.meals[":id"].$patch(
-          { param: { id: draft.original.id }, json },
+          { param: { id: encodeApiParam(draft.original.id) }, json },
           {
             init: {
               signal: this.signal,

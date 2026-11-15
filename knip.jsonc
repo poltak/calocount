@@ -3,17 +3,18 @@
   // no package of the repository has it. `script` comes with the system, and
   // the sync tests use it to get a real terminal.
   "ignoreBinaries": ["codex", "script"],
-  // People, agents, and `scripts/issues-init.mjs` run bd with `pnpm exec bd`,
+  // People, agents, and `scripts/issues-init.ts` run bd with `pnpm exec bd`,
   // and knip reads no code that imports it.
   "ignoreDependencies": ["@beads/bd"],
   "workspaces": {
     ".": {
       "entry": [
-        ".agents/hooks/check-branch-is-current.mjs",
-        ".agents/hooks/format-edited-files.mjs",
-        ".agents/hooks/guard-template-owned-files.mjs",
+        ".agents/hooks/check-branch-is-current.ts",
+        ".agents/hooks/format-edited-files.ts",
+        ".agents/hooks/guard-template-owned-files.ts",
+        ".agents/hooks/run-project-hooks.ts",
       ],
-      "project": [".agents/hooks/**/*.mjs", "lint/**/*.mjs"],
+      "project": [".agents/hooks/**/*.ts", "lint/**/*.ts"],
     },
     "backend": {
       "entry": [
@@ -46,9 +47,27 @@
       "entry": [
         "src/features/core/live/index.ts",
         "src/features/core/tests/index.ts",
+        // `pnpm run ui:screens` runs this config, and it runs each
+        // `*.screens.ts` file. knip reads only `playwright.config.ts`.
+        "playwright.screens.config.ts",
+        "src/features/**/*.screens.ts",
+        // Phase 2 moves the pages to these CLI files. Keep only this directory.
+        "src/features/core/ui/shadcn/*.{ts,tsx}",
       ],
-      // The page registers it by its address, so no code imports it.
-      "ignore": ["public/sw.js"],
+      // Calocount keeps the template's UI kit, so that each sync applies, but
+      // it draws its pages with its own CSS and does not load the kit's theme.
+      // No Calocount page has a screen file yet, so no file loads `screens.ts`.
+      "ignoreDependencies": ["tailwindcss", "tw-animate-css"],
+      "ignore": [
+        // The page registers it by its address, so no code imports it.
+        "public/sw.js",
+        "src/features/core/tests/browser/screens.ts",
+        "src/features/core/ui/core/app-layout.tsx",
+        "src/features/core/ui/project.css",
+        "src/features/core/ui/shadcn.css",
+        "src/features/core/ui/theme.css",
+        "src/features/core/ui/worldbrain.css",
+      ],
     },
   },
 }

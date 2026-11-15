@@ -39,7 +39,7 @@ async function createRepository(context, { deployment = false } = {}) {
   for (const script of [
     "check-migrations.mjs",
     "migration-files.mjs",
-    "template-files.mjs",
+    "template-files.ts",
   ]) {
     await cp(
       path.join(scriptsDirectory, script),

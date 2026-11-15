@@ -48,16 +48,18 @@ same for all.
 
 Do this one time on each machine, in the main checkout, on a branch that has
 `.beads/`. `git worktree list` shows the main checkout first. An agent can do
-these steps.
+this step.
 
 ```sh
 pnpm install
-pnpm exec bd metrics off
-pnpm exec bd bootstrap
-chmod 700 .beads
-git config beads.role maintainer
-pnpm exec bd list
+pnpm run issues:join
 ```
+
+[`scripts/issues-join.ts`](../../scripts/issues-join.ts) turns off the usage
+metrics of `bd`, runs `bd bootstrap`, sets the mode of `.beads/` to `700`, sets
+`git config beads.role maintainer`, and then lists the issues. It refuses to
+run in a linked worktree, and it names the main checkout. It is safe to run
+again. `swamp workflow run issues-join` runs the same command.
 
 - The usage metrics of `bd` are on by default. They send the name of each
   command, the `bd` version, and the operating system. The setting is for
@@ -65,9 +67,11 @@ pnpm exec bd list
 - `bd bootstrap` copies the issues from `refs/dolt/data`. It uses the SSH URL
   in `.beads/config.yaml`, so your SSH key for GitHub must work.
 - Without the `chmod` and the `git config`, each `bd` command shows a warning.
-- The template has no issues of its own, so in a clone of the template,
-  `bd bootstrap` finds nothing. Work on the template in a worktree of a
-  project's repository. `bd` there uses the issues of that project.
+- The template has issues of its own, in the template's repository. A project
+  does not get them: `.beads/` is in `templateOnly`, so `start-project`
+  removes it, and a sync leaves out each change to it. In a worktree of a
+  project's repository, `bd` uses the issues of that project, so file a
+  template issue from a clone of the template.
 
 ## Turn on beads in a new project
 
@@ -80,7 +84,7 @@ pnpm exec bd dolt push
 git push
 ```
 
-[`scripts/issues-init.mjs`](../../scripts/issues-init.mjs) runs `bd init` with
+[`scripts/issues-init.ts`](../../scripts/issues-init.ts) runs `bd init` with
 two flags, and the project name from `package.json` as the prefix. Give another
 prefix with `--prefix <name>`.
 
@@ -97,14 +101,14 @@ prefix with `--prefix <name>`.
 
 ## Stop the use of beads
 
-1. In each project, keep a copy of the issues if you want one:
-   `pnpm exec bd export -o <file>`.
+1. In the template and in each project, keep a copy of the issues if you want
+   one: `pnpm exec bd export -o <file>`.
 2. In the template, remove the "Issue tracking" section and the beads lines
    of `AGENTS.md` and `docs/agents/README.md`, the `plan-in-docs` rule of the
    agent review, this section, and the `@beads/bd` package with its entries in
    `pnpm-workspace.yaml`, `knip.jsonc`, `renovate.json`, and
    `.prettierignore`. Then sync each project.
-3. In each project, delete `.beads/` and the beads lines in `.gitignore`, and
-   delete the data on GitHub:
+3. In the template and in each project, delete `.beads/` and the beads lines
+   in `.gitignore`, and delete the data on GitHub:
    `git push origin --delete refs/dolt/data refs/heads/__dolt_remote_info__`.
 4. Each person deletes the database in the main checkout: `rm -rf .beads`.

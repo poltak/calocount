@@ -22,7 +22,7 @@ export function createEntryHandlers({ logic }: EntryHandlerProps) {
   return new Hono<SessionEnvironment>()
     .post(
       "/",
-      routeBodyLimit(MAX_MULTIPART_BYTES),
+      routeBodyLimit({ maxBytes: MAX_MULTIPART_BYTES }),
       entryRequest(entryInputSchema),
       async (context) => {
         const entry = await logic.entries.create({
@@ -43,7 +43,7 @@ export function createEntryHandlers({ logic }: EntryHandlerProps) {
     .patch(
       "/:id",
       validator("param", idParamSchema),
-      routeBodyLimit(MAX_MULTIPART_BYTES),
+      routeBodyLimit({ maxBytes: MAX_MULTIPART_BYTES }),
       entryRequest(entryPatchSchema),
       async (context) => {
         const { entry, photoDeleted } = await logic.entries.update({

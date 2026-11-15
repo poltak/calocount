@@ -99,7 +99,7 @@ A change to `.env` needs a restart of `pnpm run dev`.
 ### The branch at the start of an agent session
 
 When a Claude Code or Codex session starts,
-`.agents/hooks/check-branch-is-current.mjs` fetches `main` from the remote
+`.agents/hooks/check-branch-is-current.ts` fetches `main` from the remote
 that the branch tracks, or from `origin` for a branch that tracks none. When
 the branch is behind that `main`, the hook tells the agent and you how many
 commits it is behind, and what to do. So a template branch in a project's
@@ -110,7 +110,7 @@ the hooks of the repository.
 ### Slow commands of an agent
 
 After each shell command of a Claude Code or Codex agent,
-`.agents/hooks/warn-slow-commands.mjs` tells the agent how long the command
+`.agents/hooks/warn-slow-commands.ts` tells the agent how long the command
 took, if it took more than 1 minute. After 5 minutes, the message is stronger.
 The message tells the agent to run only the checks of the code that it
 changed, and to run the full checks one time at the end. Without it, an agent
@@ -153,13 +153,13 @@ database user and password in `.env.example` are for this local database only.
 `pnpm install` installs a Git pre-commit hook that runs `lint-staged`. Its
 configuration in `package.json` runs three commands on the staged files:
 
-1. [`scripts/check-staged-secrets.mjs`](../../scripts/check-staged-secrets.mjs)
+1. [`scripts/check-staged-secrets.ts`](../../scripts/check-staged-secrets.ts)
    stops the commit when the staged changes have an obvious secret: a file of
    environment variables such as `.env.production`, a private key file, or a
    token in a well-known format. It reads only the lines that the commit adds,
    and it shows the file and the line, not the value. The script lists the
    formats.
-2. [`scripts/check-staged-file-size.mjs`](../../scripts/check-staged-file-size.mjs)
+2. [`scripts/check-staged-file-size.ts`](../../scripts/check-staged-file-size.ts)
    stops the commit when it adds a file over 5,000 tokens, or makes such a
    file larger. It counts a token for each 4 bytes. A file that is over the
    limit can get smaller or keep its size. The message says how to split a
@@ -211,9 +211,20 @@ names the template, and the last template commit that the project has.
 
 `pnpm run template:sync <command>` takes the later commits of the template
 into the project. The `sync-template` skill has the order of its commands, and
-[`scripts/sync-template.mjs`](../../scripts/sync-template.mjs) describes each
+[`scripts/sync-template.ts`](../../scripts/sync-template.ts) describes each
 one. `pnpm run template:sync plan` changes no file. It fetches the template
 and lists the new commits.
+
+`apply` takes the commits one at a time, and the template can have merged
+them in another order. A file from the template can then end the sync with a
+text that no conflict showed. So `finish` compares each file in
+`templateOwned` with the template at the commit that the sync reached. It
+stops and names each file that differs, that the template has and the project
+does not, or that the project has and the template does not. It skips a path
+in `ownPaths`, and a file that `apply` leaves out, such as a file of the
+removed example. To go on, take the template's file with
+`git checkout <commit> -- <path>` and commit it. When the project must keep
+its file, ask the person to run `pnpm run template:sync own <path> "<reason>"`.
 
 ### Rules of one project
 
@@ -243,7 +254,7 @@ A project can stay on an older version when its host or a tool needs that.
 Keep the older value, and write the reason in the project's documents. `apply`
 stops at each template update of that value, because both sides changed it.
 Resolve the stop in favor of the project. For Node, keep `.nvmrc`, `engines`,
-and `devEngines.runtime` equal. `scripts/check-node-version.mjs` compares those
+and `devEngines.runtime` equal. `scripts/check-node-version.ts` compares those
 values with each other, and not with the template.
 
 A project can also remove a package that it does not use. A sync keeps the
@@ -337,7 +348,7 @@ the project. A second run cannot weaken the first. Write
 {
   "plugins": [],
   "categories": { "correctness": "off" },
-  "jsPlugins": ["./lint/stack-plugin.mjs"],
+  "jsPlugins": ["./lint/stack-plugin.ts"],
   "rules": {
     "stack/vendor-imports": [
       "error",
@@ -399,14 +410,15 @@ a sync. `ownPaths` in `template-version.json` ends those stops:
 pnpm run template:sync own backend/src/features/core/database/ "D1 on Workers"
 ```
 
-The command adds an entry with the path and the reason, and commits it. A path
-that ends with `/` is a directory. Only a person at a terminal can run it. An
-agent gives the person the command and the reason.
+It records the path and reason in one commit. Put several paths before
+`--`: `own <path> <path> -- "<reason>"`. A path that ends with `/` is a
+directory. A person runs one command at a time, at a terminal.
 
 After that:
 
 - A sync leaves out each template change to the path. `plan` names the files
-  that a commit loses, and `finish` counts them.
+  that a commit loses, and `finish` counts them. `finish` does not compare the
+  path with the template.
 - The hook and the "Template-owned files" check treat the path as the
   project's own.
 - The project gets no template fix to the path. So use an entry for a path
@@ -440,8 +452,8 @@ project that uses it, and how to turn it on in a new project.
 
 ## Production
 
-The repository has no deployment files yet. These facts hold on the default
-host, a long-lived Node process. [Hosting](hosting.md) has the rules for each
+The template has no deployment files. These facts hold on the default host,
+a long-lived Node process. [Hosting](hosting.md) has the rules for each
 other host.
 
 - Build with `pnpm run build`. Start the backend with
@@ -482,7 +494,7 @@ of earlier events.
 | Command                               | Purpose                                               |
 | ------------------------------------- | ----------------------------------------------------- |
 | `pnpm run dev`                        | Start the backend and the frontend in watch mode.     |
-| `pnpm run check`                      | Every check that CI runs, with the steps in parallel. |
+| `pnpm run check`                      | The CI checks without browser tests and live start.   |
 | `pnpm run ci:checks`                  | The same without the tests. CI runs the two apart.    |
 | `pnpm run typecheck`                  | Type-check all workspaces.                            |
 | `pnpm run build`                      | Build all workspaces.                                 |

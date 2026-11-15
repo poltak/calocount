@@ -1,5 +1,8 @@
 import { Logic, type TaskState } from "@app/common/features/core/logic/logic";
-import { requireApiSuccess } from "../../api/client/api-client.js";
+import {
+  requireApiSuccess,
+  encodeApiParam,
+} from "../../api/client/api-client.js";
 import type { FrontendLogicProps } from "../../core/logic/types.js";
 import type { PasskeyRegistrationOptions } from "../services/types.js";
 import { ceremonyMessage } from "../utils/passkey-messages.js";
@@ -101,7 +104,7 @@ export class PasskeysLogic extends Logic<PasskeysProps, PasskeysState> {
     }
     await this.executeTask("removePasskey", async () => {
       const response = await this.deps.api.auth.passkeys[":id"].$delete(
-        { param: { id: encodeURIComponent(id) } },
+        { param: { id: encodeApiParam(id) } },
         { init: { signal: this.signal } },
       );
       await requireApiSuccess(response);

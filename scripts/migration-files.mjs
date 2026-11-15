@@ -2,7 +2,7 @@
 // migrations that a branch adds or changes, and the tables that a migration
 // creates or changes.
 import path from "node:path";
-import { git, readVersionFile } from "./template-files.mjs";
+import { git, readVersionFile } from "./template-files.ts";
 
 export const MIGRATIONS_DIRECTORY =
   "backend/src/features/core/database/migrations";
@@ -81,6 +81,12 @@ function templateMigrations({ root }) {
   return new Set(status === 0 ? stdout.split("\n") : []);
 }
 
+function migrationsOf(output) {
+  return output
+    .split("\n")
+    .filter((file) => MIGRATION_FILE.test(path.posix.basename(file)));
+}
+
 /**
  * The migrations of the working tree that differ from the commit where the
  * branch left `main`: the new ones, the changed ones, and the deleted ones.
@@ -99,10 +105,6 @@ export function branchMigrations({ root }) {
   if (!base) {
     return null;
   }
-  const migrationsOf = (output) =>
-    output
-      .split("\n")
-      .filter((file) => MIGRATION_FILE.test(path.posix.basename(file)));
   const byStatus = (status) =>
     migrationsOf(
       git({
@@ -134,7 +136,7 @@ export function branchMigrations({ root }) {
   return {
     added: [...byStatus("A"), ...untracked]
       .filter((file) => !fromTemplate.has(file))
-      .sort(),
+      .toSorted(),
     changed: byStatus("M"),
     removed: byStatus("D"),
   };

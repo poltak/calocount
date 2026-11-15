@@ -4,7 +4,10 @@ import {
   zonedTimestamp,
 } from "@app/common/features/core/utils/logical-date";
 import { entryKind } from "@app/common/features/entries/utils/entry-kind";
-import { requireApiSuccess } from "../../api/client/api-client.js";
+import {
+  requireApiSuccess,
+  encodeApiParam,
+} from "../../api/client/api-client.js";
 import type { FrontendLogicProps } from "../../core/logic/types.js";
 import type { EntryEvent } from "../types.js";
 import type { SavedEntry } from "../utils/api-types.js";
@@ -68,7 +71,7 @@ export class EntryActionsLogic extends Logic<
       running: { kind: "delete", entryId: entry.id },
       work: async () => {
         const response = await this.deps.api.meals[":id"].$delete(
-          { param: { id: entry.id } },
+          { param: { id: encodeApiParam(entry.id) } },
           { init: { signal: this.signal } },
         );
         await requireApiSuccess(response);
@@ -135,7 +138,7 @@ export class EntryActionsLogic extends Logic<
       running: { kind: "remove", entryId: saved.id },
       work: async () => {
         const response = await this.deps.api["saved-entries"][":id"].$delete(
-          { param: { id: saved.id } },
+          { param: { id: encodeApiParam(saved.id) } },
           { init: { signal: this.signal } },
         );
         await requireApiSuccess(response);
@@ -187,7 +190,7 @@ export class EntryActionsLogic extends Logic<
         const response = await this.deps.api["saved-entries"][
           ":id"
         ].track.$post(
-          { param: { id: saved.id }, json: { consumedAt } },
+          { param: { id: encodeApiParam(saved.id) }, json: { consumedAt } },
           { init: { signal: this.signal } },
         );
         await requireApiSuccess(response);
@@ -230,7 +233,7 @@ export class EntryActionsLogic extends Logic<
       }),
       work: async () => {
         const response = await this.deps.api.meals[":id"].copy.$post(
-          { param: { id: entry.id }, json: { consumedAt } },
+          { param: { id: encodeApiParam(entry.id) }, json: { consumedAt } },
           { init: { signal: this.signal } },
         );
         await requireApiSuccess(response);

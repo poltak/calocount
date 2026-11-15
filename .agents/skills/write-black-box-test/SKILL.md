@@ -53,17 +53,29 @@ models, before you start. This skill is the order of work.
    checks the message, the fields, and that nothing changed. A password field
    is empty after a refusal.
 7. Make each new check fail one time, because a check that cannot fail checks
-   nothing:
-   - Copy the test file to a temporary `*.spec.ts` file. In the copy, import
-     `expect` as `baseExpect`, and set
-     `const expect = baseExpect.configure({ soft: true, timeout: 1500 })`, so
-     that one run reports each check that fails.
-   - In the copy, change each check: its expected value, the name in its
-     locator, or, for a check of a hidden element, an element that is on the
-     screen. Do not swap `toBeVisible()` and `toBeHidden()`, because a check of
-     a hidden element passes at once while the page changes.
-   - Run the copy, and see that each changed check fails for the changed value.
-     Then delete the copy.
+   nothing. Run the script, with the path of the test file:
+   ```sh
+   pnpm run test:browser:mutate frontend/src/features/<feature>/black-box-tests/<name>.spec.ts
+   ```
+   It runs a copy of the file in which each check with an expected value,
+   such as `toHaveText("Saved")`, gets a changed value, and each check is
+   soft. It prints one line for each check:
+   - `fails when changed`: the check works.
+   - `DID NOT FAIL`: the check passes with a wrong value. Correct the check.
+   - `not known`: the line gives the cause. When the run stopped early, or
+     the test of the check did not run, run it again with
+     `--grep <test name>`. When another error stopped the test at the line of
+     the check, read that error in the output, correct the test, and run the
+     script again.
+   - `by hand`: the script cannot change the check, such as `toBeVisible()`
+     or a check with `.not`. Change these yourself, in a temporary copy of the
+     file. Import `expect` as `baseExpect`, set
+     `const expect = baseExpect.configure({ soft: true, timeout: 1500 })`, and
+     change the name in the locator, or, for a check of a hidden element, use
+     an element that is on the screen. Do not swap `toBeVisible()` and
+     `toBeHidden()`, because a check of a hidden element passes at once while
+     the page changes. Run the copy, see that each changed check fails, and
+     delete the copy.
 8. Run the tests, then the full checks:
    ```sh
    pnpm run test:browser
@@ -78,6 +90,11 @@ models, before you start. This skill is the order of work.
 - Playwright finds a name as a part of a longer text, and ignores case. So
   `getByLabel("Note")` also finds a field with the label "Notes". Use
   `exact: true` when one name is a part of another.
+- Never hard-code a calendar date in expected text, such as
+  `toHaveText("Nov 8")`. A test that logs data relative to today passes on the
+  day it was written and fails later. Build the text from today's date in the
+  format that the page uses, or fix the date with
+  `page.clock.setFixedTime()`. Lint checks it.
 - A page object that waits with `expect` fails lint. Use `waitFor()` there.
 - In a test of a rule with a time window, such as 3 sign-in attempts in 10
   seconds, change only one check in each run of step 7. Each changed soft

@@ -34,7 +34,9 @@ Use an eval to choose a model, and to see the effect of a change to a prompt.
    - `answers` gives the answer of each purpose for the modes with no model.
      The oracle answers from the key, and the null mode gives nothing.
    - `score` scores one answer against its key. `results` writes one row of
-     the results table for each group of scores.
+     the results table for each group of scores. `results.share` gives the
+     share of the key that one score has right, from 0 to 1. The `verify`
+     command needs it.
    - `estimate` gives the cost before a run. `priceOf` gives the price of a
      model.
    - `defaultModels` and `provider` are the models and the settings of
@@ -43,9 +45,10 @@ Use an eval to choose a model, and to see the effect of a change to a prompt.
    backend script,
    `"eval:<name>": "pnpm --filter backend... run build && node dist/features/<feature>/scripts/<name>-eval.js"`,
    and a root script that runs it.
-4. Run the oracle mode and the null mode. The oracle must score 100%, and the
-   null mode must score 0%. Run both again after each change to the eval or to
-   a key. They cost nothing.
+4. Run `pnpm run eval:<name> verify`. It runs the oracle mode and the null
+   mode again from the start, and fails when a case of the oracle scores less
+   than 100%, or a case of the null mode scores more than 0%. Run it again
+   after each change to the eval or to a key. It costs nothing.
 
 ### An example
 
@@ -126,6 +129,7 @@ await runEvalCommand<
     head: ["| Prompts | Model | Right |", "| --- | --- | --- |"],
     row: ({ prompts, model, scores }) =>
       `| ${prompts} | ${model} | ${scores.filter((s) => s.right).length} of ${scores.length} |`,
+    share: (score) => (score.right ? 1 : 0),
   },
 });
 ```
@@ -138,8 +142,7 @@ output of each purpose, so the oracle and the null mode run the same
 ```sh
 export TITLE_EVAL_DATA="<path of the data folder>"
 pnpm run eval:title check
-pnpm run eval:title run --mode oracle
-pnpm run eval:title run --mode null
+pnpm run eval:title verify
 pnpm run eval:title run --runs 3 --max-cost 0.5
 pnpm run eval:title score
 ```
@@ -150,6 +153,10 @@ pnpm run eval:title score
   makes each model look wrong, so `run` does not start while a problem stays.
 - `run` sends each case and run that has no answer file yet.
 - `score` reads all answers again and writes the results. It costs nothing.
+- `verify` runs `check`, then deletes the answers of the oracle mode and of
+  the null mode, and runs both modes again. It prints how many cases score
+  100% in the oracle mode and 0% in the null mode, and names each other case.
+  It takes `--cases` and the flags of the eval. It costs nothing.
 
 The options of `run`:
 

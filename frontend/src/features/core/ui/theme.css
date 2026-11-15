@@ -1,0 +1,4 @@
+@layer theme, base, components, utilities;
+@import "./shadcn.css";
+@import "./worldbrain.css";
+@import "./project.css";

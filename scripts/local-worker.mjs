@@ -75,7 +75,9 @@ export function startWorker({ port, persistTo, vars }) {
 
 export function stopWorker(child) {
   // Wrangler ends the `workerd` below it when it gets this signal.
-  if (child.exitCode === null) child.kill("SIGTERM");
+  if (child.exitCode === null) {
+    child.kill("SIGTERM");
+  }
 }
 
 /** Resolve when `url` answers with a status below 500; reject after the limit. */
@@ -84,7 +86,9 @@ export async function waitForUrl({ url, attempts = 240 }) {
     try {
       // A request that arrives while the Worker starts can hang, so each try has a limit.
       const response = await fetch(url, { signal: AbortSignal.timeout(5000) });
-      if (response.status < 500) return;
+      if (response.status < 500) {
+        return;
+      }
     } catch {
       // The Worker is not listening yet, or did not answer in time.
     }

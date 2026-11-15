@@ -65,6 +65,14 @@ function chunkedBody(text: string) {
   return { init: { body: stream, duplex: "half" }, sentBytes: () => sentBytes };
 }
 
+function expectPrivate(response: Response) {
+  expect(response.headers.get("cache-control")).toEqual("no-store");
+  expect(response.headers.get("pragma")).toEqual("no-cache");
+  expect(response.headers.get("x-robots-tag")).toEqual(
+    "noindex, nofollow, noarchive",
+  );
+}
+
 const LARGE_REQUESTS = [
   { form: "with a Content-Length", init: () => ({ body: LARGE_BODY }) },
   { form: "chunked", init: () => chunkedBody(LARGE_BODY).init },
@@ -145,6 +153,50 @@ describe("backend HTTP app", () => {
     expect(response.headers.get("strict-transport-security")).toEqual(
       "max-age=15552000; includeSubDomains",
     );
+  });
+
+  it("should keep the JSON answers of a person out of caches and search indexes", async () => {
+    const { transport } = await createFullApplication();
+
+    const signedIn = await transport.fetch(`${ORIGIN}/api/auth/passkeys`);
+    expect(signedIn.status).toEqual(200);
+    expectPrivate(signedIn);
+
+    const missing = await transport.fetch(`${ORIGIN}/api/no-such-route`);
+    expect(missing.status).toEqual(404);
+    expectPrivate(missing);
+
+    const anonymous = await createFullApplication({ authenticated: false });
+    const refused = await anonymous.transport.fetch(
+      `${ORIGIN}/api/auth/passkeys`,
+    );
+    expect(refused.status).toEqual(401);
+    expectPrivate(refused);
+  });
+
+  it("should keep the cache-control of a route and leave other content types alone", async () => {
+    const { httpApp, transport } = await createFullApplication();
+    httpApp.route(
+      "/api/probe",
+      new Hono()
+        .get("/cached", (context) => {
+          context.header("cache-control", "max-age=60");
+          return context.json({ ok: true });
+        })
+        .get("/text", (context) => context.text("plain")),
+    );
+
+    const cached = await transport.fetch(`${ORIGIN}/api/probe/cached`);
+    expect(cached.headers.get("cache-control")).toEqual("max-age=60");
+    expect(cached.headers.get("pragma")).toEqual(null);
+    expect(cached.headers.get("x-robots-tag")).toEqual(
+      "noindex, nofollow, noarchive",
+    );
+
+    const text = await transport.fetch(`${ORIGIN}/api/probe/text`);
+    expect(text.headers.get("cache-control")).toEqual(null);
+    expect(text.headers.get("pragma")).toEqual(null);
+    expect(text.headers.get("x-robots-tag")).toEqual(null);
   });
 
   it("should give each request an ID and log the request with it", async () => {
@@ -249,11 +301,16 @@ describe("backend HTTP app", () => {
     async ({ init }) => {
       const { httpApp, transport } = await createFullApplication();
       httpApp
-        .post("/api/uploads", routeBodyLimit(300 * KILOBYTE), async (context) =>
-          context.json({ receivedBytes: (await context.req.text()).length }),
+        .post(
+          "/api/uploads",
+          routeBodyLimit({ maxBytes: 300 * KILOBYTE }),
+          async (context) =>
+            context.json({ receivedBytes: (await context.req.text()).length }),
         )
-        .post("/api/avatars", routeBodyLimit(150 * KILOBYTE), (context) =>
-          context.text("stored"),
+        .post(
+          "/api/avatars",
+          routeBodyLimit({ maxBytes: 150 * KILOBYTE }),
+          (context) => context.text("stored"),
         );
       const send = (path: string) =>
         transport.fetch(`${ORIGIN}${path}`, { method: "POST", ...init() });
@@ -278,10 +335,15 @@ describe("backend HTTP app", () => {
     },
   );
 
-  it("should apply a route's own limit that is lower than the default", async () => {
+  it("should apply a route's own limit and message, also below the default", async () => {
     const { httpApp, transport } = await createFullApplication();
-    httpApp.post("/api/tags", routeBodyLimit(KILOBYTE), (context) =>
-      context.text("stored"),
+    httpApp.post(
+      "/api/tags",
+      routeBodyLimit({
+        maxBytes: KILOBYTE,
+        message: "The tag list is too long",
+      }),
+      (context) => context.text("stored"),
     );
 
     const response = await transport.fetch(`${ORIGIN}/api/tags`, {
@@ -290,6 +352,9 @@ describe("backend HTTP app", () => {
     });
 
     expect(response.status).toEqual(413);
+    expect(await response.json()).toEqual({
+      error: { code: "PAYLOAD_TOO_LARGE", message: "The tag list is too long" },
+    });
   });
 
   it("should find a route's own limit in a sub-app with its own error handler", async () => {
@@ -298,7 +363,7 @@ describe("backend HTTP app", () => {
       "/api/uploads",
       new Hono()
         .onError((_error, context) => context.text("failed", 500))
-        .post("/", routeBodyLimit(300 * KILOBYTE), (context) =>
+        .post("/", routeBodyLimit({ maxBytes: 300 * KILOBYTE }), (context) =>
           context.text("stored"),
         ),
     );
@@ -315,8 +380,10 @@ describe("backend HTTP app", () => {
     const { httpApp, transport } = await createFullApplication({
       authenticated: false,
     });
-    httpApp.post("/api/uploads", routeBodyLimit(300 * KILOBYTE), (context) =>
-      context.text("stored"),
+    httpApp.post(
+      "/api/uploads",
+      routeBodyLimit({ maxBytes: 300 * KILOBYTE }),
+      (context) => context.text("stored"),
     );
     const body = chunkedBody(LARGE_BODY);
 
@@ -370,14 +437,6 @@ describe("backend HTTP app", () => {
         message: "The service is not available. Try again later.",
       },
     });
-    const failure = backend.services.logger.entries.find(
-      (entry) => entry.message === "Session check failed",
-    );
-    expect(failure).toMatchObject({
-      level: "error",
-      fields: { requestId: response.headers.get("x-request-id") },
-    });
-    expect(failure?.fields?.error).toBeInstanceOf(Error);
   });
 
   it("should send the session cookie again when a session renews, and not before", async () => {

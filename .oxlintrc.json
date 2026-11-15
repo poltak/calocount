@@ -11,9 +11,9 @@
   ],
   "jsPlugins": [
     "@stylistic/eslint-plugin",
-    "./lint/architecture-plugin.mjs",
-    "./lint/stack-plugin.mjs",
-    "./lint/testing-plugin.mjs"
+    "./lint/architecture-plugin.ts",
+    "./lint/stack-plugin.ts",
+    "./lint/testing-plugin.ts"
   ],
   "categories": {
     "correctness": "error",
@@ -171,7 +171,8 @@
         }
       }
     ],
-    "architecture/transaction-scope": "error",
+    "architecture/transaction-scope": ["error", { "coreServices": ["logger"] }],
+    "architecture/log-messages": "error",
     "stack/vendor-imports": [
       "error",
       {
@@ -191,13 +192,19 @@
           },
           {
             "workspace": "backend",
-            "packages": ["hono", "@hono/node-server", "@hono/zod-validator"],
+            "packages": ["hono", "@hono/node-server"],
             "allowedIn": [
               "^features/[^/]+/handlers/",
               "^features/core/server/",
               "^features/core/tests/"
             ],
             "where": "handlers and core/server"
+          },
+          {
+            "workspace": "backend",
+            "packages": ["@hono/zod-validator"],
+            "allowedIn": ["^features/core/handlers/"],
+            "where": "core/handlers, in the shared validator() helper"
           },
           {
             "workspace": "frontend",
@@ -223,6 +230,26 @@
         "hooks": ["useState", "useReducer", "useActionState", "useOptimistic"]
       }
     ],
+    "stack/page-imports": "error",
+    "stack/shadcn-typography": "error",
+    "stack/page-classes": [
+      "error",
+      {
+        "spacing": [
+          "0",
+          "0.5",
+          "1",
+          "1.5",
+          "2",
+          "2.5",
+          "3",
+          "3.5",
+          "4",
+          "6",
+          "8"
+        ]
+      }
+    ],
     "testing/ui-logic-tested": "error",
     "testing/logic-tests": [
       "error",
@@ -243,9 +270,11 @@
       "error",
       {
         "fixtureFile": "features/core/black-box-tests/black-box-test.ts",
+        "screensFile": "features/core/tests/browser/screens.ts",
         "exemptFiles": ["features/core/tests/browser/"]
       }
     ],
+    "testing/no-fixed-date-in-expect": "error",
     "import/no-unassigned-import": [
       "warn",
       {
@@ -254,6 +283,20 @@
     ]
   },
   "overrides": [
+    {
+      "files": ["frontend/src/features/core/ui/shadcn/**"],
+      "rules": {
+        "stack/no-component-state": "off",
+        "stack/vendor-imports": "off",
+        "no-restricted-globals": "off",
+        "react/set-state-in-effect": "off",
+        "no-shadow": "off",
+        "jsx-a11y/prefer-tag-over-role": "off",
+        "jsx-a11y/click-events-have-key-events": "off",
+        "jsx-a11y/no-noninteractive-element-interactions": "off",
+        "jsx-a11y/label-has-associated-control": "off"
+      }
+    },
     {
       "files": ["frontend/src/**", "common/src/**"],
       "rules": {
@@ -281,6 +324,7 @@
     {
       "files": ["frontend/src/**"],
       "rules": {
+        "stack/encode-api-params": "error",
         "no-restricted-imports": [
           "error",
           {
@@ -371,6 +415,13 @@
       }
     },
     {
+      "files": ["scripts/**", ".agents/hooks/**", "lint/**"],
+      "rules": {
+        "no-console": "off",
+        "node/no-process-env": "off"
+      }
+    },
+    {
       "files": ["frontend/src/**"],
       "rules": {
         "no-restricted-globals": [
@@ -408,7 +459,9 @@
         "frontend/src/features/api/**",
         "frontend/src/main.tsx",
         "frontend/src/**/*.test.ts",
-        "frontend/src/**/*.test.tsx"
+        "frontend/src/**/*.test.tsx",
+        "frontend/src/features/core/tests/browser/screens.ts",
+        "frontend/src/features/core/ui/shadcn/**"
       ],
       "rules": {
         "no-restricted-globals": "off"

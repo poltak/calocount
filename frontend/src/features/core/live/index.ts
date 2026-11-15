@@ -16,6 +16,7 @@ import { EntriesStorage } from "../../entries/storage/entries-storage.js";
 import { BrowserPasskeyService } from "../../auth/services/browser-passkey-service.js";
 import { BrowserTickerService } from "../../ticker/services/browser-ticker-service.js";
 import { BrowserWindowFocusService } from "../../window-focus/services/browser-window-focus-service.js";
+import { BrowserColorSchemeService } from "../../color-scheme/services/browser-color-scheme-service.js";
 
 interface LiveAppProps extends ApiClientProps {
   logLevel?: LogLevel;
@@ -28,6 +29,7 @@ export function createApp({
   browserStorage,
   ...apiProps
 }: LiveAppProps): App {
+  new BrowserColorSchemeService().start();
   const storage: FrontendStorage = {
     entries: new EntriesStorage({ store: browserStorage }),
     settings: new SettingsStorage({ store: browserStorage }),

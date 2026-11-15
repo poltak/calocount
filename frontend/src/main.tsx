@@ -1,3 +1,6 @@
+// First, because it declares the order of the CSS layers. When a component's
+// CSS loads before it, the base layer overrides each shared component.
+import "./features/core/ui/app.css";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router";
@@ -5,7 +8,6 @@ import { ErrorBoundary } from "./features/core/ui/error-boundary.js";
 import { AppErrorFallback } from "./features/core/ui/error-fallbacks.js";
 import { FrontendAppProvider } from "./features/core/ui/frontend-app-context.js";
 import { AppRoutes } from "./features/core/ui/routes.js";
-import "./features/core/ui/app.css";
 import { createApp } from "./features/core/live/index.js";
 
 const rootElement = document.getElementById("root");

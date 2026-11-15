@@ -9,7 +9,7 @@ description: Bring later changes from the template repository into a project tha
 the project has. A sync starts from that record, so a project needs no history
 in common with the template.
 
-`scripts/sync-template.mjs` takes the new template commits, so each sync has
+`scripts/sync-template.ts` takes the new template commits, so each sync has
 the same steps and the same result. One step needs your judgment. That step
 is a conflict that no rule of the script resolves.
 
@@ -43,6 +43,12 @@ is a conflict that no rule of the script resolves.
    or run `pnpm run template:sync apply` again.
 5. When a check fails, correct the code and commit the correction. Then retry
    the failed step.
+   `finish` is also a check. It compares each file in `templateOwned` with the
+   template, and it stops at a difference. Read the files that it names. A
+   file of the project must be the same as the template's file, so run
+   `git checkout <commit> -- <path>` with the commit that `finish` prints,
+   commit the result, and run `finish` again. When the project must keep its
+   file, ask the person to take the path over with `own`.
 6. Show the person the new commits. Push only when the person asks for it.
 
 ## Resolve a conflict
@@ -65,8 +71,11 @@ what the template changed, and its message gives the reason.
   change to it, ask the person to take the path over. Only a person at a
   terminal can run this command. Then run `apply` again:
   ```sh
-  pnpm run template:sync own <path> "<reason>"
+  pnpm run template:sync own <path> [<path> ...] -- "<reason>"
   ```
+  Give all paths in one command. The command asks once. Do not give the person
+  several `own` commands to paste at once, because the first prompt reads the
+  next pasted line as its answer.
 
 ## Report a gap of the template
 
@@ -105,6 +114,8 @@ the project, its data, or a secret in the issue.
 - It leaves out each change to a path in `ownPaths` of
   `template-version.json`. The project took that path over from the template.
 - It never takes the template's `README.md`.
+- It never takes a change to `.beads/`. The template and each project have
+  issues of their own there.
 - It gives the project a new `projectOwned` file one time, when the project
   does not have a file at that path. The project then owns the file, and the
   script leaves out later template changes to it. A `projectOwned` file that
@@ -118,6 +129,10 @@ the project, its data, or a secret in the issue.
   apply to it, and `verify install` brings it up to date. The project then does not
   get the template's updates of indirect dependencies.
 - It writes the list of migrations again when a commit adds a migration.
+- `finish` stops when a file in `templateOwned` is not the same as the
+  template at the commit that the sync reached. A file that the project does
+  not have is a difference. It skips a path in `ownPaths`, and a file that
+  `apply` leaves out, such as a file of the removed example.
 - `finish` names each file that stopped `apply` in the message of its commit.
   `git log --grep="^- Conflict at"` lists the stops of past syncs. A file that
   appears often is a reason to report a gap to the template.

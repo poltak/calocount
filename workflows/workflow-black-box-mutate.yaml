@@ -1,0 +1,30 @@
+# Run it from the root of the repository, with the path of a black box test:
+#
+#   swamp workflow run black-box-mutate --input spec=<path>
+#
+# The step runs `scripts/mutate-black-box-test.ts`, which describes its output.
+id: 6aca94ed-22de-45f4-a6b2-d39d847fb9fe
+name: black-box-mutate
+description: >-
+  Change the expected value of each check of a black box test, and report each
+  check that does not fail.
+version: 1
+inputs:
+  properties:
+    spec:
+      type: string
+      description: The black box test file.
+  required: [spec]
+jobs:
+  - name: run
+    steps:
+      - name: mutate
+        task:
+          type: model_method
+          modelType: command/shell
+          modelName: black-box-mutate-mutate
+          methodName: execute
+          inputs:
+            run: pnpm run test:browser:mutate
+            env:
+              BLACK_BOX_SPEC: ${{ inputs.spec }}

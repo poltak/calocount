@@ -8,7 +8,6 @@ export class LatestRequest {
 
   constructor(private readonly ownerSignal: AbortSignal) {}
 
-  /** Cancel the previous request and return the signal for a new one. */
   start(): AbortSignal {
     this.cancel();
     const controller = new AbortController();

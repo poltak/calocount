@@ -1,0 +1,66 @@
+# Run it on a branch, from the root of the repository, before a pull request:
+#
+#   swamp workflow run pr-ready
+#
+# Each step runs `scripts/pr-ready.ts`, which has the logic. After a merge
+# conflict, resolve it, commit, and then retry the merge step with the command
+# that Swamp prints:
+#
+#   swamp workflow resume pr-ready --run <run id>
+#
+# After a failed check, correct the cause, commit, and run the workflow again
+# from the start. The results of a check are for one commit, so a new commit
+# needs each check again.
+id: ae26cafe-c781-4e93-b5a4-9c53fff5b679
+name: pr-ready
+description: >-
+  Merge origin/main, run the checks that AGENTS.md requires before a pull
+  request, and print the results for its description.
+version: 1
+jobs:
+  - name: run
+    steps:
+      - name: merge
+        task:
+          type: model_method
+          modelType: command/shell
+          modelName: pr-ready-merge
+          methodName: execute
+          inputs:
+            run: pnpm run pr:ready merge
+      - name: check
+        dependsOn:
+          - step: merge
+            condition:
+              type: succeeded
+        task:
+          type: model_method
+          modelType: command/shell
+          modelName: pr-ready-check
+          methodName: execute
+          inputs:
+            run: pnpm run pr:ready check
+      - name: browser
+        dependsOn:
+          - step: check
+            condition:
+              type: succeeded
+        task:
+          type: model_method
+          modelType: command/shell
+          modelName: pr-ready-browser
+          methodName: execute
+          inputs:
+            run: pnpm run pr:ready browser
+      - name: report
+        dependsOn:
+          - step: browser
+            condition:
+              type: succeeded
+        task:
+          type: model_method
+          modelType: command/shell
+          modelName: pr-ready-report
+          methodName: execute
+          inputs:
+            run: pnpm run pr:ready report

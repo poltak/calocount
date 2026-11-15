@@ -105,10 +105,13 @@ Read and follow @docs/agents/project/rules.md and @docs/agents/project/reversals
   that push. Otherwise push work to separate `feature/*` branches.
 - Make the user aware that the PR is in draft mode and won't be made ready and run CI
   checks until the user explicitly demands it.
-- Before you open a pull request, merge `origin/main` into the branch, and run
-  the checks again.
-- Do not open a pull request when a check that this file requires did not
-  run. Make it run, or tell the person why it cannot.
+- Before you open a pull request, run `pnpm run pr:ready`, or
+  `swamp workflow run pr-ready`. It merges `origin/main` into the branch, runs
+  `pnpm run check`, and runs `pnpm run test:browser` when a changed file
+  matches a rule in `scripts/pr-ready.ts`. Its last step prints the checks
+  that passed, for the description of the pull request.
+- Do not open a pull request when `pnpm run pr:ready report` fails. Make each
+  check pass, or tell the person why a check cannot run.
 - When the "Agent review" check of a pull request fails, tell the person about
   each finding. Change the text only where a finding is correct. Do not run
   the review again to get a different result.
@@ -187,6 +190,7 @@ issue tracker. [Beads](docs/agents/beads.md) describes it.
 
 - Before changing, adding, moving, or deleting code in any workspace, read [docs/agents/code-architecture.md](docs/agents/code-architecture.md) and follow its rules.
 - Before changing a table, a migration, or a transaction, read [docs/agents/database.md](docs/agents/database.md) and follow its rules.
+- Before you write or change UI in `frontend`, read [docs/agents/ui-components.md](docs/agents/ui-components.md) and use the `ui-design` skill.
 - Before writing or changing a test, read [docs/agents/testing.md](docs/agents/testing.md) and follow its rules.
 - Use [docs/agents/README.md](docs/agents/README.md) to find project reference documents.
 - Add stable project facts and decisions under `docs/agents/`, or under `docs/agents/project/` in a project made from the template. Update the relevant document when those facts change.

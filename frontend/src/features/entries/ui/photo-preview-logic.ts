@@ -46,6 +46,9 @@ export class PhotoPreviewLogic extends Logic<
     if (key === null) {
       return null;
     }
+    // `photoPath` encodes each segment and keeps the `/` between them, which the
+    // photo route reads. A second encoding turns each `/` into `%2F`.
+    // oxlint-disable-next-line stack/encode-api-params
     const { href } = this.deps.api.photos[":key{.+}"].$url({ param: { key } });
     return withProfile({ url: href, profile: this.deps.profile });
   }

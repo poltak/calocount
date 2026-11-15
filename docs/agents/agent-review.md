@@ -3,13 +3,18 @@
 The "Agent review" workflow of CI gives each pull request to two models,
 Claude Code and Codex. Each one reports rule violations that no lint
 rule or test can check. An example is a doc's content that the change made no longer valid.
-The script also reports each new document in `docs/agents/`.
-[`scripts/agent-review.mjs`](../../scripts/agent-review.mjs) describes each
+The script also reports, with no model, each new document in `docs/agents/`,
+each change to `lint.project.json` and `docs/agents/project/reversals.md`
+(rule `decision-change`), and each added plan line in `docs/agents/` (rule
+`plan-in-docs`).
+[`scripts/agent-review.ts`](../../scripts/agent-review.ts) describes each
 step.
 
 - The general rules are in
   [`.agents/review/prompt.md`](../../.agents/review/prompt.md), which comes
-  from the template.
+  from the template. When a script, a test, or lint can check a part of a
+  rule, it checks that part, and the rule in `prompt.md` keeps only the part
+  that needs judgment.
 - A project adds its own rules in `.agents/review/project-rules.md`. The
   project owns this file, and a sync never changes it. Without the file, the
   review uses only the general rules.
@@ -139,16 +144,96 @@ The check works as follows:
   `gh variable set AGENT_REVIEW --body off`. Then no job of the workflow
   starts, and the pull request gets no "Agent review" check. Without the
   variable, each job runs and bills at least one minute, also with no secret.
-  The template sets the variable, because it has no model secrets.
 
-The review uses `TEMPLATE_MAINTAINERS` from the
-[template-owned check](setup.md#files-that-come-from-the-template). Make the label one
-time:
+## Settings that the review needs
 
-```sh
-gh label create agent-review-accepted --repo <owner>/<repo> --color 0e8a16 \
-  --description "A maintainer accepted the findings of the agent review"
-```
+The review of a repository needs these settings on GitHub. A new repository
+has none of them, so its pull requests get no review. Only a person with admin
+access to the repository can make them. The commands use `R=<owner>/<repo>`.
+
+- **The secret `CLAUDE_CODE_OAUTH_TOKEN`.**
+  [The Claude Code secret](#the-claude-code-secret) tells how to get it. One
+  token can serve more than one repository. Then the reviews of each
+  repository count against the limits of the same subscription.
+- **The secrets `CODEX_AUTH_JSON` and `CODEX_AUTH_WRITE_TOKEN`.**
+  [The Codex secrets](#the-codex-secrets) tells how to get them. Each
+  repository needs a Codex login of its own. The job of a repository refreshes
+  its copy of the login, and the refresh token of each other copy then stops
+  working.
+- **The variable `TEMPLATE_MAINTAINERS` and the label
+  `agent-review-accepted`.** The
+  [template-owned check](setup.md#files-that-come-from-the-template) uses the
+  same variable. Without it, no person can accept a finding.
+
+  ```sh
+  gh variable set TEMPLATE_MAINTAINERS --repo $R --body "<login>,<login>"
+  gh label create agent-review-accepted --repo $R --color 0e8a16 \
+    --description "A maintainer accepted the findings of the agent review"
+  ```
+
+- **A ruleset that requires the "Agent review" check on `main`.** Without it,
+  a failed review does not stop a merge. On the GitHub Free plan, a private
+  repository cannot require a check. The template's ruleset also requires "CI
+  passed" and "Template-owned files", and a resolved conversation for each
+  line comment before a merge. This command makes the same ruleset:
+
+  ```sh
+  gh api --method POST repos/$R/rulesets --input - <<'EOF'
+  {
+    "name": "Protect main",
+    "target": "branch",
+    "enforcement": "active",
+    "conditions": {
+      "ref_name": { "include": ["~DEFAULT_BRANCH"], "exclude": [] }
+    },
+    "rules": [
+      { "type": "deletion" },
+      { "type": "non_fast_forward" },
+      {
+        "type": "pull_request",
+        "parameters": {
+          "allowed_merge_methods": ["merge"],
+          "dismiss_stale_reviews_on_push": true,
+          "require_code_owner_review": false,
+          "require_last_push_approval": false,
+          "required_approving_review_count": 0,
+          "required_review_thread_resolution": true
+        }
+      },
+      {
+        "type": "required_status_checks",
+        "parameters": {
+          "strict_required_status_checks_policy": true,
+          "do_not_enforce_on_create": false,
+          "required_status_checks": [
+            { "context": "CI passed", "integration_id": 15368 },
+            { "context": "Template-owned files", "integration_id": 15368 },
+            { "context": "Agent review", "integration_id": 15368 }
+          ]
+        }
+      }
+    ]
+  }
+  EOF
+  ```
+
+  `15368` is the ID of the GitHub Actions app, so only a job of a workflow can
+  give the result of these checks. A repository that already has a ruleset
+  for `main` needs the checks in that ruleset, which a person adds on GitHub.
+
+- **No variable `AGENT_REVIEW` with the value `off`.** While the variable is
+  `off`, no job starts. Without the secrets, each job starts, bills at least
+  one minute, and reviews nothing. So the variable stays until the secrets
+  exist:
+
+  ```sh
+  gh variable delete AGENT_REVIEW --repo $R
+  ```
+
+`gh secret list --repo $R` shows the secrets. The first review of a pull
+request that is ready shows if the settings work. Its master comment lists
+each model with its result. A model that failed shows its error there, and
+the job log has the full output.
 
 ## The Claude Code secret
 

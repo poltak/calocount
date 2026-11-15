@@ -1,0 +1,57 @@
+@theme inline {
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --leading-page-title: 1.2;
+  --leading-section-title: 1.3;
+}
+
+@layer base {
+  :root {
+    color-scheme: light dark;
+
+    /* T3 Code raises contrast from the palette, at a setting of 120%: text moves
+       20% to black or white, and a line moves 5% to the text color. The palette
+       of T3 Chat needs this: without it, a control has no visible edge. */
+    --contrast-boost: 20%;
+    --contrast-border-boost: 5%;
+    --contrast-target: light-dark(black, white);
+    --foreground-base: light-dark(#18181b, oklch(0.980735 0.004092 301.426));
+
+    --width-content: 1440px;
+    --width-page: 1120px;
+    font-family: var(--font-sans);
+    color: var(--foreground);
+    background: var(--background);
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  :root[data-theme="light"] {
+    color-scheme: light;
+  }
+
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+  }
+
+  body {
+    font-size: var(--text-sm);
+    line-height: 1.5;
+  }
+
+  ::selection {
+    color: var(--foreground);
+    background: color-mix(in srgb, var(--primary) 25%, var(--background));
+  }
+
+  input,
+  textarea {
+    caret-color: var(--primary);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}

@@ -2,7 +2,7 @@ name: Template-owned files
 
 # A project takes some files from the template, and changes them only with a
 # sync. This check fails a pull request that changes one of them, until a
-# maintainer approves the change. `scripts/check-template-owned-files.mjs`
+# maintainer approves the change. `scripts/check-template-owned-files.ts`
 # has the rules, and `docs/agents/setup.md` the setup for a project.
 #
 # The trigger is `pull_request_target`, so GitHub runs this file and the
@@ -40,11 +40,17 @@ jobs:
         with:
           persist-credentials: false
 
-      # The script uses only the modules of Node, so it needs no install,
-      # and the Node of the runner image runs it. A result after a new label
-      # then takes seconds.
+      # The scripts are TypeScript, and the pinned Node removes their types.
+      # The Node of the runner image can be too old for that.
+      - name: Set up the pinned Node
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+
+      # The script uses only the modules of Node, so it needs no install. A
+      # result after a new label then takes seconds.
       - name: Check the changed files
-        run: node scripts/check-template-owned-files.mjs
+        run: node scripts/check-template-owned-files.ts
         env:
           GH_TOKEN: ${{ github.token }}
           TEMPLATE_MAINTAINERS: ${{ vars.TEMPLATE_MAINTAINERS }}

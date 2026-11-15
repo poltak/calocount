@@ -20,6 +20,11 @@ export interface ApiClientProps {
   profile?: Profile;
 }
 
+/** Hono substitutes path parameters without encoding them. Encode once here. */
+export function encodeApiParam(value: string): string {
+  return encodeURIComponent(value);
+}
+
 /**
  * First-party client for routes under `/api`. Its endpoint and request types
  * come from the Hono routes.

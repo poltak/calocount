@@ -34,6 +34,8 @@ test.describe("the privacy policy", () => {
       "Security",
       "Your choices",
     ]);
+    // The policy text states this date. It does not come from the clock.
+    // oxlint-disable-next-line testing/no-fixed-date-in-expect
     await expect(privacy.effectiveDate).toContainText("August 30, 2026");
     await expect(privacy.section("Information we process")).toContainText(
       "Entry name, calories, protein, carbohydrates, fat, and consumed time.",

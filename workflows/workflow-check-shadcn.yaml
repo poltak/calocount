@@ -1,0 +1,15 @@
+id: 430b7707-f126-4df2-b849-0492f8c7dbe8
+name: check-shadcn
+description: Compare the generated UI files with the pinned shadcn CLI output.
+version: 1
+jobs:
+  - name: compare
+    steps:
+      - name: compare
+        task:
+          type: model_method
+          modelType: command/shell
+          modelName: check-shadcn
+          methodName: execute
+          inputs:
+            run: pnpm run check:shadcn

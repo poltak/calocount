@@ -191,3 +191,6 @@ vite.config.ts.timestamp-*
 
 # Per-instance ChatGPT app mapping; copy .app.example.json
 /plugins/calocount-meal-tracker/.app.json
+
+# The mutation script deletes these test copies after the run.
+*.mutated.spec.ts

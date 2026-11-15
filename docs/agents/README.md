@@ -12,16 +12,33 @@ instructions.
   before changing a table, a migration, or a transaction.
 - [Testing](testing.md): what a test contains and how to write one. Read
   before writing or changing a test.
+- [UI components](ui-components.md): the shared components, the theme, and the
+  rules for UI. Read before writing or changing UI in `frontend`.
+- [UI screens](ui-screens.md): the screenshots and measurements of each page
+  on fake data. Read before adding a route, or before a UI review.
+- [UI review skill](../../.agents/skills/ui-review/SKILL.md): a fresh subagent
+  checks each UI change from the person's request, a base ref, and routes.
+  The [UI design skill](../../.agents/skills/ui-design/SKILL.md) ends with this
+  review. The reviewer reports findings and does not change code.
 - [Decisions](decisions.md): the choices of the template and their reasons.
   Read before changing a framework, authentication, the API transport, or test
   setup.
 - [Setup and commands](setup.md): read to run, configure, or check the project.
 - [Hosting](hosting.md): what the root of a host must do, and what is tied to
   Node. Read before adding a host, or before running more than one instance.
+- [Scripts of agent tasks](agent-scripts.md): the scripts and the Swamp
+  workflows that do the fixed steps of agent tasks, and why. Read before you
+  add a script for a task step, or change one.
+- [Project hooks](project-hooks.md): how a project adds its own agent hooks
+  without changing a template file. Read before you add a guard or a check
+  that runs before a tool call.
 - [Beads](beads.md): the issue tracker, its version, and how to join it or
   turn it on. Read before setting up beads.
 - [Agent review](agent-review.md): the review of each pull request by models
-  in CI. Read before a change to its rules, its workflow, or its secrets.
+  in CI, and the settings that a repository needs for it. Read before a change
+  to its rules, its workflow, or its secrets, and before you turn it on.
+- [CI](ci.md): how the CI workflows check a pull request, and why. Read
+  before a change to `ci.yml`.
 - [Evals](evals.md): how to measure a prompt with real models. Read before
   writing or running an eval.
 - [Route classes](recipes/route-classes.md): the rules for a route that needs
@@ -53,28 +70,30 @@ a file when it needs one:
 
 ## Where to start reading the code
 
-| To understand                                  | Start at                                                                                 |
-| ---------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| How the backend is assembled                   | `backend/src/features/core/compose-app.ts`, `…/core/types.ts`                            |
-| Live and test backend setup                    | `backend/src/features/core/live/`, `…/core/tests/`                                       |
-| Backend routes and startup                     | `backend/src/features/core/server/`                                                      |
-| Errors and request validation                  | `backend/src/features/core/errors/`, `…/core/handlers/`                                  |
-| How the frontend is assembled                  | `frontend/src/main.tsx`, `frontend/src/features/core/`                                   |
-| Pages and routing                              | `frontend/src/features/core/ui/routes.tsx`                                               |
-| Calling the backend                            | `frontend/src/features/api/client/`                                                      |
-| Logic and events                               | `common/src/features/core/`                                                              |
-| Logging and Core Services                      | `common/src/features/core/services/`                                                     |
-| Request log and request IDs                    | `backend/src/features/core/handlers/`, `…/core/server/`                                  |
-| A complete backend feature                     | `backend/src/features/health/`                                                           |
-| The architecture lint rules and their options  | `lint/`, `.oxlintrc.json`, `lint.project.json`                                           |
-| How a project takes template changes           | `scripts/sync-template.mjs`, `workflows/`                                                |
-| What stops an edit of a file from the template | `.agents/hooks/guard-template-owned-files.mjs`, `scripts/check-template-owned-files.mjs` |
-| What tells an agent that a command was slow    | `.agents/hooks/warn-slow-commands.mjs`                                                   |
-| The test fixture                               | `frontend/src/features/core/tests/full-application.ts`                                   |
-| The build checks in a real browser             | `frontend/src/features/core/tests/browser/built-app.spec.ts`                             |
-| The black box test fixture                     | `frontend/src/features/core/black-box-tests/black-box-test.ts`                           |
-| Model black box tests and page objects         | `frontend/src/features/auth/black-box-tests/`                                            |
-| The eval harness and the model service         | `backend/src/features/core/evals/`, `…/core/scripts/eval-command.ts`, `…/ai/services/`   |
+| To understand                                  | Start at                                                                                                  |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| How the backend is assembled                   | `backend/src/features/core/compose-app.ts`, `…/core/types.ts`                                             |
+| Live and test backend setup                    | `backend/src/features/core/live/`, `…/core/tests/`                                                        |
+| Backend routes and startup                     | `backend/src/features/core/server/`                                                                       |
+| Errors and request validation                  | `backend/src/features/core/errors/`, `…/core/handlers/`                                                   |
+| How the frontend is assembled                  | `frontend/src/main.tsx`, `frontend/src/features/core/`                                                    |
+| The shared UI components and the theme         | `frontend/src/features/core/ui/core/`, `…/core/ui/shadcn/`, `…/core/ui/theme.css`, `…/component-library/` |
+| Pages and routing                              | `frontend/src/features/core/ui/routes.tsx`                                                                |
+| Calling the backend                            | `frontend/src/features/api/client/`                                                                       |
+| Logic and events                               | `common/src/features/core/`                                                                               |
+| Logging and Core Services                      | `common/src/features/core/services/`                                                                      |
+| Request log and request IDs                    | `backend/src/features/core/handlers/`, `…/core/server/`                                                   |
+| A complete backend feature                     | `backend/src/features/health/`                                                                            |
+| The architecture lint rules and their options  | `lint/`, `.oxlintrc.json`, `lint.project.json`                                                            |
+| How a project takes template changes           | `scripts/sync-template.ts`, `workflows/`                                                                  |
+| What stops an edit of a file from the template | `.agents/hooks/guard-template-owned-files.ts`, `scripts/check-template-owned-files.ts`                    |
+| What runs a project's own agent hooks          | `.agents/hooks/run-project-hooks.ts`, `docs/agents/project-hooks.md`                                      |
+| What tells an agent that a command was slow    | `.agents/hooks/warn-slow-commands.ts`                                                                     |
+| The test fixture                               | `frontend/src/features/core/tests/full-application.ts`                                                    |
+| The build checks in a real browser             | `frontend/src/features/core/tests/browser/built-app.spec.ts`                                              |
+| The black box test fixture                     | `frontend/src/features/core/black-box-tests/black-box-test.ts`                                            |
+| Model black box tests and page objects         | `frontend/src/features/auth/black-box-tests/`                                                             |
+| The eval harness and the model service         | `backend/src/features/core/evals/`, `…/core/scripts/eval-command.ts`, `…/ai/services/`                    |
 
 ### The model feature
 

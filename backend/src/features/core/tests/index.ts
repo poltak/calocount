@@ -156,7 +156,6 @@ export function createApp({
   };
 }
 
-/** Give a new test database the schema of the application. */
 export function migrateTestDatabase({ app }: { app: TestApp }): Promise<void> {
   bindingOf(app.db).migrate();
   return Promise.resolve();

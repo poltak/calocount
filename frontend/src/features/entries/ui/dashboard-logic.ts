@@ -11,6 +11,7 @@ import type { WeightEvents } from "../../weights/types.js";
 import {
   ApiRequestError,
   requireApiSuccess,
+  encodeApiParam,
 } from "../../api/client/api-client.js";
 import type { TrendRange } from "../../core/utils/trend-range.js";
 import { LatestRequest } from "../../core/logic/latest-request.js";
@@ -490,7 +491,7 @@ export class DashboardLogic extends Logic<
     try {
       const response = await this.reads.day(
         {
-          param: { date },
+          param: { date: encodeApiParam(date) },
           query: { timezone: this.deps.services.clock.timeZone() },
         },
         { init: { signal } },

@@ -1,6 +1,6 @@
 {
   "template": "git@github.com:WorldBrain/worldbrain-boilerplate.git",
-  "commit": "1658a67dc9faa0f988f3c0fd6ab8b72572983ce9",
+  "commit": "4cbaad8cdb1eb44a7f6bd3c1f63f1e6e47c1e9c9",
   "skipped": [],
   "ownPaths": [
     {
@@ -22,6 +22,46 @@
     {
       "path": "docs/agents/database.md",
       "reason": "Calocount's database rules are for D1: an atomic batch in place of transactions"
+    },
+    {
+      "path": "frontend/src/features/core/ui/app.css",
+      "reason": "Calocount draws its pages with its own CSS and routes"
+    },
+    {
+      "path": "frontend/src/features/core/ui/routes.tsx",
+      "reason": "Calocount draws its pages with its own CSS and routes"
+    },
+    {
+      "path": "frontend/src/features/core/utils/class-names.ts",
+      "reason": "Calocount draws its pages with its own CSS and routes"
+    },
+    {
+      "path": "frontend/src/features/auth/ui/login-page.tsx",
+      "reason": "Calocount signs in with passkeys and has no sign-up or template app shell"
+    },
+    {
+      "path": "frontend/src/features/auth/ui/sign-up-page.tsx",
+      "reason": "Calocount signs in with passkeys and has no sign-up or template app shell"
+    },
+    {
+      "path": "frontend/src/features/core/black-box-tests/app-shell-page-object.ts",
+      "reason": "Calocount signs in with passkeys and has no sign-up or template app shell"
+    },
+    {
+      "path": "frontend/src/features/component-library/",
+      "reason": "Calocount does not load the template's UI theme or gallery"
+    },
+    {
+      "path": "frontend/src/features/auth/black-box-tests/auth.screens.ts",
+      "reason": "Calocount does not load the template's UI theme or gallery"
+    },
+    {
+      "path": "frontend/src/features/core/black-box-tests/app-shell.screens.ts",
+      "reason": "Calocount does not load the template's UI theme or gallery"
+    },
+    {
+      "path": "frontend/src/features/core/tests/browser/color-scheme.spec.ts",
+      "reason": "Calocount does not load the template's UI theme or gallery"
     }
   ]
 }

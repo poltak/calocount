@@ -1,6 +1,7 @@
 import { statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { APP_NAME } from "@app/common/features/core/utils/app-name";
+import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { loadEnv, type Plugin } from "vite";
 import { defineConfig } from "vitest/config";
@@ -101,7 +102,11 @@ export default defineConfig(({ mode }) => {
   const backendOrigin = `http://127.0.0.1:${env.DEV_WORKER_PORT || "8787"}`;
 
   return {
+    resolve: {
+      alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
+    },
     plugins: [
+      tailwindcss(),
       react(),
       writeAppName(),
       holdApiRequestsUntilBackendAnswers(backendOrigin),
