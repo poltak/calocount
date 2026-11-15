@@ -25,3 +25,15 @@ script, and checks only what that client gets back.
 - Check the status, the headers and the body that the client reads. Do not
   check a value that the client does not use, such as an internal ID format.
 - A behavior that a page shows belongs in a black-box test, not here.
+
+## Controls of the black-box fixture
+
+`docs/agents/testing.md` says to extend the fixture when a test cannot make a
+condition by real means, and to record the control. Calocount's fixture in
+`frontend/src/features/core/black-box-tests/black-box-test.ts` adds:
+
+- `returnToTab(page)`: the owner looks at another tab of the same window and
+  comes back. A headless browser keeps each tab visible, and Chrome DevTools
+  has no control of the visibility, so no real switch fires the
+  `visibilitychange` that a person's browser fires. The control fires that
+  event on the page.
