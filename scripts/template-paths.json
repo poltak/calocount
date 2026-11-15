@@ -92,6 +92,8 @@
     "scripts/agent-review-plan.ts",
     "scripts/agent-review-prompt.ts",
     "scripts/agent-review-rules.ts",
+    "scripts/agent-review-script-findings.test.ts",
+    "scripts/agent-review-script-findings.ts",
     "scripts/agent-review-shared.ts",
     "scripts/agent-review-summary.ts",
     "scripts/agent-review-types.ts",
