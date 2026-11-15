@@ -7,7 +7,6 @@ import type { TestContext } from "node:test";
 import { commitAll, repository } from "./agent-review-fixtures.ts";
 import type { Finding } from "./agent-review-types.ts";
 
-/** Writes the files, commits them, and returns what the script reports. */
 async function findingsOf(
   context: TestContext,
   {

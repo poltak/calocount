@@ -29,7 +29,6 @@ const script = (finding: Omit<Finding, "models">): Finding => ({
   models: ["script"],
 });
 
-/** Returns the lines that the diff adds, with their line numbers at head. */
 function addedIn({ base, head }: Range, file: string): AddedLine[] {
   const diff = git(
     "diff",
@@ -58,7 +57,6 @@ function addedIn({ base, head }: Range, file: string): AddedLine[] {
   return added;
 }
 
-/** Returns the numbers of the lines in fenced code blocks, fences included. */
 function fencedLines(text: string): Set<number> {
   const fenced = new Set<number>();
   let open: { char: string; length: number } | undefined;
@@ -151,7 +149,6 @@ export function decisionFiles(range: Range): Finding[] {
   );
 }
 
-/** Finds the plan lines that the pull request adds in `docs/agents/`. */
 export function planLines(range: Range): Finding[] {
   const found: Finding[] = [];
   for (const file of changedFiles(range, "AM", "docs/agents/")) {
