@@ -43,6 +43,13 @@ interface BlackBoxFixtures {
    * session: the owner's other phone or laptop.
    */
   otherDevicePage: Page;
+  /**
+   * The owner looks at another tab of the same window and comes back to the
+   * page. A headless browser keeps each tab visible, so no real switch fires
+   * the `visibilitychange` that a person's browser fires. This control fires
+   * it on the page as that browser does.
+   */
+  returnToTab: (page: Page) => Promise<void>;
 }
 
 /**
@@ -121,6 +128,13 @@ export const test = base.extend<BlackBoxOptions & BlackBoxFixtures>({
   passkeyDevice: [false, { option: true }],
   setupCode: async ({}, provide) => {
     await provide(SETUP_CODE);
+  },
+  returnToTab: async ({}, provide) => {
+    await provide(async (page) => {
+      await page.evaluate(() => {
+        globalThis.document.dispatchEvent(new Event("visibilitychange"));
+      });
+    });
   },
   page: async (
     { page, browser, baseURL, authenticated, passkeyDevice },
