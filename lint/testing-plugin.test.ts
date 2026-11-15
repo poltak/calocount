@@ -150,6 +150,13 @@ test("builds each date in an expected value from the clock or the date helpers",
     "frontend/src/features/notes/black-box-tests/frozen.spec.ts": spec(
       '  await (page as any).clock.setFixedTime(new Date("2026-11-08T10:00:00"));\n  await expect(row).toHaveText("Nov 8");\n',
     ),
+    "frontend/src/features/notes/black-box-tests/installed.spec.ts": spec(
+      '  await (page as any).clock.install({ time: new Date("2026-11-08T10:00:00") });\n  await expect(row).toHaveText("Nov 8");\n',
+    ),
+    // Without a `time`, the fake clock starts at the real time.
+    "frontend/src/features/notes/black-box-tests/real-time.spec.ts": spec(
+      '  await (page as any).clock.install();\n  await expect(row).toHaveText("Nov 8");\n',
+    ),
     "frontend/src/features/notes/api-tests/export.api-spec.ts": spec(
       '  expect(await row).toEqual("2026-11-08");\n',
     ),
@@ -168,6 +175,7 @@ test("builds each date in an expected value from the clock or the date helpers",
       "frontend/src/features/notes/black-box-tests/long.spec.ts: testing(no-fixed-date-in-expect)",
       "frontend/src/features/notes/black-box-tests/month.spec.ts: testing(no-fixed-date-in-expect)",
       "frontend/src/features/notes/black-box-tests/numeric.spec.ts: testing(no-fixed-date-in-expect)",
+      "frontend/src/features/notes/black-box-tests/real-time.spec.ts: testing(no-fixed-date-in-expect)",
     ],
   );
 });

@@ -396,9 +396,17 @@ const MONTH =
 const CALENDAR_DATE = new RegExp(
   `\\b${MONTH}\\.?\\s+\\d{1,2}\\b|\\b\\d{1,2}(?:st|nd|rd|th)?\\s+${MONTH}\\b|\\b\\d{4}-\\d{2}-\\d{2}\\b|\\b\\d{1,2}/\\d{1,2}/\\d{2,4}\\b`,
 );
-const CLOCK_METHODS = ["install", "setFixedTime", "setSystemTime"];
+const CLOCK_METHODS = ["setFixedTime", "setSystemTime"];
 
-/** `expect(x)`, `expect.soft(x)`, and `expect.poll(x)`, with any chain of `.not` or `.resolves`. */
+// `clock.install()` without a `time` starts the fake clock at the real time,
+// so the date that the page shows still changes from day to day.
+const setsClock = (name: string, options: AstNode | undefined) =>
+  CLOCK_METHODS.includes(name) ||
+  (name === "install" &&
+    (options?.properties ?? []).some(
+      (member) => (member.key?.name ?? member.key?.value) === "time",
+    ));
+
 function isExpectChain(node: AstNode | undefined): boolean {
   let current = node;
   while (current?.type === "MemberExpression") {
@@ -416,7 +424,8 @@ function isExpectChain(node: AstNode | undefined): boolean {
   );
 }
 
-/** The static text of a string or a template literal, with a NUL where a value goes. */
+// A NUL in place of each value keeps a date pattern from matching across a
+// value, so that `Nov ${day}` is not a fixed date.
 function staticText(node: AstNode): string | null {
   if (node.type === "Literal" && typeof node.value === "string") {
     return node.value;
@@ -432,12 +441,12 @@ const noFixedDateInExpect: Rule = {
     type: "problem",
     docs: {
       description:
-        "A black box or API test builds the date in an expected value from its clock or date helpers.",
+        "A black box or API test builds the date in an expected value from today's date or a fixed clock.",
     },
     schema: [],
     messages: {
       fixed:
-        "Build the expected date from the test's clock or date helpers. A fixed date passes only on the day it was written. " +
+        "Build the expected date from today's date, or fix the date with page.clock.setFixedTime(). A fixed date passes only on the day it was written. " +
         BLACK_BOX_DOC +
         ".",
     },
@@ -461,7 +470,7 @@ const noFixedDateInExpect: Rule = {
         }
         const name = callee.property?.name ?? "";
         if (
-          CLOCK_METHODS.includes(name) &&
+          setsClock(name, node.arguments[0]) &&
           callee.object?.type === "MemberExpression" &&
           callee.object.property?.name === "clock"
         ) {
