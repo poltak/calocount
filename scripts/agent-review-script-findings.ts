@@ -5,8 +5,9 @@ import { git } from "./agent-review-shared.ts";
 import type { Finding, Range } from "./agent-review-types.ts";
 
 const CHECKLIST_ITEM = /^\s*[-*+] \[[ xX]\] /;
+// Four spaces or more make an indented code block, not a heading.
 const PLAN_HEADING =
-  /^#{1,6}\s+(?:.*\bphase \d+\b|(?:phases|next steps|to ?dos?|roadmap)\b)/i;
+  /^ {0,3}#{1,6}\s+(?:.*\bphase \d+\b|(?:phases|next steps|to ?dos?|roadmap)\b)/i;
 const DATED_STATUS = /\bas built on \d{4}-\d{2}-\d{2}\b/i;
 
 const DECISION_FILES: Record<string, string> = {
@@ -127,24 +128,40 @@ export function newDocuments({ base, head }: Range): Finding[] {
     );
 }
 
-/** No model can know if the team agreed to a change of these two files. */
+/**
+ * No model can know if the team agreed to a change of these two files. Each
+ * added line gets its own finding, so that an entry that a later commit adds
+ * does not match an approved finding of an earlier entry.
+ */
 export function decisionFiles(range: Range): Finding[] {
-  return changedFiles(range, "AM", ...Object.keys(DECISION_FILES)).map(
+  return changedFiles(range, "AM", ...Object.keys(DECISION_FILES)).flatMap(
     (file) => {
-      const lines = git("show", `${range.head}:${file}`).split("\n");
-      const added = addedIn(range, file).find(({ text }) =>
+      const explanation = DECISION_FILES[file] ?? "";
+      const added = addedIn(range, file).filter(({ text }) =>
         /[\p{L}\p{N}]/u.test(text),
       );
+      if (added.length > 0) {
+        return added.map(({ line, text }) =>
+          script({
+            rule: "decision-change",
+            file,
+            line,
+            quote: text.trim(),
+            explanation,
+          }),
+        );
+      }
+      const lines = git("show", `${range.head}:${file}`).split("\n");
       const first = lines.findIndex((text) => text.trim());
-      return script({
-        rule: "decision-change",
-        file,
-        line: added?.line ?? first + 1,
-        quote: (added?.text ?? lines[first] ?? "").trim(),
-        explanation: added
-          ? (DECISION_FILES[file] ?? "")
-          : `${DECISION_FILES[file]} The change only removes lines.`,
-      });
+      return [
+        script({
+          rule: "decision-change",
+          file,
+          line: first + 1,
+          quote: (lines[first] ?? "").trim(),
+          explanation: `${explanation} The change only removes lines.`,
+        }),
+      ];
     },
   );
 }
@@ -176,7 +193,7 @@ export function planLines(range: Range): Finding[] {
         previous = line;
       } else {
         previous = -2;
-        if (PLAN_HEADING.test(trimmed) || DATED_STATUS.test(text)) {
+        if (PLAN_HEADING.test(text) || DATED_STATUS.test(text)) {
           found.push(make());
         }
       }

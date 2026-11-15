@@ -46,16 +46,28 @@ console.log(JSON.stringify(scriptFindings({ base: "${base}", head: "${head}" }))
 const doc = "docs/agents/notes.md";
 const lines = (...text: string[]) => `${text.join("\n")}\n`;
 
-test("a changed decision file gives one finding at its first added line", async (context) => {
+test("each line that a decision file adds gives its own finding", async (context) => {
   const found = await findingsOf(context, {
     before: { "lint.project.json": '{\n  "a": 1\n}\n' },
     after: { "lint.project.json": '{\n  "a": 1,\n  "b": 2\n}\n' },
   });
-  assert.equal(found.length, 1);
-  assert.equal(found[0]?.rule, "decision-change");
-  assert.equal(found[0]?.file, "lint.project.json");
-  assert.equal(found[0]?.line, 2);
-  assert.equal(found[0]?.quote, '"a": 1,');
+  assert.deepEqual(
+    found.map(({ rule, file, line, quote }) => ({ rule, file, line, quote })),
+    [
+      {
+        rule: "decision-change",
+        file: "lint.project.json",
+        line: 2,
+        quote: '"a": 1,',
+      },
+      {
+        rule: "decision-change",
+        file: "lint.project.json",
+        line: 3,
+        quote: '"b": 2',
+      },
+    ],
+  );
   assert.deepEqual(found[0]?.models, ["script"]);
   assert.doesNotMatch(found[0]?.explanation ?? "", /only removes/);
 });
@@ -109,6 +121,7 @@ test("headings that name a plan and a dated status give findings", async (contex
         "## Phases",
         "## TODO",
         "## Roadmap",
+        "    ## Phase 3",
         "As built on 2026-10-20 the table exists.",
       ),
     },
