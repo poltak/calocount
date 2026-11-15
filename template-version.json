@@ -46,6 +46,22 @@
     {
       "path": "frontend/src/features/core/black-box-tests/app-shell-page-object.ts",
       "reason": "Calocount signs in with passkeys and has no sign-up or template app shell"
+    },
+    {
+      "path": "frontend/src/features/component-library/",
+      "reason": "Calocount does not load the template's UI theme or gallery"
+    },
+    {
+      "path": "frontend/src/features/auth/black-box-tests/auth.screens.ts",
+      "reason": "Calocount does not load the template's UI theme or gallery"
+    },
+    {
+      "path": "frontend/src/features/core/black-box-tests/app-shell.screens.ts",
+      "reason": "Calocount does not load the template's UI theme or gallery"
+    },
+    {
+      "path": "frontend/src/features/core/tests/browser/color-scheme.spec.ts",
+      "reason": "Calocount does not load the template's UI theme or gallery"
     }
   ]
 }
