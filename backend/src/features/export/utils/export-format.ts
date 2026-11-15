@@ -36,6 +36,7 @@ export interface ExportData {
   settings: unknown;
   weights: unknown[];
   goalChanges: unknown[];
+  aiRuns: unknown[];
 }
 
 const encoder = new TextEncoder();
@@ -109,6 +110,7 @@ function* jsonChunks(data: ExportData, exportedAt: Date): Generator<string> {
     settings: data.settings,
     weights: data.weights,
     goalChanges: data.goalChanges,
+    aiRuns: data.aiRuns,
   }).slice(0, -1)},"meals":[`;
   for (const [index, entry] of data.entries.entries()) {
     if (index > 0) {

@@ -47,6 +47,16 @@ test.describe("owner export", () => {
         }),
       );
     }
+    // The tests cannot make an AI run, so the array is empty.
+    expect(body.aiRuns).toEqual([]);
+    expect(Object.keys(body)).toEqual([
+      "exportedAt",
+      "settings",
+      "weights",
+      "goalChanges",
+      "aiRuns",
+      "meals",
+    ]);
     expect(JSON.stringify(body)).not.toContain("ownerKey");
     const csv = await ownerRequest.get(`${apiOrigin}/api/export?format=csv`);
     expect(csv.status()).toBe(200);

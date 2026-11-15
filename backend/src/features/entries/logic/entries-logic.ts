@@ -76,6 +76,20 @@ export class EntriesLogic extends Logic<EntriesProps, Record<string, never>> {
     }
   }
 
+  async get({
+    ownerKey,
+    id,
+  }: {
+    ownerKey: string;
+    id: string;
+  }): Promise<MealWithItems> {
+    const entry = await this.deps.storage.entries.findEntry({ ownerKey, id });
+    if (!entry) {
+      throw new AppError(NOT_FOUND);
+    }
+    return entry;
+  }
+
   /**
    * Change an entry. The totals of an entry always equal the sum of its items,
    * so an edit that gives no items keeps the old items and the totals follow

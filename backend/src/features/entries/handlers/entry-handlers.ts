@@ -33,6 +33,13 @@ export function createEntryHandlers({ logic }: EntryHandlerProps) {
         return context.json({ meal: serialiseEntry(entry) }, 201);
       },
     )
+    .get("/:id", validator("param", idParamSchema), async (context) => {
+      const entry = await logic.entries.get({
+        ownerKey: context.get("session").ownerKey,
+        id: context.req.valid("param").id,
+      });
+      return context.json({ meal: serialiseEntry(entry) }, 200);
+    })
     .patch(
       "/:id",
       validator("param", idParamSchema),

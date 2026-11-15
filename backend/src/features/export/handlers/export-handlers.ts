@@ -48,6 +48,7 @@ export function createExportHandlers({ logic }: ExportHandlerProps) {
         exportedAt: new Date(everything.exportedAt),
         data: {
           entries: everything.entries,
+          aiRuns: everything.aiRuns.map(withoutOwnerKey),
           settings: settings ? withoutOwnerKey(settings) : null,
           // Newest first, as the old export had them.
           weights: weights.toReversed(),

@@ -6,6 +6,7 @@ import {
 } from "../../core/database/planned-statement.js";
 import type { BackendStorageProps } from "../../core/storage/types.js";
 import type {
+  AiRunRow,
   MealWithItems,
   NewMealItem,
   NewMealLog,
@@ -226,6 +227,17 @@ export class EntriesStorage {
       .where("status", "=", "complete")
       .where("consumedAt", ">=", from)
       .where("consumedAt", "<", to)
+      .execute();
+  }
+
+  /** The AI runs of the owner, newest first, for the export. */
+  async listAiRuns({ ownerKey }: { ownerKey: string }): Promise<AiRunRow[]> {
+    return this.deps.db
+      .selectFrom("aiRuns")
+      .selectAll()
+      .where("ownerKey", "=", ownerKey)
+      .orderBy("createdAt", "desc")
+      .orderBy("id", "desc")
       .execute();
   }
 

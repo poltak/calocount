@@ -159,16 +159,20 @@ export class EntryReadsLogic extends Logic<
     };
   }
 
-  /** Every entry of the owner as the API sends it, newest first, and the time of the read, for the export. */
+  /** Every entry and AI run of the owner as the API sends them, newest first, and the time of the read, for the export. */
   async everything({ ownerKey }: { ownerKey: string }) {
-    const entries = await this.deps.storage.entries.listEntriesInRange({
-      ownerKey,
-      from: 0,
-      to: Number.MAX_SAFE_INTEGER,
-    });
+    const [entries, aiRuns] = await Promise.all([
+      this.deps.storage.entries.listEntriesInRange({
+        ownerKey,
+        from: 0,
+        to: Number.MAX_SAFE_INTEGER,
+      }),
+      this.deps.storage.entries.listAiRuns({ ownerKey }),
+    ]);
     return {
       exportedAt: this.deps.services.clock.now(),
       entries: entries.map(serialiseEntry),
+      aiRuns,
     };
   }
 

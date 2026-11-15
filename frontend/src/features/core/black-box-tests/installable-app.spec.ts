@@ -48,4 +48,17 @@ test.describe("the app can be installed", () => {
       expect(response.headers()["content-type"], icon.src).toBe("image/png");
     }
   });
+
+  test("should serve a service worker and register it", async ({ page }) => {
+    const today = new TodayPageObject(page);
+    const pwa = new PwaPageObject(page);
+    await today.goto();
+
+    const script = await pwa.open("/sw.js");
+    expect(script.status()).toBe(200);
+    expect(script.headers()["content-type"]).toMatch(/javascript/);
+
+    await today.goto();
+    expect(await pwa.serviceWorkerUrl()).toMatch(/\/sw\.js$/);
+  });
 });

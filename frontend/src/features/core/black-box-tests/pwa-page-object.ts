@@ -49,4 +49,13 @@ export class PwaPageObject {
     }
     return response;
   }
+
+  /** The address of the service worker that the page registered, once the browser runs it. */
+  async serviceWorkerUrl(): Promise<string> {
+    const context = this.page.context();
+    const worker =
+      context.serviceWorkers()[0] ??
+      (await context.waitForEvent("serviceworker"));
+    return worker.url();
+  }
 }

@@ -45,3 +45,12 @@ createRoot(rootElement, {
     </FrontendAppProvider>
   </StrictMode>,
 );
+
+// The worker only passes requests to the network. It makes the app installable.
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker
+      .register("/sw.js", { scope: "/" })
+      .catch(() => undefined);
+  });
+}

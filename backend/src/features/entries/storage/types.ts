@@ -92,7 +92,25 @@ interface AnalysisJobTable {
 interface AiRunTable {
   id: string;
   mealId: string | null;
+  jobId: string | null;
   ownerKey: string;
+  requestId: string | null;
+  adapter: string;
+  requestedModel: string | null;
+  actualModel: string | null;
+  upstreamProvider: string | null;
+  fallbackFromModel: string | null;
+  promptVersion: string | null;
+  schemaVersion: string | null;
+  inputTextTokens: number | null;
+  inputImageTokens: number | null;
+  outputTokens: number | null;
+  reportedCostUsd: number | null;
+  rawUsageJson: string | null;
+  status: string;
+  errorCode: string | null;
+  latencyMs: number | null;
+  createdAt: number;
 }
 
 export interface EntriesTables {
@@ -107,6 +125,7 @@ export interface EntriesTables {
 type MealLogRow = Selectable<MealLogTable>;
 export type MealItemRow = Selectable<MealItemTable>;
 export type SavedEntryRow = Selectable<SavedEntryTable>;
+export type AiRunRow = Selectable<AiRunTable>;
 export type NewMealLog = MealLogTable;
 export type NewMealItem = MealItemTable;
 export type NewMealRevision = MealRevisionTable;
