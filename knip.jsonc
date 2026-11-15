@@ -54,8 +54,20 @@
         // Phase 2 moves the pages to these CLI files. Keep only this directory.
         "src/features/core/ui/shadcn/*.{ts,tsx}",
       ],
-      // The page registers it by its address, so no code imports it.
-      "ignore": ["public/sw.js"],
+      // Calocount keeps the template's UI kit, so that each sync applies, but
+      // it draws its pages with its own CSS and does not load the kit's theme.
+      // No Calocount page has a screen file yet, so no file loads `screens.ts`.
+      "ignoreDependencies": ["tailwindcss", "tw-animate-css"],
+      "ignore": [
+        // The page registers it by its address, so no code imports it.
+        "public/sw.js",
+        "src/features/core/tests/browser/screens.ts",
+        "src/features/core/ui/core/app-layout.tsx",
+        "src/features/core/ui/project.css",
+        "src/features/core/ui/shadcn.css",
+        "src/features/core/ui/theme.css",
+        "src/features/core/ui/worldbrain.css",
+      ],
     },
   },
 }

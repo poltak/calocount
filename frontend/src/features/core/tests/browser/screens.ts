@@ -1,7 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { Page } from "@playwright/test";
-import { BACKEND_ORIGIN } from "./origins.js";
 
 /**
  * A page for the UI review: `route` is the pattern in the route table, such
@@ -51,7 +50,7 @@ export async function seedThroughApi<Answer>(
   apiPath: string,
   data: unknown,
 ): Promise<Answer> {
-  const response = await page.request.post(`${BACKEND_ORIGIN}${apiPath}`, {
+  const response = await page.request.post(apiPath, {
     data,
   });
   if (!response.ok()) {
