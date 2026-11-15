@@ -1,5 +1,11 @@
 {
   "template": "git@github.com:WorldBrain/worldbrain-boilerplate.git",
   "commit": "1658a67dc9faa0f988f3c0fd6ab8b72572983ce9",
-  "skipped": []
+  "skipped": [],
+  "ownPaths": [
+    {
+      "path": "backend/src/features/core/database/pglite-database.ts",
+      "reason": "Calocount runs on Cloudflare D1, so it has no PGlite"
+    }
+  ]
 }
