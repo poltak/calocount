@@ -8,41 +8,25 @@ Calocount is a single-user meal tracker. The public root is read-only, and the o
 - Cloudflare D1 stores settings, goal changes, meals, meal items, revisions, and historical job and AI records.
 - A private R2 bucket stores meal photos.
 - The Worker's hourly cron trigger runs a bounded, resumable scan that removes only unlinked R2 photos older than the 24-hour grace period.
-- A passkey and a session cookie protect the private owner route and private APIs. OAuth 2.1 protects the MCP endpoint. An instance can use Cloudflare Access instead. [sign-in.md](sign-in.md) describes both modes.
+- A passkey and a session cookie protect the private owner route and private APIs. OAuth 2.1 protects the MCP endpoint. [sign-in.md](sign-in.md) describes the sign-in.
 - Historical D1 tables for analysis jobs and AI runs remain. Current code does not write to them.
 
-## Pages and browser code
+## Code layout
 
-The Worker has no web framework. `worker/index.ts` gives each request to the
-route table in `worker/routes.ts`, and then to the page templates in
-`worker/pages.ts`. A page is an HTML string. A dashboard page contains the
-loading state, so the first paint needs no script.
+The backend is a Hono app in `backend/`. `backend/src/features/core/server/worker.ts`
+is the Worker entry point. It builds the app once, gives each request to it,
+and runs the hourly photo cleanup. `http-app.ts` in the same folder lists the
+routes. Each feature folder in `backend/src/features/` has its own handlers,
+logic and storage. D1 is reached through Kysely, and the migrations are in
+`backend/migrations/`.
 
-The browser code in `app/ui/` uses the DOM directly and has no rendering
-library. `app/ui/dom.ts` has the helpers. `h` builds an element. A slot is a
-part of the page that is built again when its inputs change. The slot does not
-replace the nodes in the page. It changes them to match the built nodes, and
-it adds or removes only the nodes that differ. A node that stays keeps its
-focus and its open state, and does not play its entry animation again.
+The frontend is a React and Vite app in `frontend/`. `frontend/src/main.tsx`
+starts it, and `frontend/src/features/core/ui/routes.tsx` lists the pages.
+`pnpm run build` writes it to `frontend/dist`, which the Worker serves as
+static assets. Code that the backend and the frontend share is in `common/`.
 
-Three rules decide which node in the page matches a built node:
-
-- Children match by position. An optional child that is absent leaves an
-  empty comment node in its place, so the children after it do not move.
-- An element with a `key` matches only the element with the same key. Use a
-  key for the items of a list that can get or lose items.
-- A node marked with `keep` goes into the page as it is. Mark each node that
-  code holds and changes by itself, such as an open form.
-
-`app/ui/dashboard.ts` keeps the state in one object and asks for one render
-after each change. It builds a form once and keeps the same node while the
-form is open, so the form keeps the text that the owner typed.
-
-The build gives the script and the stylesheet content-hashed names in
-`/assets/`. `public/_headers` tells browsers to cache them for one year.
-
-`tsconfig.client.json` checks `app/ui/` with the DOM types only. The Worker
-types change some DOM types, so the two sets cannot be in one program.
+[docs/agents/code-architecture.md](agents/code-architecture.md) has the rules
+for this code.
 
 ## HTTP route boundary
 
@@ -50,7 +34,7 @@ The application has two dashboard entry points:
 
 - `/` is the public read-only dashboard. It loads the explicit projection from
   `GET /api/public/summary` and projected images from `GET /meal-photos/<mealId>`.
-- `/owner` is the private read-write dashboard. It uses the existing signed-JWT owner APIs.
+- `/owner` is the private read-write dashboard. It uses the private owner APIs, which need a passkey session.
 - `/owner/partner` is the same dashboard for the partner profile. See [Profiles](#profiles).
 
 `/api/public/summary` resolves the configured stable owner key, fails closed when
@@ -71,47 +55,27 @@ The owner turns the public view on or off with the `publicViewEnabled` setting
 in `PATCH /api/settings`. It is off for an owner with no saved settings. While
 it is off, `/api/public/summary` returns `404` with the code `public_view_off`,
 `/meal-photos/<mealId>` returns `404`, `/llms.txt` returns `404`, and `/`
-redirects to `/owner`. The Worker checks the setting on each request, so Access
-can keep the same layout for a public and a private instance. `/llms.txt` is in
+redirects to `/owner`. The Worker checks the setting on each request. `/llms.txt` is in
 `run_worker_first` for this check.
 
 The PWA manifest starts at `/owner` while keeping `id` and `scope` at `/`. This
 keeps installed launches in the private owner dashboard without changing the
 site identity or service-worker scope.
 
-The production Cloudflare Access layout was live-verified on 2026-08-26. The
-existing private Access application protects exact `/owner`, `/owner/*`, and
-`/api/*` destinations with the existing owner Allow policy and the same owner
-JWT audience. A separate Access application protects the exact
-`/api/public/summary` destination with Bypass Everyone. `/`,
-`/meal-photos/*`, and static/PWA assets are public because no Access destination
-matches them. Do not add root or static bypass exceptions, a broad `/*` or
-`/assets/*` bypass, or an `/api/*` bypass.
-
-Anonymous and authenticated live checks must confirm that the public root,
-summary, and projected photos load without login; owner pages, `/api/photos/*`,
-and private APIs require the owner Access session; static/PWA assets are
-reachable anonymously; and removed share routes return `404` when reached.
-Recheck the live Access path list after every Access change; this document
-describes the intended state, not automatic enforcement.
-
 ### Sign-in routes
 
-In passkey mode, no Access application exists. `/owner` shows the sign-in page
-to a browser without a live session. `/api/auth/*` signs in and manages
-passkeys and connected apps. `/.well-known/oauth-*` and `/oauth/*` are the
-OAuth endpoints of the MCP endpoint. Every other `/api/*` route requires the
-passkey session. [sign-in.md](sign-in.md) lists the routes and their rules.
+`/owner` shows the sign-in page to a browser without a live session.
+`/api/auth/*` signs in and manages passkeys and connected apps.
+`/.well-known/oauth-*` and `/oauth/*` are the OAuth endpoints of the MCP
+endpoint. Every other `/api/*` route requires the passkey session, except
+`/api/public/*`. [sign-in.md](sign-in.md) lists the routes and their rules.
 
-### Future route and Access review rule
+### Future route review rule
 
-For the intended public-root/private-owner layout, treat routes as public by
-default unless a private Cloudflare Access destination covers them. Before any
-deployment, give explicit privacy and Access review to every new page outside
+Treat routes as public by default unless the session gate covers them. Before
+any deployment, give explicit privacy review to every new page outside
 `/owner`, every new public API exception, and every new server route outside
-`/api`. Verify the anonymous and owner behavior from deployed requests. This is
-a repository rule for future changes; the current layout was verified on
-2026-08-26.
+`/api`. Verify the anonymous and owner behavior from deployed requests.
 
 ## Profiles
 
@@ -121,7 +85,7 @@ One instance can keep two logs under one sign-in: the `owner` profile and the
 with no saved settings.
 
 - Sign-in data, such as passkeys, sessions and OAuth grants, uses the account
-  key. In passkey mode that is `CALOCOUNT_OWNER_KEY`.
+  key. That is `CALOCOUNT_OWNER_KEY`.
 - The owner's data uses the account key too, so data from before profiles stays
   where it is. The partner's data uses `<account key>:partner`.
 - A private API route reads the profile from the `profile` query value. With no
@@ -133,14 +97,14 @@ with no saved settings.
   request and photo URL. The `/api/auth/*` routes do not use a profile.
 - Each MCP tool takes an optional `profile` argument (`owner` or `partner`), and
   each result names the profile that it used.
-- The public view, `/meal-photos/<mealId>`, `/llms.txt` and the deprecated
-  `POST /api/add-meal` serve only the owner profile.
+- The public view, `/meal-photos/<mealId>`, `/llms.txt` serve only the owner
+  profile.
 
 ## Meal flow
 
-1. The owner enters a meal in the private dashboard, or ChatGPT prepares structured data and calls `add_meals` through the private `/mcp` app. The deprecated Custom GPT Action can still call `POST /api/add-meal` with its bearer token for existing clients.
-2. The shared meal-processing code validates the request and stores the meal, nutrient values, and optional photo in D1 and private R2. A UUID `request_id` makes external retries idempotent.
-3. The public read-only projection updates from the stored meal data. The owner dashboard continues to provide edits, corrections, exports, and private photo access.
+1. The owner enters a meal in the private dashboard, or ChatGPT prepares structured data and calls `add_meals` through the private `/mcp` app.
+2. The shared meal-processing code validates the request and stores the meal, nutrient values, and optional photo in D1 and private R2. A UUID `request_id` makes retries idempotent.
+3. The public read-only projection updates from the stored meal data. The owner dashboard continues to provide edits, exports, and private photo access.
 4. The hourly cron trigger runs a bounded scan and removes only unlinked R2 photos older than the 24-hour grace period.
 
 ## Goal history
@@ -158,9 +122,7 @@ return these rows.
 Calocount does not call an AI provider or run an AI analysis worker. The external
 ChatGPT MCP app prepares the meal estimate and sends structured values to
 `/mcp`; the Worker checks an OAuth access token that the owner allowed with a
-passkey session, or the owner's Cloudflare Access identity in Access mode. The deprecated
-Custom GPT Action uses `POST /api/add-meal` and a Worker bearer-token secret for
-existing clients. Both paths use the shared meal-processing code. For external
+passkey session. ChatGPT corrects a meal with the `update_meal` tool. For external
 photos, the Worker accepts approved temporary OpenAI image references, downloads
 a photo immediately, and does not store the temporary link.
 
@@ -176,11 +138,11 @@ a photo immediately, and does not store the temporary link.
 
 ## Reliability boundary
 
-D1 is the durable source of meal state. External add-meal request IDs make
+D1 is the durable source of meal state. The request ID of a meal makes
 retries idempotent. The hourly photo cleanup is a bounded, resumable scan for
 unlinked photos older than the 24-hour grace period. Historical job tables
 remain, but current code does not use them.
 
 ## Product boundary
 
-Calocount tracks calories, protein, carbohydrates, fat, meal photos, corrections, and optional manual weight entries. It does not contain WHOOP, Apple Health, body-fat, sleep, recovery, or step integrations.
+Calocount tracks calories, protein, carbohydrates, fat, meal photos, and optional manual weight entries. It does not contain WHOOP, Apple Health, body-fat, sleep, recovery, or step integrations.

@@ -1,0 +1,4 @@
+interface:
+    display_name: 'Add Feature'
+    short_description: 'Add a feature with its table, routes, page, and tests'
+    default_prompt: 'Use $add-feature to add this feature to the application.'

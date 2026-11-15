@@ -1,0 +1,36 @@
+/*
+ * Calocount's own stylesheet, ported from the earlier app
+ * with the class names unchanged. The parts are in order, because later rules
+ * override earlier ones.
+ */
+@import "./styles/insights-1.css";
+@import "./styles/insights-2.css";
+@import "./styles/insights-3.css";
+@import "./styles/insights-4.css";
+@import "./styles/calocount-1.css";
+@import "./styles/calocount-2.css";
+@import "./styles/calocount-3.css";
+@import "./styles/calocount-4.css";
+@import "./styles/calocount-5.css";
+@import "./styles/calocount-6.css";
+@import "./styles/calocount-7.css";
+@import "./styles/calocount-8.css";
+@import "./styles/calocount-agent-routes.css";
+@import "./styles/entry-photos.css";
+@import "./styles/partner-profile.css";
+
+/* The header of a page that has no top bar of its own, such as "Page not found". */
+header:not(.topbar) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  min-height: 74px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.session-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}

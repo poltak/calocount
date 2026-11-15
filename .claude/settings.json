@@ -1,14 +1,69 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(pnpm run typecheck)",
+      "Bash(pnpm run build)",
+      "Bash(pnpm run lint)",
+      "Bash(pnpm run test:feature:*)",
+      "Bash(pnpm run check)"
+    ]
+  },
   "hooks": {
     "SessionStart": [
       {
         "hooks": [
           {
-            "command": "bd prime --hook-json",
-            "type": "command"
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.agents/hooks/check-branch-is-current.mjs\"",
+            "timeout": 30
           }
-        ],
-        "matcher": ""
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.agents/hooks/guard-template-owned-files.mjs\" claude",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.agents/hooks/format-edited-files.mjs\" \"${CLAUDE_PROJECT_DIR}\"",
+            "timeout": 60
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.agents/hooks/warn-slow-commands.mjs\" claude",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.agents/hooks/warn-slow-commands.mjs\" claude",
+            "timeout": 10
+          }
+        ]
       }
     ]
   }

@@ -1,6 +1,6 @@
 # The Deploy to Cloudflare button asks for each value in this file and saves it
-# as a secret of the new Worker. For local development, copy
-# .dev.vars.local.example to .dev.vars instead.
+# as a secret of the new Worker. For local development, copy this file to
+# .dev.vars. `pnpm run dev` then reads it.
 
 # A long phrase that only you know, with at least 12 characters. On your first
 # visit, you type it to save your first passkey. Keep it: it also adds a new

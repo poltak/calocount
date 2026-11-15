@@ -1,50 +1,47 @@
 {
   "name": "calocount",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
-  "packageManager": "pnpm@11.25.0",
-  "engines": {
-    "node": ">=22.16.0"
-  },
   "scripts": {
-    "dev": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vite dev",
-    "build": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vite build",
-    "start": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vite preview",
-    "test": "pnpm run build && tsx --test tests/*.test.mjs tests/*.test.ts",
-    "test:browser": "playwright test",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.client.json",
-    "lint": "eslint . --ignore-pattern dist --ignore-pattern worker-configuration.d.ts",
-    "check": "pnpm run typecheck && pnpm run lint && pnpm run test && pnpm run test:browser",
-    "db:generate": "drizzle-kit generate",
-    "db:migrate:local": "WRANGLER_LOG_PATH=.wrangler/wrangler.log wrangler d1 migrations apply DB --local",
-    "db:seed:local": "tsx scripts/seed-example-meals.ts",
-    "db:migrate:remote": "WRANGLER_LOG_PATH=.wrangler/wrangler.log wrangler d1 migrations apply DB --remote",
-    "types": "WRANGLER_LOG_PATH=.wrangler/wrangler.log wrangler types worker-configuration.d.ts",
-    "deploy": "pnpm run build && pnpm run db:migrate:remote && WRANGLER_LOG_PATH=.wrangler/wrangler.log wrangler deploy",
-    "deploy:dry": "pnpm run build && WRANGLER_LOG_PATH=.wrangler/wrangler.log wrangler deploy --dry-run"
+    "check": "pnpm run node-version:check && pnpm --filter backend... run build && pnpm run --no-bail --aggregate-output \"/^(check:|test:app$)/\"",
+    "ci:checks": "pnpm run node-version:check && pnpm --filter backend... run build && pnpm run --no-bail --aggregate-output \"/^check:/\"",
+    "check:format": "pnpm run format:check",
+    "check:lint": "pnpm run lint",
+    "check:types": "pnpm --filter frontend exec tsc -p tsconfig.json",
+    "check:build": "pnpm --filter frontend run build",
+    "check:hooks": "pnpm run test:hooks",
+    "check:lint-rules": "pnpm run test:lint-rules",
+    "check:migrations": "node scripts/check-migrations.mjs",
+    "check:pnpm-version": "node scripts/check-pnpm-version.mjs",
+    "check:scripts": "pnpm run test:scripts",
+    "check:secrets": "node scripts/check-staged-secrets.mjs --branch",
+    "check:unused": "pnpm run unused:check",
+    "node-version:check": "node scripts/check-node-version.mjs",
+    "build": "pnpm --filter backend... run build && VITE_API_BASE_URL= pnpm --filter frontend run build",
+    "dev": "pnpm --filter backend... run build && node scripts/dev.mjs",
+    "deploy": "pnpm run build && wrangler d1 migrations apply DB --remote && wrangler deploy",
+    "db:migration:create": "node scripts/create-migration.mjs",
+    "template:sync": "node scripts/sync-template.mjs",
+    "issues:init": "node scripts/issues-init.mjs",
+    "lint": "oxlint --deny-warnings backend frontend common",
+    "unused:check": "knip",
+    "typecheck": "pnpm --filter @app/common build && pnpm -r --if-present run typecheck",
+    "test": "pnpm run test:hooks && pnpm run test:lint-rules && pnpm run test:scripts && pnpm -r --if-present run test",
+    "test:app": "pnpm --filter frontend exec vitest run --coverage",
+    "test:feature": "pnpm --filter backend... run build && pnpm --filter frontend exec vitest run",
+    "test:browser": "pnpm --filter frontend run test:browser",
+    "test:browser:install": "pnpm --filter frontend exec playwright install --only-shell chromium",
+    "test:live-start": "pnpm run build && node scripts/check-live-start.mjs",
+    "test:hooks": "node --test .agents/hooks/*.test.mjs",
+    "test:lint-rules": "node --test lint/*.test.mjs",
+    "test:scripts": "node --test scripts/*.test.mjs",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prepare": "simple-git-hooks"
   },
-  "dependencies": {
-    "@modelcontextprotocol/server": "^2.0.0",
-    "@simplewebauthn/browser": "14.0.0",
-    "@simplewebauthn/server": "14.0.3",
-    "drizzle-orm": "0.45.2"
-  },
-  "devDependencies": {
-    "@cloudflare/vite-plugin": "^1.53.1",
-    "@eslint/js": "9.39.4",
-    "@openai/sites-vite-plugin": "0.1.0",
-    "@playwright/test": "1.63.0",
-    "@types/node": "22.19.19",
-    "drizzle-kit": "0.31.10",
-    "eslint": "9.39.4",
-    "globals": "16.4.0",
-    "tsx": "^4.22.1",
-    "typescript": "5.9.3",
-    "typescript-eslint": "8.59.3",
-    "vite": "8.0.13",
-    "wrangler": "^4.125.0"
-  },
-  "type": "module",
+  "description": "",
+  "keywords": [],
+  "author": "WorldBrain",
   "cloudflare": {
     "bindings": {
       "CALOCOUNT_SETUP_CODE": {
@@ -52,10 +49,46 @@
       },
       "CALOCOUNT_OWNER_KEY": {
         "description": "Keep `default`. It is the key of your data in the database."
-      },
-      "CALOCOUNT_ALLOW_LOCAL": {
-        "description": "Keep `false`. The value `true` turns off sign-in and is **only for local development**."
       }
     }
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "12.18.0",
+      "onFail": "download"
+    },
+    "runtime": {
+      "name": "node",
+      "version": "26.13.0",
+      "onFail": "download"
+    }
+  },
+  "packageManager": "pnpm@12.18.0",
+  "type": "module",
+  "engines": {
+    "node": "26.13.0"
+  },
+  "devDependencies": {
+    "@beads/bd": "1.3.4",
+    "@stylistic/eslint-plugin": "5.10.0",
+    "@types/node": "26.6.6",
+    "knip": "6.44.1",
+    "lint-staged": "17.6.0",
+    "oxlint": "1.91.0",
+    "prettier": "3.9.10",
+    "simple-git-hooks": "2.14.0",
+    "typescript": "7.0.2",
+    "wrangler": "4.158.0"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "pnpm exec lint-staged"
+  },
+  "lint-staged": {
+    "**/*": [
+      "node scripts/check-staged-secrets.mjs",
+      "node scripts/check-staged-file-size.mjs",
+      "prettier --write --ignore-unknown"
+    ]
   }
 }

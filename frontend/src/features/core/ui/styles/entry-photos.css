@@ -1,0 +1,116 @@
+.meal-photo-button {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  overflow: hidden;
+  padding: 0;
+  border-radius: 10px;
+  background: var(--surface-raised);
+  box-shadow: 0 0 0 1px var(--line);
+  transition:
+    filter 150ms ease,
+    transform 150ms ease;
+}
+
+.meal-photo-button:hover {
+  filter: brightness(1.12);
+  transform: scale(1.04);
+}
+
+.meal-photo {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.editor-photo-field {
+  grid-column: 1 / span 2;
+}
+
+.meal-photo-field {
+  grid-column: 1 / span 2;
+}
+
+.photo-preview-backdrop {
+  position: fixed;
+  z-index: 20;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgb(4 7 11 / 78%);
+  backdrop-filter: blur(6px);
+}
+
+.photo-preview-dialog {
+  position: relative;
+  box-sizing: border-box;
+  margin: 0;
+  color: inherit;
+  display: grid;
+  gap: 10px;
+  width: min(100%, 720px);
+  max-height: 90vh;
+  padding: 14px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface-raised);
+  box-shadow: 0 20px 70px rgb(0 0 0 / 45%);
+}
+
+.photo-preview-close {
+  position: absolute;
+  z-index: 1;
+  top: 10px;
+  right: 10px;
+  background: rgb(15 19 27 / 72%);
+}
+
+.photo-preview-media {
+  display: grid;
+  min-height: 120px;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 10px;
+  background: var(--surface-soft);
+}
+
+.photo-preview-image {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  max-height: 76vh;
+  object-fit: contain;
+}
+
+.photo-preview-fallback {
+  display: block;
+  margin: 36px 12px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.photo-preview-title {
+  margin: 0;
+  color: var(--foreground);
+  font-size: 14px;
+  font-weight: 650;
+}
+
+@media (max-width: 620px) {
+  .add-meal-form .meal-photo-field {
+    grid-column: span 2;
+  }
+
+  .meal-photo-button {
+    width: 40px;
+    height: 40px;
+  }
+
+  .inline-editor .editor-photo-field {
+    grid-column: span 2;
+  }
+}

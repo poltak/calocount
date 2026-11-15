@@ -1,0 +1,27 @@
+{
+  "template": "git@github.com:WorldBrain/worldbrain-boilerplate.git",
+  "commit": "1658a67dc9faa0f988f3c0fd6ab8b72572983ce9",
+  "skipped": [],
+  "ownPaths": [
+    {
+      "path": "backend/src/features/core/database/pglite-database.ts",
+      "reason": "Calocount runs on Cloudflare D1, so it has no PGlite"
+    },
+    {
+      "path": "scripts/check-migrations.mjs",
+      "reason": "Calocount's migrations are D1 SQL files in backend/migrations that wrangler applies"
+    },
+    {
+      "path": "scripts/check-migrations.test.mjs",
+      "reason": "Calocount's migrations are D1 SQL files in backend/migrations that wrangler applies"
+    },
+    {
+      "path": "scripts/migration-files.mjs",
+      "reason": "Calocount's migrations are D1 SQL files in backend/migrations that wrangler applies"
+    },
+    {
+      "path": "docs/agents/database.md",
+      "reason": "Calocount's database rules are for D1: an atomic batch in place of transactions"
+    }
+  ]
+}

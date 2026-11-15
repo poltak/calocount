@@ -1,0 +1,256 @@
+name: CI
+
+# A branch gets CI through its pull request. With a push trigger for each
+# branch, a pull request runs every check two times.
+#
+# A draft gets no jobs. They run when its author marks the pull request as
+# ready, so `ready_for_review` must stay in the types.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# The jobs run at the same time, except the coverage job, which waits for the
+# test jobs. So a run takes as long as the slowest test job and the coverage
+# job together, or as long as a slower other job. Each job must do the setup
+# steps itself.
+# A push to `main` has no pull request, so the draft condition is true there.
+#
+# A pull request skips the tests, the coverage job, and the browser job when
+# the same files passed them before. The plan job ignores the Markdown files
+# outside `frontend`, `backend`, and `common`, because no test, build, or live
+# start reads them. A Markdown file in those folders can be a part of the app,
+# so a change to it gets the full run. When a test reads a Markdown file in
+# another folder, move the file into the app, or each change to it goes
+# untested. The checks job always runs, because it checks the format of
+# Markdown files. A push to `main` skips the same jobs when a pull request
+# passed the same files, so the merge of a pull request that was up to date
+# with `main` does not run its tests again. To run every job, re-run all jobs
+# of the run.
+jobs:
+  plan:
+    name: Find a passed run of the same files
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # A push to `main` reads the list of caches.
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      key: ${{ steps.key.outputs.key }}
+      passed: ${{ steps.lookup.outputs.cache-hit == 'true' || steps.lookup-main.outputs.found == 'true' }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # On a pull request, the checkout is the merge with the base branch, so
+      # a change on the base branch also changes the key. The key has the path,
+      # the mode, and the content hash of each file.
+      - name: Make a key from the files
+        id: key
+        run: |
+          files=$(git ls-files --stage | awk -F '\t' '$2 !~ /\.md$/ || $2 ~ /^(frontend|backend|common)\//' | sha256sum | cut -d ' ' -f 1)
+          echo "key=ci-passed-$files" >> "$GITHUB_OUTPUT"
+
+      # A pull request finds the markers of its own earlier runs and of `main`.
+      # A re-run of all jobs has a second attempt, and runs every job.
+      - name: Look for the marker of a passed run
+        id: lookup
+        if: ${{ github.event_name == 'pull_request' && github.run_attempt == 1 }}
+        uses: actions/cache/restore@v6
+        with:
+          path: .ci-passed
+          key: ${{ steps.key.outputs.key }}
+          lookup-only: true
+
+      # A run on `main` cannot restore a cache that a pull request saved, but
+      # the API lists the caches of each branch. The key has this file too, so
+      # only a run of the same workflow can make a marker for these files. A
+      # failed lookup gives a full run.
+      - name: Look for the marker of a passed pull request
+        id: lookup-main
+        if: ${{ github.event_name == 'push' && github.run_attempt == 1 }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          KEY: ${{ steps.key.outputs.key }}
+        run: |
+          if ! count=$(gh api "repos/$GITHUB_REPOSITORY/actions/caches?key=$KEY" --jq '[.actions_caches[] | select(.key == env.KEY)] | length'); then
+            echo "::warning::The lookup of the cache list failed, so each job runs."
+            count=0
+          fi
+          if [ "$count" -gt 0 ]; then found=true; else found=false; fi
+          echo "found=$found" >> "$GITHUB_OUTPUT"
+
+  checks:
+    name: Checks
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        # The migration check compares the branch with the commit where it left
+        # `main`, so it needs the history of both.
+        with:
+          fetch-depth: 0
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 12.18.0
+
+      # No step sets up Node. pnpm downloads the Node version in
+      # `devEngines.runtime` and runs each script on it. pnpm itself runs on the
+      # Node of the runner image.
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run checks
+        run: pnpm run ci:checks
+
+  # The tests run in four jobs, each with a quarter of the test files. The
+  # runner has one core with two threads, and one Vitest worker already uses
+  # most of both, so a second worker in one job adds little. The coverage job
+  # merges the results of the four jobs and checks the coverage thresholds.
+  tests:
+    name: Tests ${{ matrix.shard }} of 4
+    needs: plan
+    if: ${{ !github.event.pull_request.draft && needs.plan.outputs.passed != 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      # Report the failures of each shard, not only of the first one.
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 12.18.0
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run tests
+        run: pnpm --filter frontend run test:shard --shard=${{ matrix.shard }}/4
+
+      - name: Keep the results for the coverage job
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-${{ matrix.shard }}
+          path: frontend/.vitest/blob/
+          include-hidden-files: true
+          retention-days: 1
+
+  # Without `always()`, the job skips when a test job did not pass, so it never
+  # merges an incomplete set of results.
+  coverage:
+    name: Test coverage
+    needs: [plan, tests]
+    if: ${{ !github.event.pull_request.draft && needs.plan.outputs.passed != 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 12.18.0
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Take the results of the test jobs
+        uses: actions/download-artifact@v8
+        with:
+          pattern: test-results-*
+          path: frontend/.vitest/blob
+          merge-multiple: true
+
+      - name: Check the coverage
+        run: pnpm --filter frontend run test:merge
+
+  browser:
+    name: Browser tests and live start
+    needs: plan
+    if: ${{ !github.event.pull_request.draft && needs.plan.outputs.passed != 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 12.18.0
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # This command has no `--with-deps`. The runner image has each system
+      # library that the browser needs, and the flag adds only fonts there and
+      # takes 20 seconds. If a new image cannot start the browser, add the flag.
+      - name: Install the browser for the browser tests
+        run: pnpm run test:browser:install
+
+      - name: Run browser tests
+        run: pnpm run test:browser --forbid-only
+
+      - name: Start the live server
+        run: pnpm run test:live-start
+
+  # GitHub counts a skipped job as passed for a required check, and the coverage
+  # job skips when a test job fails. So only this job can be a required check.
+  # The plan skips the tests, the coverage job, and the browser job on purpose,
+  # and each other skip is a failure.
+  passed:
+    name: CI passed
+    needs: [plan, checks, tests, coverage, browser]
+    if: ${{ always() && !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Fail unless each job passed
+        if: >-
+          ${{
+            contains(needs.*.result, 'failure') ||
+            contains(needs.*.result, 'cancelled') ||
+            needs.plan.result != 'success' ||
+            needs.checks.result != 'success' ||
+            (needs.plan.outputs.passed != 'true' && contains(needs.*.result, 'skipped'))
+          }}
+        run: exit 1
+
+      # The marker is empty, and its key names the files that passed. A failed
+      # save costs only a full run the next time, so it does not fail the job.
+      # A push to `main` saves it also after a skip, because a pull request
+      # finds only its own markers and those of `main`.
+      - name: Make the marker of a passed run
+        if: ${{ needs.plan.outputs.passed != 'true' || github.event_name == 'push' }}
+        run: mkdir .ci-passed && touch .ci-passed/marker
+
+      - name: Save the marker
+        if: ${{ needs.plan.outputs.passed != 'true' || github.event_name == 'push' }}
+        continue-on-error: true
+        uses: actions/cache/save@v6
+        with:
+          path: .ci-passed
+          key: ${{ needs.plan.outputs.key }}

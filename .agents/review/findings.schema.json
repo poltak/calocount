@@ -1,0 +1,81 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["findings", "notes", "earlier"],
+  "properties": {
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["rule", "file", "line", "quote", "explanation"],
+        "properties": {
+          "rule": {
+            "type": "string",
+            "description": "The text of the rule's heading, such as override"
+          },
+          "file": {
+            "type": "string",
+            "description": "Path from the repository root of the file that holds the quote"
+          },
+          "line": {
+            "type": ["integer", "null"]
+          },
+          "quote": {
+            "type": "string",
+            "description": "One to three lines copied exactly from the file at the head commit"
+          },
+          "explanation": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["file", "line", "quote", "explanation"],
+        "properties": {
+          "file": {
+            "type": "string",
+            "description": "Path from the repository root of the file that holds the quote"
+          },
+          "line": {
+            "type": ["integer", "null"]
+          },
+          "quote": {
+            "type": "string",
+            "description": "One to three lines copied exactly from the file at the head commit"
+          },
+          "explanation": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "earlier": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "status", "explanation"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The ID of the earlier finding or note, such as F12 or N3"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["addressed", "open"]
+          },
+          "explanation": {
+            "type": "string",
+            "description": "One sentence that says why"
+          }
+        }
+      }
+    }
+  }
+}

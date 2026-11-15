@@ -2,7 +2,7 @@
 
 Calocount is a single-user calorie tracker with a private owner dashboard and an optional public read-only dashboard. Add meals manually in the owner dashboard or through the private ChatGPT MCP app. The app validates and stores structured nutrition data and shows a compact Caltrack-inspired dashboard.
 
-The application backend uses Cloudflare Workers, D1, R2, Cron Triggers, and Static Assets. One Worker serves the dashboard and API and runs the hourly photo cleanup. The owner signs in with a passkey, and ChatGPT connects with OAuth. Cloudflare Access remains available as another sign-in mode.
+The application backend uses Cloudflare Workers, D1, R2, Cron Triggers, and Static Assets. One Worker serves the dashboard and API and runs the hourly photo cleanup. The owner signs in with a passkey, and ChatGPT connects with OAuth.
 
 ## Deploy your own
 
@@ -25,86 +25,64 @@ Each instance has one owner and its own Worker, D1 database and R2 bucket. The b
 - JSON and CSV export
 - passkey sign-in with sessions that last while the owner uses the app
 - an OAuth 2.1 server for the ChatGPT MCP app, with a consent page
-- Cloudflare Access JWT authorization with an owner allowlist, as another sign-in mode
 
 Calocount does not include WHOOP, Apple Health, body-fat, sleep, recovery, or step integrations.
 
 ## Repository layout
 
 ```text
-app/                 dashboard logic and private JSON API
-app/ui/              browser code of the dashboard, with no rendering library
-db/                  Drizzle schema and D1 repository
-drizzle/             generated D1 migration
-worker/              Worker entry point and scheduled photo cleanup
-tests/               unit, Worker runtime, and browser tests
-docs/architecture.md detailed runtime flow and boundaries
-docs/deploy-your-own.md setup of a new instance with the Deploy to Cloudflare button
-docs/sign-in.md      passkeys, sessions, OAuth, Access mode, and the move from Access
-docs/read-only-sharing.md public/owner route boundary and rollout runbook
+backend/             Hono Worker on D1 through Kysely, with the migrations and the scheduled photo cleanup
+frontend/            React and Vite dashboard, and the browser tests
+common/              code that the backend and the frontend share
+scripts/             dev server, migration, check and template scripts
+plugins/             the ChatGPT plugin package with the meal-tracking skill
+docs/                user and design documents
+docs/agents/         documents for coding agents
+wrangler.jsonc       Worker configuration, at the repository root
+```
+
+The documents in `docs/`:
+
+```text
+docs/architecture.md        detailed runtime flow and boundaries
+docs/deploy-your-own.md     setup of a new instance with the Deploy to Cloudflare button
+docs/sign-in.md             passkeys, sessions, and OAuth
+docs/read-only-sharing.md   public and owner route boundary
 ```
 
 ## Local dashboard
 
 Requirements:
 
-- Node.js 22.16 or later
+- Node.js 26.13.0, the version in `.nvmrc`. pnpm runs scripts on the Node version that `package.json` pins.
 - pnpm
 
 Setup:
 
 ```bash
-pnpm install
-cp .dev.vars.local.example .dev.vars
+SKIP_INSTALL_SIMPLE_GIT_HOOKS=1 pnpm install
+cp .dev.vars.example .dev.vars
+```
+
+Set `CALOCOUNT_SETUP_CODE` in `.dev.vars` to a phrase of at least 12 characters. Then start the dev server:
+
+```bash
 pnpm run dev
 ```
 
-Open `http://localhost:3000`.
+Open `http://localhost:5173`. Use `localhost`, not `127.0.0.1`, because browsers allow passkeys only on `localhost`. On the first visit, type the setup code and save a passkey. [docs/sign-in.md](docs/sign-in.md#try-passkeys-locally) has the details.
 
-To add a complete seven-day example dataset to the running local dashboard, use:
+`pnpm run dev` builds the backend, applies the migrations to the local D1 database, and starts the Worker and the Vite dev server. The local D1 state stays in `.wrangler/state/`.
 
-```bash
-pnpm run db:seed:local
-```
-
-The command creates three meals per day through today in `Asia/Ho_Chi_Minh` and skips fixture IDs that already exist. It only accepts a localhost HTTP URL. Optional overrides are `--anchor-date=YYYY-MM-DD`, `--timezone=IANA_TIMEZONE`, and `--base-url=http://localhost:PORT`.
-
-The owner dashboard waits for live API data and fails closed when local D1 or owner authentication is not ready. Set `CALOCOUNT_ALLOW_LOCAL=true` only in `.dev.vars` while running a configured local stack. It turns sign-in off. Production must keep `CALOCOUNT_ALLOW_LOCAL=false`. Then a passkey session or a valid, signed Cloudflare Access JWT is required. Identity headers by themselves are not trusted. To try passkey sign-in locally, follow [docs/sign-in.md](docs/sign-in.md#try-passkeys-locally). The public root uses only `/api/public/summary` and `/meal-photos/*`; it does not fall back to owner or demo data.
+The public root reads only the routes under `/api/public/` and `/meal-photos/*`. It does not fall back to owner or demo data.
 
 ## ChatGPT meal logging
 
-Use the private MCP app at `/mcp` for ChatGPT meal logging and updates. In passkey mode, ChatGPT connects with OAuth, and the owner allows it on a Calocount consent page. It provides `add_meals`, `update_meal`, `get_nutrition_summary`, `get_nutrition_history`, and `get_weight_history`. Use `update_meal` to edit a completed meal with the same `request_id` returned by `get_nutrition_history`. See the [MCP setup guide](./docs/plugin/README.md).
-
-### Deprecated Custom GPT Action
-
-The old Custom GPT Action and its [instruction and schema templates](./docs/custom-gpt/README.md) are deprecated. Keep them only for existing setups. The bearer-token `POST /api/add-meal` route remains available for compatibility; the MCP app uses the shared meal-processing code, not this token-based route.
-
-Existing external Action clients use `CALOCOUNT_CHATGPT_MEAL_TOKEN` from `.dev.vars`. Set a long random value in the local file (the example file contains a placeholder). For production, store it as a Worker secret:
-
-```bash
-pnpm exec wrangler secret put CALOCOUNT_CHATGPT_MEAL_TOKEN
-```
-
-Do not put this token in `wrangler.jsonc` or in application links. The endpoint is `POST /api/add-meal`. Send the token only in an `Authorization: Bearer <token>` header and send a JSON body with `request_id`, `name`, `kcal`, `protein`, `carbs`, `fat`, and ISO-8601 `eaten_at` values. An optional `nutrients` object accepts the 24 item nutrient fields used by the dashboard; each value is a non-negative number or `null` when unknown. For this external request, `request_id` is a UUID idempotency key: repeating it returns the original meal without creating another entry.
-
-Existing GPT image actions may also send `openaiFileIdRefs` as an array of file reference objects. Shared external photo handling accepts the first valid HTTPS JPEG, PNG, WebP, or HEIC reference from an approved OpenAI file host or a public Azure Blob account host (`<account>.blob.core.windows.net` or `<account>-secondary.blob.core.windows.net`, where the account has 3–24 lowercase letters or digits). Azure storage accounts can belong to other tenants; this rule is not an OpenAI ownership check. Cloudflare Images converts HEIC photos to JPEG before storage. The Worker downloads each photo immediately, rejects redirects, and never stores the temporary link. A photo can be at most 10 MiB.
-
-For a local smoke test, use a new UUID and the token from `.dev.vars`:
-
-```bash
-curl -i http://localhost:3000/api/add-meal \
-  -H 'Authorization: Bearer replace-with-a-long-random-secret' \
-  -H 'Content-Type: application/json' \
-  --data '{"request_id":"c5a84680-d0c7-4af6-a4f5-89495c3923ec","name":"Chicken rice and morning glory","kcal":610,"protein":58,"carbs":41,"fat":20,"eaten_at":"2026-08-30T18:25:00+07:00"}'
-```
+Use the private MCP app at `/mcp` for ChatGPT meal logging and updates. ChatGPT connects with OAuth, and the owner allows it on a Calocount consent page. It provides `add_meals`, `update_meal`, `get_nutrition_summary`, `get_nutrition_history`, and `get_weight_history`. Use `update_meal` to edit a completed meal with the same `request_id` returned by `get_nutrition_history`. See the [MCP setup guide](./docs/plugin/README.md).
 
 ## Local D1
 
-Apply the migration to the local D1 database:
-
-```bash
-pnpm run db:migrate:local
-```
+`pnpm run dev` applies the migrations to the local D1 database. To add a migration, run `pnpm run db:migration:create <name>`.
 
 ## Photo cleanup
 
@@ -117,26 +95,17 @@ position in the bucket and the next run continues from there.
 
 ```bash
 pnpm run check
-pnpm run deploy:dry
 ```
 
-Install the browser once with `pnpm exec playwright install chromium` before running checks. On Linux, use `pnpm exec playwright install --with-deps chromium` to install system libraries too.
+Install the browser once with `pnpm run test:browser:install` before the browser tests.
 
-The full check runs strict TypeScript, ESLint, a production build, the unit and data tests, tests that send requests to the built Worker, and browser tests. The browser tests use the real dashboard with a local API fixture. They do not access production data. Run only these tests with `pnpm run test:browser`.
-
-To compare two builds, give each build directory a label:
-
-```bash
-pnpm exec tsx scripts/benchmark-runtime.ts before=../other-checkout/dist after=dist
-```
-
-The script serves each build from the same local server, with the same compression and the same mock API data. It prints the download sizes, the load times on a phone profile and a desktop profile, the interaction times, and the Worker request times.
+The check runs the Node version check, the build of the backend, the format, lint, type, build, hook, lint-rule, migration, pnpm version, script, secret and unused-code checks, and the app tests. It does not run the browser tests. Run them with `pnpm run test:browser`. They start the real Worker on a fresh local D1 database. They do not access production data.
 
 ## Cloudflare deployment
 
-`wrangler.jsonc` configures the one Worker: the dashboard, the API, and the hourly cron trigger. It holds only the values that are the same for every instance. The setup code, `CALOCOUNT_AUTH_MODE`, and the Access values of an Access instance are secrets and variables on each Worker. `keep_vars` is `true`, so a deploy does not delete them. `.dev.vars.example` lists the secrets that the Deploy to Cloudflare button asks for. `tests/deploy-config.test.ts` checks these rules.
+`wrangler.jsonc` configures the one Worker: the dashboard, the API, and the hourly cron trigger. It holds only the values that are the same for every instance. The setup code is a secret on each Worker. `keep_vars` is `true`, so a deploy does not delete the variables that the dashboard sets. `.dev.vars.example` lists the secret that the Deploy to Cloudflare button asks for.
 
-Production deployment of this repository runs through GitHub Actions. The workflow runs only in `poltak/calocount`. A copy made with the Deploy to Cloudflare button deploys with Workers Builds. A push to `main` or `master` runs the checks, a deployment dry run, and `pnpm run deploy`. That script builds the app, applies the remote D1 migrations, and deploys the Worker. You can also start the workflow manually with `workflow_dispatch`. The current default branch is `main`.
+Production deployment of this repository runs through GitHub Actions. The workflow runs only in `poltak/calocount`. A copy made with the Deploy to Cloudflare button deploys with Workers Builds. A push to `main` or `master` runs `pnpm run check` and `pnpm run deploy`. That script builds the app, applies the remote D1 migrations, and deploys the Worker. You can also start the workflow manually with `workflow_dispatch`. The current default branch is `main`.
 
 Before the first automatic deployment, complete this one-time GitHub and Cloudflare setup:
 
@@ -148,25 +117,11 @@ Before the first automatic deployment, complete this one-time GitHub and Cloudfl
 
 Create or confirm one D1 database and one R2 Standard bucket, and bind both in `wrangler.jsonc`.
 
-Apply migrations before the first production request. `pnpm run deploy` also does this:
-
-```bash
-pnpm run db:migrate:remote
-```
-
-A passkey instance needs only the `CALOCOUNT_SETUP_CODE` secret:
+Set the setup code as a Worker secret:
 
 ```bash
 pnpm exec wrangler secret put CALOCOUNT_SETUP_CODE
 ```
-
-The rest of this section is for an instance in Access mode. Do not put Access values or email values in `wrangler.jsonc`. Set them on the Worker. In the dashboard, add `CALOCOUNT_ACCESS_TEAM_DOMAIN`, `CALOCOUNT_ACCESS_AUDIENCE` and, for ChatGPT, `CALOCOUNT_MCP_ACCESS_AUDIENCE` as Text variables. For the owner allowlist, set the `CALOCOUNT_OWNER_EMAIL` secret, or add a `CALOCOUNT_ALLOWED_EMAIL_SHA256` Text variable. The hash is the SHA-256 digest of the trimmed, lower-case Access email.
-
-```bash
-pnpm exec wrangler secret put CALOCOUNT_OWNER_EMAIL
-```
-
-`CALOCOUNT_ALLOWED_EMAIL` remains only as a fallback for older or local configurations. Keep `CALOCOUNT_ALLOWED_USER_ID` if you use the Access user ID allowlist instead of an email. If several allowlists are configured, all of them must match; a malformed email hash fails closed.
 
 Build the app, apply the remote migrations, and deploy the Worker:
 
@@ -184,27 +139,18 @@ pnpm exec wrangler delete --name calocount-ingest
 
 Then:
 
-1. Review the public projection, route conditions, and owner JWT checks. The PWA manifest starts at `/owner`; its `id` and `scope` remain `/`.
+1. Review the public projection and the route conditions. The PWA manifest starts at `/owner`; its `id` and `scope` remain `/`.
 2. Confirm in the Worker's logs that the hourly cron run reports a `meal_photo_cleanup` event.
-3. Test one manual dashboard meal and the MCP meal and nutrition tools. If the legacy Action is still configured, test one `POST /api/add-meal` request for compatibility.
+3. Test one manual dashboard meal and the MCP meal and nutrition tools.
 4. Verify the anonymous public projection and photo flow, and the private owner flow.
 
-For the public/owner route split, follow [docs/read-only-sharing.md](docs/read-only-sharing.md). In Access mode, the production Access layout was live-verified on 2026-08-26. A passkey instance needs no Access application; the Worker checks the session itself:
-
-- The existing private Access application protects the exact `/owner`, `/owner/*`, and `/api/*` destinations with the existing owner Allow policy and the same owner JWT audience.
-- A separate Access application for the exact `/api/public/summary` destination uses Bypass Everyone.
-- `/`, `/meal-photos/*`, and the static/PWA assets are public because no Access destination matches them. The photo handler restricts delivery to completed meals in the current public projection. Do not add root or static bypass exceptions.
-- Anonymous and authenticated checks must confirm that the public root, summary, and projected photos load without login; owner pages, `/api/photos/*`, and private APIs require the owner Access session; static/PWA assets are reachable anonymously; and the removed share routes return `404` when reached.
-
-Do not add a broad `/*`, `/assets/*`, or `/api/*` bypass. Do not make owner APIs public.
-
-For future changes to the public-root/private-owner layout, treat routes as public by default unless a private Cloudflare Access destination covers them. Any new page outside `/owner`, any new public API exception, or any new server route outside `/api` requires explicit privacy and Access review before deployment. Verify the anonymous and owner behavior from deployed requests, including the Access path list.
+For the public/owner route split, follow [docs/read-only-sharing.md](docs/read-only-sharing.md). The Worker checks the passkey session on the private `/api` routes, and the `/owner` page shows the sign-in page without a session. `/`, `/privacy`, `/api/public/*`, `/meal-photos/*`, `/llms.txt` and the static files are public.
 
 This repository does not set up Cloudflare resources or secrets. That setup needs your account, resource IDs, and secrets.
 
 ## Privacy
 
-- In passkey mode, the database keeps the public key of each passkey and the SHA-256 of each session cookie, OAuth code and OAuth token. It keeps no usable secret. See [docs/sign-in.md](docs/sign-in.md).
+- The database keeps the public key of each passkey and the SHA-256 of each session cookie, OAuth code and OAuth token. It keeps no usable secret. See [docs/sign-in.md](docs/sign-in.md).
 - The public dashboard is off for a new owner. The owner turns it on with the "Public dashboard" setting. While it is off, `/` redirects to `/owner`, and `/api/public/summary`, `/meal-photos/*` and `/llms.txt` return `404`.
 - Migration `0014_public_view.sql` turns the setting on for each owner that has saved settings, so an existing public dashboard stays public after the upgrade.
 - Meal photos stay in a private R2 bucket.
@@ -213,8 +159,17 @@ This repository does not set up Cloudflare resources or secrets. That setup need
 - The Worker downloads photos from temporary ChatGPT image links immediately and never stores the links.
 - The public root exposes only the selected dashboard projection: targets, meal and macro totals, seven-day trend, recent weights, recent meal-item nutrition, and photo availability.
 - The public calendar also exposes the totals of each past day, and the completed entries, item nutrition and weight of any day a viewer opens. Photos stay limited to the last seven days.
+- The public insight panels also expose the nutrition of each food item of the last 30 days. The items do not show where each amount came from.
 - The public projection does not expose photo storage keys, captions, notes, assumptions, confidence, AI/provider data, or private settings.
 - Normal logs do not include captions, images, signed URLs, or full provider payloads.
 - Nutrition values are estimates, not medical measurements.
 
 See [docs/architecture.md](docs/architecture.md) for the full data flow.
+
+## The template
+
+This project started from a template, and can take the template's later
+changes. [`template-version.json`](template-version.json) names the template and the last
+template commit that the project has. The `sync-template` workflow takes the
+new commits, and [setup](docs/agents/setup.md#changes-from-the-template) has
+its commands.

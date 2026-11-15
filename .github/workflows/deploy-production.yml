@@ -35,20 +35,17 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: 24
+          node-version-file: .nvmrc
           cache: pnpm
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
       - name: Install browser
-        run: pnpm exec playwright install --with-deps chromium
+        run: pnpm --filter frontend exec playwright install --with-deps chromium
 
       - name: Run checks
         run: pnpm run check
-
-      - name: Dry-run deployment
-        run: pnpm run deploy:dry
 
       # Builds, applies the remote D1 migrations, then deploys the Worker.
       - name: Deploy Worker

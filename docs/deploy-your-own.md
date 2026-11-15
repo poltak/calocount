@@ -22,8 +22,7 @@ You need:
 4. For `CALOCOUNT_SETUP_CODE`, type a long phrase that only you know, with at
    least 12 characters. Write it down and keep it safe. You need it for the
    first passkey, and again if you lose all your devices.
-5. Keep `CALOCOUNT_OWNER_KEY` as `default` and `CALOCOUNT_ALLOW_LOCAL` as
-   `false`.
+5. Keep `CALOCOUNT_OWNER_KEY` as `default`.
 6. Select **Deploy**. The build applies the database migrations, then it
    deploys the Worker.
 
@@ -65,7 +64,7 @@ setup.
 ChatGPT can log and read meals through the MCP endpoint at `/mcp`. In ChatGPT,
 add a developer-mode connection with the address
 `https://<your-worker-address>/mcp` and OAuth sign-in. Calocount asks you to
-allow ChatGPT. The [MCP setup guide](plugin/README.md#passkey-mode-oauth) has
+allow ChatGPT. The [MCP setup guide](plugin/README.md#oauth) has
 the steps.
 
 ## Updates
@@ -88,8 +87,3 @@ migrations.
    deploys the Worker.
 6. Set the setup code with `pnpm exec wrangler secret put CALOCOUNT_SETUP_CODE`.
 7. Do step 2 above.
-
-## Cloudflare Access instead of passkeys
-
-An instance can use Cloudflare Access instead. [sign-in.md](sign-in.md)
-describes both modes, and the steps that move an Access instance to passkeys.

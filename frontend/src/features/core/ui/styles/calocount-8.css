@@ -1,0 +1,870 @@
+/* Calendar of past days, and the protein and macro charts. Ported from the earlier app. */
+
+.calendar-toggle {
+  width: 34px;
+  margin-left: 2px;
+}
+
+.calendar-toggle svg {
+  display: block;
+}
+
+.calendar-toggle.active {
+  background: var(--selected-background);
+  box-shadow: inset 0 0 0 1px var(--selected-border);
+  color: var(--green);
+}
+
+.history-calendar {
+  width: min(100%, 560px);
+  margin: 0 0 var(--dashboard-gap) auto;
+  padding: 14px;
+}
+
+.history-calendar-heading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.history-calendar-heading h2 {
+  min-width: 132px;
+  margin: 0;
+  color: var(--foreground);
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  text-align: center;
+}
+
+.history-calendar-legend {
+  display: flex;
+  gap: 10px;
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.history-calendar-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.calendar-key {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.calendar-key.calories {
+  background: var(--chart-orange);
+}
+
+.calendar-key.protein {
+  background: var(--chart-green);
+}
+
+.history-calendar-weekdays,
+.history-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.history-calendar-weekdays {
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.history-calendar-grid {
+  margin-top: 6px;
+}
+
+.calendar-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  min-width: 0;
+  min-height: 58px;
+  gap: 1px;
+  padding: 5px 2px;
+  border-radius: 9px;
+  background: var(--chart-base);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  transition:
+    background-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.calendar-day.is-outside {
+  background: transparent;
+}
+
+.calendar-day:hover:not(:disabled) {
+  background: var(--button-quiet-hover-background);
+}
+
+.calendar-day:disabled {
+  cursor: default;
+  opacity: 0.35;
+}
+
+.calendar-day-number {
+  color: var(--muted-strong);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.calendar-day.has-entries .calendar-day-number {
+  color: var(--foreground);
+}
+
+.calendar-day-calories,
+.calendar-day-protein {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 10px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.calendar-day-calories {
+  color: var(--chart-orange);
+}
+
+.calendar-day-protein {
+  color: var(--chart-green);
+}
+
+.calendar-day.is-today {
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.calendar-day.is-selected {
+  background: var(--selected-background);
+  box-shadow: inset 0 0 0 1px var(--selected-border);
+}
+
+.history-calendar-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+/* The selected day gets a soft band behind its column and a stronger date label. */
+.bar-column,
+.macro-trend-column,
+.nutrient-trend-column,
+.protein-target-day {
+  isolation: isolate;
+}
+
+.bar-column.is-selected::before,
+.macro-trend-column.is-selected::before,
+.nutrient-trend-column.is-selected::before,
+.protein-target-day.is-selected::before,
+.weight-point-column.is-selected::before {
+  position: absolute;
+  z-index: -1;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: min(100% + 6px, 60px);
+  border-radius: 9px;
+  background: linear-gradient(
+    180deg,
+    transparent,
+    color-mix(in srgb, var(--foreground) 6%, transparent)
+  );
+  transform: translateX(-50%);
+  content: "";
+  pointer-events: none;
+}
+
+.macro-trend-legend {
+  flex-wrap: wrap;
+}
+
+.macro-trend-chart {
+  display: grid;
+  grid-template-columns: 37px minmax(0, 1fr);
+  height: 215px;
+  margin-top: 9px;
+}
+
+.macro-trend-bars {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: space-around;
+  gap: 8px;
+  padding: 0 5px;
+}
+
+.macro-trend-column {
+  position: relative;
+  display: flex;
+  flex: 1;
+  max-width: 54px;
+  height: 100%;
+  flex-direction: column;
+  justify-content: end;
+}
+
+.macro-trend-column > span {
+  height: 21px;
+  padding-top: 8px;
+  color: var(--chart-axis-strong);
+  font-size: 10px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.macro-trend-y-axis {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 3px 6px 21px 0;
+  color: var(--chart-axis);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.macro-trend-plot {
+  position: relative;
+  min-width: 0;
+  border-top: 1px solid var(--chart-grid);
+  border-bottom: 1px solid var(--line);
+}
+
+.macro-mid-line {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  left: 0;
+  border-top: 1px solid var(--chart-grid);
+}
+
+.macro-stack {
+  position: relative;
+  display: flex;
+  width: min(30px, 72%);
+  height: calc(100% - 21px);
+  min-height: 24px;
+  margin: 0 auto;
+  overflow: hidden;
+  flex-direction: column;
+  justify-content: flex-end;
+  border-radius: 7px 7px 3px 3px;
+  background: var(--chart-base);
+  box-shadow: 0 4px 12px var(--chart-stack-shadow);
+  opacity: 0.9;
+  transition: opacity 150ms ease;
+}
+
+.macro-trend-column:hover .macro-stack,
+.macro-trend-column.is-selected .macro-stack {
+  opacity: 1;
+}
+
+.macro-segment {
+  display: block;
+  width: 100%;
+  min-height: 1px;
+}
+
+.macro-segment + .macro-segment {
+  border-top: 2px solid var(--surface);
+}
+
+.macro-segment.carbs {
+  background: var(--chart-blue);
+}
+
+.macro-segment.protein {
+  background: var(--chart-green);
+}
+
+.macro-segment.fat {
+  background: var(--chart-orange);
+}
+
+.macro-gap {
+  display: grid;
+  height: 100%;
+  place-items: center;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.macro-trend-column.missing .macro-stack {
+  background: transparent;
+  box-shadow: none;
+}
+
+.macro-trend-chart.is-month .macro-stack {
+  width: min(9px, 78%);
+  border-radius: 3px 3px 1px 1px;
+}
+
+.macro-trend-chart.is-month .macro-segment + .macro-segment {
+  border-top-width: 1px;
+}
+
+.insight-summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 15px 0 10px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.insight-summary strong {
+  color: var(--foreground);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.protein-target-chart {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-around;
+  gap: 8px;
+  height: 190px;
+  padding: 5px 5px 0 42px;
+  border-bottom: 1px solid var(--line);
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent calc(33.333% - 1px),
+    var(--chart-grid) 33.333%
+  );
+}
+
+.protein-target-day {
+  position: relative;
+  display: flex;
+  flex: 1;
+  max-width: 54px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  flex-direction: column;
+  justify-content: end;
+  cursor: pointer;
+}
+
+.protein-target-track {
+  position: relative;
+  display: block;
+  width: min(29px, 72%);
+  height: calc(100% - 21px);
+  margin: 0 auto;
+  border-radius: 7px 7px 3px 3px;
+  background: color-mix(in srgb, var(--chart-base) 70%, transparent);
+}
+
+.protein-target-fill {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  min-height: 2px;
+  border-radius: inherit;
+  background: linear-gradient(
+    180deg,
+    var(--chart-weight-start),
+    var(--chart-weight-end)
+  );
+  box-shadow: 0 4px 12px var(--chart-weight-shadow);
+  opacity: 0.88;
+  transition:
+    opacity 150ms ease,
+    filter 150ms ease;
+}
+
+.protein-target-day:hover .protein-target-fill,
+.protein-target-day.is-selected .protein-target-fill {
+  filter: brightness(1.05);
+  opacity: 1;
+}
+
+.protein-target-marker {
+  position: absolute;
+  z-index: 2;
+  right: -5px;
+  left: -5px;
+  border-top: 1px dashed var(--chart-target);
+}
+
+.protein-target-day > span:last-child {
+  height: 21px;
+  padding-top: 8px;
+  color: var(--chart-axis-strong);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.protein-target-tooltip {
+  position: absolute;
+  z-index: 4;
+  top: 3px;
+  left: 50%;
+  width: max-content;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%);
+  transition: opacity 150ms ease;
+}
+
+.protein-target-day:hover .protein-target-tooltip,
+.protein-target-day:focus .protein-target-tooltip {
+  opacity: 1;
+}
+
+.protein-target-day:focus-visible {
+  outline: 2px solid var(--orange);
+  outline-offset: 2px;
+}
+
+.protein-target-day.missing .protein-target-fill {
+  display: none;
+}
+
+.protein-target-chart.is-month {
+  gap: 2px;
+  padding-left: 38px;
+}
+
+.protein-target-chart.is-month .protein-target-track {
+  width: min(9px, 75%);
+  border-radius: 3px 3px 1px 1px;
+}
+
+.bar,
+.protein-target-fill,
+.macro-trend-column:not(.missing) .macro-stack {
+  animation: rise-in 620ms var(--ease-out) 120ms backwards;
+}
+
+.protein-target-chart {
+  height: 218px;
+}
+
+@media (max-width: 620px) {
+  .macro-trend-chart,
+  .protein-target-chart {
+    height: 195px;
+  }
+}
+
+/* Recent days, nutrient consistency and top food contributors. Ported from the earlier app. */
+
+.more-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--muted);
+}
+
+.more-button:hover {
+  border-color: var(--line);
+  background: var(--surface);
+  color: var(--foreground);
+}
+
+.more-button {
+  min-height: 28px;
+  padding: 3px 9px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  font-size: 11px;
+  font-weight: 650;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease;
+}
+
+.history-panel {
+  padding: 20px;
+}
+
+.history-panel {
+  padding-bottom: 15px;
+}
+
+.history-list {
+  display: grid;
+  gap: 4px;
+  margin-top: 17px;
+}
+
+.history-row {
+  display: grid;
+  grid-template-columns: 30px minmax(50px, 1fr) auto 10px;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 39px;
+  padding: 5px 6px;
+  border-radius: 9px;
+  background: transparent;
+  text-align: left;
+}
+
+.history-row:hover {
+  background: var(--button-quiet-hover-background);
+}
+.history-row.selected {
+  background: var(--selected-background);
+}
+
+.history-date {
+  display: grid;
+  justify-items: center;
+  line-height: 1;
+}
+
+.history-date strong {
+  color: var(--muted-strong);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.history-date small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 8px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.history-bar {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: var(--chart-base);
+}
+
+.history-bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--chart-orange);
+  transition: width 400ms var(--ease-out);
+}
+
+.history-row.selected .history-bar i {
+  background: var(--chart-green);
+}
+
+.history-calories {
+  color: var(--muted-strong);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.history-calories small {
+  color: var(--muted);
+  font-size: 9px;
+}
+.history-chevron {
+  color: var(--muted);
+  font-size: 16px;
+}
+
+.streak-line {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 15px;
+  padding-top: 13px;
+  border-top: 1px solid var(--line-soft);
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.streak-line strong {
+  color: var(--green);
+}
+.streak-flame {
+  color: var(--orange);
+}
+
+.contribution-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+.contribution-row {
+  display: grid;
+  grid-template-columns: minmax(110px, 1.1fr) minmax(100px, 2fr) 72px;
+  align-items: center;
+  gap: 10px;
+}
+.contribution-label {
+  display: grid;
+  min-width: 0;
+}
+.contribution-label strong {
+  overflow: hidden;
+  color: var(--foreground);
+  font-size: 12px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.contribution-label span {
+  color: var(--muted);
+  font-size: 10px;
+}
+.contribution-bar {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: var(--chart-base);
+}
+.contribution-bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    var(--chart-calorie-start),
+    var(--chart-calorie-end)
+  );
+  transition: width 400ms var(--ease-out);
+}
+.contribution-value {
+  color: var(--muted-strong);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+  text-align: right;
+}
+.compact-empty {
+  min-height: 150px;
+}
+
+.matrix-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 15px 0 10px;
+  color: var(--muted);
+  font-size: 10px;
+}
+.matrix-legend span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.matrix-key {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--chart-base);
+}
+.matrix-key.low {
+  background: var(--chart-blue);
+}
+.matrix-key.met {
+  background: var(--chart-green);
+}
+.matrix-key.over {
+  background: var(--chart-orange);
+}
+.matrix-key.partial {
+  background: repeating-linear-gradient(
+    135deg,
+    var(--chart-green) 0 3px,
+    var(--chart-base) 3px 6px
+  );
+}
+.consistency-panel {
+  overflow: hidden;
+}
+.consistency-scroll {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+.consistency-matrix {
+  display: grid;
+  grid-template-columns: minmax(105px, 1.2fr) repeat(
+      var(--matrix-columns),
+      minmax(42px, 1fr)
+    );
+  gap: 5px;
+  min-width: 480px;
+}
+.matrix-row {
+  display: contents;
+}
+.matrix-date {
+  color: var(--chart-axis-strong);
+  font-size: 9px;
+  font-weight: 650;
+  text-align: center;
+  white-space: pre-line;
+}
+.matrix-date.is-selected {
+  color: var(--foreground);
+}
+.matrix-label {
+  display: grid;
+  align-content: center;
+  min-height: 39px;
+}
+.matrix-label strong {
+  color: var(--foreground);
+  font-size: 11px;
+  font-weight: 650;
+}
+.matrix-label span {
+  color: var(--muted);
+  font-size: 9px;
+}
+/* Each cell is tinted with its state color, and filled from the bottom in proportion to progress. */
+.matrix-cell {
+  --cell-color: var(--chart-blue);
+  position: relative;
+  min-height: 39px;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 7px;
+  background: var(--chart-base);
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+  transition: filter 150ms ease;
+}
+.matrix-cell.met {
+  --cell-color: var(--chart-green);
+}
+.matrix-cell.over {
+  --cell-color: var(--chart-orange);
+}
+.matrix-cell.low,
+.matrix-cell.met,
+.matrix-cell.over {
+  background: color-mix(in srgb, var(--cell-color) 14%, var(--chart-base));
+  color: var(--foreground);
+}
+.matrix-cell::before {
+  position: absolute;
+  inset: auto 0 0;
+  height: var(--cell-intensity);
+  background: var(--cell-color);
+  content: "";
+  opacity: 0.34;
+}
+.matrix-cell:hover {
+  filter: brightness(1.12);
+}
+.matrix-cell.partial::after {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    135deg,
+    transparent 0 5px,
+    var(--surface) 5px 8px
+  );
+  content: "";
+  opacity: calc(1 - var(--cell-coverage));
+}
+.matrix-cell span {
+  position: relative;
+  z-index: 1;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+}
+.matrix-cell:focus-visible {
+  outline: 2px solid var(--orange);
+  outline-offset: 2px;
+}
+
+:root[data-theme="light"] .history-chevron {
+  color: var(--muted-strong);
+}
+
+.food-contribution-panel .contribution-list {
+  gap: 9px;
+  margin-top: 16px;
+}
+
+.consistency-matrix {
+  grid-template-columns: minmax(85px, 1fr) repeat(
+      var(--matrix-columns),
+      minmax(28px, 1fr)
+    );
+  min-width: 410px;
+  gap: 4px;
+}
+
+.matrix-cell,
+.matrix-label {
+  min-height: 32px;
+}
+
+.history-panel {
+  padding: 17px 18px;
+}
+.history-list {
+  margin-top: 10px;
+}
+.history-row {
+  min-height: 42px;
+}
+
+@media (max-width: 620px) {
+  .consistency-panel {
+    overflow: hidden;
+  }
+  .consistency-scroll {
+    overflow-x: auto;
+  }
+
+  .contribution-row {
+    grid-template-columns: minmax(88px, 1.1fr) minmax(80px, 1.6fr) 55px;
+    gap: 7px;
+  }
+
+  .consistency-matrix {
+    grid-template-columns: 68px repeat(var(--matrix-columns), minmax(25px, 1fr));
+    min-width: 0;
+  }
+  .matrix-label strong {
+    font-size: 8px;
+  }
+  .matrix-label span,
+  .matrix-cell span {
+    display: none;
+  }
+}
