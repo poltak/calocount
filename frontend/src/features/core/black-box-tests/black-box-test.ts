@@ -7,6 +7,7 @@ import {
   expect,
   test as base,
   type Browser,
+  type CDPSession,
   type Page,
 } from "@playwright/test";
 import { PasskeySignInPageObject } from "../../auth/black-box-tests/passkey-sign-in-page-object.js";
@@ -84,7 +85,7 @@ function isRefused(error: unknown): boolean {
 }
 
 /** A Chromium virtual authenticator that answers as a phone does. */
-async function addPasskeyDevice(page: Page): Promise<void> {
+async function addPasskeyDevice(page: Page): Promise<CDPSession> {
   const session = await page.context().newCDPSession(page);
   await session.send("WebAuthn.enable");
   await session.send("WebAuthn.addVirtualAuthenticator", {
@@ -97,6 +98,7 @@ async function addPasskeyDevice(page: Page): Promise<void> {
       automaticPresenceSimulation: true,
     },
   });
+  return session;
 }
 
 /**
@@ -149,9 +151,12 @@ export const test = base.extend<BlackBoxOptions & BlackBoxFixtures>({
       timezoneId: "UTC",
     });
     const device = await context.newPage();
-    await addPasskeyDevice(device);
+    const passkeys = await addPasskeyDevice(device);
     await provide(device);
-    await device.waitForLoadState("networkidle").catch(() => {});
+    // While the virtual passkey device is attached, Chromium may not end
+    // `context.close()`. Remove the device first.
+    await passkeys.send("WebAuthn.disable").catch(() => {});
+    await passkeys.detach().catch(() => {});
     await context.close();
   },
   visitorPage: async ({ browser, baseURL, page }, provide) => {
