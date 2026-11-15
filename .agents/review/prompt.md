@@ -79,9 +79,12 @@ comments and messages in the code. Quote the text that is now wrong. In the
 explanation, name the change that made it wrong. Do not report text that was
 already wrong before the pull request.
 
-A test checks that each relative link in a Markdown file names a file and a
-heading that exist, and that each `pnpm run` script that it names is in
-`package.json`. Do not report a broken link or a missing script.
+A test checks each tracked Markdown file. Each inline relative link outside
+code, such as `[setup](setup.md#swamp)`, must name a file and a heading that
+exist, and each `pnpm run <name>` must name a script of the root
+`package.json`. Do not report those two forms. Report the other forms, such as
+a reference link (`[setup][1]` with `[1]: setup.md`), a script that a code
+comment names, or `pnpm <name>` without `run`.
 
 ### decision-change
 
@@ -116,9 +119,11 @@ comment.
 Resolution: fix-required
 
 A change breaks a rule of `docs/agents/code-architecture.md` or
-`docs/agents/database.md`. Read those documents before you read the code. Do not report a rule that lint checks,
-which is each rule of the plugins in `lint/` and of `.oxlintrc.json`. CI runs
-lint, and lint fails the pull request without this review.
+`docs/agents/database.md`. Read those documents before you read the code. Do not report a problem that lint reports,
+with the rules of the plugins in `lint/` and of `.oxlintrc.json`. CI runs
+lint, and lint fails the pull request without this review. A lint rule can
+miss some forms of its rule, such as a value that comes through a variable with
+another name. Report such a form.
 
 Examples: a Storage class that holds a business rule, such as a check of who
 can see a record, which belongs in a Logic class. A second Storage class for
@@ -135,10 +140,16 @@ to a document in `docs/agents/`. `AGENTS.md` ("Project documentation") says
 that such a document describes how the system works and why, and open work
 goes in beads.
 
-The script reports each line that the pull request adds in `docs/agents/` and
-that is a checklist item, a heading that names a phase, next steps, a to-do
-list, or a roadmap, or "As built on" with a date. Do not report those lines
-yourself. Report the other forms, such as steps or a status in sentences.
+The script reports each line that the pull request adds in `docs/agents/`,
+outside a code block, and that is one of these forms:
+
+- A checklist item, such as `- [ ] Add the table`.
+- A heading that has "Phase" and a number, such as "Phase 2", or that starts
+  with "Phases", "Next steps", "To do", "Todo", or "Roadmap".
+- "As built on" and a date, such as "As built on 2026-10-20".
+
+Do not report those lines yourself. Report the other forms, such as
+"## Phase one", "## The phases of the work", or steps or a status in sentences.
 Example: "First we add the table, and then we move the routes." Quote the first
 sentence.
 
