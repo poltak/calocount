@@ -14,7 +14,6 @@ pnpm-lock.yaml
 .swamp.yaml
 # The documents and the ChatGPT plugin of the earlier app.
 docs/*.md
-docs/custom-gpt/
 docs/plugin/
 plugins/
 .agents/plugins/

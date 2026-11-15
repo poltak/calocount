@@ -8,8 +8,7 @@ Calocount has two dashboard entry points:
   may call the private data APIs.
 
 Meals are entered in the owner dashboard or through the private ChatGPT `/mcp`
-app. The deprecated Custom GPT Action still uses `POST /api/add-meal` for existing
-clients. This document covers the public and owner route boundary.
+app. This document covers the public and owner route boundary.
 
 This document keeps its existing filename for repository continuity. The
 application no longer creates or serves token-based links. The existing D1
@@ -18,22 +17,22 @@ compatibility; do not remove or alter them without a separate database decision.
 
 ## Data and route boundary
 
-The Access rules in the table below apply to an instance in Access mode. A
-passkey instance has no Access application: the Worker checks the passkey
-session on `/owner` and on every private `/api/*` route, and the public routes
-are public. [sign-in.md](sign-in.md) describes the two modes.
+The Worker checks the passkey session on every private `/api/*` route. The
+`/owner` page shows the sign-in page to a browser without a session.
+[sign-in.md](sign-in.md) describes the sign-in.
 
-| Path | Access rule | Purpose |
+| Path | Who can use it | Purpose |
 | --- | --- | --- |
-| `/` | Public because no Access destination matches it | Read-only dashboard UI |
-| `/llms.txt` | Public because no Access destination matches it | Markdown discovery document for agents; links to the canonical public JSON projection |
-| `/owner` and `/owner/*` | Existing private Cloudflare Access application, existing owner Allow policy and audience, plus server-side signed JWT check | Owner read-write dashboard |
-| `/api/public/summary` | Separate exact Cloudflare Access application with Bypass Everyone | Explicit read-only dashboard projection, the daily view for agents at `?view=daily`, and the calendar views at `?view=month` and `?view=day` |
-| `/meal-photos/*` | Public because no Access destination matches it, with server-side projection checks | Images for completed meals in the current public seven-day projection |
-| `/api/*` in general | Private Cloudflare Access and server-side owner authentication | Owner data and API write operations, including the legacy Action route |
-| `/mcp` | Exact private Cloudflare Access application and server-side owner authentication | ChatGPT meal logging, nutrition reads and weight reads |
-| `/assets/*`, manifest, service worker, and required icons | Public because no Access destination matches them | JavaScript, CSS, and install metadata only |
-| `/api/photos/*`, exports, settings, and other owner APIs | Private | Sensitive data and mutations |
+| `/` | public | Read-only dashboard UI |
+| `/llms.txt` | public | Markdown discovery document for agents; links to the canonical public JSON projection |
+| `/owner` and `/owner/*` | passkey session | Owner read-write dashboard |
+| `/api/public/summary` | public | Explicit read-only dashboard projection, the daily view for agents at `?view=daily`, and the calendar views at `?view=month` and `?view=day` |
+| `/meal-photos/*` | public, with server-side projection checks | Images for completed meals in the current public seven-day projection |
+| `/api/*` in general | passkey session | Owner data and API write operations |
+| `/mcp` | OAuth access token | ChatGPT meal logging, nutrition reads and weight reads |
+| `/assets/*`, manifest, and required icons | public | JavaScript, CSS, and install metadata only |
+| `/api/photos/*`, exports, settings, and other owner APIs | passkey session | Sensitive data and mutations |
+| `/api/public/dashboard/summary`, `/api/public/days`, `/api/public/days/:date` and `/api/public/insights` | public | Read-only mirrors of the owner reads, which the public dashboard uses |
 
 ## Public view setting
 
@@ -50,10 +49,7 @@ While the setting is off:
 - `/meal-photos/*` returns `404`; and
 - `/llms.txt` returns `404`.
 
-The Worker reads the setting on each request, and the Access layout below does
-not change. In Access mode, keep the Access bypass for `/api/public/summary` on
-a private instance too, so the owner can turn the public view on later without
-an Access change. If the Worker cannot read the setting because the owner key or the
+The Worker reads the setting on each request. If the Worker cannot read the setting because the owner key or the
 database is missing, `/` shows the public page and the data routes fail closed.
 
 ## Public summary
@@ -76,7 +72,7 @@ timezone is UTC until the owner sets one in settings.
 It does not contain owner keys, captions, notes, assumptions, confidence,
 photo storage keys or MIME metadata, AI/provider data, private settings,
 exports, or API credentials.
-`app/api/_lib/public-summary-projection.ts` implements the projection. Keep the
+`backend/src/features/public-view/utils/public-projection.ts` implements the projection. Keep the
 field list explicit when changing the public response.
 
 ### Daily view for agents
@@ -99,10 +95,6 @@ The rows start on the first day with an entry or a weight and keep at most the
 latest 366 days. This makes daily totals and weights older than the dashboard's
 30 days public. The owner chose this on 2026-10-02. An unknown `view` value
 returns `400`.
-
-The view is a query on the existing path because the Access bypass covers only
-the exact `/api/public/summary` path. A new path under `/api/public/` would be
-private until it had its own bypass application.
 
 ### Calendar views
 
@@ -133,8 +125,43 @@ revalidate the projection so removed or expired access is not cached. Pending,
 old, removed, malformed, and unprojected meals return `404`. The authenticated
 `/api/photos/*` owner route remains private.
 
-The public dashboard must not call owner APIs. Every write API route must call
-`requireApiIdentity(request)` before it reads or changes owner data. A public
+### Mirrors of the owner reads
+
+The public dashboard is the owner dashboard with a public audience. It reads
+four routes that mirror the owner reads. Each route answers `404` with the code
+`public_view_off` while the public view is off, sends `Cache-Control: no-store`,
+and counts days in the owner's saved timezone. It accepts a `timezone` query and
+ignores it.
+
+| Route | Owner read | What is different |
+| --- | --- | --- |
+| `GET /api/public/dashboard/summary` | `GET /api/dashboard/summary` | The profile is `owner` and the partner log switch is `false`. |
+| `GET /api/public/days/:date` | `GET /api/days/:date` | Only complete entries. Each entry and weight is projected as below. |
+| `GET /api/public/days?month=YYYY-MM` | `GET /api/days?month=YYYY-MM` | None. |
+| `GET /api/public/insights` | `GET /api/insights` | The items have no `nutrientProvenance`, and both reference settings are `false`. |
+
+Each public body has the same keys as the owner body, so the owner frontend
+code reads both. A private field stays in the body with a fixed empty value:
+
+- An entry keeps `id`, `consumedAt`, `mealType`, `status` and the four totals.
+  It has `caption: ""`, `notes: null`, `assumptions: []`, `confidence: null`,
+  `photoKey`, `photoMimeType` and `photoSizeBytes` as `null`, `source: ""`,
+  `externalRequestId` and `savedEntryId` as `null`, and `createdAt` and
+  `updatedAt` as `0`. It also has `hasPhoto`.
+- An item keeps `id`, `mealId`, `name`, `quantity`, `unit`, the calories and
+  macros, and every tracked nutrient. It has `source: ""`, `confidence: null`,
+  and `createdAt` and `updatedAt` as `0`. It has no `nutrientProvenance`.
+- A weight keeps `id`, `logicalDate`, `weightKg` and `recordedAt`. Its
+  `createdAt` and `updatedAt` are `0`.
+
+The item IDs, the weight IDs and the `source` of each nutrient goal are public.
+The insight panels also make the nutrition of each item of the last 30 days
+public. The code lists each field by name, so a new private column does not
+reach a visitor.
+
+The public dashboard must not call owner APIs. It calls only the routes under
+`/api/public/` and `/meal-photos/*`. Every write API route must pass
+the session gate before it reads or changes owner data. A public
 request must never be able to add, edit, delete, correct, weigh, configure,
 export, or upload data.
 
@@ -142,53 +169,23 @@ export, or upload data.
 
 The PWA manifest starts at `/owner`. Its `id` and `scope` remain `/`, so the
 installed app keeps the Calocount site identity while opening the private owner
-dashboard. The owner Access application must cover the exact `/owner` path and
-its descendants. The manifest, service worker, icons, and generated static
-assets must be available to the browser so installation can complete.
-
-## Production Access configuration
-
-This section applies to Access mode. The following layout was live-verified on
-2026-08-26:
-
-1. The existing private Access application protects exact `/owner`, `/owner/*`,
-   and `/api/*` destinations with the existing owner Allow policy and the same
-   owner JWT audience.
-2. A separate Access application protects the exact `/api/public/summary`
-   destination with Bypass Everyone. It is more specific than `/api/*`.
-3. `/`, `/meal-photos/*`, `/llms.txt`, and the static/PWA assets are public
-   because no Access destination matches them. The photo handler enforces the
-   public projection. The static `/llms.txt` asset needs no Access bypass.
-   Do not add root or static bypass exceptions, a broad `/*` bypass, a broad
-   `/assets/*` bypass, or an `/api/*` bypass.
-4. Anonymous and authenticated live checks must confirm that the public root,
-   summary, and projected meal photos load without login; `/owner`,
-   `/api/photos/*`, and other private APIs require the owner Access session;
-   and static/PWA assets are reachable anonymously.
-
-Keep `CALOCOUNT_ALLOW_LOCAL=false` in production. Review the public projection,
-route conditions, and owner JWT checks before each deployment. Apply only the
-existing additive D1 migrations; do not remove or modify the compatibility
-`share_links` migration or schema declaration.
+dashboard. The manifest, icons, and generated static assets must be available
+to the browser so installation can complete.
 
 ## Future route review rule
 
-Treat routes as public by default unless a private Cloudflare Access destination
-covers them. Before every deployment, explicitly review:
+Treat routes as public by default unless the session gate covers them. Before
+every deployment, explicitly review:
 
 - every new page outside `/owner`;
 - every new public API exception; and
 - every new server route outside `/api`.
 
 For each change, test both anonymous and owner behavior from the deployed
-application and review the live Access path list. This rule is mandatory for
-future agents; the current layout was verified on 2026-08-26.
+application. This rule is mandatory for future agents.
 
 ## Rollback
 
-If the public page, projection, or authentication boundary is wrong, restore the
-broad Worker destination on the existing private Access application and remove
-or disable the exact `/api/public/summary` Bypass Everyone application. Verify
-that anonymous requests receive Access and that the authenticated owner route
-still works. If the Worker is wrong, redeploy the last known-good version. Keep
-the existing D1 migration history intact.
+If the public page, projection, or authentication boundary is wrong, turn off
+the public view in the settings, or redeploy the last known-good version of the
+Worker. Keep the existing D1 migration history intact.

@@ -132,13 +132,33 @@ The project's own choices, with their reasons. Read this file when you read
 
 ## The public view
 
-- **`/` is the public page, and `/owner` is the owner dashboard.** The public
-  page needs no session. It reads only `GET /api/public/summary` (the views
-  `daily`, `month` and `day`), and it has no control that changes data. While
-  the owner keeps the public view off, the routes answer 404 with the code
-  `public_view_off`, and the page opens `/owner`, which asks for the sign-in.
-  `/llms.txt` follows the same switch. A new owner starts with the view off,
-  and an owner who had it on keeps it on.
+- **`/` is the owner dashboard with `audience: "public"`, and `/owner` is the
+  same dashboard with `audience: "owner"`.** The public page needs no session.
+  It reads the mirrors of the owner reads under `/api/public/`, and it has no
+  control that changes data. The owner controls are hidden when the audience is
+  public: the settings button, the entry form and buttons, the saved entries,
+  and the weight form. While the owner keeps the public view off, the routes
+  answer 404 with the code `public_view_off`, and the page opens `/owner`,
+  which asks for the sign-in. `/llms.txt` follows the same switch. A new owner
+  starts with the view off, and an owner who had it on keeps it on.
+- **Each public mirror sits beside its owner read.** `GET /api/public/days`,
+  `/api/public/days/:date`, `/api/public/dashboard/summary` and
+  `/api/public/insights` live in `entries` and `insights`, not in
+  `public-view`, because a feature may import another feature only through its
+  `types.ts`. `public-view` keeps the gate middleware (`requirePublicView`).
+  `GET /api/public/summary` stays for agents, with its views `daily`, `month`
+  and `day`. There is no Access mode for the mirrors, so a new path under
+  `/api/public` needs no Access change.
+- **A public body is a subtype of the owner body.** Each private field stays in
+  the public body with a fixed empty value, and its type is the empty literal
+  (`caption: ""`, `notes: null`, `createdAt: 0`). So the owner frontend code
+  reads both, the owner API does not change, and a projection that copies a
+  private field does not compile. `PublicEntry` is built from the owner type,
+  so a new owner column breaks `publicEntryOf` until someone decides whether
+  the column is public. A projection names each field and never spreads a row.
+  Item IDs, weight IDs and the `source` of the nutrient goals are public. The
+  items of the insights lose `nutrientProvenance`, and `referenceSettings` are
+  both `false`.
 - **The public routes read through the Logic classes** of `entries`, `settings`
   and `weights`, in `backend/src/features/public-view/handlers/`. They never
   read the Storage of those features. `utils/public-projection.ts` lists each
@@ -154,12 +174,15 @@ The project's own choices, with their reasons. Read this file when you read
   The URL holds the entry ID, so the R2 key stays private. It answers only
   while the public view is on, and only for a complete entry of the owner with
   a JPEG, PNG or WebP photo in the seven days that end today in the saved
-  timezone (`public-photo-policy.ts`). Any other case is the same 404 body.
+  timezone (`public-photo-policy.ts` in `common`, which the entry projection
+  also uses for `hasPhoto`). Any other case is the same 404 body.
   A matching `If-None-Match` gets a 304.
 - **The public page has a calendar and photo thumbnails.** The calendar is the
-  panel of the history feature with `source: "public"`, which reads
-  `GET /api/public/summary?view=month&month=YYYY-MM`. `routes.tsx` passes it to
-  the page as a render prop, as it does for the owner dashboard.
+  panel of the history feature with `audience: "public"`, which reads
+  `GET /api/public/days?month=YYYY-MM`. `routes.tsx` gives it to the dashboard
+  as a render prop, as it does for the owner. The photo address is
+  `/meal-photos/<entry ID>`, which `PhotoPreviewLogic` builds from the
+  `hasPhoto` of the public entry.
 
 ## Insights
 

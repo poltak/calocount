@@ -1,6 +1,6 @@
 # Nutrient tracking implementation plan
 
-This is a historical plan. References to the ChatGPT Action describe the deprecated Custom GPT integration. Current ChatGPT meal logging uses the private `/mcp` app. The `POST /api/add-meal` route remains available for existing clients.
+This is a historical plan. References to the ChatGPT Action describe the deprecated Custom GPT integration. Current ChatGPT meal logging uses the private `/mcp` app. The `POST /api/add-meal` route was removed in the port to the new code base.
 
 ## Goal
 

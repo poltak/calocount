@@ -2,7 +2,7 @@
 
 The owner's standard Chat uses the existing Calocount MCP connection in ChatGPT developer mode. After deployment and refresh, it exposes five tools: `add_meals`, `update_meal`, `get_nutrition_summary`, `get_nutrition_history`, and `get_weight_history`. The repository also contains a plugin package with a [meal-tracking skill](../../plugins/calocount-meal-tracker/skills/meal-tracking/SKILL.md). The package links the skill to the registered MCP app. See [Install the skill with the app](#install-the-skill-with-the-app).
 
-The tool contract is one argument object with a `meals` array and optional top-level `photos` and `photo_meal_indices` arrays. It accepts 1 to 20 meals in a call. Each meal follows the current `/api/add-meal` meal fields. Each `photos` entry is a ChatGPT file value. The entry at `photos[i]` belongs to the meal at `meals[photo_meal_indices[i]]`; indices start at zero. Both arrays must have the same length, with no more than one photo per meal and 20 photos per call. The tool returns the meal batch result, `daily_totals`, and whether each meal has an image.
+The tool contract is one argument object with a `meals` array and optional top-level `photos` and `photo_meal_indices` arrays. It accepts 1 to 20 meals in a call. Each meal follows the schema of the `add_meals` tool. Each `photos` entry is a ChatGPT file value. The entry at `photos[i]` belongs to the meal at `meals[photo_meal_indices[i]]`; indices start at zero. Both arrays must have the same length, with no more than one photo per meal and 20 photos per call. The tool returns the meal batch result, `daily_totals`, and whether each meal has an image.
 
 ## Edit a saved meal
 
@@ -40,13 +40,10 @@ The MCP server sends short workflow instructions during initialization. Its `add
 
 ## Sign-in for the MCP connection
 
-The sign-in of the connection depends on the sign-in mode of the instance. See
+Calocount is its own OAuth authorization server. See
 [sign-in.md](../sign-in.md).
 
-### Passkey mode: OAuth
-
-A new instance uses passkey mode. Calocount is its own OAuth authorization
-server, so ChatGPT needs no Cloudflare Access application.
+### OAuth
 
 1. In ChatGPT web, turn on developer mode for apps, and create a new app.
 2. Use the MCP server URL `https://<your-calocount-host>/mcp`, and select
@@ -63,10 +60,6 @@ ChatGPT refreshes its token without help. The connection works until you
 disconnect it, or until ChatGPT does not use it for 180 days. To stop it,
 select **Disconnect** in Calocount or remove the app in ChatGPT.
 
-After a move from Access mode, remove the old Calocount app in ChatGPT and
-create a new one. The old app has Access tokens, and passkey mode does not
-accept them.
-
 To check the server without ChatGPT, send a request without a token. It must
 return `401` with a `WWW-Authenticate` header that names
 `/.well-known/oauth-protected-resource/mcp`:
@@ -76,22 +69,6 @@ curl -i -X POST https://<your-calocount-host>/mcp \
   -H 'content-type: application/json' -H 'accept: application/json, text/event-stream' \
   --data '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 ```
-
-### Access mode
-
-The rest of this section applies only to an instance in Access mode.
-
-ChatGPT must reach the MCP server through a public HTTPS endpoint or Secure MCP Tunnel. A public endpoint uses Streamable HTTP, usually at `/mcp`. OpenAI explains this in [Connect and test your plugin](https://developers.openai.com/plugins/deploy/connect-chatgpt) and [Secure MCP Tunnel](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels).
-
-Before you deploy the Worker, verify that the Calocount Worker serves `POST /mcp`, exposes `add_meals`, `update_meal`, `get_nutrition_summary`, `get_nutrition_history`, and `get_weight_history`, and routes `/mcp` to the Worker first with Wrangler `run_worker_first`.
-
-The Worker must check each ChatGPT file `download_url` against its configured host allowlist before it fetches the image. Test with a real ChatGPT chat upload and record the actual download host. If that host differs from the allowlist, update the allowlist and redeploy. Do not allow arbitrary download hosts. Confirm that the Worker stores the image with the meal selected by `photo_meal_indices`, and test that one photo cannot attach to more than one meal.
-
-Before deployment, verify that the existing Cloudflare Access application has an exact path rule for the Calocount host and `/mcp`, and that it still uses the owner's Allow policy. Keep this rule in place for the read tools. Confirm that Managed OAuth remains enabled for the existing `/mcp` application.
-
-Each Access application has its own JWT audience. Verify that `CALOCOUNT_MCP_ACCESS_AUDIENCE` in the Calocount Worker environment matches the audience tag for the existing `/mcp` application. Keep `CALOCOUNT_ACCESS_AUDIENCE` set to the audience tag for the existing `/api/*` application. Do not reuse the `/api/*` audience for `/mcp`. Confirm that the Worker validates the signed Access JWT and checks the expected owner identity before it reads nutrition data or writes a meal. Test that a missing or wrong `CALOCOUNT_MCP_ACCESS_AUDIENCE` rejects the request. Cloudflare documents path rules, Managed OAuth, and audience and JWT validation ([Application paths](https://developers.cloudflare.com/cloudflare-one/access-controls/policies/app-paths/), [Managed OAuth](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/managed-oauth/), [Application token audience](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/application-token/), [Validate Access JWTs](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/validating-json/)).
-
-Do not use the old Custom GPT bearer secret for this connection. In Access mode, ChatGPT signs in through Access Managed OAuth. The server must still validate the Access JWT and allow only the configured owner.
 
 ## Test in standard Chat
 

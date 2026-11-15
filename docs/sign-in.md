@@ -1,23 +1,9 @@
 # Sign-in
 
-Each Calocount instance has one owner. Two sign-in methods exist, and
-`CALOCOUNT_AUTH_MODE` selects one:
-
-| Mode | Owner dashboard and owner API | MCP endpoint (`/mcp`) |
-| --- | --- | --- |
-| `passkey` | A passkey, then a session cookie | OAuth 2.1. The owner allows each app with a passkey session. |
-| `access` | A Cloudflare Access JWT | Cloudflare Access Managed OAuth |
-
-When `CALOCOUNT_AUTH_MODE` is not set, an instance that has
-`CALOCOUNT_ACCESS_TEAM_DOMAIN` and `CALOCOUNT_ACCESS_AUDIENCE` uses `access`.
-Every other instance uses `passkey`. An unknown value fails closed with `503`
-and the code `auth_mode_invalid`. `CALOCOUNT_ALLOW_LOCAL=true` turns sign-in
-off. Use it only for local development.
-
-## Passkey mode
-
-Passkey mode needs no account outside Cloudflare. The owner signs in with a
-face, a fingerprint or a screen lock.
+Each Calocount instance has one owner. The owner signs in with a passkey: a
+face, a fingerprint or a screen lock. The owner needs no account outside
+Cloudflare. ChatGPT connects to `/mcp` with OAuth 2.1, and the owner allows
+each app with a passkey session.
 
 ### Setup code
 
@@ -72,7 +58,7 @@ instance, and a new passkey after the owner loses all devices.
 | Path | Who can use it | Purpose |
 | --- | --- | --- |
 | `/owner` | Anyone | The dashboard with a live session, otherwise the sign-in page |
-| `GET /api/auth/status` | Anyone | The mode, and whether the browser is signed in and the instance has a passkey |
+| `GET /api/auth/status` | Anyone | Whether the browser is signed in and whether the instance has a passkey |
 | `POST /api/auth/register/options` | A session, or anyone with the setup code | Start to save a passkey |
 | `POST /api/auth/register/verify` | The holder of a registration challenge | Save the passkey, and sign in without a session |
 | `POST /api/auth/login/options` and `/verify` | Anyone | Sign in with a passkey |
@@ -80,8 +66,8 @@ instance, and a new passkey after the owner loses all devices.
 | `GET /api/auth/passkeys`, `DELETE /api/auth/passkeys/:id` | A session | List and remove passkeys |
 | `GET /api/auth/connections`, `DELETE /api/auth/connections/:id` | A session | List and disconnect OAuth apps |
 
-Every other `/api/*` route needs a session. `tests/worker-routes.test.mjs`
-checks this for each route file.
+Every other `/api/*` route needs a session. `PUBLIC_ROUTES` in
+`backend-http.test.ts` lists each route before the session gate.
 
 ### OAuth for the MCP endpoint
 
@@ -120,49 +106,6 @@ registered, because ChatGPT uses its client ID again after a disconnect.
 
 ### Try passkeys locally
 
-In `.dev.vars`, set `CALOCOUNT_ALLOW_LOCAL=false` and a
-`CALOCOUNT_SETUP_CODE`, apply the migrations with `pnpm run db:migrate:local`,
-and run `pnpm run dev`. Open `http://localhost:3000/owner`. Browsers allow
-passkeys on `localhost`, but not on `127.0.0.1`.
-
-## Access mode
-
-Access mode keeps the earlier behavior. The Access layout is in
-[read-only-sharing.md](read-only-sharing.md). The passkey routes and the OAuth
-routes return `404`, and `/api/auth/status` returns `{ "mode": "access" }`.
-
-## Move an Access instance to passkeys
-
-These steps keep the data. They change only the sign-in.
-
-1. Add two secrets to the Worker. In a clone of this repository, run:
-
-   ```sh
-   pnpm exec wrangler secret put CALOCOUNT_SETUP_CODE
-   pnpm exec wrangler secret put CALOCOUNT_AUTH_MODE
-   ```
-
-   For the setup code, type a long phrase of at least 12 characters. For the
-   mode, type `passkey`. Each command makes a new version of the Worker at
-   once, with the code that runs now. Versions before passkey support do not
-   read these values, so you can add them before the deploy. A deploy never
-   deletes a secret. You can also add them in the Cloudflare dashboard, in
-   **Settings > Variables and Secrets** of the Worker.
-2. Deploy this version of Calocount, for example with a push to `main`.
-3. Open `/owner`. Access asks you to sign in one last time. Then Calocount
-   shows **Set up Calocount**. Type the setup code and save a passkey.
-4. In Cloudflare Zero Trust, open **Access > Applications**. Delete the
-   Calocount applications: the owner application for `/owner`, `/owner/*` and
-   `/api/*`, the bypass application for `/api/public/summary`, and the
-   application for `/mcp`.
-5. Open `/owner` in a private window. Calocount asks for the passkey, and
-   Access does not show.
-6. Connect ChatGPT again. Follow
-   [the MCP setup guide](plugin/README.md#passkey-mode-oauth). The old ChatGPT
-   connection used Access tokens, which passkey mode does not accept.
-7. Optional: delete the variables `CALOCOUNT_ACCESS_TEAM_DOMAIN`,
-   `CALOCOUNT_ACCESS_AUDIENCE`, `CALOCOUNT_MCP_ACCESS_AUDIENCE` and
-   `CALOCOUNT_ALLOWED_EMAIL_SHA256`. Passkey mode does not read them.
-
-To go back, set `CALOCOUNT_AUTH_MODE` to `access` and create the Access
-applications again.
+In `.dev.vars`, set a `CALOCOUNT_SETUP_CODE`, and run `pnpm run dev`. It
+applies the migrations to the local D1. Open `http://localhost:5173/owner`.
+Browsers allow passkeys on `localhost`, but not on `127.0.0.1`.
