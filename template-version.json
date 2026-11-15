@@ -22,6 +22,18 @@
     {
       "path": "docs/agents/database.md",
       "reason": "Calocount's database rules are for D1: an atomic batch in place of transactions"
+    },
+    {
+      "path": "frontend/src/features/core/ui/app.css",
+      "reason": "Calocount draws its pages with its own CSS and routes"
+    },
+    {
+      "path": "frontend/src/features/core/ui/routes.tsx",
+      "reason": "Calocount draws its pages with its own CSS and routes"
+    },
+    {
+      "path": "frontend/src/features/core/utils/class-names.ts",
+      "reason": "Calocount draws its pages with its own CSS and routes"
     }
   ]
 }
