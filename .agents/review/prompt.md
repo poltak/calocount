@@ -79,6 +79,10 @@ comments and messages in the code. Quote the text that is now wrong. In the
 explanation, name the change that made it wrong. Do not report text that was
 already wrong before the pull request.
 
+A test checks that each relative link in a Markdown file names a file and a
+heading that exist, and that each `pnpm run` script that it names is in
+`package.json`. Do not report a broken link or a missing script.
+
 ### decision-change
 
 Resolution: maintainer-approval
