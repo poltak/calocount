@@ -1,4 +1,4 @@
-import { privateJsonHeaders, routeBodyLimit } from "backend/testing";
+import { routeBodyLimit } from "backend/testing";
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
 import { inspectRoutes } from "hono/dev";
@@ -174,11 +174,9 @@ describe("backend HTTP app", () => {
 
   it("should keep the cache-control of a route and leave other content types alone", async () => {
     const { httpApp, transport } = await createFullApplication();
-    // The middleware sits in the `/api` app, so a test route needs its own copy.
     httpApp.route(
       "/api/probe",
       new Hono()
-        .use("*", privateJsonHeaders())
         .get("/cached", (context) => {
           context.header("cache-control", "max-age=60");
           return context.json({ ok: true });

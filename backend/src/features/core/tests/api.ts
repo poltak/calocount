@@ -19,7 +19,6 @@ import { cleanupLogic, initializeLogic } from "../logic/lifecycle.js";
 
 // A test adds a route with its own limit, because the template has none.
 export { routeBodyLimit } from "../handlers/body-limit.js";
-export { privateJsonHeaders } from "../handlers/private-json-headers.js";
 
 /**
  * A migrated database that already holds the owner account, as plain data that
