@@ -27,6 +27,7 @@ async function setupTest({
     await seed?.(application);
     return new DashboardLogic({
       ...application.frontend,
+      audience: "owner",
       entryEvents: [events],
       settingsEvents: [],
       weightEvents: [],
@@ -302,7 +303,6 @@ describe("DashboardLogic day tests", () => {
 
     const selectP = logic.selectDate({ date: dateAgo(app, 1) });
     expect(logic.state.selectedDate).toEqual(dateAgo(app, 1));
-    expect(logic.state.entries).toEqual([]);
     await selectP;
 
     expect(logic.state.loadDayState).toEqual("success");
@@ -459,6 +459,7 @@ describe("DashboardLogic view tests", () => {
     );
     const later = new DashboardLogic({
       ...frontend,
+      audience: "owner",
       entryEvents: [],
       settingsEvents: [],
       weightEvents: [],

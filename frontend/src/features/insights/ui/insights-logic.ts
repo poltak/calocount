@@ -17,17 +17,20 @@ import type { WeeklyMetricKey } from "@app/common/features/entries/utils/insight
 import { requireApiSuccess } from "../../api/client/api-client.js";
 import { failureMessage } from "../../core/logic/failure-message.js";
 import { LatestRequest } from "../../core/logic/latest-request.js";
-import type { FrontendLogicProps } from "../../core/logic/types.js";
+import type { Audience, FrontendLogicProps } from "../../core/logic/types.js";
 import type { EntryEvents } from "../../entries/types.js";
 import type { SettingsEvents } from "../../settings/types.js";
 import type { WeightEvents } from "../../weights/types.js";
 import type { InsightsRead } from "../utils/api-types.js";
+import type { FoodContributionMetric } from "../utils/food-contribution.js";
 
 type InsightsProps = FrontendLogicProps<
   never,
   "clock" | "windowFocus",
-  "insights"
+  "insights" | "public"
 > & {
+  /** A visitor reads the public mirror, which leaves out where each amount came from. */
+  audience: Audience;
   /** The Logic classes that change what the panels show. The panels read again after each change. */
   entryEvents: readonly EntryEvents[];
   settingsEvents: readonly SettingsEvents[];
@@ -38,6 +41,8 @@ export type CalorieBandName = "80–120%" | "90–110%" | "95–105%";
 
 /** What the owner chose in the panels. A choice that no longer fits the data falls back to the first row. */
 interface InsightSelections {
+  contributionRange: 7 | 30;
+  contributionMetric: FoodContributionMetric;
   repeatRange: 7 | 30;
   repeatMetric: RepeatMetric;
   repeatBand: CalorieBandName;
@@ -82,6 +87,8 @@ interface InsightsState extends InsightSelections {
   collapsed: boolean;
   /** The nutrient of an attention finding that the owner wants to compare foods for. */
   focusedNutrient: NutrientKey | null;
+  /** Counts the compare-food actions. The food panel scrolls into view after each. */
+  compareFoodCount: number;
 }
 
 /** The insight panels of the owner dashboard: the recent entries, and the choices in each panel. */
@@ -107,6 +114,9 @@ export class InsightsLogic extends Logic<InsightsProps, InsightsState> {
         },
         collapsed: false,
         focusedNutrient: null,
+        compareFoodCount: 0,
+        contributionRange: 7,
+        contributionMetric: "calories",
         repeatRange: 30,
         repeatMetric: "protein",
         repeatBand: "90–110%",
@@ -158,7 +168,10 @@ export class InsightsLogic extends Logic<InsightsProps, InsightsState> {
     const signal = this.reads.start();
     this.setState({ loadState: "running", loadError: null });
     try {
-      const response = await this.deps.api.insights.$get(
+      const { api, audience } = this.deps;
+      const insights =
+        audience === "public" ? api.public.insights : api.insights;
+      const response = await insights.$get(
         { query: { timezone: this.deps.services.clock.timeZone() } },
         { init: { signal } },
       );
@@ -205,6 +218,7 @@ export class InsightsLogic extends Logic<InsightsProps, InsightsState> {
   compareFoodChange({ nutrient }: { nutrient: NutrientKey }): void {
     this.setState({
       focusedNutrient: nutrient,
+      compareFoodCount: this.state.compareFoodCount + 1,
       sourceNutrient: nutrient,
       sourceKey: null,
       scenarioCandidateId: null,

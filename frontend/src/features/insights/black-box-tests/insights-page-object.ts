@@ -56,6 +56,26 @@ export class InsightsPageObject {
     });
   }
 
+  // Inspect entry
+
+  /** Open the "Fiber" row of "Data coverage", which lists the entries with a missing value. */
+  async openFiberCoverageRow(): Promise<Locator> {
+    const row = this.panel("Data coverage")
+      .getByRole("group")
+      .filter({ hasText: "Fiber" })
+      .first();
+    await row.getByText("Fiber", { exact: true }).click();
+    return row;
+  }
+
+  /** The "Inspect entry" buttons on the page. */
+  get inspectEntryButtons() {
+    return this.page.getByRole("button", {
+      name: "Inspect entry",
+      exact: true,
+    });
+  }
+
   // Nutrition food insights
 
   /** The "Exclude" button of the nth food in "Where a nutrient comes from". */
@@ -72,6 +92,18 @@ export class InsightsPageObject {
     return this.panel("What changed this week?").getByRole("button", {
       name: new RegExp(`^${name}( |$)`),
     });
+  }
+
+  // Top food contributors
+
+  /** The rows of the top food contributors, the largest first. */
+  contributionRows() {
+    return this.panel("Top food contributors").getByRole("listitem");
+  }
+
+  /** The bar of a row, which names its share of the largest contributor. */
+  contributionBar(row: Locator) {
+    return row.getByRole("img");
   }
 
   // Frequency and amount

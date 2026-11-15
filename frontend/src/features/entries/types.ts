@@ -1,4 +1,5 @@
 import type { EventEmitter } from "@app/common/features/core/events/event-emitter";
+import type { Audience } from "../core/logic/types.js";
 import type { TrendRange } from "../core/utils/trend-range.js";
 
 /**
@@ -30,6 +31,10 @@ export interface WeightSlotProps {
   trendWeights: { logicalDate: string; weightKg: number }[];
   trendRange: TrendRange;
   onTrendRangeChange: (range: TrendRange) => void;
+  /** A visitor reads the weights and changes none. */
+  audience: Audience;
+  /** Changes each time the owner asks for the weight form, such as with "Record weight". */
+  openFormRequest: number;
 }
 
 /**
@@ -48,6 +53,6 @@ export interface CalendarSlotProps {
   disabled: boolean;
   onSelectDate: (date: string) => void;
   onClose: () => void;
-  /** Whose days the calendar reads. The default is the owner's. */
-  source?: "owner" | "public";
+  /** Whose days the calendar reads. A visitor reads the public mirror, in the owner's saved timezone. */
+  audience: Audience;
 }

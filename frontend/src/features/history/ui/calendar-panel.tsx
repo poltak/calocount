@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from "react";
 import { useLogic } from "../../core/logic/use-logic.js";
+import type { Audience } from "../../core/logic/types.js";
 import { useFrontendApp } from "../../core/ui/frontend-app-context.js";
 import { cx } from "../../core/utils/class-names.js";
 import {
@@ -20,8 +21,8 @@ interface CalendarPanelProps {
   disabled: boolean;
   onSelectDate: (date: string) => void;
   onClose: () => void;
-  /** Whose days to read. The default is the owner's. */
-  source?: "owner" | "public";
+  /** Whose days to read. */
+  audience: Audience;
 }
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -38,7 +39,7 @@ export function CalendarPanel({
   disabled,
   onSelectDate,
   onClose,
-  source = "owner",
+  audience,
 }: CalendarPanelProps) {
   const app = useFrontendApp();
   const deps = useMemo(
@@ -47,9 +48,9 @@ export function CalendarPanel({
       services: { clock: app.services.clock },
       api: { days: app.api.days, public: app.api.public },
       initialMonth,
-      source,
+      audience,
     }),
-    [app, initialMonth, source],
+    [app, initialMonth, audience],
   );
   const { logic, state } = useLogic({ LogicClass: CalendarLogic, deps });
   useEffect(() => {

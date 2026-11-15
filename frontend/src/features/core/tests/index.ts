@@ -9,6 +9,7 @@ import { FakeThemeService } from "../../settings/services/fake-theme-service.js"
 import { SettingsStorage } from "../../settings/storage/settings-storage.js";
 import { EntriesStorage } from "../../entries/storage/entries-storage.js";
 import { SoftPasskeyService } from "../../auth/services/soft-passkey-service.js";
+import { FakeTickerService } from "../../ticker/services/fake-ticker-service.js";
 import { FakeWindowFocusService } from "../../window-focus/services/fake-window-focus-service.js";
 import { MemoryKeyValueStore } from "./memory-key-value-store.js";
 
@@ -23,6 +24,8 @@ export interface TestApp extends App {
     /** The device's passkeys. A test gives it the owner's passkey, or makes it fail. */
     passkeys: SoftPasskeyService;
     theme: FakeThemeService;
+    /** The minute timer. A test makes a minute pass with `tick`. */
+    ticker: FakeTickerService;
     windowFocus: FakeWindowFocusService;
   };
 }
@@ -55,6 +58,7 @@ export function createApp({
       // The page's origin is the one of the backend in these tests.
       passkeys: new SoftPasskeyService({ origin: new URL(baseUrl).origin }),
       theme: new FakeThemeService(),
+      ticker: new FakeTickerService(),
       windowFocus: new FakeWindowFocusService(),
     },
     apiAccessEvents,

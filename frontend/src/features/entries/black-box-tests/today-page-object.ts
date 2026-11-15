@@ -93,6 +93,8 @@ export class TodayPageObject {
   readonly addWeightButton: Locator;
   readonly editWeightButton: Locator;
   readonly weightField: Locator;
+  readonly recordWeightLink: Locator;
+  readonly saveWeightButton: Locator;
   readonly sectionTabs: Locator;
   readonly nutritionHideButton: Locator;
   readonly nutritionShowButton: Locator;
@@ -139,6 +141,13 @@ export class TodayPageObject {
       exact: true,
     });
     this.weightField = page.getByLabel("Weight (kg)");
+    this.saveWeightButton = this.weightPanel.getByRole("button", {
+      name: /^Save/,
+    });
+    this.recordWeightLink = page.getByRole("link", {
+      name: "Record weight",
+      exact: true,
+    });
     this.sectionTabs = page.getByRole("navigation", {
       name: "Dashboard sections",
     });
@@ -568,7 +577,7 @@ export class TodayPageObject {
       options.editing ? this.editWeightButton : this.addWeightButton
     ).click();
     await this.weightField.fill(String(kilograms));
-    await this.weightPanel.getByRole("button", { name: /^Save/ }).click();
+    await this.saveWeightButton.click();
     await this.editWeightButton.waitFor();
   }
 

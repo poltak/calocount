@@ -31,6 +31,7 @@ async function setupTest({
     await seed?.(application);
     return new InsightsLogic({
       ...application.frontend,
+      audience: "owner",
       entryEvents: [events],
       settingsEvents: [settingsEvents],
       weightEvents: [weightEvents],

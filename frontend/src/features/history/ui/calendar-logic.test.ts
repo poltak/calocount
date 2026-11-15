@@ -18,7 +18,11 @@ function setupTest({
 }: LogicTestParams & { seed?: Seed; initialMonth?: string } = {}) {
   return setupLogicTest(params, async (application) => {
     await seed?.(application);
-    return new CalendarLogic({ ...application.frontend, initialMonth });
+    return new CalendarLogic({
+      ...application.frontend,
+      initialMonth,
+      audience: "owner",
+    });
   });
 }
 

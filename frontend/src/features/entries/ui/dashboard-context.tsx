@@ -1,4 +1,5 @@
 import { createContext, useContext, useMemo, type ReactNode } from "react";
+import type { Audience } from "../../core/logic/types.js";
 import { useLogic } from "../../core/logic/use-logic.js";
 import type { SettingsEvents } from "../../settings/types.js";
 import type { WeightEvents } from "../../weights/types.js";
@@ -15,21 +16,27 @@ interface DashboardContextValue {
   photos: { logic: PhotoPreviewLogic; state: PhotoPreviewLogic["state"] };
   /** True while a change or a read runs, so the buttons that start another wait. */
   busy: boolean;
+  audience: Audience;
 }
 
 const DashboardContext = createContext<DashboardContextValue | null>(null);
 
-/** Owns the Logic classes of the owner dashboard for the life of the page. */
+/**
+ * Owns the Logic classes of the dashboard for the life of the page. A visitor
+ * has no settings or weight events, and no weight form.
+ */
 export function DashboardProvider({
+  audience,
   settingsEvents,
   weightEvents,
-  weightBusy,
+  weightBusy = false,
   children,
 }: {
-  settingsEvents: SettingsEvents;
-  weightEvents: WeightEvents;
+  audience: Audience;
+  settingsEvents?: SettingsEvents;
+  weightEvents?: WeightEvents;
   /** True while the weight form saves. */
-  weightBusy: boolean;
+  weightBusy?: boolean;
   children: ReactNode;
 }) {
   const app = useFrontendApp();
@@ -53,10 +60,11 @@ export function DashboardProvider({
     () => ({
       storage: {},
       services: {},
-      api: { photos: app.api.photos },
+      api: { photos: app.api.photos, public: app.api.public },
       profile: app.profile,
+      audience,
     }),
-    [app],
+    [app, audience],
   );
   const photos = useLogic({ LogicClass: PhotoPreviewLogic, deps: photoDeps });
   const form = useLogic({ LogicClass: EntryFormLogic, deps: formDeps });
@@ -66,18 +74,21 @@ export function DashboardProvider({
       storage: { entries: app.storage.entries },
       services: {
         clock: app.services.clock,
+        ticker: app.services.ticker,
         windowFocus: app.services.windowFocus,
       },
       api: {
         dashboard: app.api.dashboard,
         days: app.api.days,
         "saved-entries": app.api["saved-entries"],
+        public: app.api.public,
       },
+      audience,
       entryEvents: [form.logic.events, actions.logic.events],
-      settingsEvents: [settingsEvents],
-      weightEvents: [weightEvents],
+      settingsEvents: settingsEvents ? [settingsEvents] : [],
+      weightEvents: weightEvents ? [weightEvents] : [],
     }),
-    [app, form.logic, actions.logic, settingsEvents, weightEvents],
+    [app, audience, form.logic, actions.logic, settingsEvents, weightEvents],
   );
   const dashboard = useLogic({
     LogicClass: DashboardLogic,
@@ -93,6 +104,7 @@ export function DashboardProvider({
       actions.logic.busy ||
       weightBusy ||
       dashboard.state.loadDashboardState === "running",
+    audience,
   };
   return (
     <DashboardContext.Provider value={value}>

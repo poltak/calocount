@@ -1,6 +1,11 @@
+import { useEffect, useRef } from "react";
 import { entryKindLabels } from "@app/common/features/entries/utils/entry-kind";
 import { formatNumber } from "../../core/utils/dashboard-format.js";
-import type { EntryView } from "../utils/entry-view.js";
+import {
+  pendingLabels,
+  type EntryView,
+  type PendingKind,
+} from "../utils/entry-view.js";
 import { useDashboard } from "./dashboard-context.js";
 import { EntryEditor } from "./entry-editor.js";
 import { EntryNutritionDetails } from "./entry-nutrition-details.js";
@@ -29,8 +34,16 @@ function Stat({
 }
 
 /** One entry of the day: its values, the nutrition details, the buttons, and its editor. */
-export function EntryRow({ entry }: { entry: EntryView }) {
-  const { dashboard, form, actions, photos, busy } = useDashboard();
+export function EntryRow({
+  entry,
+  pending,
+}: {
+  entry: EntryView;
+  /** Set for a row that stands for an entry that is still saving. */
+  pending?: PendingKind;
+}) {
+  const { dashboard, form, actions, photos, busy, audience } = useDashboard();
+  const readOnly = audience === "public";
   const { savedEntries, today, selectedDate, openDetailIds } = dashboard.state;
   const saved = savedEntries.some(
     (candidate) =>
@@ -38,12 +51,35 @@ export function EntryRow({ entry }: { entry: EntryView }) {
       candidate.id === entry.savedEntryId,
   );
   const editing = form.state.draft?.original.id === entry.id;
+  const { runningAction } = actions.state;
+  const runningHere = (kind: NonNullable<typeof runningAction>["kind"]) =>
+    runningAction?.kind === kind && runningAction.entryId === entry.id;
+  const copying = runningHere("copy");
+  const duplicating = runningHere("duplicate");
+  const deleting = runningHere("delete");
+  const inspected = dashboard.state.inspectedEntryId === entry.id;
+  const articleRef = useRef<HTMLElement>(null);
+  // An insight sent the owner here: bring the editor into view and focus it.
+  useEffect(() => {
+    if (!inspected || !editing) {
+      return;
+    }
+    const article = articleRef.current;
+    article?.scrollIntoView({ behavior: "smooth", block: "start" });
+    article?.querySelector<HTMLInputElement>(".inline-editor input")?.focus({
+      preventScroll: true,
+    });
+    dashboard.logic.finishInspect();
+  }, [inspected, editing, dashboard.logic]);
   const detailsOpen = openDetailIds.includes(entry.id);
   const photoUrl = photos.logic.shownPhotoUrl({ entry });
   const withoutPhoto = photoUrl === null ? " without-photo" : "";
   return (
-    <article className="meal-group" aria-label={entry.name}>
-      <div className={`meal-row${withoutPhoto}`}>
+    <article ref={articleRef} className="meal-group" aria-label={entry.name}>
+      <div
+        className={`meal-row${withoutPhoto}${pending ? " is-pending" : ""}`}
+        aria-busy={pending ? true : undefined}
+      >
         <div className={`meal-row-content${withoutPhoto}`}>
           {photoUrl !== null && (
             <PhotoThumbnail entry={entry} photoUrl={photoUrl} />
@@ -56,6 +92,11 @@ export function EntryRow({ entry }: { entry: EntryView }) {
                 <span className="meal-kind" data-kind={entry.kind}>
                   {entryKindLabels[entry.kind]}
                 </span>
+              )}
+              {pending && (
+                <output className="pending-indicator">
+                  {pendingLabels[pending]}
+                </output>
               )}
             </div>
             {entry.description.trim().toLocaleLowerCase() !==
@@ -99,65 +140,71 @@ export function EntryRow({ entry }: { entry: EntryView }) {
             </button>
             {detailsOpen && <EntryNutritionDetails entry={entry} />}
           </div>
-          <div className="meal-actions" id={`meal-actions-${entry.id}`}>
-            <button
-              className="save-entry-button"
-              type="button"
-              disabled={busy || saved}
-              aria-label={`Add ${entry.name} to saved entries`}
-              onClick={() => void actions.logic.saveForLater({ entry })}
-            >
-              {saved ? "Saved" : "Add to saved entries"}
-            </button>
-            {selectedDate !== today && (
+          {!readOnly && !pending && (
+            <div className="meal-actions" id={`meal-actions-${entry.id}`}>
               <button
-                className="copy-button"
+                className="save-entry-button"
+                type="button"
+                disabled={busy || saved}
+                aria-label={`Add ${entry.name} to saved entries`}
+                onClick={() => void actions.logic.saveForLater({ entry })}
+              >
+                {saved ? "Saved" : "Add to saved entries"}
+              </button>
+              {selectedDate !== today && (
+                <button
+                  className="copy-button"
+                  type="button"
+                  disabled={busy}
+                  aria-label={`Copy ${entry.name} to today`}
+                  aria-busy={copying}
+                  onClick={() =>
+                    today &&
+                    void actions.logic.copyEntryToToday({ entry, today })
+                  }
+                >
+                  {copying ? "Copying…" : "Copy to today"}
+                </button>
+              )}
+              <button
+                className="duplicate-button"
                 type="button"
                 disabled={busy}
-                aria-label={`Copy ${entry.name} to today`}
+                aria-label={`Duplicate ${entry.name}`}
+                aria-busy={duplicating}
+                onClick={() => void actions.logic.duplicateEntry({ entry })}
+              >
+                {duplicating ? "Duplicating…" : "Duplicate"}
+              </button>
+              <button
+                className="edit-button"
+                type="button"
+                disabled={busy}
+                aria-expanded={editing}
+                aria-label={`Edit ${entry.name}`}
                 onClick={() =>
-                  today && void actions.logic.copyEntryToToday({ entry, today })
+                  editing
+                    ? form.logic.cancelEdit()
+                    : form.logic.startEdit({ entry })
                 }
               >
-                Copy to today
+                Edit
               </button>
-            )}
-            <button
-              className="duplicate-button"
-              type="button"
-              disabled={busy}
-              aria-label={`Duplicate ${entry.name}`}
-              onClick={() => void actions.logic.duplicateEntry({ entry })}
-            >
-              Duplicate
-            </button>
-            <button
-              className="edit-button"
-              type="button"
-              disabled={busy}
-              aria-expanded={editing}
-              aria-label={`Edit ${entry.name}`}
-              onClick={() =>
-                editing
-                  ? form.logic.cancelEdit()
-                  : form.logic.startEdit({ entry })
-              }
-            >
-              Edit
-            </button>
-            <button
-              className="delete-button"
-              type="button"
-              disabled={busy}
-              aria-label={`Delete ${entry.name}`}
-              onClick={() => void actions.logic.deleteEntry({ entry })}
-            >
-              Delete
-            </button>
-          </div>
+              <button
+                className="delete-button"
+                type="button"
+                disabled={busy}
+                aria-label={`Delete ${entry.name}`}
+                aria-busy={deleting}
+                onClick={() => void actions.logic.deleteEntry({ entry })}
+              >
+                {deleting ? "Deleting…" : "Delete"}
+              </button>
+            </div>
+          )}
         </div>
       </div>
-      {editing && <EntryEditor />}
+      {!readOnly && editing && <EntryEditor />}
     </article>
   );
 }

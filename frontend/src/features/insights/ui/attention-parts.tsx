@@ -109,6 +109,27 @@ export function UnsupportedUpperLimits({
   );
 }
 
+/** Opens the entry in the editor of the dashboard. The owner only. */
+function InspectEntryButton({
+  entry,
+}: {
+  entry: { id: string; date: string };
+}) {
+  const { onInspectEntry } = useInsights();
+  if (!onInspectEntry) {
+    return null;
+  }
+  return (
+    <button
+      type="button"
+      className="nutrition-attention__inspect-entry"
+      onClick={() => onInspectEntry({ entryId: entry.id, date: entry.date })}
+    >
+      Inspect entry
+    </button>
+  );
+}
+
 export function MissingList({
   entries,
   limit,
@@ -122,6 +143,7 @@ export function MissingList({
         <li key={entry.id}>
           <span>{formatShortDate(entry.date)}</span>
           <strong>{entry.names.join(", ")}</strong>
+          <InspectEntryButton entry={entry} />
         </li>
       ))}
     </ul>
@@ -167,6 +189,7 @@ export function SourceItem({
           {`${formatShortDate(entry.date)} · ${quantity}${item.calories.toLocaleString("en-US")} kcal · recorded item${origin ? ` · value origin: ${origin}` : ""}`}
         </small>
       )}
+      <InspectEntryButton entry={entry} />
     </li>
   );
 }

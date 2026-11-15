@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router";
 import { cx } from "../../core/utils/class-names.js";
 import {
   calculateTargetPercent,
@@ -55,7 +56,8 @@ function CardLabel({ dot, label }: { dot: string; label: string }) {
 
 /** The calories, the protein and the seven-day average of the day in view. */
 export function SummaryGrid() {
-  const { dashboard } = useDashboard();
+  const { dashboard, audience } = useDashboard();
+  const navigate = useNavigate();
   const { state } = dashboard;
   const totals = dayTotals(state.entries);
   const calorieGoal = state.targets.calories;
@@ -99,9 +101,24 @@ export function SummaryGrid() {
             <p className="metric-subtitle">
               Record a weight to calculate your daily protein goal.
             </p>
-            <a className="secondary-button protein-goal-link" href="#weight">
-              Record weight
-            </a>
+            {audience === "public" ? (
+              <span className="protein-goal-hint">
+                Record a weight in the owner dashboard.
+              </span>
+            ) : (
+              <a
+                className="secondary-button protein-goal-link"
+                href="#weight"
+                onClick={(event) => {
+                  // The browser would move the address first and take the focus from the form.
+                  event.preventDefault();
+                  dashboard.logic.requestWeightForm();
+                  void navigate({ hash: "#weight" });
+                }}
+              >
+                Record weight
+              </a>
+            )}
           </div>
         ) : (
           <>

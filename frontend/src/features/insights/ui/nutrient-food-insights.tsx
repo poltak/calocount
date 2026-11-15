@@ -1,10 +1,25 @@
+import { useEffect, useRef } from "react";
+import { useInsights } from "./insights-context.js";
 import { FoodScenarioPanel } from "./food-scenario-panel.js";
 import { NutrientSourcePanel } from "./nutrient-source-panel.js";
 
 /** The two food panels. */
 export function NutrientFoodInsights() {
+  const { state } = useInsights();
+  const { compareFoodCount } = state;
+  const sectionRef = useRef<HTMLElement>(null);
+  // A compare-food action brings this panel into view.
+  useEffect(() => {
+    if (compareFoodCount > 0) {
+      sectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }
+  }, [compareFoodCount]);
   return (
     <section
+      ref={sectionRef}
       className="panel nutrient-food-scenarios"
       id="nutrient-food-scenarios"
       aria-labelledby="nutrient-food-scenarios-title"

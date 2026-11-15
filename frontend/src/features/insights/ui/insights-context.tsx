@@ -7,6 +7,8 @@ import { InsightsLogic } from "./insights-logic.js";
 interface InsightsContextValue {
   logic: InsightsLogic;
   state: InsightsLogic["state"];
+  /** Set for the owner only. */
+  onInspectEntry: InsightsSlotProps["onInspectEntry"];
 }
 
 const InsightsContext = createContext<InsightsContextValue | null>(null);
@@ -16,6 +18,8 @@ export function InsightsProvider({
   entryEvents,
   settingsEvents,
   weightEvents,
+  audience,
+  onInspectEntry,
   children,
 }: InsightsSlotProps & { children: ReactNode }) {
   const app = useFrontendApp();
@@ -26,14 +30,19 @@ export function InsightsProvider({
         clock: app.services.clock,
         windowFocus: app.services.windowFocus,
       },
-      api: { insights: app.api.insights },
+      api: { insights: app.api.insights, public: app.api.public },
+      audience,
       entryEvents,
       settingsEvents,
       weightEvents,
     }),
-    [app, entryEvents, settingsEvents, weightEvents],
+    [app, entryEvents, settingsEvents, weightEvents, audience],
   );
-  const value = useLogic({ LogicClass: InsightsLogic, deps });
+  const { logic, state } = useLogic({ LogicClass: InsightsLogic, deps });
+  const value = useMemo(
+    () => ({ logic, state, onInspectEntry }),
+    [logic, state, onInspectEntry],
+  );
   return (
     <InsightsContext.Provider value={value}>
       {children}

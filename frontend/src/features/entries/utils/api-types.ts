@@ -23,3 +23,9 @@ export type ProteinGoalOfDay = DayRead["proteinGoal"];
 export type ProteinTargetOfDay =
   DashboardSummary["trend"]["proteinTargets"][number];
 export type TrendWeight = DashboardSummary["trend"]["weights"][number];
+
+/** An entry of the public day read: a subtype of `SerializedEntry` with each private field empty. */
+export type PublicSerializedEntry = ApiResponseBody<
+  BackendApi["public"]["days"][":date"]["$get"],
+  200
+>["meals"][number];

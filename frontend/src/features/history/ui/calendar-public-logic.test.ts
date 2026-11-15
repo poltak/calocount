@@ -26,13 +26,13 @@ function setupTest({
     return new CalendarLogic({
       ...application.frontend,
       initialMonth: "2026-08",
-      source: "public",
+      audience: "public",
     });
   });
 }
 
 describe("CalendarLogic public month tests", () => {
-  it("should read the totals of each day from the public month view", async () => {
+  it("should read the totals of each day from the public days read", async () => {
     const { logic } = await setupTest({
       publicView: true,
       seed: async (app) => {

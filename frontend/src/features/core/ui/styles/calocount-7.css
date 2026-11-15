@@ -527,6 +527,49 @@
   opacity: 0.55;
 }
 
+.data-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  margin-top: 12px;
+  padding: 9px 12px;
+  border: 1px solid #3c4a57;
+  border-radius: var(--radius-tile);
+  background: #17202a;
+  color: var(--muted-strong);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.data-banner > span {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: #293948;
+  color: var(--blue);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.data-banner > small {
+  font-size: inherit;
+}
+
+.data-banner.public {
+  border-color: #3f5a4b;
+  background: #17231e;
+  color: var(--green);
+}
+
+.data-banner.public > span {
+  background: #2a4939;
+  color: var(--green);
+}
+
 :root[data-theme="light"] .data-banner,
 :root[data-theme="light"] .action-feedback {
   border-color: var(--line);

@@ -8,6 +8,7 @@ import type { EntriesStorage } from "../entries/storage/entries-storage.js";
 import type { PasskeyServiceInterface } from "../auth/services/types.js";
 import type { SettingsStorage } from "../settings/storage/settings-storage.js";
 import type { ThemeServiceInterface } from "../settings/services/types.js";
+import type { TickerServiceInterface } from "../ticker/services/types.js";
 import type { WindowFocusServiceInterface } from "../window-focus/services/types.js";
 
 export interface FrontendStorage {
@@ -28,6 +29,7 @@ export interface FrontendServices extends FrontendCoreServices {
   dialogs: DialogServiceInterface;
   passkeys: PasskeyServiceInterface;
   theme: ThemeServiceInterface;
+  ticker: TickerServiceInterface;
   windowFocus: WindowFocusServiceInterface;
 }
 

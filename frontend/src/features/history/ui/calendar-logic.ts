@@ -7,7 +7,7 @@ import {
 import { requireApiSuccess } from "../../api/client/api-client.js";
 import { failureMessage } from "../../core/logic/failure-message.js";
 import { LatestRequest } from "../../core/logic/latest-request.js";
-import type { FrontendLogicProps } from "../../core/logic/types.js";
+import type { Audience, FrontendLogicProps } from "../../core/logic/types.js";
 import type { MonthRead } from "../utils/api-types.js";
 
 type CalendarProps = FrontendLogicProps<never, "clock", "days" | "public"> & {
@@ -15,10 +15,10 @@ type CalendarProps = FrontendLogicProps<never, "clock", "days" | "public"> & {
   initialMonth: string;
   /**
    * Whose days the calendar reads. The owner reads the days in the timezone of
-   * the device. A visitor reads the public month view, in the owner's saved
-   * timezone. The default is the owner.
+   * the device. A visitor reads the public mirror, in the owner's saved
+   * timezone.
    */
-  source?: "owner" | "public";
+  audience: Audience;
 };
 
 interface LoadedMonth extends MonthRead {
@@ -125,24 +125,9 @@ export class CalendarLogic extends Logic<CalendarProps, CalendarState> {
     month: string;
     signal: AbortSignal;
   }): Promise<MonthRead> {
-    const { api, services, source } = this.deps;
-    if (source === "public") {
-      const response = await api.public.summary.$get(
-        { query: { view: "month", month } },
-        { init: { signal } },
-      );
-      await requireApiSuccess(response);
-      if (response.status !== 200) {
-        throw new Error("Unexpected month response");
-      }
-      const read = await response.json();
-      if (!("view" in read) || read.view !== "month") {
-        throw new Error("Unexpected month response");
-      }
-      const { view: _view, ...rest } = read;
-      return rest;
-    }
-    const response = await api.days.$get(
+    const { api, services, audience } = this.deps;
+    const days = audience === "public" ? api.public.days : api.days;
+    const response = await days.$get(
       { query: { month, timezone: services.clock.timeZone() } },
       { init: { signal } },
     );

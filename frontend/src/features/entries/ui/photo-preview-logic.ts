@@ -3,13 +3,19 @@ import {
   withProfile,
   type Profile,
 } from "@app/common/features/core/utils/profile";
-import type { FrontendLogicProps } from "../../core/logic/types.js";
+import type { Audience, FrontendLogicProps } from "../../core/logic/types.js";
 import { photoPath } from "../utils/photo-path.js";
 import type { EntryView } from "../utils/entry-view.js";
 
-type PhotoPreviewProps = FrontendLogicProps<never, never, "photos"> & {
+type PhotoPreviewProps = FrontendLogicProps<
+  never,
+  never,
+  "photos" | "public"
+> & {
   /** The log whose photos these are. The photo route needs it. */
   profile: Profile;
+  /** A visitor reads the public photo route, which takes the entry ID. */
+  audience: Audience;
 };
 
 interface PhotoPreviewState {
@@ -30,6 +36,12 @@ export class PhotoPreviewLogic extends Logic<
 
   /** The address of the photo of an entry, or `null` when it has none. */
   photoUrl({ entry }: { entry: EntryView }): string | null {
+    if (this.deps.audience === "public") {
+      // The route is on the origin of the API and takes the entry ID, so the private bucket key never reaches the page.
+      return entry.publicPhoto
+        ? `${this.deps.api.public.summary.$url().origin}/meal-photos/${encodeURIComponent(entry.id)}`
+        : null;
+    }
     const key = photoPath(entry.photoKey);
     if (key === null) {
       return null;

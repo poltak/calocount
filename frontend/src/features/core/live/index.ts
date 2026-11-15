@@ -14,6 +14,7 @@ import { BrowserThemeService } from "../../settings/services/browser-theme-servi
 import { SettingsStorage } from "../../settings/storage/settings-storage.js";
 import { EntriesStorage } from "../../entries/storage/entries-storage.js";
 import { BrowserPasskeyService } from "../../auth/services/browser-passkey-service.js";
+import { BrowserTickerService } from "../../ticker/services/browser-ticker-service.js";
 import { BrowserWindowFocusService } from "../../window-focus/services/browser-window-focus-service.js";
 
 interface LiveAppProps extends ApiClientProps {
@@ -37,6 +38,7 @@ export function createApp({
     dialogs: new BrowserDialogService(),
     passkeys: new BrowserPasskeyService(),
     theme: new BrowserThemeService(),
+    ticker: new BrowserTickerService(),
     windowFocus: new BrowserWindowFocusService(),
   };
 

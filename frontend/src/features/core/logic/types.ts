@@ -9,3 +9,6 @@ export interface FrontendLogicProps<
   services: Pick<App["services"], ServiceKeys>;
   api: Pick<App["api"], ApiKeys>;
 }
+
+/** Who reads the dashboard. A visitor of the public page reads the public mirrors and changes nothing. */
+export type Audience = "owner" | "public";

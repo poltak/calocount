@@ -1,3 +1,7 @@
+import { shiftDateKey } from "@app/common/features/core/utils/logical-date";
+import type { NutrientKey } from "@app/common/features/entries/utils/nutrients";
+import type { ResolvedNutrientGoal } from "@app/common/features/entries/utils/nutrient-goals";
+
 function nonNegativeFinite(value: number): number {
   return Number.isFinite(value) ? Math.max(0, value) : 0;
 }
@@ -117,5 +121,84 @@ export function compareAverageToTarget(
   return {
     direction: difference < 0 ? "below" : "above",
     percentage: Math.round((Math.abs(difference) / target) * 100),
+  };
+}
+
+/** The days in a row that have an entry, counted back from `endDate`. A day that the list lacks ends the count. */
+export function calculateLoggingStreak({
+  days,
+  endDate,
+}: {
+  days: readonly { date: string; mealCount: number }[];
+  endDate: string;
+}): number {
+  const mealCountByDate = new Map(days.map((day) => [day.date, day.mealCount]));
+  let streak = 0;
+  for (
+    let date = endDate;
+    (mealCountByDate.get(date) ?? 0) > 0;
+    date = shiftDateKey(date, -1)
+  ) {
+    streak += 1;
+  }
+  return streak;
+}
+
+/** The nutrients that the consistency matrix shows, in row order. */
+export const MATRIX_NUTRIENTS: readonly NutrientKey[] = [
+  "fiberG",
+  "saturatedFatG",
+  "sodiumMg",
+  "potassiumMg",
+  "calciumMg",
+  "ironMg",
+];
+
+export type MatrixCellState = "unknown" | "met" | "over" | "low";
+
+/**
+ * How one day went against the goal of one nutrient. `progress` is a percent
+ * of the goal, and `coverage` is the share of items that had a value.
+ */
+export function calculateMatrixCell({
+  aggregate,
+  goal,
+}: {
+  aggregate: {
+    amount: number | null;
+    knownItemCount: number;
+    totalItemCount: number;
+  };
+  goal: ResolvedNutrientGoal;
+}): {
+  state: MatrixCellState;
+  progress: number | null;
+  intensity: number;
+  coverage: number;
+} {
+  const { amount } = aggregate;
+  const progress =
+    typeof amount === "number" && goal.value
+      ? (amount / goal.value) * 100
+      : null;
+  const met =
+    progress !== null &&
+    (goal.direction === "minimum" ? progress >= 100 : progress <= 100);
+  const state: MatrixCellState =
+    progress === null
+      ? "unknown"
+      : met
+        ? "met"
+        : goal.direction === "maximum"
+          ? "over"
+          : "low";
+  return {
+    state,
+    progress,
+    intensity: progress === null ? 0 : Math.min(100, Math.max(12, progress)),
+    coverage:
+      aggregate.totalItemCount > 0
+        ? aggregate.knownItemCount / aggregate.totalItemCount
+        : 0,
   };
 }

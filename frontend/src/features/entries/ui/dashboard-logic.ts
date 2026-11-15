@@ -2,15 +2,19 @@ import { Logic, type TaskState } from "@app/common/features/core/logic/logic";
 import {
   isDateKey,
   shiftDateKey,
+  zonedCalendar,
 } from "@app/common/features/core/utils/logical-date";
 import type { NutrientKey } from "@app/common/features/entries/utils/nutrients";
 import { resolveNutrientGoals } from "@app/common/features/entries/utils/nutrient-goals";
 import type { SettingsEvents } from "../../settings/types.js";
 import type { WeightEvents } from "../../weights/types.js";
-import { requireApiSuccess } from "../../api/client/api-client.js";
+import {
+  ApiRequestError,
+  requireApiSuccess,
+} from "../../api/client/api-client.js";
 import type { TrendRange } from "../../core/utils/trend-range.js";
 import { LatestRequest } from "../../core/logic/latest-request.js";
-import type { FrontendLogicProps } from "../../core/logic/types.js";
+import type { Audience, FrontendLogicProps } from "../../core/logic/types.js";
 import type { EntryEvent, EntryEvents } from "../types.js";
 import type {
   DayWeightRow,
@@ -26,9 +30,11 @@ import { failureMessage } from "../../core/logic/failure-message.js";
 
 type DashboardProps = FrontendLogicProps<
   "entries",
-  "clock" | "windowFocus",
-  "dashboard" | "days" | "saved-entries"
+  "clock" | "ticker" | "windowFocus",
+  "dashboard" | "days" | "saved-entries" | "public"
 > & {
+  /** A visitor reads the public mirrors, and no saved entries. */
+  audience: Audience;
   /** The Logic classes that change entries. The dashboard reads again after each change. */
   entryEvents: readonly EntryEvents[];
   /** The goals and the weights come from other features. The dashboard reads again after a save. */
@@ -52,6 +58,14 @@ interface DashboardState {
   loadDashboardError: string | null;
   loadDayState: TaskState;
   loadDayError: string | null;
+  /** The day that a change of day is reading, or `null`. The rows of the day before stay until it arrives. */
+  loadingDate: string | null;
+  /** Why the saved entries could not be read. The rest of the dashboard still loads. */
+  loadSavedEntriesError: string | null;
+  /** Counts the requests to open the weight form, so that the weight panel opens it when the number changes. */
+  weightFormRequest: number;
+  /** True when the owner keeps the public view off. The public page then opens the owner view. */
+  publicViewOff: boolean;
   /** The logical date of today in the timezone of this device. `null` until the first read. */
   today: string | null;
   timeZone: string;
@@ -67,6 +81,8 @@ interface DashboardState {
   proteinTargets: ProteinTargetOfDay[];
   trendRange: TrendRange;
   showCalendar: boolean;
+  /** True when the recent-days panel lists all seven days, not the last four. */
+  showAllDays: boolean;
   /** The month that the calendar showed when it opened: the month of the day in view. */
   calendarMonth: string | null;
   /** Changes with each read of the dashboard, so the calendar reads its month again. */
@@ -88,9 +104,11 @@ interface DashboardState {
   trendNutrient: NutrientKey;
   openDetailIds: string[];
   activeSection: DashboardSection;
+  /** The entry that an insight sent the owner to. Its row scrolls into view and takes focus once. */
+  inspectedEntryId: string | null;
 }
 
-/** The owner dashboard: the day in view, its entries, the recent days, and the saved entries. */
+/** The dashboard: the day in view, its entries, the recent days, and, for the owner, the saved entries. */
 export class DashboardLogic extends Logic<
   DashboardProps,
   DashboardState,
@@ -98,6 +116,8 @@ export class DashboardLogic extends Logic<
 > {
   private readonly dashboardReads = new LatestRequest(this.signal);
   private readonly dayReads = new LatestRequest(this.signal);
+  /** The day that `entries` and `weight` belong to. */
+  private shownDate: string | null = null;
 
   constructor(deps: DashboardProps) {
     super({
@@ -108,6 +128,10 @@ export class DashboardLogic extends Logic<
         loadDashboardError: null,
         loadDayState: "pristine",
         loadDayError: null,
+        loadingDate: null,
+        loadSavedEntriesError: null,
+        weightFormRequest: 0,
+        publicViewOff: false,
         today: null,
         timeZone: "UTC",
         targets: {
@@ -122,6 +146,7 @@ export class DashboardLogic extends Logic<
         proteinTargets: [],
         trendRange: 7,
         showCalendar: false,
+        showAllDays: false,
         calendarMonth: null,
         reloadKey: 0,
         weight: null,
@@ -136,6 +161,7 @@ export class DashboardLogic extends Logic<
         trendNutrient: "fiberG",
         openDetailIds: [],
         activeSection: "today",
+        inspectedEntryId: null,
       },
     });
   }
@@ -157,6 +183,19 @@ export class DashboardLogic extends Logic<
     this.registerCleanup(
       this.deps.services.windowFocus.listen(() => void this.loadDashboard()),
     );
+    // The page can stay open past midnight. The focus does not tell it.
+    this.registerCleanup(
+      this.deps.services.ticker.listen(() => {
+        const { today, timeZone } = this.state;
+        const { clock } = this.deps.services;
+        if (
+          today !== null &&
+          zonedCalendar(timeZone).dateKey(clock.now()) !== today
+        ) {
+          void this.loadDashboard();
+        }
+      }),
+    );
     await this.loadDashboard();
   }
 
@@ -172,6 +211,16 @@ export class DashboardLogic extends Logic<
     } catch (error) {
       // A newer read replaced this one, or the page closed.
       if (!signal.aborted) {
+        if (
+          error instanceof ApiRequestError &&
+          error.code === "public_view_off"
+        ) {
+          this.setState({
+            publicViewOff: true,
+            loadDashboardState: "success",
+          });
+          return;
+        }
         this.setState({
           loadDashboardState: "error",
           loadDashboardError: failureMessage(error),
@@ -187,11 +236,47 @@ export class DashboardLogic extends Logic<
     }
     this.setState({
       selectedDate: date,
-      entries: [],
-      weight: null,
+      loadingDate: date,
       statusMessage: null,
     });
     await this.loadDay();
+  }
+
+  /** Ask the weight panel to open its form, as the link of an unknown protein goal does. */
+  requestWeightForm(): void {
+    this.setState({ weightFormRequest: this.state.weightFormRequest + 1 });
+  }
+
+  /**
+   * Open the day of an entry that an insight names, and return the entry once
+   * the day has loaded, so the caller can start its editor. When the entry is
+   * not on that day any more, it tells the owner and returns `null`.
+   */
+  async inspectEntry({
+    entryId,
+    date,
+  }: {
+    entryId: string;
+    date: string;
+  }): Promise<EntryView | null> {
+    await this.selectDate({ date });
+    const entry =
+      this.state.selectedDate === date
+        ? this.state.entries.find((candidate) => candidate.id === entryId)
+        : undefined;
+    if (!entry) {
+      this.setState({
+        statusMessage: "The historical entry could not be loaded.",
+      });
+      return null;
+    }
+    this.setState({ statusMessage: null, inspectedEntryId: entry.id });
+    return entry;
+  }
+
+  /** The row of the inspected entry has scrolled into view. */
+  finishInspect(): void {
+    this.setState({ inspectedEntryId: null });
   }
 
   /** Open a day from the calendar and close the calendar. */
@@ -212,8 +297,27 @@ export class DashboardLogic extends Logic<
     this.setState({ showCalendar: false, calendarMonth: null });
   }
 
+  toggleAllDays(): void {
+    this.setState({ showAllDays: !this.state.showAllDays });
+  }
+
   setTrendRange({ range }: { range: TrendRange }): void {
     this.setState({ trendRange: range });
+  }
+
+  /**
+   * Tells a visitor that the days and times follow the owner's saved timezone
+   * when the device is in another one. The owner needs no notice.
+   */
+  get timeZoneNotice(): string | null {
+    const { timeZone } = this.state;
+    if (
+      this.deps.audience !== "public" ||
+      timeZone === this.deps.services.clock.timeZone()
+    ) {
+      return null;
+    }
+    return `Days and times are shown in ${timeZone.replaceAll("_", " ")} time.`;
   }
 
   /** The days that the trend charts show: the last 7 or 30. */
@@ -284,6 +388,16 @@ export class DashboardLogic extends Logic<
     return this.loadDashboard();
   }
 
+  /** The reads of the audience. Their paths differ, and the public bodies are subtypes of the owner bodies. */
+  private get reads() {
+    const { api, audience } = this.deps;
+    const source = audience === "public" ? api.public : api;
+    return {
+      summary: source.dashboard.summary.$get,
+      day: source.days[":date"].$get,
+    };
+  }
+
   private onChange(message: string): Promise<void> {
     this.setState({ statusMessage: message });
     return this.loadDashboard();
@@ -294,22 +408,20 @@ export class DashboardLogic extends Logic<
   }: {
     signal: AbortSignal;
   }): Promise<void> {
-    const { api, services } = this.deps;
+    const { services } = this.deps;
     const init = { init: { signal } };
-    const [summaryResponse, savedResponse] = await Promise.all([
-      api.dashboard.summary.$get(
+    const [summaryResponse, saved] = await Promise.all([
+      this.reads.summary(
         { query: { timezone: services.clock.timeZone() } },
         init,
       ),
-      api["saved-entries"].$get(undefined, init),
+      this.readSavedEntries({ signal }),
     ]);
     await requireApiSuccess(summaryResponse);
-    await requireApiSuccess(savedResponse);
-    if (summaryResponse.status !== 200 || savedResponse.status !== 200) {
+    if (summaryResponse.status !== 200) {
       throw new Error("Unexpected dashboard response");
     }
     const summary = await summaryResponse.json();
-    const { entries: savedEntries } = await savedResponse.json();
     if (signal.aborted) {
       return;
     }
@@ -331,10 +443,40 @@ export class DashboardLogic extends Logic<
       trendWeights: summary.trend.weights,
       proteinTargets: summary.trend.proteinTargets,
       reloadKey: this.state.reloadKey + 1,
-      savedEntries,
+      savedEntries: saved.entries ?? this.state.savedEntries,
+      loadSavedEntriesError: saved.error,
       selectedDate: keepsSelection ? selectedDate : summary.date,
     });
     await this.loadDay();
+  }
+
+  /**
+   * A visitor has no saved entries, and the public page does not read them. A
+   * failure does not stop the dashboard: the entries stay as they were.
+   */
+  private async readSavedEntries({
+    signal,
+  }: {
+    signal: AbortSignal;
+  }): Promise<{ entries: SavedEntry[] | null; error: string | null }> {
+    if (this.deps.audience === "public") {
+      return { entries: [], error: null };
+    }
+    try {
+      const response = await this.deps.api["saved-entries"].$get(undefined, {
+        init: { signal },
+      });
+      await requireApiSuccess(response);
+      if (response.status !== 200) {
+        throw new Error("Unexpected saved entries response");
+      }
+      return { entries: (await response.json()).entries, error: null };
+    } catch (error) {
+      if (signal.aborted) {
+        throw error;
+      }
+      return { entries: null, error: failureMessage(error) };
+    }
   }
 
   /** Read the entries of the day in view. A newer read replaces an older one. */
@@ -346,7 +488,7 @@ export class DashboardLogic extends Logic<
     const signal = this.dayReads.start();
     this.setState({ loadDayState: "running", loadDayError: null });
     try {
-      const response = await this.deps.api.days[":date"].$get(
+      const response = await this.reads.day(
         {
           param: { date },
           query: { timezone: this.deps.services.clock.timeZone() },
@@ -361,6 +503,7 @@ export class DashboardLogic extends Logic<
       if (signal.aborted) {
         return;
       }
+      this.shownDate = date;
       this.setState({
         entries: day.meals.map((entry) =>
           entryViewOf({ entry, timeZone: day.timezone }),
@@ -368,12 +511,16 @@ export class DashboardLogic extends Logic<
         weight: day.weight,
         proteinGoal: day.proteinGoal,
         loadDayState: "success",
+        loadingDate: null,
       });
     } catch (error) {
       if (!signal.aborted) {
         this.setState({
           loadDayState: "error",
           loadDayError: failureMessage(error),
+          loadingDate: null,
+          // Rows of another day must not stay under this day.
+          ...(this.shownDate === date ? {} : { entries: [], weight: null }),
         });
       }
     }

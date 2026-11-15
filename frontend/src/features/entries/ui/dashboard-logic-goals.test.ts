@@ -25,6 +25,7 @@ async function setupTest({
     await seed?.(application);
     return new DashboardLogic({
       ...application.frontend,
+      audience: "owner",
       entryEvents: [events],
       settingsEvents: [],
       weightEvents: [],
@@ -157,6 +158,7 @@ describe("DashboardLogic goal tests", () => {
       (application) =>
         new DashboardLogic({
           ...application.frontend,
+          audience: "owner",
           entryEvents: [],
           settingsEvents: [settingsEvents],
           weightEvents: [weightEvents],

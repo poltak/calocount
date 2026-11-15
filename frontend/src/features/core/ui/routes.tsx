@@ -5,7 +5,10 @@ import { AccountSection } from "../../auth/ui/account-section.js";
 import { AuthProvider, useAuth } from "../../auth/ui/auth-context.js";
 import { SessionGate } from "../../auth/ui/session-gate.js";
 import { SignInPage } from "../../auth/ui/sign-in-page.js";
-import { DashboardPage } from "../../entries/ui/dashboard-page.js";
+import {
+  DashboardPage,
+  type DashboardSlots,
+} from "../../entries/ui/dashboard-page.js";
 import { CalendarPanel } from "../../history/ui/calendar-panel.js";
 import { InsightsSection } from "../../insights/ui/insights-section.js";
 import { SettingsButton } from "../../settings/ui/settings-button.js";
@@ -17,9 +20,11 @@ import {
 } from "../../settings/ui/settings-context.js";
 import { ProfileSwitch } from "../../partner-profile/ui/profile-switch.js";
 import { PrivacyPage } from "../../public-view/ui/privacy-page.js";
-import { PublicDashboardPage } from "../../public-view/ui/public-dashboard-page.js";
 import { useWeights, WeightProvider } from "../../weights/ui/weight-context.js";
-import { WeightPanel } from "../../weights/ui/weight-panel.js";
+import {
+  EditableWeightPanel,
+  WeightPanel,
+} from "../../weights/ui/weight-panel.js";
 import { WeightTrendPanel } from "../../weights/ui/weight-trend-panel.js";
 import { FrontendAppProvider, useFrontendApp } from "./frontend-app-context.js";
 import { ErrorBoundary } from "./error-boundary.js";
@@ -75,6 +80,37 @@ function OwnerLayout() {
   );
 }
 
+/** The parts that other features give the dashboard, for the owner and for a visitor. */
+const DASHBOARD_SLOTS: DashboardSlots = {
+  renderCalendar: (props) => <CalendarPanel {...props} />,
+  renderWeightTrend: (props) => <WeightTrendPanel {...props} />,
+  renderWeightPanel: (props) =>
+    props.audience === "public" ? (
+      <WeightPanel
+        dates={props.dates}
+        weights={props.weights}
+        selectedDate={props.selectedDate}
+        weight={props.weight}
+        timeZone={props.timeZone}
+        readOnly
+        saving={false}
+        action={<span className="panel-meta">read only</span>}
+        form={null}
+      />
+    ) : (
+      <EditableWeightPanel
+        dates={props.dates}
+        weights={props.weights}
+        selectedDate={props.selectedDate}
+        weight={props.weight}
+        timeZone={props.timeZone}
+        busy={props.busy}
+        openFormRequest={props.openFormRequest}
+      />
+    ),
+  renderInsights: (props) => <InsightsSection {...props} />,
+};
+
 /** The owner dashboard with the parts that other features give it. */
 function OwnerDashboard() {
   const { profile } = useFrontendApp();
@@ -82,6 +118,7 @@ function OwnerDashboard() {
   const weights = useWeights();
   return (
     <DashboardPage
+      audience="owner"
       topbarActions={<SettingsButton />}
       belowTopbar={
         <SettingsDialog>
@@ -92,24 +129,20 @@ function OwnerDashboard() {
       settingsEvents={settings.logic.events}
       weightEvents={weights.logic.events}
       weightBusy={weights.logic.busy}
-      renderCalendar={(props) => <CalendarPanel {...props} />}
       renderProfileSwitch={({ partnerProfileEnabled }) => (
         <ProfileSwitch
           profile={profile}
           partnerProfileEnabled={partnerProfileEnabled}
         />
       )}
-      renderWeightTrend={(props) => <WeightTrendPanel {...props} />}
-      renderWeightPanel={({ selectedDate, weights: dayWeights, ...props }) => (
-        <WeightPanel
-          selectedDate={selectedDate}
-          weights={dayWeights}
-          {...props}
-        />
-      )}
-      renderInsights={(props) => <InsightsSection {...props} />}
+      {...DASHBOARD_SLOTS}
     />
   );
+}
+
+/** The log that the owner shares, at `/`. A visitor has no session and no weight form. */
+function PublicDashboard() {
+  return <DashboardPage audience="public" {...DASHBOARD_SLOTS} />;
 }
 
 /** The pages under `/owner/partner` talk to the partner log of the same sign-in. */
@@ -155,14 +188,7 @@ function Shell() {
       <Routes>
         <Route path="/login" element={<SignInPage />} />
         <Route element={<PublicLayout />}>
-          <Route
-            path="/"
-            element={
-              <PublicDashboardPage
-                renderCalendar={(props) => <CalendarPanel {...props} />}
-              />
-            }
-          />
+          <Route path="/" element={<PublicDashboard />} />
           <Route path="/privacy" element={<PrivacyPage />} />
         </Route>
         <Route element={<SessionGate />}>

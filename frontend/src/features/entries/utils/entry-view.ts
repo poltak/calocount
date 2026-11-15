@@ -13,7 +13,7 @@ import type {
   NutrientProvenanceMap,
   NutrientValueOrigin,
 } from "@app/common/features/entries/utils/nutrient-provenance";
-import type { SerializedEntry } from "./api-types.js";
+import type { PublicSerializedEntry, SerializedEntry } from "./api-types.js";
 import { clockTime } from "../../core/utils/dashboard-format.js";
 
 export const TRACKED_NUTRIENT_KEYS = [
@@ -56,6 +56,8 @@ export interface EntryView {
   savedEntryId: string | null;
   /** The key of the photo in the bucket, or `null`. */
   photoKey: string | null;
+  /** True when the public photo route serves an image for this entry. Only a public read sets it. */
+  publicPhoto: boolean;
   items: ItemView[];
 }
 
@@ -73,7 +75,9 @@ function provenanceOf(
   return provenance;
 }
 
-function itemViewOf(item: SerializedEntry["items"][number]): ItemView {
+function itemViewOf(
+  item: (SerializedEntry | PublicSerializedEntry)["items"][number],
+): ItemView {
   const nutrients: NutrientAmounts = {};
   for (const key of TRACKED_NUTRIENT_KEYS) {
     nutrients[key] = item[key];
@@ -100,7 +104,7 @@ export function entryViewOf({
   entry,
   timeZone,
 }: {
-  entry: SerializedEntry;
+  entry: SerializedEntry | PublicSerializedEntry;
   timeZone: string;
 }): EntryView {
   const kind = entryKind(entry.mealType);
@@ -122,6 +126,7 @@ export function entryViewOf({
     fat: entry.totalFatG,
     savedEntryId: entry.savedEntryId,
     photoKey: entry.photoKey,
+    publicPhoto: "hasPhoto" in entry && entry.hasPhoto,
     items: entry.items.map(itemViewOf),
   };
 }
@@ -134,4 +139,31 @@ export function dayTotals(entries: readonly EntryView[]) {
     carbs: entries.reduce((sum, entry) => sum + entry.carbs, 0),
     fat: entries.reduce((sum, entry) => sum + entry.fat, 0),
   };
+}
+
+export type PendingKind = "creating" | "copying" | "duplicating";
+
+/** The words that a pending row shows beside its name. */
+export const pendingLabels: Record<PendingKind, string> = {
+  creating: "Saving…",
+  copying: "Copying…",
+  duplicating: "Duplicating…",
+};
+
+/** An entry that the owner sent and the dashboard has not read yet. It shows on `date` only. */
+export interface PendingEntry extends EntryView {
+  date: string;
+  pending: PendingKind;
+}
+
+export function pendingEntry({
+  entry,
+  date,
+  pending,
+}: {
+  entry: Omit<EntryView, "id">;
+  date: string;
+  pending: PendingKind;
+}): PendingEntry {
+  return { ...entry, id: `pending-${crypto.randomUUID()}`, date, pending };
 }

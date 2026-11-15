@@ -1,4 +1,5 @@
 import { DaysWorthRepeatingPanel } from "./days-worth-repeating-panel.js";
+import { FoodContributionPanel } from "./food-contribution-panel.js";
 import { FrequencyPortionPanel } from "./frequency-portion-panel.js";
 import { InsightsProvider, useInsights } from "./insights-context.js";
 import { NutrientFoodInsights } from "./nutrient-food-insights.js";
@@ -42,6 +43,7 @@ function InsightsView() {
             id="nutrition-insights-content"
             hidden={collapsed}
           >
+            <FoodContributionPanel />
             <NutritionAttentionPanel />
             <NutrientFoodInsights />
           </div>

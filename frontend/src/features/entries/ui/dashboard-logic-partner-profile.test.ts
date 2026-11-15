@@ -10,6 +10,7 @@ import { seedEntry } from "./entry-test-helpers.js";
 function dashboardOf({ frontend }: Pick<FullApplication, "frontend">) {
   return new DashboardLogic({
     ...frontend,
+    audience: "owner",
     entryEvents: [],
     settingsEvents: [],
     weightEvents: [],

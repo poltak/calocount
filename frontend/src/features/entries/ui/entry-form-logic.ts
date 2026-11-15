@@ -20,7 +20,11 @@ import {
   type NewEntryValues,
   type TotalField,
 } from "../utils/entry-form.js";
-import type { EntryView } from "../utils/entry-view.js";
+import {
+  pendingEntry,
+  type EntryView,
+  type PendingEntry,
+} from "../utils/entry-view.js";
 import { failureMessage } from "../../core/logic/failure-message.js";
 
 type EntryFormProps = FrontendLogicProps<never, "clock", "meals">;
@@ -37,6 +41,8 @@ interface EntryFormState {
   draft: EditDraft | null;
   saveEntryState: TaskState;
   saveEntryError: string | null;
+  /** The row for the entry that is being added. It goes when the dashboard has read the day again, or when the add fails. */
+  pendingEntries: PendingEntry[];
 }
 
 /** A change to a text field of the edit. */
@@ -63,6 +69,7 @@ export class EntryFormLogic extends Logic<
         draft: null,
         saveEntryState: "pristine",
         saveEntryError: null,
+        pendingEntries: [],
       },
     });
   }
@@ -115,6 +122,30 @@ export class EntryFormLogic extends Logic<
       }
       try {
         const json = newEntryBody({ values, consumedAt });
+        const [item] = json.items;
+        this.setState({
+          pendingEntries: [
+            pendingEntry({
+              date,
+              pending: "creating",
+              entry: {
+                consumedAt,
+                time: values.time,
+                name: item?.name ?? "New entry",
+                description: json.caption,
+                kind: json.mealType,
+                calories: item?.calories ?? 0,
+                protein: item?.proteinG ?? 0,
+                carbs: item?.carbsG ?? 0,
+                fat: item?.fatG ?? 0,
+                savedEntryId: null,
+                photoKey: null,
+                publicPhoto: false,
+                items: [],
+              },
+            }),
+          ],
+        });
         const response = await this.deps.api.meals.$post(
           { json },
           {
@@ -127,14 +158,21 @@ export class EntryFormLogic extends Logic<
           },
         );
         await requireApiSuccess(response);
+        this.setState({ addFormOpen: false });
+        // The pending row stays until the dashboard has read the day again.
+        try {
+          await this.events.emit({
+            type: "entriesChanged",
+            message: "Entry added.",
+          });
+        } catch {
+          // A listener that fails does not undo an entry that the backend kept.
+        }
       } catch (error) {
         throw new Error(failureMessage(error), { cause: error });
+      } finally {
+        this.setState({ pendingEntries: [] });
       }
-      this.setState({ addFormOpen: false });
-      this.events.emitDetached({
-        type: "entriesChanged",
-        message: "Entry added.",
-      });
     });
   }
 

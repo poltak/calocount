@@ -30,6 +30,7 @@ function setupTest({
     await seed?.(application);
     return new DashboardLogic({
       ...application.frontend,
+      audience: "owner",
       entryEvents: [events],
       settingsEvents: [],
       weightEvents: [],

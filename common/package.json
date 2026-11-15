@@ -64,6 +64,10 @@
       "types": "./dist/features/entries/utils/insights/insight-days.d.ts",
       "default": "./dist/features/entries/utils/insights/insight-days.js"
     },
+    "./features/entries/utils/insights/insight-shared": {
+      "types": "./dist/features/entries/utils/insights/insight-shared.d.ts",
+      "default": "./dist/features/entries/utils/insights/insight-shared.js"
+    },
     "./features/entries/utils/insights/insight-types": {
       "types": "./dist/features/entries/utils/insights/insight-types.d.ts",
       "default": "./dist/features/entries/utils/insights/insight-types.js"

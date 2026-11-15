@@ -7,8 +7,14 @@ import type { EntryView } from "../utils/entry-view.js";
 import { PhotoPreviewLogic } from "./photo-preview-logic.js";
 import { readEntryView, seedEntry } from "./entry-test-helpers.js";
 
-function setupTest(params: LogicTestParams = {}) {
-  return setupLogicTest(params, (app) => new PhotoPreviewLogic(app.frontend));
+function setupTest({
+  audience = "owner",
+  ...params
+}: LogicTestParams & { audience?: "owner" | "public" } = {}) {
+  return setupLogicTest(
+    params,
+    (app) => new PhotoPreviewLogic({ ...app.frontend, audience }),
+  );
 }
 
 /** An entry as the dashboard lists it, with the photo key set. */
@@ -66,5 +72,41 @@ describe("PhotoPreviewLogic tests", () => {
     expect(app.logic.state.failedUrls).toEqual([url]);
     expect(app.logic.shownPhotoUrl({ entry })).toBeNull();
     expect(app.logic.photoUrl({ entry })).toEqual(url);
+  });
+});
+
+describe("PhotoPreviewLogic public tests", () => {
+  it("should name the public address of the photo of an entry that has one", async () => {
+    const app = await setupTest({ audience: "public" });
+    const entry = {
+      ...(await viewWithKey(app, null)),
+      publicPhoto: true,
+    };
+
+    expect(app.logic.photoUrl({ entry })).toEqual(
+      `http://app.test/meal-photos/${encodeURIComponent(entry.id)}`,
+    );
+    expect(app.logic.shownPhotoUrl({ entry })).toEqual(
+      app.logic.photoUrl({ entry }),
+    );
+  });
+
+  it("should name no address when the public read has no photo, whatever the bucket key says", async () => {
+    const app = await setupTest({ audience: "public" });
+    const entry = await viewWithKey(app, "meals/owner/dashboard/new/one");
+
+    expect(entry.publicPhoto).toEqual(false);
+    expect(app.logic.photoUrl({ entry })).toBeNull();
+    expect(app.logic.shownPhotoUrl({ entry })).toBeNull();
+  });
+
+  it("should stop showing a public photo that failed to load", async () => {
+    const app = await setupTest({ audience: "public" });
+    const entry = { ...(await viewWithKey(app, null)), publicPhoto: true };
+    const url = app.logic.photoUrl({ entry });
+
+    app.logic.markFailed({ url: url ?? "" });
+
+    expect(app.logic.shownPhotoUrl({ entry })).toBeNull();
   });
 });
