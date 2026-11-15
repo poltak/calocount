@@ -274,6 +274,7 @@
         "exemptFiles": ["features/core/tests/browser/"]
       }
     ],
+    "testing/no-fixed-date-in-expect": "error",
     "import/no-unassigned-import": [
       "warn",
       {

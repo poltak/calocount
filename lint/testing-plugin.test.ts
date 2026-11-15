@@ -118,3 +118,56 @@ test("keeps black box tests on page objects and the black box fixture", async (c
     "frontend/src/features/plain/black-box-tests/plain.spec.ts: testing(black-box-tests)",
   ]);
 });
+
+const spec = (body: string) =>
+  'import { expect } from "@playwright/test";\n' +
+  "export const check = async (page: never, row: never, shortDayLabel: (date: Date) => string, daysAgo: (days: number) => Date) => {\n" +
+  body +
+  "};\n";
+
+test("builds each date in an expected value from the clock or the date helpers", async (context) => {
+  const problems = await lint(context, {
+    "frontend/src/features/notes/black-box-tests/helper.spec.ts": spec(
+      "  await expect(row).toHaveText(shortDayLabel(daysAgo(2)));\n  await expect(row).toHaveText(`${shortDayLabel(daysAgo(2))} saved`);\n",
+    ),
+    "frontend/src/features/notes/black-box-tests/month.spec.ts": spec(
+      '  await expect(row).toHaveText("Nov 8");\n',
+    ),
+    "frontend/src/features/notes/black-box-tests/long.spec.ts": spec(
+      '  await expect.soft(row).not.toContainText("November 8, 2026");\n  await expect(row).toHaveText(`8 Nov`);\n',
+    ),
+    "frontend/src/features/notes/black-box-tests/iso.spec.ts": spec(
+      '  expect(await row).toBe("2026-11-08");\n',
+    ),
+    "frontend/src/features/notes/black-box-tests/numeric.spec.ts": spec(
+      '  await expect(row).toHaveValue("11/08/2026");\n',
+    ),
+    // A date outside `expect` is data that the test makes, and `expect` takes
+    // text of a locator without a date.
+    "frontend/src/features/notes/black-box-tests/outside.spec.ts": spec(
+      '  const label = "Nov 8";\n  await expect(page).toHaveTitle("Notes");\n  await expect(row).toHaveText("Saved 8 notes");\n  expect(label).toBeDefined();\n  void page.getByText("Nov 8");\n',
+    ),
+    "frontend/src/features/notes/black-box-tests/frozen.spec.ts": spec(
+      '  await (page as any).clock.setFixedTime(new Date("2026-11-08T10:00:00"));\n  await expect(row).toHaveText("Nov 8");\n',
+    ),
+    "frontend/src/features/notes/api-tests/export.api-spec.ts": spec(
+      '  expect(await row).toEqual("2026-11-08");\n',
+    ),
+    // Other test files are not black box tests.
+    "frontend/src/features/notes/ui/notes-logic.test.ts": spec(
+      '  expect(row).toBe("Nov 8");\n',
+    ),
+  });
+
+  assert.deepEqual(
+    problems.filter((problem) => problem.includes("no-fixed-date-in-expect")),
+    [
+      "frontend/src/features/notes/api-tests/export.api-spec.ts: testing(no-fixed-date-in-expect)",
+      "frontend/src/features/notes/black-box-tests/iso.spec.ts: testing(no-fixed-date-in-expect)",
+      "frontend/src/features/notes/black-box-tests/long.spec.ts: testing(no-fixed-date-in-expect)",
+      "frontend/src/features/notes/black-box-tests/long.spec.ts: testing(no-fixed-date-in-expect)",
+      "frontend/src/features/notes/black-box-tests/month.spec.ts: testing(no-fixed-date-in-expect)",
+      "frontend/src/features/notes/black-box-tests/numeric.spec.ts: testing(no-fixed-date-in-expect)",
+    ],
+  );
+});

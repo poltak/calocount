@@ -90,6 +90,10 @@ models, before you start. This skill is the order of work.
 - Playwright finds a name as a part of a longer text, and ignores case. So
   `getByLabel("Note")` also finds a field with the label "Notes". Use
   `exact: true` when one name is a part of another.
+- Never hard-code a calendar date in expected text, such as
+  `toHaveText("Nov 8")`. A test that logs data relative to today passes on the
+  day it was written and fails later. Build the text from the clock or the date
+  helpers, such as `shortDayLabel(daysAgo(2))`. Lint checks it.
 - A page object that waits with `expect` fails lint. Use `waitFor()` there.
 - In a test of a rule with a time window, such as 3 sign-in attempts in 10
   seconds, change only one check in each run of step 7. Each changed soft

@@ -13,6 +13,7 @@ import {
 } from "./paths.ts";
 import type { FileDescription } from "./paths.ts";
 import type {
+  AstNode,
   CallExpression,
   MemberExpression,
   Plugin,
@@ -389,12 +390,112 @@ const blackBoxTests: Rule<TestingOptions> = {
   },
 };
 
+const MONTH =
+  "(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|June?|July?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)";
+/** "Nov 8", "November 8, 2026", "8 Nov", "2026-11-08", and "11/08/2026". */
+const CALENDAR_DATE = new RegExp(
+  `\\b${MONTH}\\.?\\s+\\d{1,2}\\b|\\b\\d{1,2}(?:st|nd|rd|th)?\\s+${MONTH}\\b|\\b\\d{4}-\\d{2}-\\d{2}\\b|\\b\\d{1,2}/\\d{1,2}/\\d{2,4}\\b`,
+);
+const CLOCK_METHODS = ["install", "setFixedTime", "setSystemTime"];
+
+/** `expect(x)`, `expect.soft(x)`, and `expect.poll(x)`, with any chain of `.not` or `.resolves`. */
+function isExpectChain(node: AstNode | undefined): boolean {
+  let current = node;
+  while (current?.type === "MemberExpression") {
+    current = current.object;
+  }
+  if (current?.type !== "CallExpression") {
+    return false;
+  }
+  const callee = current.callee;
+  return (
+    (callee?.type === "Identifier" && callee.name === "expect") ||
+    (callee?.type === "MemberExpression" &&
+      callee.object?.name === "expect" &&
+      ["soft", "poll"].includes(callee.property?.name ?? ""))
+  );
+}
+
+/** The static text of a string or a template literal, with a NUL where a value goes. */
+function staticText(node: AstNode): string | null {
+  if (node.type === "Literal" && typeof node.value === "string") {
+    return node.value;
+  }
+  if (node.type === "TemplateLiteral") {
+    return (node.quasis ?? []).map((part) => part.value.raw).join("\0");
+  }
+  return null;
+}
+
+const noFixedDateInExpect: Rule = {
+  meta: {
+    type: "problem",
+    docs: {
+      description:
+        "A black box or API test builds the date in an expected value from its clock or date helpers.",
+    },
+    schema: [],
+    messages: {
+      fixed:
+        "Build the expected date from the test's clock or date helpers. A fixed date passes only on the day it was written. " +
+        BLACK_BOX_DOC +
+        ".",
+    },
+  },
+  create(context) {
+    if (
+      !/\.(?:api-)?spec\.[cm]?[jt]sx?$/.test(
+        context.filename ?? context.getFilename(),
+      )
+    ) {
+      return {};
+    }
+
+    const dates: AstNode[] = [];
+    let freezesClock = false;
+    return {
+      CallExpression(node: CallExpression) {
+        const callee = node.callee;
+        if (callee.type !== "MemberExpression" || callee.computed) {
+          return;
+        }
+        const name = callee.property?.name ?? "";
+        if (
+          CLOCK_METHODS.includes(name) &&
+          callee.object?.type === "MemberExpression" &&
+          callee.object.property?.name === "clock"
+        ) {
+          freezesClock = true;
+        }
+        if (!isExpectChain(callee.object)) {
+          return;
+        }
+        for (const argument of node.arguments) {
+          const text = staticText(argument);
+          if (text !== null && CALENDAR_DATE.test(text)) {
+            dates.push(argument);
+          }
+        }
+      },
+      // A test that freezes the clock knows the date that the page shows.
+      "Program:exit"() {
+        if (!freezesClock) {
+          for (const node of dates) {
+            context.report({ node, messageId: "fixed" });
+          }
+        }
+      },
+    };
+  },
+};
+
 const plugin: Plugin = {
   meta: { name: "testing" },
   rules: {
     "ui-logic-tested": uiLogicTested,
     "logic-tests": logicTests,
     "black-box-tests": blackBoxTests,
+    "no-fixed-date-in-expect": noFixedDateInExpect,
   },
 };
 

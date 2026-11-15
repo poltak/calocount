@@ -108,6 +108,7 @@ test("should open the popover with the keyboard and return focus on Escape", asy
   await page.keyboard.press("Enter");
   await expect(gallery.popover).toBeVisible();
   await expect(gallery.popover).toHaveAccessibleDescription(
+    // oxlint-disable-next-line testing/no-fixed-date-in-expect -- The gallery shows this fixed sample text, not a date that depends on today.
     "Sent to Ada Lovelace on 3 November.",
   );
   await page.keyboard.press("Escape");
