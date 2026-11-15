@@ -6,6 +6,7 @@
  */
 import { describeFile, importVisitors } from "./paths.ts";
 import type {
+  AstNode,
   CallExpression,
   ExportAllDeclaration,
   ExportNamedDeclaration,
@@ -17,6 +18,7 @@ import type {
   Rule,
   Specifier,
   StackOptions,
+  VariableDeclarator,
   Vendor,
 } from "./plugin-types.ts";
 import { pageClasses, pageImports, shadcnTypography } from "./ui-rules.ts";
@@ -161,29 +163,41 @@ const encodeApiParams: Rule = {
     },
   },
   create(context) {
-    if (/\.test\.tsx?$/.test(context.filename ?? context.getFilename())) {
+    // Tests and their fixtures pass IDs that the test made, which need no
+    // encoding.
+    if (
+      /\.test\.tsx?$|\/tests\//.test(context.filename ?? context.getFilename())
+    ) {
       return {};
     }
 
+    const check = (params: AstNode | null | undefined) => {
+      if (params?.type !== "ObjectExpression") {
+        return;
+      }
+      for (const member of params.properties ?? []) {
+        const value = member.value;
+        const encoded =
+          member.type === "Property" &&
+          value?.type === "CallExpression" &&
+          value.callee?.type === "Identifier" &&
+          value.callee.name === "encodeApiParam";
+        if (!encoded) {
+          context.report({ node: member, messageId: "encode" });
+        }
+      }
+    };
+
     return {
       Property(node: Property) {
-        if (
-          node.computed ||
-          (node.key.name ?? node.key.value) !== "param" ||
-          node.value?.type !== "ObjectExpression"
-        ) {
-          return;
+        if (!node.computed && (node.key.name ?? node.key.value) === "param") {
+          check(node.value);
         }
-        for (const member of node.value.properties ?? []) {
-          const value = member.value;
-          const encoded =
-            member.type === "Property" &&
-            value?.type === "CallExpression" &&
-            value.callee?.type === "Identifier" &&
-            value.callee.name === "encodeApiParam";
-          if (!encoded) {
-            context.report({ node: member, messageId: "encode" });
-          }
+      },
+      // A call can take `{ param }`, with the object made before the call.
+      VariableDeclarator(node: VariableDeclarator) {
+        if (node.id.type === "Identifier" && node.id.name === "param") {
+          check(node.init);
         }
       },
     };

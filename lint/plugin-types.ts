@@ -129,6 +129,11 @@ export interface Literal extends Node {
   value: unknown;
 }
 
+export interface VariableDeclarator extends Node {
+  id: AstNode;
+  init?: AstNode | null;
+}
+
 interface JsxAttribute extends Node {
   parent?: Node & { name?: Name };
   name: Name;
@@ -149,6 +154,7 @@ export interface Visitors {
   NewExpression?(node: NewExpression): void;
   MemberExpression?(node: MemberExpression): void;
   Property?(node: Property): void;
+  VariableDeclarator?(node: VariableDeclarator): void;
   TSTypeReference?(node: TypeReference): void;
   Literal?(node: Literal): void;
   TemplateElement?(node: Template): void;

@@ -136,13 +136,19 @@ test("requires encodeApiParam for each path parameter in the frontend", async (c
     "frontend/src/features/notes/ui/spread.ts": call("{ ...rest }"),
     "frontend/src/features/notes/ui/other.ts": call("{ id: String(id) }"),
     "frontend/src/features/notes/ui/raw.test.ts": call("{ id }"),
+    "frontend/src/features/core/tests/seed.ts": call("{ id }"),
     "backend/src/features/notes/utils/raw.ts": call("{ id }"),
+    "frontend/src/features/notes/ui/variable-ok.ts":
+      "export const run = (client: any, id: string) => {\n  const param = { id: encodeApiParam(id) };\n  return client.get({ param });\n};\n",
+    "frontend/src/features/notes/ui/variable-raw.ts":
+      "export const run = (client: any, id: string) => {\n  const param = { id };\n  return client.get({ param });\n};\n",
   });
 
   assert.deepEqual(problems, [
     "frontend/src/features/notes/ui/other.ts: stack(encode-api-params)",
     "frontend/src/features/notes/ui/raw.ts: stack(encode-api-params)",
     "frontend/src/features/notes/ui/spread.ts: stack(encode-api-params)",
+    "frontend/src/features/notes/ui/variable-raw.ts: stack(encode-api-params)",
   ]);
 });
 
