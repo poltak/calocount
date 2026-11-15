@@ -49,8 +49,9 @@ export function SessionGate() {
       replace
       state={
         // The sign-out makes the session end before its task ends, so a
-        // running sign-out must not keep the page as the return address.
-        state.signOutState === "pristine"
+        // running sign-out must not keep the page as the return address. A
+        // failed sign-out keeps the session, so a later expiry keeps the page.
+        state.signOutState !== "running" && state.signOutState !== "success"
           ? { returnTo: location.pathname + location.search + location.hash }
           : undefined
       }
