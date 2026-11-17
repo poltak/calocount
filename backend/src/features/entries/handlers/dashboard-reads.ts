@@ -64,6 +64,9 @@ export async function readMonthOf({
   };
 }
 
+/** The dashboard reads a year of history: today and the 364 days before it. */
+const HISTORY_DAY_COUNT = 365;
+
 /** The summary of the recent days, without the fields that belong to the signed-in profile. */
 export async function readSummary({
   logic,
@@ -76,7 +79,14 @@ export async function readSummary({
   ]);
   const firstDate = summary.days[0]?.date ?? summary.date;
   const firstTrendDate = summary.trendDays[0]?.date ?? firstDate;
-  const [trendWeights, weightBefore, todayProtein] = await Promise.all([
+  const historyFrom = shiftDateKey(summary.date, -(HISTORY_DAY_COUNT - 1));
+  const [
+    trendWeights,
+    weightBefore,
+    todayProtein,
+    historyDays,
+    historyWeights,
+  ] = await Promise.all([
     logic.weights.range({
       ownerKey,
       from: firstTrendDate,
@@ -89,6 +99,13 @@ export async function readSummary({
         })
       : undefined,
     proteinGoalOfDay({ logic, ownerKey, date: summary.date, goals }),
+    logic.entryReads.dayTotals({
+      ownerKey,
+      fromDate: historyFrom,
+      toDate: summary.date,
+      timeZone,
+    }),
+    logic.weights.range({ ownerKey, from: historyFrom, to: summary.date }),
   ]);
   return {
     date: summary.date,
@@ -112,6 +129,20 @@ export async function readSummary({
         weights: trendWeights,
         weightBefore,
       }),
+    },
+    history: {
+      // Named fields keep the exported return type free of a private type.
+      days: historyDays.map(
+        ({ date, calories, proteinG, carbsG, fatG, mealCount }) => ({
+          date,
+          calories,
+          proteinG,
+          carbsG,
+          fatG,
+          mealCount,
+        }),
+      ),
+      weights: historyWeights,
     },
   };
 }

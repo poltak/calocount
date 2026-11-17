@@ -169,5 +169,9 @@ export function publicSummaryOf(read: SummaryRead) {
       weights: read.trend.weights.map(publicWeightOf),
       proteinTargets: read.trend.proteinTargets,
     },
+    history: {
+      days: read.history.days,
+      weights: read.history.weights.map(publicWeightOf),
+    },
   };
 }

@@ -75,6 +75,7 @@ export function createDashboardHandlers({ logic }: DashboardHandlerProps) {
             averageCalories: read.averageCalories,
             recentWeights: read.recentWeights,
             trend: read.trend,
+            history: read.history,
           },
           200,
         );
