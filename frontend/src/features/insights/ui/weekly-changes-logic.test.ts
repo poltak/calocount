@@ -30,9 +30,9 @@ async function setupTest({
   return { ...app, events };
 }
 
-function changesOf(logic: InsightsLogic, limit?: number) {
-  const { days, entries, today } = logic.state;
-  return calculateWeeklyChanges(days, entries, today ?? "", limit);
+function changesOf(logic: InsightsLogic) {
+  const { days, today } = logic.state;
+  return calculateWeeklyChanges(days, today ?? "");
 }
 
 describe("InsightsLogic weekly changes tests", () => {
@@ -65,7 +65,8 @@ describe("InsightsLogic weekly changes tests", () => {
       end: dateAgo(app, 8),
     });
     expect(result.current.days).toHaveLength(1);
-    expect(result.calorieDifference).toEqual(-1000);
+    expect(result.metrics.calories.previous.average).toEqual(2000);
+    expect(result.metrics.calories.current.average).toEqual(1000);
   });
 
   it("should average over recorded days only", async () => {
@@ -109,9 +110,8 @@ describe("InsightsLogic weekly changes tests", () => {
 
     const result = changesOf(logic);
 
-    expect(result.calorieDifference).toEqual(null);
+    expect(result.metrics.calories.current.average).toEqual(1000);
     expect(result.metrics.calories.previous.average).toEqual(null);
-    expect(result.waterfall).toEqual([]);
   });
 
   it("should keep unknown nutrient coverage next to the known amount", async () => {
@@ -141,66 +141,5 @@ describe("InsightsLogic weekly changes tests", () => {
       knownItemCount: 0,
       totalItemCount: 1,
     });
-  });
-
-  it("should name the foods that moved the daily average", async () => {
-    const { logic } = await setupTest({
-      seed: async (application) => {
-        await seedDay(application, {
-          date: dateAgo(application, 9),
-          items: [
-            { name: "Toast", calories: 300 },
-            { name: "Soup", calories: 200 },
-          ],
-        });
-        await seedDay(application, {
-          date: dateAgo(application, 2),
-          items: [
-            { name: " Toast ", calories: 100 },
-            { name: "Pizza", calories: 800 },
-          ],
-        });
-      },
-    });
-
-    const { waterfall } = changesOf(logic);
-
-    expect(waterfall.map((item) => [item.label, item.difference])).toEqual([
-      ["Pizza", 800],
-      ["Soup", -200],
-      ["Toast", -200],
-    ]);
-  });
-
-  it("should fold the smallest changes into Other entries and still add up", async () => {
-    const { logic } = await setupTest({
-      seed: async (application) => {
-        await seedDay(application, {
-          date: dateAgo(application, 9),
-          items: [{ name: "Old", calories: 100 }],
-        });
-        await seedDay(application, {
-          date: dateAgo(application, 2),
-          items: Array.from({ length: 9 }, (_, index) => ({
-            name: `Food ${index}`,
-            calories: 100 + index,
-          })),
-        });
-      },
-    });
-
-    const result = changesOf(logic, 3);
-
-    expect(result.waterfall).toHaveLength(4);
-    expect(result.waterfall.at(-1)).toMatchObject({
-      key: "other",
-      label: "Other entries",
-      kind: "other",
-    });
-    const total = result.waterfall.reduce(
-      (sum, item) => sum + item.difference,
-      0,
-    );
-    expect(total).toBeCloseTo(result.calorieDifference ?? Number.NaN, 9);
   });
 });

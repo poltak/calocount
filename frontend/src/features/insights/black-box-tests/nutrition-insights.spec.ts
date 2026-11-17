@@ -23,8 +23,8 @@ test.describe("nutrition insights", () => {
       nutrients: { Fiber: 3, Sodium: 400 },
     });
     await today.goto();
+    await today.showNutritionDetails();
     const insights = new InsightsPageObject(page);
-    await insights.showNutrition();
     await expect(insights.panel("Nutrition overview")).toContainText(
       "Fiber4g/ 28g",
     );
@@ -40,23 +40,19 @@ test.describe("nutrition insights", () => {
     await expect(insights.panel("What changed this week?")).toContainText(
       "1/7 recorded days",
     );
-    await expect(insights.panel("What changed this week?")).toContainText(
-      "A comparison needs at least one recorded day in both periods.",
-    );
-    await expect(insights.panel("Frequency & amount")).toContainText(
-      "Yesterday oats",
+    await expect(insights.weeklyMeasure("Calories")).toContainText(
+      "Change unavailable",
     );
     await expect(insights.panel("Days worth repeating")).toContainText(
       "Yesterday oats",
     );
-    await expect(insights.panel("Nutrition food insights")).toContainText(
-      "Compare a food change",
+    await expect(insights.panel("Food sources")).toContainText(
+      "Yesterday oats",
     );
     for (const name of [
       "Nutrition overview",
       "Nutrition attention",
-      "Nutrition food insights",
-      "Frequency & amount",
+      "Food sources",
       "What changed this week?",
       "Days worth repeating",
     ]) {

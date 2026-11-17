@@ -21,28 +21,12 @@ export class InsightsPageObject {
     return this.page.getByRole("region", { name, exact: true });
   }
 
-  /** One of the cards inside a panel, such as "Compare a food change". */
-  card(name: string) {
-    return this.page.getByRole("article", { name, exact: true });
-  }
-
-  /** Open the nutrition section when the owner collapsed it. */
-  async showNutrition() {
-    const button = this.page.getByRole("button", {
-      name: "Show details",
-      exact: true,
-    });
-    if (await button.isVisible()) {
-      await button.click();
-    }
-  }
-
-  /** A list or select in an insight panel, such as "Food to add". */
+  /** A list or select in an insight panel, such as "Measure". */
   choice(scope: Locator, label: string) {
     return scope.getByRole("combobox", { name: label, exact: true });
   }
 
-  /** A button of an insight panel, such as "7 days" or "1.5×". */
+  /** A button of an insight panel, such as "7 days". */
   button(scope: Locator, name: string) {
     return scope.getByRole("button", { name, exact: true });
   }
@@ -76,49 +60,40 @@ export class InsightsPageObject {
     });
   }
 
-  // Nutrition food insights
-
-  /** The "Exclude" button of the nth food in "Where a nutrient comes from". */
-  excludeButton(position: number) {
-    return this.card("Where a nutrient comes from")
-      .getByRole("button", { name: "Exclude", exact: true })
-      .nth(position);
-  }
-
   // Weekly changes
 
-  /** The button of one measure, such as "Protein", in "What changed this week?". */
+  /** The card of one measure, such as "Protein", in "What changed this week?". */
   weeklyMeasure(name: string) {
-    return this.panel("What changed this week?").getByRole("button", {
-      name: new RegExp(`^${name}( |$)`),
+    return this.panel("What changed this week?").getByRole("article", {
+      name: new RegExp(`^${name}`),
     });
   }
 
-  // Top food contributors
+  // Food sources
 
-  /** The rows of the top food contributors, the largest first. */
-  contributionRows() {
-    return this.panel("Top food contributors").getByRole("listitem");
-  }
-
-  /** The bar of a row, which names its share of the largest contributor. */
-  contributionBar(row: Locator) {
-    return row.getByRole("img");
-  }
-
-  // Frequency and amount
-
-  /** The button of a food in the list under the chart. */
-  frequencyFood(name: string) {
-    return this.panel("Frequency & amount").getByRole("button", {
-      name: new RegExp(`^${name} [\\d.]+×/week`),
+  /** The row of a food in "Food sources", such as "Eggs". Its button opens the entries. */
+  foodSource(name: string) {
+    return this.panel("Food sources").getByRole("button", {
+      name: new RegExp(`^${name}`),
     });
   }
 
-  /** The dot of a food in the chart. */
-  frequencyPoint(name: string) {
-    return this.panel("Frequency & amount").getByRole("button", {
-      name: new RegExp(`^${name}: `),
-    });
+  /** The foods of "Food sources", the largest first. */
+  foodSourceRows() {
+    return this.panel("Food sources")
+      .getByRole("list", { name: /^Foods that supply the most / })
+      .getByRole("button");
+  }
+
+  /** The entries of a food that the owner opened, such as "Eggs". */
+  foodSourceEntries(name: string) {
+    return this.panel("Food sources")
+      .getByRole("list", { name: `${name} entries`, exact: true })
+      .getByRole("listitem");
+  }
+
+  /** Show the entries of a food, or hide them again. */
+  async toggleFoodSource(name: string) {
+    await this.foodSource(name).click();
   }
 }

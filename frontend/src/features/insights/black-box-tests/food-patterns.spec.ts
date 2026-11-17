@@ -43,40 +43,13 @@ async function logFoods(today: TodayPageObject) {
 }
 
 test.describe("food pattern insights", () => {
-  test("should show how often and how much of each food was logged, compare the last two weeks, and list the days that matched the current targets", async ({
+  test("should compare the last two weeks, and list the days that matched the current targets", async ({
     page,
   }) => {
     const today = new TodayPageObject(page);
     const insights = new InsightsPageObject(page);
     const settings = new SettingsPageObject(page);
     await logFoods(today);
-    await insights.showNutrition();
-    const frequencyPanel = insights.panel("Frequency & amount");
-
-    await expect(frequencyPanel).toContainText("3 of 30 days have logs");
-    await expect(insights.frequencyFood("Eggs")).toContainText(
-      "0.5×/week · 500 kcal avg",
-    );
-    await expect(insights.frequencyFood("Toast")).toContainText(
-      "0.2×/week · 300 kcal avg",
-    );
-    await expect(frequencyPanel).toContainText("EggsTimes logged2");
-    await expect(frequencyPanel).toContainText("Total contribution1,000 kcal");
-    await expect(frequencyPanel).toContainText("Known coverage2 of 2 entries");
-
-    await insights.frequencyFood("Toast").click();
-
-    await expect(frequencyPanel).toContainText("ToastTimes logged1");
-    await expect(frequencyPanel).toContainText("Avg amount300 kcal");
-
-    await insights.frequencyFood("Eggs").click();
-    await insights.choice(frequencyPanel, "Amount").selectOption("Sodium");
-
-    await expect(frequencyPanel).toContainText("Avg amount1,450 mg");
-    await insights.button(frequencyPanel, "7 days").click();
-    await expect(frequencyPanel).toContainText("2 of 7 days have logs");
-    await expect(insights.frequencyPoint("Toast")).toHaveCount(0);
-
     const changePanel = insights.panel("What changed this week?");
 
     await expect(changePanel).toContainText("1/7 recorded days");
@@ -93,18 +66,6 @@ test.describe("food pattern insights", () => {
     await expect(insights.weeklyMeasure("Caffeine")).toContainText(
       "Change unavailable",
     );
-    await expect(changePanel).toContainText(
-      "What contributed to the calories change?",
-    );
-    await expect(changePanel).toContainText("Eggs+500 kcal0 kcal → 500 kcal");
-    await expect(changePanel).toContainText("Toast-300 kcal300 kcal → 0 kcal");
-
-    await insights.weeklyMeasure("Protein").click();
-
-    await expect(changePanel).toContainText(
-      "What contributed to the protein change?",
-    );
-    await expect(changePanel).toContainText("Eggs+30 g0 g → 30 g");
 
     await settings.open();
     await settings.field("Fixed grams").check();
@@ -112,7 +73,6 @@ test.describe("food pattern insights", () => {
     await settings.field("Calories").fill("500");
     await settings.save();
     await page.reload();
-    await insights.showNutrition();
     const repeatPanel = insights.panel("Days worth repeating");
 
     await expect(repeatPanel).toContainText("Showing 3 of 3 logged days.");

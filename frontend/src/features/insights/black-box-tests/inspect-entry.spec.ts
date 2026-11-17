@@ -17,7 +17,6 @@ test.describe("inspect an entry from the nutrition attention panel", () => {
     await today.logHistory([
       { daysAgo: 3, entry: { name: "Plain toast", calories: 200 } },
     ]);
-    await insights.showNutrition();
     await expect(today.dayHeadingOf(new Date())).toBeVisible();
     await insights.openFiberCoverageRow();
 
@@ -46,7 +45,6 @@ test.describe("inspect an entry from the nutrition attention panel", () => {
     const visitor = new PublicPageObject(visitorPage);
     await visitor.goto();
     const insights = new InsightsPageObject(visitorPage);
-    await insights.showNutrition();
 
     const row = await insights.openFiberCoverageRow();
 

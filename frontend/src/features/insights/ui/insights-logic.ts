@@ -7,13 +7,7 @@ import type {
   InsightEntry,
 } from "@app/common/features/entries/utils/insights/insight-types";
 import type { RepeatMetric } from "@app/common/features/entries/utils/insights/days-worth-repeating";
-import type { FrequencyPortionMetric } from "@app/common/features/entries/utils/insights/frequency-portion";
-import type {
-  FoodScenarioMode,
-  FoodScenarioMultiplier,
-  InsightRange,
-} from "@app/common/features/entries/utils/insights/nutrient-food-scenario";
-import type { WeeklyMetricKey } from "@app/common/features/entries/utils/insights/weekly-changes";
+import type { NutritionAttentionWindow } from "@app/common/features/entries/utils/insights/nutrition-attention-types";
 import { requireApiSuccess } from "../../api/client/api-client.js";
 import { failureMessage } from "../../core/logic/failure-message.js";
 import { LatestRequest } from "../../core/logic/latest-request.js";
@@ -22,7 +16,7 @@ import type { EntryEvents } from "../../entries/types.js";
 import type { SettingsEvents } from "../../settings/types.js";
 import type { WeightEvents } from "../../weights/types.js";
 import type { InsightsRead } from "../utils/api-types.js";
-import type { FoodContributionMetric } from "../utils/food-contribution.js";
+import type { FoodSourceMetric } from "../utils/food-sources.js";
 
 type InsightsProps = FrontendLogicProps<
   never,
@@ -41,27 +35,15 @@ export type CalorieBandName = "80–120%" | "90–110%" | "95–105%";
 
 /** What the owner chose in the panels. A choice that no longer fits the data falls back to the first row. */
 interface InsightSelections {
-  contributionRange: 7 | 30;
-  contributionMetric: FoodContributionMetric;
+  foodSourcesRange: 7 | 30;
+  foodSourcesMetric: FoodSourceMetric;
+  /** The key of the food row that shows its entries. */
+  expandedFoodSource: string | null;
   repeatRange: 7 | 30;
   repeatMetric: RepeatMetric;
   repeatBand: CalorieBandName;
   repeatDate: string | null;
-  frequencyRange: 7 | 30;
-  frequencyMetric: FrequencyPortionMetric;
-  frequencyKey: string | null;
-  weeklyMetric: WeeklyMetricKey;
-  weeklyKey: string | null;
-  scenarioRange: InsightRange;
-  scenarioMode: FoodScenarioMode;
-  scenarioMultiplier: FoodScenarioMultiplier;
-  scenarioCandidateId: string | null;
-  scenarioBeforeId: string | null;
-  scenarioAfterId: string | null;
-  sourceRange: InsightRange;
-  sourceNutrient: NutrientKey;
-  sourceKey: string | null;
-  attentionRange: InsightRange;
+  attentionRange: NutritionAttentionWindow;
   shortfallNutrient: NutrientKey | null;
   shortfallDate: string | null;
   excessOption: string;
@@ -85,10 +67,8 @@ interface InsightsState extends InsightSelections {
   proteinTargets: InsightsRead["proteinTargets"];
   referenceSettings: InsightsRead["referenceSettings"];
   collapsed: boolean;
-  /** The nutrient of an attention finding that the owner wants to compare foods for. */
-  focusedNutrient: NutrientKey | null;
-  /** Counts the compare-food actions. The food panel scrolls into view after each. */
-  compareFoodCount: number;
+  /** Counts the show-food-sources actions. The Food sources panel scrolls into view after each. */
+  foodSourcesFocusCount: number;
 }
 
 /** The insight panels of the owner dashboard: the recent entries, and the choices in each panel. */
@@ -113,28 +93,14 @@ export class InsightsLogic extends Logic<InsightsProps, InsightsState> {
           usFnbAdultUlEnabled: false,
         },
         collapsed: false,
-        focusedNutrient: null,
-        compareFoodCount: 0,
-        contributionRange: 7,
-        contributionMetric: "calories",
+        foodSourcesFocusCount: 0,
+        foodSourcesRange: 7,
+        foodSourcesMetric: "calories",
+        expandedFoodSource: null,
         repeatRange: 30,
         repeatMetric: "protein",
         repeatBand: "90–110%",
         repeatDate: null,
-        frequencyRange: 30,
-        frequencyMetric: "calories",
-        frequencyKey: null,
-        weeklyMetric: "calories",
-        weeklyKey: null,
-        scenarioRange: 28,
-        scenarioMode: "addition",
-        scenarioMultiplier: 1,
-        scenarioCandidateId: null,
-        scenarioBeforeId: null,
-        scenarioAfterId: null,
-        sourceRange: 28,
-        sourceNutrient: "fiberG",
-        sourceKey: null,
         attentionRange: 14,
         shortfallNutrient: null,
         shortfallDate: null,
@@ -214,16 +180,12 @@ export class InsightsLogic extends Logic<InsightsProps, InsightsState> {
     this.setState(patch);
   }
 
-  /** Open the food comparison for the nutrient of an attention finding. */
-  compareFoodChange({ nutrient }: { nutrient: NutrientKey }): void {
+  /** Show the food sources of the nutrient of an attention finding. */
+  showFoodSources({ nutrient }: { nutrient: NutrientKey }): void {
     this.setState({
-      focusedNutrient: nutrient,
-      compareFoodCount: this.state.compareFoodCount + 1,
-      sourceNutrient: nutrient,
-      sourceKey: null,
-      scenarioCandidateId: null,
-      scenarioBeforeId: null,
-      scenarioAfterId: null,
+      foodSourcesMetric: nutrient,
+      expandedFoodSource: null,
+      foodSourcesFocusCount: this.state.foodSourcesFocusCount + 1,
     });
   }
 }

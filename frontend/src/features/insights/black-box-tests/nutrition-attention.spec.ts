@@ -40,7 +40,6 @@ test.describe("nutrition attention", () => {
         },
       },
     ]);
-    await insights.showNutrition();
     const panel = insights.panel("Nutrition attention");
 
     await expect(panel).toContainText("2 of 14 days have logs");
@@ -71,7 +70,6 @@ test.describe("nutrition attention", () => {
         entry: { name: "Cheese", calories: 300, nutrients: { Sodium: 700 } },
       },
     ]);
-    await insights.showNutrition();
     const panel = insights.panel("Nutrition attention");
 
     await expect(panel).toContainText("Sodium guideline · 2,300 mg");

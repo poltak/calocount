@@ -6,6 +6,7 @@ import {
 } from "@app/common/features/entries/utils/insights/days-worth-repeating";
 import { useMemo } from "react";
 import { cx } from "../../core/utils/class-names.js";
+import { formatKcal } from "../../core/utils/dashboard-format.js";
 import { formatLongDate } from "../utils/insight-format.js";
 import { useInsights } from "./insights-context.js";
 import type { CalorieBandName } from "./insights-logic.js";
@@ -178,137 +179,143 @@ export function DaysWorthRepeatingPanel() {
               </span>
             )}
           </div>
-          <div className="repeat-chart-wrap">
-            <div className="repeat-y-title">{`${metricName} (% of current target)`}</div>
-            <div
-              className="repeat-chart"
-              // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- A fieldset would bring its own box into the chart or list.
-              role="group"
-              aria-label={`Scatter plot of calories and ${metric} as percentages of current targets`}
-            >
-              <div className="repeat-chart-plot">
-                <span
-                  className="repeat-success-zone"
-                  aria-hidden="true"
-                  style={{
-                    left: `${axisPosition(band[0], xScale)}%`,
-                    width: `${axisPosition(band[1] - band[0], xScale)}%`,
-                    bottom: `${axisPosition(100, yScale)}%`,
-                  }}
-                />
-                <span
-                  className="repeat-guide y"
-                  aria-hidden="true"
-                  style={{ bottom: `${axisPosition(100, yScale)}%` }}
-                />
-                <span
-                  className="repeat-guide x"
-                  aria-hidden="true"
-                  style={{ left: `${axisPosition(100, xScale)}%` }}
-                />
-                {xScale.ticks.map((tick) => (
+          <div className="repeat-layout">
+            <div className="repeat-chart-wrap">
+              <div className="repeat-y-title">{`${metricName} (% of current target)`}</div>
+              <div
+                className="repeat-chart"
+                // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- A fieldset would bring its own box into the chart or list.
+                role="group"
+                aria-label={`Scatter plot of calories and ${metric} as percentages of current targets`}
+              >
+                <div className="repeat-chart-plot">
                   <span
-                    key={`x${tick}`}
-                    className="repeat-tick x"
-                    style={{ left: `${axisPosition(tick, xScale)}%` }}
-                  >
-                    {`${tick}%`}
-                  </span>
-                ))}
-                {yScale.ticks.map((tick) => (
-                  <span
-                    key={`y${tick}`}
-                    className="repeat-tick y"
-                    style={{ bottom: `${axisPosition(tick, yScale)}%` }}
-                  >
-                    {`${tick}%`}
-                  </span>
-                ))}
-                {plotted.map((point) => (
-                  <button
-                    key={point.date}
-                    type="button"
-                    className={cx(
-                      "repeat-point",
-                      point.meetsBothTargets
-                        ? "joint"
-                        : point.inCalorieBand && "in-band",
-                      point.coverage === "partial" && "partial",
-                      selected?.date === point.date && "selected",
-                    )}
+                    className="repeat-success-zone"
+                    aria-hidden="true"
                     style={{
-                      left: `${axisPosition(point.caloriePercent ?? 0, xScale)}%`,
-                      bottom: `${axisPosition(point.percent ?? 0, yScale)}%`,
+                      left: `${axisPosition(band[0], xScale)}%`,
+                      width: `${axisPosition(band[1] - band[0], xScale)}%`,
+                      bottom: `${axisPosition(100, yScale)}%`,
                     }}
-                    aria-label={`${formatLongDate(point.date)}: ${Math.round(point.caloriePercent ?? 0)}% of calorie target, ${Math.round(point.percent ?? 0)}% of ${metric} target${point.coverage === "partial" ? ", partial fiber data" : ""}`}
-                    onClick={() => logic.choose({ repeatDate: point.date })}
                   />
-                ))}
-                {plotted.length === 0 && (
-                  <p className="days-repeat-chart-empty">
-                    No days have both targets available.
-                  </p>
-                )}
+                  <span
+                    className="repeat-guide y"
+                    aria-hidden="true"
+                    style={{ bottom: `${axisPosition(100, yScale)}%` }}
+                  />
+                  <span
+                    className="repeat-guide x"
+                    aria-hidden="true"
+                    style={{ left: `${axisPosition(100, xScale)}%` }}
+                  />
+                  {xScale.ticks.map((tick) => (
+                    <span
+                      key={`x${tick}`}
+                      className="repeat-tick x"
+                      style={{ left: `${axisPosition(tick, xScale)}%` }}
+                    >
+                      {`${tick}%`}
+                    </span>
+                  ))}
+                  {yScale.ticks.map((tick) => (
+                    <span
+                      key={`y${tick}`}
+                      className="repeat-tick y"
+                      style={{ bottom: `${axisPosition(tick, yScale)}%` }}
+                    >
+                      {`${tick}%`}
+                    </span>
+                  ))}
+                  {plotted.map((point) => (
+                    <button
+                      key={point.date}
+                      type="button"
+                      className={cx(
+                        "repeat-point",
+                        point.meetsBothTargets
+                          ? "joint"
+                          : point.inCalorieBand && "in-band",
+                        point.coverage === "partial" && "partial",
+                        selected?.date === point.date && "selected",
+                      )}
+                      style={{
+                        left: `${axisPosition(point.caloriePercent ?? 0, xScale)}%`,
+                        bottom: `${axisPosition(point.percent ?? 0, yScale)}%`,
+                      }}
+                      aria-label={`${formatLongDate(point.date)}: ${Math.round(point.caloriePercent ?? 0)}% of calorie target, ${Math.round(point.percent ?? 0)}% of ${metric} target${point.coverage === "partial" ? ", partial fiber data" : ""}`}
+                      onClick={() => logic.choose({ repeatDate: point.date })}
+                    />
+                  ))}
+                  {plotted.length === 0 && (
+                    <p className="days-repeat-chart-empty">
+                      No days have both targets available.
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="repeat-x-title">
+                Calories (% of current target)
               </div>
             </div>
-            <div className="repeat-x-title">Calories (% of current target)</div>
-          </div>
 
-          <label className="repeat-date-select">
-            Inspect a day
-            <select
-              value={selected?.date ?? ""}
-              onChange={(event) =>
-                logic.choose({ repeatDate: event.target.value })
-              }
-            >
-              <option value="" disabled>
-                Select a date
-              </option>
-              {points.map((point) => (
-                <option key={point.date} value={point.date}>
-                  {formatLongDate(point.date)}
-                </option>
-              ))}
-            </select>
-          </label>
-          {selected && (
-            <div className="repeat-details" aria-live="polite">
-              <h3>{formatLongDate(selected.date)}</h3>
-              <p>
-                {selected.caloriePercent === null
-                  ? `${Math.round(selected.calories)} kcal; calorie target unavailable.`
-                  : `${Math.round(selected.caloriePercent)}% of the current calorie target.`}{" "}
-                {selected.percent === null
-                  ? `${metricName} comparison unavailable.`
-                  : `${Math.round(selected.percent)}% of the current ${metric} target.`}{" "}
-                {selected.coverage === "partial"
-                  ? selected.targetMet
-                    ? "The known fiber amount reaches the target, but some items lack fiber data."
-                    : "Fiber data is partial, so target status is uncertain."
-                  : null}
-              </p>
-              <h4>Food and drink logged</h4>
-              {selectedEntries.length === 0 ? (
-                <p className="days-repeat-empty">
-                  No entry details are available for this day.
-                </p>
-              ) : (
-                <ul>
-                  {selectedEntries.flatMap((entry) =>
-                    entry.items.map((item, index) => (
-                      <li key={`${entry.id}-${index}`}>
-                        <span>{item.name}</span>
-                        <small>
-                          {`${item.quantity != null ? `${item.quantity}${item.unit ? ` ${item.unit}` : ""} · ` : ""}${Math.round(item.calories)} kcal · ${Math.round(item.proteinG)} g protein`}
-                        </small>
-                      </li>
-                    )),
+            <div className="repeat-inspect">
+              <label className="repeat-date-select">
+                Inspect a day
+                <select
+                  value={selected?.date ?? ""}
+                  onChange={(event) =>
+                    logic.choose({ repeatDate: event.target.value })
+                  }
+                >
+                  <option value="" disabled>
+                    Select a date
+                  </option>
+                  {points.map((point) => (
+                    <option key={point.date} value={point.date}>
+                      {formatLongDate(point.date)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {selected && (
+                <div className="repeat-details" aria-live="polite">
+                  <h3>{formatLongDate(selected.date)}</h3>
+                  <p>
+                    {selected.caloriePercent === null
+                      ? `${formatKcal(Math.round(selected.calories))} kcal; calorie target unavailable.`
+                      : `${Math.round(selected.caloriePercent)}% of the current calorie target.`}{" "}
+                    {selected.percent === null
+                      ? `${metricName} comparison unavailable.`
+                      : `${Math.round(selected.percent)}% of the current ${metric} target.`}{" "}
+                    {selected.coverage === "partial"
+                      ? selected.targetMet
+                        ? "The known fiber amount reaches the target, but some items lack fiber data."
+                        : "Fiber data is partial, so target status is uncertain."
+                      : null}
+                  </p>
+                  <h4>Food and drink logged</h4>
+                  {selectedEntries.length === 0 ? (
+                    <p className="days-repeat-empty">
+                      No entry details are available for this day.
+                    </p>
+                  ) : (
+                    <ul>
+                      {selectedEntries.flatMap((entry) =>
+                        entry.items.map((item, index) => (
+                          <li key={`${entry.id}-${index}`}>
+                            <span>{item.name}</span>
+                            <small>
+                              {`${item.quantity != null ? `${item.quantity}${item.unit ? ` ${item.unit}` : ""} · ` : ""}${formatKcal(Math.round(item.calories))} kcal · ${Math.round(item.proteinG)} g protein`}
+                            </small>
+                          </li>
+                        )),
+                      )}
+                    </ul>
                   )}
-                </ul>
+                </div>
               )}
             </div>
-          )}
+          </div>
           <p className="days-repeat-note">
             Comparisons use your current calorie, nutrient, and per-day protein
             targets. Per-kilogram protein targets can differ by date. The

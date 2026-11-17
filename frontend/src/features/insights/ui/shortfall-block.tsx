@@ -152,10 +152,10 @@ export function ShortfallBlock({
                       type="button"
                       className="nutrition-attention__compare"
                       onClick={() =>
-                        logic.compareFoodChange({ nutrient: finding.nutrient })
+                        logic.showFoodSources({ nutrient: finding.nutrient })
                       }
                     >
-                      {`Compare a food change for ${label}`}
+                      {`See food sources for ${label}`}
                     </button>
                     <div className="nutrition-attention__daily-heading">
                       <div>

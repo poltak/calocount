@@ -33,11 +33,6 @@ export function formatDateRange(startDate: string, endDate: string): string {
   return `${formatShortDate(startDate)}–${formatShortDate(endDate)}`;
 }
 
-/** A number with at most `digits` decimals. */
-export function formatDecimal(value: number, digits = 1): string {
-  return value.toLocaleString("en-US", { maximumFractionDigits: digits });
-}
-
 export function plural(count: number): string {
   return count === 1 ? "" : "s";
 }

@@ -1,5 +1,6 @@
 import type { NutrientReference } from "@app/common/features/entries/utils/insights/nutrient-references";
 import type { NutrientKey } from "@app/common/features/entries/utils/nutrients";
+import { formatKcal } from "../../core/utils/dashboard-format.js";
 import { nutrientLabel } from "../../core/utils/nutrient-format.js";
 import { formatShortDate } from "../utils/insight-format.js";
 import {
@@ -186,7 +187,7 @@ export function SourceItem({
       </button>
       {open && (
         <small>
-          {`${formatShortDate(entry.date)} · ${quantity}${item.calories.toLocaleString("en-US")} kcal · recorded item${origin ? ` · value origin: ${origin}` : ""}`}
+          {`${formatShortDate(entry.date)} · ${quantity}${formatKcal(item.calories)} kcal · recorded item${origin ? ` · value origin: ${origin}` : ""}`}
         </small>
       )}
       <InspectEntryButton entry={entry} />

@@ -1,8 +1,7 @@
+import { CollapsibleSection } from "../../core/ui/collapsible-section.js";
 import { DaysWorthRepeatingPanel } from "./days-worth-repeating-panel.js";
-import { FoodContributionPanel } from "./food-contribution-panel.js";
-import { FrequencyPortionPanel } from "./frequency-portion-panel.js";
+import { FoodSourcesPanel } from "./food-sources-panel.js";
 import { InsightsProvider, useInsights } from "./insights-context.js";
-import { NutrientFoodInsights } from "./nutrient-food-insights.js";
 import { NutritionAttentionPanel } from "./nutrition-attention-panel.js";
 import { WeeklyChangesPanel } from "./weekly-changes-panel.js";
 import type { InsightsSlotProps } from "../types.js";
@@ -11,54 +10,34 @@ function InsightsView() {
   const { logic, state } = useInsights();
   const { collapsed, loaded, loadError } = state;
   return (
-    <section className="insights-overview" aria-labelledby="insights-title">
-      <div className="nutrition-overview-heading insights-overview-heading">
-        <div>
-          <p className="eyebrow">Longer-term patterns</p>
-          <h2 id="insights-title">Insights</h2>
-        </div>
-        <div className="nutrition-overview-actions">
-          <span className="panel-meta">historical patterns</span>
-          <button
-            type="button"
-            className="nutrition-section-toggle"
-            aria-expanded={!collapsed}
-            aria-controls="nutrition-insights-content insights-overview-content"
-            onClick={() => logic.toggleCollapsed()}
-          >
-            {collapsed ? "Show insights" : "Hide insights"}
-            <span aria-hidden="true">{collapsed ? "⌄" : "⌃"}</span>
-          </button>
-        </div>
-      </div>
-      {loadError && (
-        <div className="action-feedback error" role="alert">
-          {loadError}
-        </div>
-      )}
-      {loaded && (
-        <>
-          <div
-            className="nutrition-insights-content"
-            id="nutrition-insights-content"
-            hidden={collapsed}
-          >
-            <FoodContributionPanel />
-            <NutritionAttentionPanel />
-            <NutrientFoodInsights />
+    <CollapsibleSection
+      className="insights-overview"
+      title="Insights"
+      description="Food sources, nutrition attention, days worth repeating and weekly changes"
+      expanded={!collapsed}
+      controls="insights-content"
+      onToggle={() => logic.toggleCollapsed()}
+      notice={
+        loadError && (
+          <div className="action-feedback error" role="alert">
+            {loadError}
           </div>
-          <div
-            className="insights-overview-content"
-            id="insights-overview-content"
-            hidden={collapsed}
-          >
+        )
+      }
+    >
+      {loaded && (
+        <div className="insights-content">
+          <div className="nutrition-insights-content">
+            <FoodSourcesPanel />
+            <NutritionAttentionPanel />
+          </div>
+          <div className="insights-overview-content">
             <DaysWorthRepeatingPanel />
             <WeeklyChangesPanel />
-            <FrequencyPortionPanel />
           </div>
-        </>
+        </div>
       )}
-    </section>
+    </CollapsibleSection>
   );
 }
 

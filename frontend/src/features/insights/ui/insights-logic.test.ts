@@ -261,17 +261,28 @@ describe("InsightsLogic choice tests", () => {
     });
   });
 
-  it("should point both food panels at the nutrient of a finding", async () => {
+  it("should point the food sources at the nutrient of a finding and ask the panel to scroll into view", async () => {
     const { logic } = await setupTest();
-    logic.choose({ scenarioCandidateId: "a:0", sourceKey: "oats" });
+    logic.choose({
+      foodSourcesRange: 30,
+      expandedFoodSource: "oats",
+    });
+    expect(logic.state.foodSourcesFocusCount).toEqual(0);
 
-    logic.compareFoodChange({ nutrient: "sodiumMg" });
+    logic.showFoodSources({ nutrient: "sodiumMg" });
 
     expect(logic.state).toMatchObject({
-      focusedNutrient: "sodiumMg",
-      sourceNutrient: "sodiumMg",
-      sourceKey: null,
-      scenarioCandidateId: null,
+      foodSourcesMetric: "sodiumMg",
+      foodSourcesRange: 30,
+      expandedFoodSource: null,
+      foodSourcesFocusCount: 1,
+    });
+
+    logic.showFoodSources({ nutrient: "fiberG" });
+
+    expect(logic.state).toMatchObject({
+      foodSourcesMetric: "fiberG",
+      foodSourcesFocusCount: 2,
     });
   });
 });

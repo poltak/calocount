@@ -1,5 +1,5 @@
 import { getNutritionAttention } from "@app/common/features/entries/utils/insights/nutrition-attention";
-import type { InsightRange } from "@app/common/features/entries/utils/insights/nutrient-food-scenario";
+import type { NutritionAttentionWindow } from "@app/common/features/entries/utils/insights/nutrition-attention-types";
 import { useMemo } from "react";
 import { formatDateRange } from "../utils/insight-format.js";
 import { coverageRowsFor } from "./attention-format.js";
@@ -8,7 +8,7 @@ import { ExcessBlock } from "./excess-block.js";
 import { useInsights } from "./insights-context.js";
 import { ShortfallBlock } from "./shortfall-block.js";
 
-const WINDOWS: readonly InsightRange[] = [14, 28];
+const WINDOWS: readonly NutritionAttentionWindow[] = [14, 28];
 
 /** Persistent shortfalls, repeated high days and the coverage behind them, for a 14 or 28 day window. */
 export function NutritionAttentionPanel() {
