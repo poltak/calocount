@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, type ReactNode } from "react";
 import { Navigate, useLocation } from "react-router";
 import { fullDateLabel } from "../../core/utils/dashboard-format.js";
+import { cx } from "../../core/utils/class-names.js";
 import type { InsightsSlotProps } from "../../insights/types.js";
 import type { SettingsEvents } from "../../settings/types.js";
 import type { WeightEvents } from "../../weights/types.js";
@@ -9,11 +10,11 @@ import type {
   EntryEvents,
   WeightSlotProps,
 } from "../types.js";
-import { cx } from "../../core/utils/class-names.js";
 import { CalorieTrendPanel } from "./calorie-trend-panel.js";
 import { DashboardProvider, useDashboard } from "./dashboard-context.js";
 import { DashboardTopbar } from "./dashboard-topbar.js";
 import { DateStrip } from "./date-strip.js";
+import { LastFourWeeksPanel } from "./last-four-weeks-panel.js";
 import { MacroPanel } from "./macro-panel.js";
 import { MacroTrendPanel } from "./macro-trend-panel.js";
 import { MealsPanel } from "./meals-panel.js";
@@ -21,7 +22,6 @@ import { NutrientConsistencyPanel } from "./nutrient-consistency-panel.js";
 import { NutritionOverview } from "./nutrition-overview.js";
 import { PhotoPreview } from "./photo-preview.js";
 import { ProteinTargetPanel } from "./protein-target-panel.js";
-import { RecentDaysPanel } from "./recent-days-panel.js";
 import { SavedEntriesPanel } from "./saved-entries-panel.js";
 import { SectionTabs } from "./section-tabs.js";
 import { SummaryGrid } from "./summary-grid.js";
@@ -135,7 +135,6 @@ function PublicBanner() {
 /** The parts that other features give the dashboard. Only the route composes them. */
 export interface DashboardSlots {
   renderWeightTrend: (props: WeightSlotProps) => ReactNode;
-  renderWeightPanel: (props: WeightSlotProps) => ReactNode;
   renderCalendar: (props: CalendarSlotProps) => ReactNode;
   renderInsights: (props: InsightsSlotProps) => ReactNode;
 }
@@ -156,26 +155,20 @@ type DashboardPageProps = DashboardSlots &
   ({ audience: "public" } | OwnerDashboardProps);
 
 function DashboardView(props: DashboardPageProps) {
-  const {
-    renderWeightTrend,
-    renderWeightPanel,
-    renderCalendar,
-    renderInsights,
-  } = props;
+  const { renderWeightTrend, renderCalendar, renderInsights } = props;
   const { dashboard, form, actions, busy } = useDashboard();
   const { logic, state } = dashboard;
   const { hash } = useLocation();
   const weightSlot: WeightSlotProps = {
-    dates: state.days.map((day) => day.date),
-    weights: state.recentWeights,
     selectedDate: state.selectedDate,
     weight: state.weight,
-    timeZone: state.timeZone,
     busy,
-    trendDates: logic.visibleTrendDays.map((day) => day.date),
-    trendWeights: state.trendWeights,
+    trendDates: logic.weightTrendDates,
+    trendWeights: logic.weightTrendWeights,
     trendRange: state.trendRange,
+    weightAllTime: state.weightAllTime,
     onTrendRangeChange: (range) => logic.setTrendRange({ range }),
+    onAllTime: () => logic.showAllTimeWeight(),
     audience: props.audience,
     openFormRequest: state.weightFormRequest,
   };
@@ -256,24 +249,18 @@ function DashboardView(props: DashboardPageProps) {
             })}
           <SectionTabs />
           <SummaryGrid />
-          <div
-            className={cx(
-              "content-grid",
-              state.showAllDays && "history-expanded",
-            )}
-          >
+          <div className={cx("content-grid", owner && "has-saved-entries")}>
             <section className="primary-column">
               <CalorieTrendPanel />
               <ProteinTargetPanel />
               {renderWeightTrend(weightSlot)}
               <MacroTrendPanel />
               <NutrientConsistencyPanel />
-              <NutritionOverview />
-              {renderWeightPanel(weightSlot)}
+              <LastFourWeeksPanel />
               <MacroPanel />
-              <RecentDaysPanel />
               {owner && <SavedEntriesPanel />}
               <MealsPanel />
+              <NutritionOverview />
             </section>
           </div>
           {renderInsights(insightsSlot)}

@@ -41,26 +41,36 @@ test.describe("the sections of the owner dashboard", () => {
     }
   });
 
-  test("should collapse the nutrition section and keep the choice after a reload", async ({
+  test("should keep the nutrition details closed until the owner opens them, and keep that choice after a reload", async ({
     page,
   }) => {
     const today = new TodayPageObject(page);
     await today.goto();
-    await expect(today.nutritionOverview).toBeVisible();
-    await expect(today.trendPanel("Nutrient trend")).toBeVisible();
-
-    await today.nutritionHideButton.click();
-
-    await expect(today.nutritionShowButton).toBeVisible();
+    await expect(today.nutritionToggle).toBeVisible();
+    await expect(today.nutritionToggle).toHaveAccessibleDescription(
+      "Fiber, fats, vitamins and minerals of today — 24 nutrients",
+    );
     await expect(today.nutritionOverview).toBeHidden();
+    await expect(today.trendPanel("Nutrient trend")).toBeHidden();
+
+    await today.showNutritionDetails();
+
+    await expect(today.nutritionToggle).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    await expect(today.trendPanel("Nutrient trend")).toBeVisible();
 
     await page.reload();
-    await expect(today.nutritionShowButton).toBeVisible();
-    await expect(today.nutritionOverview).toBeHidden();
-
-    await today.nutritionShowButton.click();
     await expect(today.nutritionOverview).toBeVisible();
     await expect(today.trendPanel("Nutrient trend")).toBeVisible();
+
+    await today.nutritionToggle.click();
+
+    await expect(today.nutritionOverview).toBeHidden();
+    await page.reload();
+    await expect(today.nutritionToggle).toBeVisible();
+    await expect(today.nutritionOverview).toBeHidden();
   });
 
   test("should list the items of an entry in its nutrition details", async ({

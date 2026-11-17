@@ -1,7 +1,11 @@
-import { cx } from "../../core/utils/class-names.js";
-import { calculateCalorieChartScale } from "../utils/dashboard-calculations.js";
+import { BarChart } from "../../core/ui/bar-chart.js";
+import { ChartPanel } from "../../core/ui/chart-panel.js";
 import {
-  formatNumber,
+  calculateCalorieChartScale,
+  compareAverageToTarget,
+} from "../utils/dashboard-calculations.js";
+import {
+  formatKcal,
   showTrendDateLabel,
   trendDateLabel,
 } from "../../core/utils/dashboard-format.js";
@@ -15,93 +19,69 @@ function formatChartTick(value: number): string {
 /** The calories of each day in the trend range against the goal. */
 export function CalorieTrendPanel() {
   const { dashboard } = useDashboard();
-  const { selectedDate, targets, trendRange } = dashboard.state;
+  const { selectedDate, targets, trendRange, averageCalories } =
+    dashboard.state;
   const days = dashboard.logic.visibleTrendDays;
   const goal = targets.calories;
+  const comparison = compareAverageToTarget(averageCalories, goal);
   const scale = calculateCalorieChartScale(
     days.map((day) => day.calories),
     goal,
   );
   return (
-    <section
-      className="panel chart-panel"
+    <ChartPanel
       id="trend"
-      aria-labelledby="trend-title"
-    >
-      <div className="panel-heading">
-        <div>
-          <p className="eyebrow">A quick view</p>
-          <h2 id="trend-title">Calorie trend</h2>
-        </div>
+      titleId="trend-title"
+      eyebrow="A quick view"
+      title="Calorie trend"
+      action={
         <TrendRangeSelect
           value={trendRange}
           onChange={(range) => dashboard.logic.setTrendRange({ range })}
           label="Calorie trend"
         />
-      </div>
-      <div className="chart-legend">
+      }
+      summary={
         <span>
-          <i className="legend-swatch calorie-swatch" /> Calories
+          <strong>{`${formatKcal(Math.round(averageCalories))} kcal`}</strong>{" "}
+          7-day average
+          {comparison.direction === "at"
+            ? " · at target"
+            : ` · ${comparison.percentage}% ${comparison.direction} target`}
         </span>
-        <span>
-          <i className="legend-line" />
-          {` Target ${formatNumber(goal)}`}
-        </span>
-      </div>
-      <div
-        className={cx("bar-chart", trendRange === 30 && "is-month")}
-        // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- A fieldset would bring its own box into the chart grid.
-        role="group"
-        aria-label={`Calorie intake for the past ${days.length} days compared with a ${goal} calorie target`}
-      >
-        <div className="chart-y-axis" aria-hidden="true">
-          {scale.tickValues.map((value) => (
-            <span key={value}>{formatChartTick(value)}</span>
-          ))}
-        </div>
-        <div className="chart-plot">
-          <div
-            className="target-line"
-            style={{ top: `${scale.targetLineTopPercent}%` }}
-          >
-            <span>{formatNumber(goal)}</span>
-          </div>
-          <div className="grid-line line-one" />
-          <div className="grid-line line-two" />
-          <div className="grid-line line-three" />
-          <div className="bars">
-            {days.map((day, index) => (
-              <button
-                key={day.date}
-                className={cx(
-                  "bar-column",
-                  day.date === selectedDate && "is-selected",
-                )}
-                type="button"
-                aria-label={`${trendDateLabel(day.date)}: ${day.calories.toLocaleString()} kilocalories`}
-              >
-                <span className="bar-value">
-                  {day.calories.toLocaleString()}
-                </span>
-                <span
-                  className={cx("bar", day.calories <= 0 && "bar-empty")}
-                  style={{
-                    height:
-                      day.calories > 0
-                        ? `${Math.max(12, scale.valueHeightPercents[index] ?? 0)}%`
-                        : "0",
-                  }}
-                />
-                <span>
-                  {showTrendDateLabel(index, days.length)
-                    ? trendDateLabel(day.date)
-                    : ""}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-    </section>
+      }
+      legend={
+        <>
+          <span>
+            <i className="legend-swatch calorie-swatch" /> Calories
+          </span>
+          <span>
+            <i className="legend-line" />
+            {` Target ${formatKcal(goal)}`}
+          </span>
+        </>
+      }
+    >
+      <BarChart
+        ariaLabel={`Calorie intake for the past ${days.length} days compared with a ${goal} calorie target`}
+        dense={trendRange === 30}
+        yTicks={scale.tickValues.map((value) => ({
+          value,
+          label: formatChartTick(value),
+        }))}
+        max={scale.tickValues[0] ?? 0}
+        targetLine={{ value: goal, label: formatKcal(goal) }}
+        bars={days.map((day, index) => ({
+          key: day.date,
+          label: trendDateLabel(day.date),
+          showLabel: showTrendDateLabel(index, days.length),
+          ariaLabel: `${trendDateLabel(day.date)}: ${formatKcal(day.calories)} kilocalories`,
+          tooltip: formatKcal(day.calories),
+          selected: day.date === selectedDate,
+          missing: false,
+          segments: [{ value: day.calories, tone: "calorie" }],
+        }))}
+      />
+    </ChartPanel>
   );
 }

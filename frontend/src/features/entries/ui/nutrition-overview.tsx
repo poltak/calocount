@@ -1,6 +1,13 @@
-import { aggregateNutrients } from "@app/common/features/entries/utils/nutrients";
-import type { NutrientKey } from "@app/common/features/entries/utils/nutrients";
-import { formatNumber } from "../../core/utils/dashboard-format.js";
+import {
+  aggregateNutrients,
+  NUTRIENT_KEYS,
+  type NutrientKey,
+} from "@app/common/features/entries/utils/nutrients";
+import { CollapsibleSection } from "../../core/ui/collapsible-section.js";
+import {
+  formatNumber,
+  fullDateLabel,
+} from "../../core/utils/dashboard-format.js";
 import { dayTotals } from "../utils/entry-view.js";
 import { useDashboard } from "./dashboard-context.js";
 import { NutrientStat } from "./nutrient-stat.js";
@@ -76,7 +83,7 @@ function MacroDetail({ label, grams }: { label: string; grams: number }) {
   );
 }
 
-/** The nutrients of the day in view. The owner can fold the section away. */
+/** The nutrients of the day in view. The section starts closed, and the choice is remembered. */
 export function NutritionOverview() {
   const { dashboard } = useDashboard();
   const { logic, state } = dashboard;
@@ -84,37 +91,22 @@ export function NutritionOverview() {
   const nutrients = aggregateNutrients(
     state.entries.flatMap((entry) => entry.items.map((item) => item.nutrients)),
   );
-  const collapsed = state.nutritionCollapsed;
+  const open = state.nutritionOpen;
+  const dayLabel =
+    state.selectedDate === null || state.selectedDate === state.today
+      ? "today"
+      : fullDateLabel(state.selectedDate);
   return (
-    <section
+    <CollapsibleSection
       className="nutrition-overview"
       id="nutrition"
-      aria-labelledby="nutrition-title"
+      title="Nutrition details"
+      description={`Fiber, fats, vitamins and minerals of ${dayLabel} — ${NUTRIENT_KEYS.length} nutrients`}
+      expanded={open}
+      controls="nutrition-details-content"
+      onToggle={() => logic.toggleNutritionSection()}
     >
-      <div className="nutrition-overview-heading">
-        <div>
-          <p className="eyebrow">Detailed view</p>
-          <h2 id="nutrition-title">Nutrition details</h2>
-        </div>
-        <div className="nutrition-overview-actions">
-          <button
-            type="button"
-            className="nutrition-section-toggle"
-            aria-expanded={!collapsed}
-            aria-controls="nutrition-details-content"
-            onClick={() => logic.toggleNutritionSection()}
-          >
-            {collapsed ? "Show details" : "Hide details"}
-            <span aria-hidden="true">{collapsed ? "⌄" : "⌃"}</span>
-          </button>
-        </div>
-      </div>
-
-      <div
-        className="nutrition-overview-content"
-        id="nutrition-details-content"
-        hidden={collapsed}
-      >
+      <div className="nutrition-overview-content">
         <section
           className="panel nutrition-highlights"
           aria-labelledby="nutrition-overview-title"
@@ -235,6 +227,6 @@ export function NutritionOverview() {
 
         <NutrientTrendPanel />
       </div>
-    </section>
+    </CollapsibleSection>
   );
 }

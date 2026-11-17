@@ -1,4 +1,8 @@
-import { formatNumber, weekdayOf } from "../../core/utils/dashboard-format.js";
+import {
+  formatKcal,
+  formatNumber,
+  weekdayOf,
+} from "../../core/utils/dashboard-format.js";
 import { dayTotals } from "../utils/entry-view.js";
 import { AddEntryForm } from "./add-entry-form.js";
 import { useDashboard } from "./dashboard-context.js";
@@ -89,7 +93,7 @@ export function MealsPanel() {
       <div className="meal-total">
         <span>{`Total for ${weekday}`}</span>
         <strong>
-          {`${formatNumber(totals.calories)} `}
+          {`${formatKcal(totals.calories)} `}
           <small>kcal</small> <i />
           {` ${formatNumber(totals.protein)}g `}
           <small>protein</small>

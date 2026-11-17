@@ -1,12 +1,13 @@
 import { useNavigate } from "react-router";
 import { cx } from "../../core/utils/class-names.js";
+import { calculateTargetPercent } from "../utils/dashboard-calculations.js";
 import {
-  calculateTargetPercent,
-  compareAverageToTarget,
-} from "../utils/dashboard-calculations.js";
-import {
+  formatKcal,
   formatNumber,
+  formatSignedWeightKg,
+  formatWeightKg,
   fullDateLabel,
+  trendDateLabel,
 } from "../../core/utils/dashboard-format.js";
 import { dayTotals } from "../utils/entry-view.js";
 import { useDashboard } from "./dashboard-context.js";
@@ -54,7 +55,61 @@ function CardLabel({ dot, label }: { dot: string; label: string }) {
   );
 }
 
-/** The calories, the protein and the seven-day average of the day in view. */
+function WeightCard() {
+  const { dashboard } = useDashboard();
+  const { logic, state } = dashboard;
+  const { weightChange, maintenanceEstimate } = logic;
+  const latest = state.historyWeights.at(-1);
+  const shown = state.weight?.weightKg ?? latest?.weightKg ?? null;
+  const hintDate = state.weight === null ? (latest?.logicalDate ?? null) : null;
+  return (
+    <article className="summary-card weight-card" aria-label="Weight">
+      <div className="summary-copy">
+        <CardLabel dot="weight-dot" label="Weight" />
+        <p className="metric-value">
+          {shown === null ? (
+            "No weight yet"
+          ) : (
+            <>
+              {`${formatWeightKg(shown)} `}
+              <span>kg</span>
+            </>
+          )}
+        </p>
+        {hintDate !== null && (
+          <span className="weight-card-hint">{`on ${trendDateLabel(hintDate)}`}</span>
+        )}
+        <p className="metric-subtitle">
+          {weightChange === null
+            ? "The change shows after a week of weights"
+            : `${formatSignedWeightKg(weightChange.changeKg)} kg since ${trendDateLabel(weightChange.fromDate)}`}
+        </p>
+        <p
+          className="metric-subtitle maintenance-line"
+          title={
+            maintenanceEstimate === null
+              ? undefined
+              : "Estimated from your intake and weight trend over the last 28 days"
+          }
+        >
+          {maintenanceEstimate === null ? (
+            "Maintenance estimate needs 3 weeks of logs and weights"
+          ) : (
+            <>
+              <span>{`Maintenance ≈ ${formatKcal(maintenanceEstimate.kcalPerDay)} kcal/day`}</span>
+              <span className="sr-only">
+                . Estimated from your intake and weight trend over the last 28
+                days.
+              </span>
+            </>
+          )}
+        </p>
+      </div>
+    </article>
+  );
+}
+
+/** The calories and the protein of the day in view, and the weight with the maintenance estimate. */
 export function SummaryGrid() {
   const { dashboard, audience } = useDashboard();
   const navigate = useNavigate();
@@ -63,7 +118,6 @@ export function SummaryGrid() {
   const calorieGoal = state.targets.calories;
   const proteinGoal = state.proteinGoal?.targetG ?? null;
   const remainingCalories = calorieGoal - totals.calories;
-  const comparison = compareAverageToTarget(state.averageCalories, calorieGoal);
   const caloriePercent = calculateTargetPercent(totals.calories, calorieGoal);
   const weightDate = state.proteinGoal?.weightDate ?? null;
   const remainingProtein =
@@ -71,19 +125,19 @@ export function SummaryGrid() {
   return (
     <section
       className="summary-grid"
-      aria-label="Daily calorie and protein summary"
+      aria-label="Daily calorie, protein and weight summary"
     >
       <article className="summary-card calories-card">
         <div className="summary-copy">
           <CardLabel dot="calorie-dot" label="Calories" />
           <p className="metric-value">
-            {`${formatNumber(Math.round(totals.calories))} `}
-            <span>{`/ ${formatNumber(Math.round(calorieGoal))}`}</span>
+            {`${formatKcal(Math.round(totals.calories))} `}
+            <span>{`/ ${formatKcal(Math.round(calorieGoal))}`}</span>
           </p>
           <p className={cx("metric-subtitle", remainingCalories < 0 && "over")}>
             {remainingCalories >= 0
-              ? `${formatNumber(Math.round(remainingCalories))} kcal left today`
-              : `${formatNumber(Math.round(Math.abs(remainingCalories)))} kcal over target`}
+              ? `${formatKcal(Math.round(remainingCalories))} kcal left today`
+              : `${formatKcal(Math.round(Math.abs(remainingCalories)))} kcal over target`}
           </p>
         </div>
         <MetricRing
@@ -148,45 +202,7 @@ export function SummaryGrid() {
         )}
       </article>
 
-      <article className="summary-card average-card">
-        <div>
-          <CardLabel dot="average-dot" label="7 day average" />
-          <p className="metric-value">
-            {`${formatNumber(Math.round(state.averageCalories))} `}
-            <span>kcal</span>
-          </p>
-          <p
-            className={cx(
-              "metric-subtitle",
-              comparison.direction === "above" ? "over" : "positive",
-            )}
-          >
-            {comparison.direction === "at" ? (
-              "At your target average"
-            ) : (
-              <>
-                <span aria-hidden="true">
-                  {comparison.direction === "below" ? "↘" : "↗"}
-                </span>
-                {` ${comparison.percentage}% ${comparison.direction} your target`}
-              </>
-            )}
-          </p>
-        </div>
-        <div className="mini-bars" aria-hidden="true">
-          {state.days.map((day) => (
-            <span
-              key={day.date}
-              className={
-                day.date === state.selectedDate ? "is-selected" : undefined
-              }
-              style={{
-                height: `${Math.max(22, (day.calories / 2600) * 100)}%`,
-              }}
-            />
-          ))}
-        </div>
-      </article>
+      <WeightCard />
     </section>
   );
 }

@@ -1,0 +1,255 @@
+/*
+ * The simpler dashboard: calories in the date strip, the weight card, the
+ * weight trend with its own form, the "Last 4 weeks" panel, and the nutrition
+ * details bar. It comes last, so these rules override the parts before it.
+ */
+.streak-chip {
+  padding: 4px 9px;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  color: var(--muted-strong);
+  font-size: 11px;
+  font-weight: 650;
+}
+.streak-chip > span {
+  color: var(--orange);
+}
+
+.date-pill {
+  width: 46px;
+  height: 54px;
+}
+.date-pill.has-entries::after {
+  display: none;
+}
+.date-pill-calories {
+  color: var(--muted-strong);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+  line-height: 1;
+}
+.date-pill-calories.under {
+  color: var(--green);
+}
+.date-pill-calories.over {
+  color: var(--red);
+}
+@media (max-width: 880px) {
+  .date-pill {
+    flex: 1 1 0;
+    width: auto;
+    min-width: 0;
+    height: 54px;
+  }
+}
+
+.weight-card {
+  --card-accent: var(--chart-blue);
+}
+.weight-dot {
+  background: var(--chart-blue);
+}
+.weight-card .summary-copy {
+  min-width: 0;
+}
+.weight-card-hint {
+  display: block;
+  margin: -2px 0 5px;
+  color: var(--muted);
+  font-size: 10px;
+}
+.weight-card .metric-subtitle {
+  max-width: none;
+}
+.maintenance-line {
+  margin-top: 6px;
+}
+@media (max-width: 620px) {
+  .weight-card-hint {
+    font-size: 8px;
+  }
+  .weight-card .metric-subtitle {
+    font-size: 8px;
+  }
+}
+
+.panel-heading-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.panel-heading-actions .primary-button {
+  min-height: 28px;
+  padding: 0 10px;
+  font-size: 11px;
+}
+.panel-heading-actions .primary-button:disabled {
+  cursor: wait;
+}
+
+.four-week-list {
+  display: grid;
+  gap: 14px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.four-week-list li {
+  display: grid;
+  gap: 3px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line-soft);
+  color: var(--muted);
+  font-size: 11px;
+}
+.four-week-list li:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+.four-week-list strong {
+  color: var(--foreground);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+}
+
+.collapsible-heading {
+  margin: 0;
+  font-size: inherit;
+}
+.collapsible-section {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-soft);
+  box-shadow: var(--panel-shadow);
+}
+.collapsible-section-content {
+  padding: var(--dashboard-gap, 12px);
+  border-top: 1px solid var(--line);
+}
+.collapsible-section-content[hidden] {
+  display: none;
+}
+.collapsible-section > .action-feedback {
+  margin: 0 var(--dashboard-gap, 12px) var(--dashboard-gap, 12px);
+}
+.collapsible-heading-button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 16px;
+  border: 0;
+  border-radius: calc(var(--radius) - 1px);
+  background: transparent;
+  color: var(--foreground);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+.collapsible-heading-button.is-open {
+  border-bottom-right-radius: 0;
+  border-bottom-left-radius: 0;
+}
+.collapsible-heading-button:hover {
+  background: var(--button-quiet-hover-background);
+}
+.collapsible-heading-button:focus-visible {
+  outline: 2px solid var(--orange);
+  outline-offset: -2px;
+}
+.collapsible-heading-chevron {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  color: var(--blue);
+  transition: transform 150ms ease;
+}
+.collapsible-heading-button.is-open .collapsible-heading-chevron {
+  transform: rotate(90deg);
+}
+.collapsible-heading-text {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.collapsible-heading-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+}
+.collapsible-heading-title {
+  font-size: 18px;
+  font-weight: 680;
+  letter-spacing: -0.04em;
+}
+.collapsible-heading-action {
+  padding: 2px 9px;
+  border: 1px solid var(--button-secondary-border);
+  border-radius: 99px;
+  color: var(--blue);
+  font-size: 11px;
+  font-weight: 700;
+}
+.collapsible-heading-description {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+@media (max-width: 620px) {
+  .collapsible-heading-button {
+    gap: 9px;
+    padding: 11px 12px;
+  }
+  .collapsible-heading-title {
+    font-size: 16px;
+  }
+}
+
+/* The panel grid shares the summary row's columns and gap. */
+.content-grid .primary-column > .nutrition-overview {
+  grid-column: 1 / -1;
+}
+.content-grid .primary-column > .meals-panel {
+  grid-column: 2 / span 2;
+}
+/* Macros and Saved entries stack in the first column beside Entries. */
+.content-grid .primary-column > .macro-panel,
+.content-grid .primary-column > .saved-entries-panel {
+  grid-column: 1;
+}
+/* Macros keeps the height of its content, and the rows keep the height of their other panels. */
+.content-grid .primary-column > .macro-panel {
+  align-self: start;
+}
+.content-grid.has-saved-entries .primary-column > .meals-panel {
+  grid-row: span 2;
+}
+.content-grid {
+  grid-auto-flow: row dense;
+}
+@media (max-width: 880px) {
+  .content-grid .primary-column > .macro-panel,
+  .content-grid .primary-column > .saved-entries-panel {
+    grid-column: auto;
+  }
+  .content-grid .primary-column > .meals-panel,
+  .content-grid
+    .primary-column
+    > .macro-panel:not(:has(~ .saved-entries-panel)) {
+    grid-column: 1 / -1;
+    grid-row: auto;
+  }
+}
+@media (max-width: 620px) {
+  .content-grid .primary-column > .macro-panel,
+  .content-grid .primary-column > .saved-entries-panel,
+  .content-grid .primary-column > .meals-panel {
+    grid-column: auto;
+  }
+}

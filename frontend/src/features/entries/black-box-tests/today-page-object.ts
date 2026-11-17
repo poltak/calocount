@@ -89,15 +89,14 @@ export class TodayPageObject {
   readonly summary: Locator;
   readonly entriesPanel: Locator;
   readonly savedEntriesPanel: Locator;
-  readonly weightPanel: Locator;
+  readonly weightTrendPanel: Locator;
   readonly addWeightButton: Locator;
   readonly editWeightButton: Locator;
   readonly weightField: Locator;
   readonly recordWeightLink: Locator;
   readonly saveWeightButton: Locator;
   readonly sectionTabs: Locator;
-  readonly nutritionHideButton: Locator;
-  readonly nutritionShowButton: Locator;
+  readonly nutritionToggle: Locator;
   readonly nutritionOverview: Locator;
   readonly photoPreview: Locator;
   readonly photoPreviewCloseButton: Locator;
@@ -122,14 +121,14 @@ export class TodayPageObject {
     });
     this.calendar = page.getByRole("region", { name: "Calendar of past days" });
     this.summary = page.getByRole("region", {
-      name: "Daily calorie and protein summary",
+      name: "Daily calorie, protein and weight summary",
     });
     this.entriesPanel = page.getByRole("region", { name: /^Entries \d+$/ });
     this.savedEntriesPanel = page.getByRole("region", {
       name: /^Saved entries/,
     });
-    this.weightPanel = page.getByRole("region", {
-      name: "Weight",
+    this.weightTrendPanel = page.getByRole("region", {
+      name: "Weight trend",
       exact: true,
     });
     this.addWeightButton = page.getByRole("button", {
@@ -141,7 +140,7 @@ export class TodayPageObject {
       exact: true,
     });
     this.weightField = page.getByLabel("Weight (kg)");
-    this.saveWeightButton = this.weightPanel.getByRole("button", {
+    this.saveWeightButton = this.weightTrendPanel.getByRole("button", {
       name: /^Save/,
     });
     this.recordWeightLink = page.getByRole("link", {
@@ -151,12 +150,9 @@ export class TodayPageObject {
     this.sectionTabs = page.getByRole("navigation", {
       name: "Dashboard sections",
     });
-    this.nutritionHideButton = page.getByRole("button", {
-      name: "Hide details",
-    });
-    this.nutritionShowButton = page.getByRole("button", {
-      name: "Show details",
-    });
+    this.nutritionToggle = page
+      .getByRole("region", { name: "Nutrition details", exact: true })
+      .getByRole("button", { name: "Nutrition details", exact: true });
     this.nutritionOverview = page.getByRole("heading", {
       name: "Nutrition overview",
     });
@@ -175,6 +171,12 @@ export class TodayPageObject {
   async gotoSection(section: string): Promise<void> {
     await this.page.goto(`/owner#${section}`);
     await this.addEntryButton.waitFor();
+  }
+
+  /** Open the closed nutrition details of the day, and wait until their content shows. */
+  async showNutritionDetails(): Promise<void> {
+    await this.nutritionToggle.click();
+    await this.nutritionOverview.waitFor();
   }
 
   // The day in view
@@ -292,11 +294,9 @@ export class TodayPageObject {
     return this.entry(entryName).getByText(text, { exact: true });
   }
 
-  /** The calories total of the day in view, as the summary shows it: "500" of "500 / 2,400". */
+  /** The calories total of the day in view, as the summary shows it: "500" of "500 / 2400". */
   calorieTotal(calories: number): Locator {
-    return this.summary.getByText(
-      new RegExp(`^${calories.toLocaleString("en-US")} /`),
-    );
+    return this.summary.getByText(new RegExp(`^${calories} /`));
   }
 
   proteinTotal(protein: number): Locator {
@@ -610,9 +610,9 @@ export class TodayPageObject {
     return this.page.getByLabel(`${label} range`);
   }
 
-  /** The buttons of a chart, one for each day. */
-  trendDays(title: string, name?: RegExp): Locator {
-    return this.trendPanel(title).getByRole("button", name ? { name } : {});
+  /** The buttons of a chart, one for each day. A panel can have other buttons, such as "Add weight". */
+  trendDays(title: string, name = /^[A-Z][a-z]{2} \d{1,2}: /): Locator {
+    return this.trendPanel(title).getByRole("button", { name });
   }
 
   trendDay(title: string, date: Date): Locator {

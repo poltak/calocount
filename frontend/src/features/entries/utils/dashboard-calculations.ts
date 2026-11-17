@@ -56,6 +56,27 @@ export function calculateMacroTrend(
   });
 }
 
+/** The calorie-weighted macro split over all the days together. A day without macros adds nothing, so it does not pull the split. */
+export function calculateMacroAverage(
+  days: readonly {
+    carbsG: number;
+    proteinG: number;
+    fatG: number;
+  }[],
+) {
+  const totals = { carbsG: 0, proteinG: 0, fatG: 0 };
+  for (const day of days) {
+    totals.carbsG += nonNegativeFinite(day.carbsG);
+    totals.proteinG += nonNegativeFinite(day.proteinG);
+    totals.fatG += nonNegativeFinite(day.fatG);
+  }
+  const percentages = calculateMacroPercentages(totals);
+  return {
+    percentages,
+    hasData: percentages.carbs + percentages.protein + percentages.fat > 0,
+  };
+}
+
 export function calculateTargetPercent(value: number, target: number): number {
   const safeTarget = nonNegativeFinite(target);
   if (safeTarget <= 0) {
@@ -104,6 +125,24 @@ export function calculateCalorieChartScale(
   };
 }
 
+const PROTEIN_TICK_STEPS = [5, 10, 20, 25, 50, 100, 200, 250, 500] as const;
+
+/** The gram axis of the protein chart. It has at most four steps, and the top is above the largest value or target. */
+export function calculateProteinChartScale(values: readonly number[]) {
+  const largest = Math.max(1, ...values.map(nonNegativeFinite)) * 1.05;
+  const step =
+    PROTEIN_TICK_STEPS.find((candidate) => largest / candidate <= 4) ??
+    Math.ceil(largest / 4);
+  const steps = Math.ceil(largest / step);
+  return {
+    max: steps * step,
+    ticks: Array.from(
+      { length: steps + 1 },
+      (_, index) => (steps - index) * step,
+    ),
+  };
+}
+
 /** How far the average is from the goal, as the card under the average says it. */
 export function compareAverageToTarget(
   averageCalories: number,
@@ -122,6 +161,32 @@ export function compareAverageToTarget(
     direction: difference < 0 ? "below" : "above",
     percentage: Math.round((Math.abs(difference) / target) * 100),
   };
+}
+
+export type CalorieDayStatus = "under" | "near" | "over" | "in-progress";
+
+/**
+ * How a day compares with the calorie goal: under 95% is under, 105% and
+ * below is near, above that is over. Today is still in progress, so it has no
+ * verdict until it is over the goal.
+ */
+export function calorieDayStatus({
+  calories,
+  goal,
+  isToday,
+}: {
+  calories: number;
+  goal: number;
+  isToday: boolean;
+}): CalorieDayStatus {
+  const ratio = goal > 0 ? calories / goal : 1;
+  if (ratio > 1.05) {
+    return "over";
+  }
+  if (isToday) {
+    return "in-progress";
+  }
+  return ratio < 0.95 ? "under" : "near";
 }
 
 /** The days in a row that have an entry, counted back from `endDate`. A day that the list lacks ends the count. */

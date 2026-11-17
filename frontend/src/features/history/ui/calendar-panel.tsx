@@ -4,6 +4,7 @@ import type { Audience } from "../../core/logic/types.js";
 import { useFrontendApp } from "../../core/ui/frontend-app-context.js";
 import { cx } from "../../core/utils/class-names.js";
 import {
+  formatKcal,
   fullDateLabel,
   monthLabel,
   weekdayOf,
@@ -137,7 +138,7 @@ export function CalendarPanel({
               aria-pressed={cell.date === selectedDate}
               aria-label={
                 totals
-                  ? `${dayLabel}: ${numberFormatter.format(totals.calories)} kilocalories, ${numberFormatter.format(totals.proteinG)} grams of protein`
+                  ? `${dayLabel}: ${formatKcal(Math.round(totals.calories))} kilocalories, ${numberFormatter.format(totals.proteinG)} grams of protein`
                   : `${dayLabel}: no entries`
               }
               onClick={() => onSelectDate(cell.date)}
@@ -146,7 +147,7 @@ export function CalendarPanel({
               {totals && (
                 <>
                   <span className="calendar-day-calories">
-                    {numberFormatter.format(totals.calories)}
+                    {formatKcal(Math.round(totals.calories))}
                   </span>
                   <span className="calendar-day-protein">
                     {`${numberFormatter.format(totals.proteinG)}g`}

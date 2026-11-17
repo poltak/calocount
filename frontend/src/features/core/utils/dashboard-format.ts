@@ -25,6 +25,28 @@ export function formatNumber(value: number): string {
   return numberFormatter.format(value);
 }
 
+const kcalFormatter = new Intl.NumberFormat("en-US", { useGrouping: false });
+
+/** Kilocalories without a thousands separator, such as "2100". */
+export function formatKcal(value: number): string {
+  return kcalFormatter.format(value);
+}
+
+const weightFormatter = new Intl.NumberFormat("en-US", {
+  maximumFractionDigits: 2,
+});
+
+/** A weight in kilograms without the unit, such as "74.8". */
+export function formatWeightKg(value: number): string {
+  return weightFormatter.format(value);
+}
+
+/** A change with its sign, such as "−5.6" or "+0.4". The minus is a real minus sign. */
+export function formatSignedWeightKg(value: number): string {
+  const text = weightFormatter.format(Math.abs(value));
+  return value < 0 ? `−${text}` : `+${text}`;
+}
+
 /** A date key at noon UTC, so that no timezone moves it to another day. */
 function noon(date: string): Date {
   return new Date(`${date}T12:00:00.000Z`);

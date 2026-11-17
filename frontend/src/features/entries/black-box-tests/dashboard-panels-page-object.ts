@@ -1,41 +1,40 @@
 import type { Locator, Page } from "@playwright/test";
-import { shortDayLabel } from "./today-page-object.js";
+import { fullDayLabel, shortDayLabel } from "./today-page-object.js";
 
-const weekdayShortFormat = new Intl.DateTimeFormat("en-US", {
-  weekday: "short",
-  timeZone: "UTC",
-});
-
-/** The recent days and the nutrient consistency matrix of the owner's dashboard. */
+/** The date strip, the weight card and the panels of the owner's dashboard that have no steps. */
 export class DashboardPanelsPageObject {
-  readonly recentDaysPanel: Locator;
-  readonly recentDaysToggle: Locator;
-  /** The line under the recent days, such as "2 days logging streak". */
+  /** The streak next to the day heading, such as "2-day logging streak". */
   readonly loggingStreak: Locator;
+  readonly weightCard: Locator;
+  readonly lastFourWeeksPanel: Locator;
   readonly consistencyPanel: Locator;
 
-  constructor(page: Page) {
-    this.recentDaysPanel = page.getByRole("region", {
-      name: "Recent days",
+  constructor(private readonly page: Page) {
+    this.loggingStreak = page.getByText(/-day logging streak$/);
+    this.weightCard = page.getByRole("article", {
+      name: "Weight",
       exact: true,
     });
-    this.recentDaysToggle = this.recentDaysPanel.getByRole("button", {
-      name: /^(View all|Less)$/,
+    this.lastFourWeeksPanel = page.getByRole("region", {
+      name: "Last 4 weeks",
+      exact: true,
     });
-    this.loggingStreak = this.recentDaysPanel.getByText(/logging streak$/);
     this.consistencyPanel = page.getByRole("region", {
       name: "Nutrient consistency",
       exact: true,
     });
   }
 
-  /** The row of one day in the recent days. It shows the day, the weekday and the calories. */
-  recentDayRow(date: Date): Locator {
-    const day = String(date.getUTCDate());
-    const weekday = weekdayShortFormat.format(date);
-    return this.recentDaysPanel.getByRole("button", {
-      name: new RegExp(`^${day}\\s*${weekday}\\s*[\\d,]+\\s*kcal`),
+  /** The pill of one day in the date strip. Its name has the calories and how the day compares with the goal. */
+  dayPill(date: Date): Locator {
+    return this.page.getByRole("button", {
+      name: new RegExp(`^${fullDayLabel(date)}`),
     });
+  }
+
+  /** The text of the maintenance estimate in the weight card. */
+  get maintenanceEstimate(): Locator {
+    return this.weightCard.getByText(/^Maintenance ≈ /);
   }
 
   /** The cell of one day and nutrient. Its name has the amount and the share of the goal. */

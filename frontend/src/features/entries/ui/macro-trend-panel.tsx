@@ -1,36 +1,56 @@
+import { BarChart } from "../../core/ui/bar-chart.js";
+import { ChartPanel } from "../../core/ui/chart-panel.js";
 import { TrendRangeSelect } from "../../core/ui/trend-range-select.js";
-import { cx } from "../../core/utils/class-names.js";
 import {
   showTrendDateLabel,
   trendDateLabel,
 } from "../../core/utils/dashboard-format.js";
-import { calculateMacroTrend } from "../utils/dashboard-calculations.js";
+import {
+  calculateMacroAverage,
+  calculateMacroTrend,
+} from "../utils/dashboard-calculations.js";
 import { useDashboard } from "./dashboard-context.js";
+
+const MACRO_TICKS = [
+  { value: 100, label: "100%" },
+  { value: 50, label: "50%" },
+  { value: 0, label: "0%" },
+];
 
 /** The calorie-weighted split of carbs, protein and fat on each day of the trend range. */
 export function MacroTrendPanel() {
   const { dashboard } = useDashboard();
   const { selectedDate, trendRange } = dashboard.state;
-  const values = calculateMacroTrend(dashboard.logic.visibleTrendDays);
+  const days = dashboard.logic.visibleTrendDays;
+  const values = calculateMacroTrend(days);
+  const average = calculateMacroAverage(days);
+  const hasData = values.some((day) => day.hasData);
   return (
-    <section
-      className="panel chart-panel macro-trend-panel"
-      aria-labelledby="macro-trend-title"
-    >
-      <div className="panel-heading">
-        <div>
-          <p className="eyebrow">A quick view</p>
-          <h2 id="macro-trend-title">Macros trend</h2>
-        </div>
+    <ChartPanel
+      className="macro-trend-panel"
+      titleId="macro-trend-title"
+      eyebrow="A quick view"
+      title="Macros trend"
+      action={
         <TrendRangeSelect
           value={trendRange}
           onChange={(range) => dashboard.logic.setTrendRange({ range })}
           label="Macros trend"
         />
-      </div>
-      {values.some((day) => day.hasData) ? (
-        <>
-          <div className="chart-legend macro-trend-legend">
+      }
+      summary={
+        average.hasData && (
+          <span>
+            <strong>
+              {`Carbs ${average.percentages.carbs}% · Protein ${average.percentages.protein}% · Fat ${average.percentages.fat}%`}
+            </strong>{" "}
+            average
+          </span>
+        )
+      }
+      legend={
+        hasData && (
+          <>
             <span>
               <i className="legend-swatch macro-carbs-swatch" /> Carbs
             </span>
@@ -40,82 +60,40 @@ export function MacroTrendPanel() {
             <span>
               <i className="legend-swatch macro-fat-swatch" /> Fat
             </span>
-          </div>
-          <div
-            className={cx("macro-trend-chart", trendRange === 30 && "is-month")}
-            // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- A fieldset would bring its own box into the chart grid.
-            role="group"
-            aria-label={`Calorie-weighted carbohydrate, protein, and fat split for the past ${trendRange} days; days without macro data are shown as gaps`}
-          >
-            <div className="macro-trend-y-axis" aria-hidden="true">
-              <span>100%</span>
-              <span>50%</span>
-              <span>0%</span>
-            </div>
-            <div className="macro-trend-plot">
-              <div className="macro-mid-line" aria-hidden="true" />
-              <div className="macro-trend-bars">
-                {values.map((day, index) => {
-                  const { carbs, protein, fat } = day.percentages;
-                  const label = trendDateLabel(day.date);
-                  return (
-                    <button
-                      key={day.date}
-                      className={cx(
-                        "macro-trend-column",
-                        !day.hasData && "missing",
-                        day.date === selectedDate && "is-selected",
-                      )}
-                      type="button"
-                      aria-label={
-                        day.hasData
-                          ? `${label}: ${carbs}% carbohydrates, ${protein}% protein, ${fat}% fat`
-                          : `${label}: no macro data`
-                      }
-                    >
-                      <span className="macro-tooltip">
-                        {day.hasData
-                          ? `${carbs}% C · ${protein}% P · ${fat}% F`
-                          : "No data"}
-                      </span>
-                      <div
-                        className="macro-stack"
-                        title={
-                          day.hasData
-                            ? `${carbs}% carbs · ${protein}% protein · ${fat}% fat`
-                            : "No macro data"
-                        }
-                      >
-                        {day.hasData ? (
-                          <>
-                            <span
-                              className="macro-segment fat"
-                              style={{ height: `${fat}%` }}
-                            />
-                            <span
-                              className="macro-segment protein"
-                              style={{ height: `${protein}%` }}
-                            />
-                            <span
-                              className="macro-segment carbs"
-                              style={{ height: `${carbs}%` }}
-                            />
-                          </>
-                        ) : (
-                          <span className="macro-gap" aria-hidden="true">
-                            —
-                          </span>
-                        )}
-                      </div>
-                      <span>
-                        {showTrendDateLabel(index, values.length) ? label : ""}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
+          </>
+        )
+      }
+    >
+      {hasData ? (
+        <>
+          <BarChart
+            ariaLabel={`Calorie-weighted carbohydrate, protein, and fat split for the past ${trendRange} days; days without macro data are shown as gaps`}
+            dense={trendRange === 30}
+            yTicks={MACRO_TICKS}
+            max={100}
+            bars={values.map((day, index) => {
+              const { carbs, protein, fat } = day.percentages;
+              const label = trendDateLabel(day.date);
+              return {
+                key: day.date,
+                label,
+                showLabel: showTrendDateLabel(index, values.length),
+                ariaLabel: day.hasData
+                  ? `${label}: ${carbs}% carbohydrates, ${protein}% protein, ${fat}% fat`
+                  : `${label}: no macro data`,
+                tooltip: day.hasData
+                  ? `${carbs}% C · ${protein}% P · ${fat}% F`
+                  : "No data",
+                selected: day.date === selectedDate,
+                missing: !day.hasData,
+                segments: [
+                  { value: carbs, tone: "carbs" },
+                  { value: protein, tone: "protein" },
+                  { value: fat, tone: "fat" },
+                ],
+              };
+            })}
+          />
         </>
       ) : (
         <output className="chart-empty">
@@ -125,6 +103,6 @@ export function MacroTrendPanel() {
           </span>
         </output>
       )}
-    </section>
+    </ChartPanel>
   );
 }

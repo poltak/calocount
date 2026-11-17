@@ -1,0 +1,411 @@
+/*
+ * The dashboard chart panels. Each panel has the same rows (heading, summary,
+ * legend, chart), and each chart draws in the same frame, so the plots of the
+ * panels in one row have the same top, bottom and axis width.
+ */
+
+.chart-card {
+  display: flex;
+  flex-direction: column;
+  container-type: inline-size;
+}
+
+/* The row keeps its height with no text, so a panel with no summary still lines up. */
+.chart-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 12px;
+  min-height: 18px;
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 18px;
+}
+
+.chart-summary strong {
+  color: var(--foreground);
+  font-size: 13px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * Panels side by side have a narrow content box. There the summary wraps to a
+ * second line, and the weight heading puts its select under its button. Each
+ * panel reserves that height, so the plots of one row keep the same top.
+ */
+@media (min-width: 821px) {
+  @container (max-width: 350px) {
+    .chart-summary {
+      min-height: 36px;
+    }
+  }
+
+  @container (max-width: 320px) {
+    .chart-card > .panel-heading {
+      min-height: 64px;
+    }
+  }
+}
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 17px;
+  min-height: 16px;
+  margin: 4px 0 0 43px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.chart-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.protein-swatch {
+  background: linear-gradient(
+    180deg,
+    var(--chart-weight-start),
+    var(--chart-weight-end)
+  );
+}
+
+.chart-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  margin-top: 9px;
+}
+
+.chart-body > .chart-empty {
+  flex: 1;
+  margin-top: 0;
+}
+
+.chart-frame {
+  display: grid;
+  flex: 1;
+  grid-template-columns: 37px minmax(0, 1fr);
+  min-height: 214px;
+}
+
+.chart-frame-axis {
+  position: relative;
+  margin-bottom: 21px;
+  color: var(--chart-axis);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.chart-frame-axis span {
+  position: absolute;
+  right: 6px;
+  transform: translateY(50%);
+}
+
+.chart-frame-plot {
+  position: relative;
+  min-width: 0;
+}
+
+.chart-frame-grid {
+  position: absolute;
+  inset: 0 0 21px;
+  border-bottom: 1px solid var(--line);
+}
+
+.chart-frame-grid-line {
+  position: absolute;
+  right: 0;
+  left: 0;
+  border-top: 1px solid var(--chart-grid);
+}
+
+.chart-frame-columns {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: space-around;
+  gap: 8px;
+  padding: 0 5px;
+}
+
+.chart-frame-day {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: end;
+  min-width: 0;
+  max-width: 54px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  isolation: isolate;
+}
+
+.chart-frame-day:hover,
+.chart-frame-day:focus {
+  z-index: 5;
+}
+
+.chart-frame-day:focus-visible {
+  outline: 2px solid var(--orange);
+  outline-offset: 2px;
+}
+
+/* The selected day gets a soft band behind its column and a stronger date label. */
+.chart-frame-day.is-selected::before {
+  position: absolute;
+  z-index: -1;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: min(100% + 6px, 60px);
+  border-radius: 9px;
+  background: linear-gradient(
+    180deg,
+    transparent,
+    color-mix(in srgb, var(--foreground) 6%, transparent)
+  );
+  transform: translateX(-50%);
+  content: "";
+  pointer-events: none;
+}
+
+.chart-frame-slot {
+  position: relative;
+  display: block;
+  flex: none;
+  height: calc(100% - 21px);
+}
+
+.chart-frame-label {
+  display: flex;
+  flex: none;
+  justify-content: center;
+  height: 21px;
+  padding-top: 8px;
+  color: var(--chart-axis-strong);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.chart-frame-day.is-selected .chart-frame-label {
+  color: var(--foreground);
+  font-weight: 700;
+}
+
+/* Hidden with display: a tooltip that is only transparent at the last column widens the page. */
+.chart-frame-tooltip {
+  display: none;
+  position: absolute;
+  z-index: 4;
+  top: 3px;
+  left: 50%;
+  width: max-content;
+  padding: 3px 7px;
+  border-radius: 6px;
+  background: var(--tooltip-background);
+  box-shadow: 0 6px 16px rgb(0 0 0 / 22%);
+  color: var(--tooltip-text);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+  line-height: 1.3;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+.chart-frame-day:hover .chart-frame-tooltip,
+.chart-frame-day:focus .chart-frame-tooltip {
+  display: block;
+}
+
+.chart-frame.is-dense .chart-frame-columns {
+  gap: 2px;
+  padding-inline: 2px;
+}
+
+.chart-frame.is-packed .chart-frame-columns {
+  gap: 0;
+}
+
+.chart-frame.is-packed .chart-frame-day {
+  max-width: none;
+}
+
+.chart-frame.has-even-columns .chart-frame-columns {
+  gap: 0;
+  padding-inline: 0;
+}
+
+.chart-frame.has-even-columns .chart-frame-day {
+  max-width: none;
+}
+
+/* The bars of the bar chart. */
+.column-chart-fill {
+  animation: rise-in 620ms var(--ease-out) 120ms backwards;
+}
+
+.column-chart-goal {
+  position: absolute;
+  z-index: 1;
+  right: 0;
+  left: 0;
+  border-top: 1px dashed var(--chart-target);
+}
+
+.column-chart-goal span {
+  position: absolute;
+  top: -9px;
+  right: 0;
+  padding: 2px 7px;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  background: var(--surface-raised);
+  color: var(--chart-target-label);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+  line-height: 1.2;
+}
+
+.column-chart-track {
+  position: relative;
+  display: block;
+  width: min(29px, 72%);
+  height: 100%;
+  margin: 0 auto;
+  border-radius: 7px 7px 3px 3px;
+  background: color-mix(in srgb, var(--chart-base) 70%, transparent);
+}
+
+.column-chart-fill {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  min-height: 3px;
+  flex-direction: column-reverse;
+  overflow: hidden;
+  border-radius: inherit;
+  box-shadow: 0 4px 12px var(--chart-stack-shadow);
+  opacity: 0.88;
+  transition:
+    opacity 150ms ease,
+    filter 150ms ease;
+}
+
+.chart-frame-day:hover .column-chart-fill,
+.chart-frame-day.is-selected .column-chart-fill {
+  filter: brightness(1.05);
+  opacity: 1;
+}
+
+.column-chart-segment {
+  display: block;
+  width: 100%;
+}
+
+.column-chart-segment + .column-chart-segment {
+  border-bottom: 2px solid var(--surface);
+}
+
+.column-chart-segment.tone-calorie {
+  background: linear-gradient(
+    180deg,
+    var(--chart-calorie-start),
+    var(--chart-calorie-end)
+  );
+}
+
+.column-chart-segment.tone-protein {
+  background: linear-gradient(
+    180deg,
+    var(--chart-weight-start),
+    var(--chart-weight-end)
+  );
+}
+
+.column-chart-segment.tone-carbs {
+  background: var(--chart-blue);
+}
+
+.column-chart-segment.tone-fat {
+  background: var(--chart-orange);
+}
+
+.column-chart-marker {
+  position: absolute;
+  z-index: 2;
+  right: -5px;
+  left: -5px;
+  border-top: 1px dashed var(--chart-target);
+}
+
+.column-chart-gap {
+  display: grid;
+  height: 100%;
+  place-items: center;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.chart-frame.is-dense .column-chart-track {
+  width: min(9px, 75%);
+  border-radius: 3px 3px 1px 1px;
+}
+
+.chart-frame.is-dense .column-chart-segment + .column-chart-segment {
+  border-bottom-width: 1px;
+}
+
+.chart-frame.is-dense .column-chart-gap {
+  display: none;
+}
+
+@media (max-width: 620px) {
+  .chart-frame {
+    min-height: 190px;
+  }
+
+  .chart-summary {
+    margin-top: 9px;
+  }
+
+  .chart-legend {
+    margin: 3px 0 0 36px;
+    gap: 0 11px;
+    font-size: 8px;
+  }
+
+  .chart-body {
+    margin-top: 7px;
+  }
+}
+
+.chart-frame.is-dense .weight-point,
+.chart-frame.is-packed .weight-point {
+  width: 6px;
+  height: 6px;
+}
+
+.chart-frame-day:hover .weight-point,
+.chart-frame-day.is-selected .weight-point {
+  box-shadow:
+    0 0 0 1.5px var(--chart-green),
+    0 0 0 6px color-mix(in srgb, var(--chart-green) 22%, transparent);
+}

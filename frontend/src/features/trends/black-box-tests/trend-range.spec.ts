@@ -32,6 +32,7 @@ test.describe("the trend range", () => {
       nutrients: { Fiber: 4 },
     });
     await today.saveWeight(70, { editing: false });
+    await today.showNutritionDetails();
     for (const panel of PANELS) {
       await expect(today.trendDays(panel)).toHaveCount(7);
     }

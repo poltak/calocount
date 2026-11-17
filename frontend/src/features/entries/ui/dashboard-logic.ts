@@ -19,6 +19,8 @@ import type { Audience, FrontendLogicProps } from "../../core/logic/types.js";
 import type { EntryEvent, EntryEvents } from "../types.js";
 import type {
   DayWeightRow,
+  HistoryDay,
+  HistoryWeight,
   ProteinGoalOfDay,
   ProteinTargetOfDay,
   SavedEntry,
@@ -26,6 +28,13 @@ import type {
   SummaryTargets,
   TrendWeight,
 } from "../utils/api-types.js";
+import { calculateLoggingStreak } from "../utils/dashboard-calculations.js";
+import {
+  calculateFourWeekBalance,
+  calculateWeightChange,
+  dateRange,
+  estimateMaintenance,
+} from "../utils/energy-balance.js";
 import { entryViewOf, type EntryView } from "../utils/entry-view.js";
 import { failureMessage } from "../../core/logic/failure-message.js";
 
@@ -80,10 +89,14 @@ interface DashboardState {
   trendWeights: TrendWeight[];
   /** The protein target of each of the 30 days. `null` for a day without a target. */
   proteinTargets: ProteinTargetOfDay[];
+  /** The days with entries in the last 365 days, oldest first. */
+  historyDays: HistoryDay[];
+  /** Every weight of the last 365 days, oldest first. */
+  historyWeights: HistoryWeight[];
   trendRange: TrendRange;
+  /** True when the weight trend shows every day from the first weight. The 7 and 30 choice does not apply then. */
+  weightAllTime: boolean;
   showCalendar: boolean;
-  /** True when the recent-days panel lists all seven days, not the last four. */
-  showAllDays: boolean;
   /** The month that the calendar showed when it opened: the month of the day in view. */
   calendarMonth: string | null;
   /** Changes with each read of the dashboard, so the calendar reads its month again. */
@@ -101,7 +114,8 @@ interface DashboardState {
   savedEntries: SavedEntry[];
   /** The confirmation of the last change. */
   statusMessage: string | null;
-  nutritionCollapsed: boolean;
+  /** True when the owner opened the nutrition details. They start closed. */
+  nutritionOpen: boolean;
   trendNutrient: NutrientKey;
   openDetailIds: string[];
   activeSection: DashboardSection;
@@ -145,9 +159,11 @@ export class DashboardLogic extends Logic<
         trendDays: [],
         trendWeights: [],
         proteinTargets: [],
+        historyDays: [],
+        historyWeights: [],
         trendRange: 7,
+        weightAllTime: false,
         showCalendar: false,
-        showAllDays: false,
         calendarMonth: null,
         reloadKey: 0,
         weight: null,
@@ -158,7 +174,7 @@ export class DashboardLogic extends Logic<
         entries: [],
         savedEntries: [],
         statusMessage: null,
-        nutritionCollapsed: false,
+        nutritionOpen: false,
         trendNutrient: "fiberG",
         openDetailIds: [],
         activeSection: "today",
@@ -169,7 +185,7 @@ export class DashboardLogic extends Logic<
 
   protected override async onInitialize(): Promise<void> {
     this.setState({
-      nutritionCollapsed: this.deps.storage.entries.readNutritionCollapsed(),
+      nutritionOpen: this.deps.storage.entries.readNutritionOpen(),
     });
     for (const emitter of this.deps.entryEvents) {
       this.listen(emitter, (event) => this.onEntryEvent(event));
@@ -298,12 +314,13 @@ export class DashboardLogic extends Logic<
     this.setState({ showCalendar: false, calendarMonth: null });
   }
 
-  toggleAllDays(): void {
-    this.setState({ showAllDays: !this.state.showAllDays });
+  /** The 7 or 30 days choice is shared by the trend charts, and it ends "All time". */
+  setTrendRange({ range }: { range: TrendRange }): void {
+    this.setState({ trendRange: range, weightAllTime: false });
   }
 
-  setTrendRange({ range }: { range: TrendRange }): void {
-    this.setState({ trendRange: range });
+  showAllTimeWeight(): void {
+    this.setState({ weightAllTime: true });
   }
 
   /**
@@ -326,6 +343,65 @@ export class DashboardLogic extends Logic<
     return this.state.trendDays.slice(-this.state.trendRange);
   }
 
+  /** The dates of the weight trend: the trend range, or every day from the first weight. */
+  get weightTrendDates(): string[] {
+    const { weightAllTime, historyWeights, today } = this.state;
+    const first = historyWeights[0]?.logicalDate;
+    if (!weightAllTime || first === undefined || today === null) {
+      return this.visibleTrendDays.map((day) => day.date);
+    }
+    return dateRange({ from: first, to: today });
+  }
+
+  get weightTrendWeights(): { logicalDate: string; weightKg: number }[] {
+    return this.state.weightAllTime
+      ? this.state.historyWeights
+      : this.state.trendWeights;
+  }
+
+  /** The consumption that holds the weight, from the 28 finished days. `null` with too few logs or weights. */
+  get maintenanceEstimate() {
+    const { today, historyDays, historyWeights } = this.state;
+    return today === null
+      ? null
+      : estimateMaintenance({
+          today,
+          days: historyDays,
+          weights: historyWeights,
+        });
+  }
+
+  get weightChange() {
+    return calculateWeightChange(this.state.historyWeights);
+  }
+
+  get fourWeekBalance() {
+    const { today, historyDays, trendDays, targets } = this.state;
+    return today === null
+      ? null
+      : calculateFourWeekBalance({
+          today,
+          historyDays,
+          trendDays,
+          goals: targets.nutrients,
+        });
+  }
+
+  /** The days in a row with entries that end today, or yesterday while today has none. */
+  get loggingStreak(): number {
+    const { today, historyDays } = this.state;
+    if (today === null) {
+      return 0;
+    }
+    const todayLogged = historyDays.some(
+      (day) => day.date === today && day.mealCount > 0,
+    );
+    return calculateLoggingStreak({
+      days: historyDays,
+      endDate: todayLogged ? today : shiftDateKey(today, -1),
+    });
+  }
+
   async goToPreviousDay(): Promise<void> {
     const { selectedDate } = this.state;
     if (selectedDate) {
@@ -341,11 +417,9 @@ export class DashboardLogic extends Logic<
   }
 
   toggleNutritionSection(): void {
-    const nutritionCollapsed = !this.state.nutritionCollapsed;
-    this.deps.storage.entries.writeNutritionCollapsed({
-      collapsed: nutritionCollapsed,
-    });
-    this.setState({ nutritionCollapsed });
+    const nutritionOpen = !this.state.nutritionOpen;
+    this.deps.storage.entries.writeNutritionOpen({ open: nutritionOpen });
+    this.setState({ nutritionOpen });
   }
 
   setTrendNutrient({ key }: { key: NutrientKey }): void {
@@ -440,6 +514,8 @@ export class DashboardLogic extends Logic<
       averageCalories: summary.averageCalories,
       partnerProfileEnabled: summary.partnerProfileEnabled,
       recentWeights: summary.recentWeights,
+      historyDays: summary.history.days,
+      historyWeights: summary.history.weights,
       trendDays: summary.trend.days,
       trendWeights: summary.trend.weights,
       proteinTargets: summary.trend.proteinTargets,

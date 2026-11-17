@@ -21,10 +21,7 @@ import {
 import { ProfileSwitch } from "../../partner-profile/ui/profile-switch.js";
 import { PrivacyPage } from "../../public-view/ui/privacy-page.js";
 import { useWeights, WeightProvider } from "../../weights/ui/weight-context.js";
-import {
-  EditableWeightPanel,
-  WeightPanel,
-} from "../../weights/ui/weight-panel.js";
+import { EditableWeightTrendPanel } from "../../weights/ui/editable-weight-trend-panel.js";
 import { WeightTrendPanel } from "../../weights/ui/weight-trend-panel.js";
 import { FrontendAppProvider, useFrontendApp } from "./frontend-app-context.js";
 import { ErrorBoundary } from "./error-boundary.js";
@@ -83,30 +80,21 @@ function OwnerLayout() {
 /** The parts that other features give the dashboard, for the owner and for a visitor. */
 const DASHBOARD_SLOTS: DashboardSlots = {
   renderCalendar: (props) => <CalendarPanel {...props} />,
-  renderWeightTrend: (props) => <WeightTrendPanel {...props} />,
-  renderWeightPanel: (props) =>
+  renderWeightTrend: (props) =>
     props.audience === "public" ? (
-      <WeightPanel
-        dates={props.dates}
-        weights={props.weights}
+      <WeightTrendPanel
+        trendDates={props.trendDates}
+        trendWeights={props.trendWeights}
+        trendRange={props.trendRange}
+        allTime={props.weightAllTime}
+        onTrendRangeChange={props.onTrendRangeChange}
+        onAllTime={props.onAllTime}
         selectedDate={props.selectedDate}
-        weight={props.weight}
-        timeZone={props.timeZone}
-        readOnly
-        saving={false}
-        action={<span className="panel-meta">read only</span>}
+        action={null}
         form={null}
       />
     ) : (
-      <EditableWeightPanel
-        dates={props.dates}
-        weights={props.weights}
-        selectedDate={props.selectedDate}
-        weight={props.weight}
-        timeZone={props.timeZone}
-        busy={props.busy}
-        openFormRequest={props.openFormRequest}
-      />
+      <EditableWeightTrendPanel {...props} />
     ),
   renderInsights: (props) => <InsightsSection {...props} />,
 };

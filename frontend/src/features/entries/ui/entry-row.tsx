@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { entryKindLabels } from "@app/common/features/entries/utils/entry-kind";
-import { formatNumber } from "../../core/utils/dashboard-format.js";
+import { formatKcal, formatNumber } from "../../core/utils/dashboard-format.js";
 import {
   pendingLabels,
   type EntryView,
@@ -26,7 +26,7 @@ function Stat({
     <div className={`meal-stat ${className}`}>
       <span className="meal-stat-label">{label}</span>
       <span>
-        {`${formatNumber(value)} `}
+        {`${unit === "kcal" ? formatKcal(value) : formatNumber(value)} `}
         <small>{unit}</small>
       </span>
     </div>

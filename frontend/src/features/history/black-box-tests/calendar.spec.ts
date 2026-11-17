@@ -40,7 +40,7 @@ test.describe("the calendar of past days", () => {
 
     await today.showCalendarMonth(older);
     await expect(today.calendarDay(older)).toHaveAccessibleName(
-      `${fullDayLabel(older)}: 1,050 kilocalories, 65 grams of protein`,
+      `${fullDayLabel(older)}: 1050 kilocalories, 65 grams of protein`,
     );
     await expect(today.calendarPreviousMonthButton()).toBeDisabled();
 
@@ -75,7 +75,7 @@ test.describe("the calendar of past days", () => {
     await today.openCalendar();
     await today.showCalendarMonth(older);
     await expect(today.calendarDay(older)).toHaveAccessibleName(
-      /: 1,350 kilocalories, 85 grams of protein$/,
+      /: 1350 kilocalories, 85 grams of protein$/,
     );
   });
 });

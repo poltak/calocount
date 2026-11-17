@@ -1,5 +1,5 @@
 import { calculateMacroPercentages } from "../utils/dashboard-calculations.js";
-import { formatNumber } from "../../core/utils/dashboard-format.js";
+import { formatKcal, formatNumber } from "../../core/utils/dashboard-format.js";
 import { dayTotals } from "../utils/entry-view.js";
 import { useDashboard } from "./dashboard-context.js";
 
@@ -57,7 +57,7 @@ export function MacroPanel() {
         aria-label={`Estimated daily macro split: ${percentages.carbs} percent carbohydrates, ${percentages.protein} percent protein, ${percentages.fat} percent fat`}
       >
         <div>
-          <strong>{formatNumber(Math.round(totals.calories))}</strong>
+          <strong>{formatKcal(Math.round(totals.calories))}</strong>
           <span>kcal</span>
         </div>
       </div>

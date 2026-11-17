@@ -20,21 +20,21 @@ test.describe("custom calorie and protein goals", () => {
 
     await today.addEntry({ name: "Lunch bowl", calories: 450, protein: 30 });
 
-    await expect(today.summary).toContainText("450 / 1,800");
-    await expect(today.summary).toContainText("1,350 kcal left today");
+    await expect(today.summary).toContainText("450 / 1800");
+    await expect(today.summary).toContainText("1350 kcal left today");
     await expect(today.summary).toContainText("25%");
     await expect(today.summary).toContainText("30g / 90g");
     await expect(today.summary).toContainText("60g left to reach your target");
     await expect(today.summary).toContainText("33%");
     await expect(protein.target(90)).toBeVisible();
     await expect(today.trendPanel("Calorie trend")).toContainText(
-      "Target 1,800",
+      "Target 1800",
     );
     await expect(today.trendPanel("Protein vs target")).toContainText(
       "30g / 90g",
     );
     await page.reload();
-    await expect(today.summary).toContainText("450 / 1,800");
+    await expect(today.summary).toContainText("450 / 1800");
     await expect(today.summary).toContainText("30g / 90g");
   });
 

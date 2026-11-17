@@ -23,6 +23,8 @@ export type ProteinGoalOfDay = DayRead["proteinGoal"];
 export type ProteinTargetOfDay =
   DashboardSummary["trend"]["proteinTargets"][number];
 export type TrendWeight = DashboardSummary["trend"]["weights"][number];
+export type HistoryDay = DashboardSummary["history"]["days"][number];
+export type HistoryWeight = DashboardSummary["history"]["weights"][number];
 
 /** An entry of the public day read: a subtype of `SerializedEntry` with each private field empty. */
 export type PublicSerializedEntry = ApiResponseBody<

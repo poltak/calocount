@@ -8,6 +8,7 @@ import {
   nutrientLabel,
   nutrientValueText,
 } from "../../core/utils/nutrient-format.js";
+import { formatKcal } from "../../core/utils/dashboard-format.js";
 import { NutrientStat } from "./nutrient-stat.js";
 
 function amount(value: number): string {
@@ -29,7 +30,7 @@ function MacroLine({
 }) {
   return (
     <div className={className}>
-      <span>{`${amount(calories)} kcal`}</span>
+      <span>{`${formatKcal(calories)} kcal`}</span>
       <span>{`${amount(protein)}g protein`}</span>
       <span>{`${amount(carbs)}g carbs`}</span>
       <span>{`${amount(fat)}g fat`}</span>

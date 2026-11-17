@@ -123,7 +123,7 @@ body {
 }
 .content-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  align-items: start;
+  align-items: stretch;
   gap: var(--dashboard-gap);
   margin-top: var(--dashboard-gap);
 }
@@ -136,14 +136,6 @@ body {
 .meals-panel {
   grid-column: span 2;
 }
-.content-grid:not(.history-expanded) .compact-dashboard-panel {
-  align-self: stretch;
-}
-@media (min-width: 881px) {
-  .compact-dashboard-panel {
-    min-height: 291px;
-  }
-}
 .chart-panel {
   min-height: 298px;
   padding: 17px 18px 15px;
@@ -155,22 +147,6 @@ body {
 .compact-heading .eyebrow,
 .meal-heading .eyebrow {
   display: none;
-}
-.chart-legend {
-  margin-top: 10px;
-  margin-bottom: 1px;
-}
-.bar-chart {
-  height: 214px;
-}
-.nutrition-overview-heading {
-  padding: 14px 4px 8px;
-}
-.nutrition-overview-heading .eyebrow {
-  display: none;
-}
-.nutrition-overview-heading h2 {
-  font-size: 18px;
 }
 .nutrition-overview-content {
   gap: var(--dashboard-gap);
@@ -277,14 +253,7 @@ body {
     width: auto;
   }
   .content-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .primary-column > .nutrition-overview,
-  .primary-column > .meals-panel {
-    grid-column: auto;
-  }
-  .meals-panel {
-    grid-column: auto;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .nutrition-overview-content {
     display: grid;
@@ -395,11 +364,11 @@ body {
 
   .summary-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 7px;
+    gap: var(--dashboard-gap);
     margin-top: 9px;
   }
 
-  .average-card {
+  .weight-card {
     grid-column: auto;
   }
 
@@ -455,16 +424,8 @@ body {
     font-size: 7px;
   }
 
-  .mini-bars {
-    position: absolute;
-    right: 7px;
-    bottom: 10px;
-    width: 29px;
-    height: 27px;
-    gap: 2px;
-  }
-
   .content-grid {
+    grid-template-columns: minmax(0, 1fr);
     margin-top: var(--dashboard-gap);
   }
   .primary-column {
@@ -480,28 +441,8 @@ body {
   .panel-heading h2 {
     font-size: 13px;
   }
-  .chart-legend {
-    margin: 9px 0 0 36px;
-    gap: 11px;
-    font-size: 8px;
-  }
-  .bar-chart {
-    height: 190px;
-    margin-top: 7px;
-  }
   .bar {
     width: min(27px, 64%);
-  }
-
-  .nutrition-overview-heading {
-    padding: 8px 2px;
-  }
-  .nutrition-overview-actions {
-    flex-direction: row;
-    align-items: center;
-  }
-  .nutrition-section-toggle {
-    min-height: 27px;
   }
   .nutrition-overview-content {
     gap: var(--dashboard-gap);

@@ -18,6 +18,7 @@ test.describe("the nutrient trend", () => {
       calories: 280,
       nutrients: { Fiber: 4 },
     });
+    await today.showNutritionDetails();
     const panel = today.trendPanel("Nutrient trend");
 
     await expect(today.nutrientTrendChart("Fiber")).toBeVisible();
@@ -45,6 +46,7 @@ test.describe("the words of the nutrient trend", () => {
     const today = new TodayPageObject(page);
     await today.goto();
     await today.addEntry({ name: "Soup", calories: 200 });
+    await today.showNutritionDetails();
     const panel = today.trendPanel("Nutrient trend");
 
     await today.nutrientTrendChoice().selectOption({ label: "Sodium" });

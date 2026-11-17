@@ -28,6 +28,7 @@ interface SeedItem {
   carbsG?: number;
   fatG?: number;
   fiberG?: number | null;
+  saturatedFatG?: number | null;
   sodiumMg?: number | null;
   folicAcidMcg?: number | null;
 }
@@ -82,6 +83,18 @@ export async function seedEntry(
     throw new Error(`The seed entry was refused: ${response.status}`);
   }
   return (await response.json()).meal.id;
+}
+
+/** Log an entry at noon, `daysAgo` days before today. */
+export function seedEntryAgo(
+  app: Pick<FullApplication, "backend" | "frontend">,
+  daysAgo: number,
+  entry: SeedEntry = {},
+): Promise<string> {
+  return seedEntry(app, {
+    ...entry,
+    consumedAt: startOfToday(app) - daysAgo * DAY_MS + 12 * HOUR_MS,
+  });
 }
 
 /** An entry of today as the dashboard lists it, to start an edit or an action from. */

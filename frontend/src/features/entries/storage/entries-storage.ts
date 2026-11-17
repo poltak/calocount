@@ -1,7 +1,10 @@
 import type { BrowserKeyValueStore } from "../../core/storage/types.js";
 
-/** Same key as the old app, so a saved choice survives the move. */
-const NUTRITION_COLLAPSED_KEY = "calocount:nutrition-collapsed";
+/**
+ * A new key. The old app stored "collapsed", and the details were open by
+ * default. They are closed by default now, so an old value must not count.
+ */
+const NUTRITION_DETAILS_OPEN_KEY = "calocount:nutrition-details-open";
 
 interface EntriesStorageProps {
   store: BrowserKeyValueStore;
@@ -11,18 +14,18 @@ interface EntriesStorageProps {
 export class EntriesStorage {
   constructor(private readonly deps: EntriesStorageProps) {}
 
-  readNutritionCollapsed(): boolean {
+  readNutritionOpen(): boolean {
     try {
-      return this.deps.store.getItem(NUTRITION_COLLAPSED_KEY) === "true";
+      return this.deps.store.getItem(NUTRITION_DETAILS_OPEN_KEY) === "true";
     } catch {
       // The dashboard stays usable when the browser blocks its storage.
       return false;
     }
   }
 
-  writeNutritionCollapsed({ collapsed }: { collapsed: boolean }): void {
+  writeNutritionOpen({ open }: { open: boolean }): void {
     try {
-      this.deps.store.setItem(NUTRITION_COLLAPSED_KEY, String(collapsed));
+      this.deps.store.setItem(NUTRITION_DETAILS_OPEN_KEY, String(open));
     } catch {
       // As above: the choice lasts until the page closes.
     }

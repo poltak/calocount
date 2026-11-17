@@ -1,4 +1,4 @@
-import { formatNumber } from "../../core/utils/dashboard-format.js";
+import { formatKcal, formatNumber } from "../../core/utils/dashboard-format.js";
 import { useDashboard } from "./dashboard-context.js";
 
 /** The entries that the owner keeps to log again. */
@@ -51,7 +51,7 @@ export function SavedEntriesPanel() {
                     {saved.items[0]?.name || saved.caption || "Saved entry"}
                   </strong>
                   <span>
-                    {`${formatNumber(saved.totalCalories)} kcal · ${formatNumber(saved.totalProteinG)}g protein`}
+                    {`${formatKcal(saved.totalCalories)} kcal · ${formatNumber(saved.totalProteinG)}g protein`}
                   </span>
                 </div>
                 <div className="saved-entry-actions">

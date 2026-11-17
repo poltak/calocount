@@ -446,35 +446,6 @@ describe("DashboardLogic change tests", () => {
 });
 
 describe("DashboardLogic view tests", () => {
-  it("should remember that the owner folded the nutrition section", async () => {
-    const { frontend, logic } = await setupTest();
-    const { browserStorage } = frontend;
-    expect(logic.state.nutritionCollapsed).toEqual(false);
-
-    logic.toggleNutritionSection();
-
-    expect(logic.state.nutritionCollapsed).toEqual(true);
-    expect(browserStorage.getItem("calocount:nutrition-collapsed")).toEqual(
-      "true",
-    );
-    const later = new DashboardLogic({
-      ...frontend,
-      audience: "owner",
-      entryEvents: [],
-      settingsEvents: [],
-      weightEvents: [],
-    });
-    await later.initialize();
-    expect(later.state.nutritionCollapsed).toEqual(true);
-    await later.cleanup();
-
-    logic.toggleNutritionSection();
-    expect(logic.state.nutritionCollapsed).toEqual(false);
-    expect(browserStorage.getItem("calocount:nutrition-collapsed")).toEqual(
-      "false",
-    );
-  });
-
   it("should open and close the nutrition details of an entry", async () => {
     const { logic } = await setupTest();
 

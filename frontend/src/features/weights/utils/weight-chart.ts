@@ -1,3 +1,5 @@
+import { showTrendDateLabel } from "../../core/utils/dashboard-format.js";
+
 const weightFormatter = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 2,
 });
@@ -6,23 +8,23 @@ export function formatWeight(weightKg: number): string {
   return weightFormatter.format(weightKg);
 }
 
-const clockFormatters = new Map<string, Intl.DateTimeFormat>();
-
-/** The time of day a weight was saved, such as "3:45 PM". */
-export function formatRecordedTime(
-  recordedAt: number,
-  timeZone: string,
-): string {
-  let formatter = clockFormatters.get(timeZone);
-  if (!formatter) {
-    formatter = new Intl.DateTimeFormat("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-      timeZone,
-    });
-    clockFormatters.set(timeZone, formatter);
+/** The chart labels few days when it shows a long history, so the labels do not overlap. */
+export function showWeightDateLabel({
+  index,
+  total,
+  allTime,
+}: {
+  index: number;
+  total: number;
+  allTime: boolean;
+}): boolean {
+  if (!allTime) {
+    return showTrendDateLabel(index, total);
   }
-  return formatter.format(new Date(recordedAt));
+  const step = Math.max(1, Math.ceil(total / 6));
+  return (
+    index === total - 1 || (index % step === 0 && total - 1 - index >= step / 2)
+  );
 }
 
 const isWeight = (value: number | null): value is number =>
@@ -93,6 +95,11 @@ export interface WeightSlotData {
 }
 
 /** The chart of the weights of some days, oldest first. A day without a weight is a gap. */
+/** The x of a day in plot percent: the centre of its column, as the chart frame lays out even columns. */
+function columnCentre(index: number, total: number): number {
+  return ((index + 0.5) / total) * 100;
+}
+
 export function buildWeightChart({
   dates,
   weights,
@@ -111,7 +118,7 @@ export function buildWeightChart({
     if (value === null) {
       return;
     }
-    const x = values.length === 1 ? 50 : (index / (values.length - 1)) * 100;
+    const x = columnCentre(index, values.length);
     const y = 100 - (scale.heights[index * 2] ?? 0);
     if (index === 0 || values[index - 1] === null) {
       rawSegments.push([]);
@@ -122,8 +129,7 @@ export function buildWeightChart({
     if (average === null) {
       return [];
     }
-    const x =
-      averages.length === 1 ? 50 : (index / (averages.length - 1)) * 100;
+    const x = columnCentre(index, averages.length);
     return [`${x},${100 - (scale.heights[index * 2 + 1] ?? 0)}`];
   });
   const known = averages.filter((value): value is number => value !== null);

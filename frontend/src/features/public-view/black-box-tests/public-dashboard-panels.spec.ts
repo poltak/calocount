@@ -12,17 +12,15 @@ const PANELS = [
   "Weight trend",
   "Macros trend",
   "Nutrient consistency",
+  "Last 4 weeks",
   "Nutrition details",
-  "Weight",
   "Macros",
-  "Recent days",
   /^Entries \d+$/,
   "Insights",
-  "Top food contributors",
+  "Food sources",
   "Nutrition attention",
   "Days worth repeating",
   "What changed this week?",
-  "Frequency & amount",
 ];
 
 test.describe("the public dashboard panels", () => {
@@ -47,7 +45,7 @@ test.describe("the public dashboard panels", () => {
       await expect(visitor.panel(title)).toBeVisible();
     }
     await expect(visitor.entry("Shared oats")).toBeVisible();
-    await expect(visitor.panel("Weight")).toContainText("70");
+    await expect(visitor.panel("Weight trend")).toContainText("70");
 
     await expect(visitor.editEntry("Shared oats")).toBeHidden();
     await expect(visitor.deleteEntry("Shared oats")).toBeHidden();
